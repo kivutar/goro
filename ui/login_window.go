@@ -26,12 +26,13 @@ type LoginWindowDrawOptions struct {
 }
 
 type LoginWindowCallbacks struct {
-	OnUsernameChange func(string)
-	OnPasswordChange func(string)
-	OnSubmit         func()
+	OnSubmit func()
 }
 
 type LoginWindow struct {
+	Username string
+	Password string
+
 	opts      LoginWindowDrawOptions
 	callbacks LoginWindowCallbacks
 	ctx       *widget.ContextImpl
@@ -44,6 +45,8 @@ type LoginWindow struct {
 
 func NewLoginWindow(opts LoginWindowDrawOptions, callbacks LoginWindowCallbacks) *LoginWindow {
 	w := &LoginWindow{
+		Username:  opts.Username,
+		Password:  opts.Password,
 		opts:      opts,
 		callbacks: callbacks,
 		ctx:       widget.NewContext(),
@@ -143,15 +146,11 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 			w.callbacks.OnSubmit()
 		}
 	}
-	w.user = roTextFieldAction(w.opts.Username, textfield.TypeText, true, func(v string) {
-		if w.callbacks.OnUsernameChange != nil {
-			w.callbacks.OnUsernameChange(v)
-		}
+	w.user = roTextFieldAction(w.Username, textfield.TypeText, true, func(v string) {
+		w.Username = v
 	}, submit)
-	w.password = roTextFieldAction(w.opts.Password, textfield.TypePassword, false, func(v string) {
-		if w.callbacks.OnPasswordChange != nil {
-			w.callbacks.OnPasswordChange(v)
-		}
+	w.password = roTextFieldAction(w.Password, textfield.TypePassword, false, func(v string) {
+		w.Password = v
 	}, submit)
 	return loginWindowTreeWithFields(w.opts, w.user, w.password, func() {
 		if w.callbacks.OnSubmit != nil {

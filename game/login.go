@@ -904,17 +904,13 @@ func (m *LoginMode) drawLoginWindow(ctx client.Context, screen *render.Image) {
 func (m *LoginMode) ensureLoginWindow(ctx client.Context) *gameui.LoginWindow {
 	x, y, w, h := loginWindowRect(ctx)
 	opts := loginWindowDrawOptions(x, y, w, h)
-	opts.Username = m.username
-	opts.Password = m.password
 	if m.loginWindow == nil {
+		opts.Username = m.username
+		opts.Password = m.password
 		m.loginWindow = gameui.NewLoginWindow(opts, gameui.LoginWindowCallbacks{
-			OnUsernameChange: func(v string) {
-				m.username = v
-			},
-			OnPasswordChange: func(v string) {
-				m.password = v
-			},
 			OnSubmit: func() {
+				m.username = m.loginWindow.Username
+				m.password = m.loginWindow.Password
 				if len(ctx.Resources.ClientInfo.Connections) > 0 {
 					m.connectAndMaybeLogin(ctx, ctx.Resources.ClientInfo.Connections[0], true)
 				}
@@ -923,6 +919,8 @@ func (m *LoginMode) ensureLoginWindow(ctx client.Context) *gameui.LoginWindow {
 		return m.loginWindow
 	}
 	m.loginWindow.SetOptions(opts)
+	m.username = m.loginWindow.Username
+	m.password = m.loginWindow.Password
 	return m.loginWindow
 }
 
