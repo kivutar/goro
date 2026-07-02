@@ -25,6 +25,11 @@ type Colors struct {
 	WindowFooter   widget.Color
 	FooterLine     widget.Color
 	PanelBody      widget.Color
+	Button         widget.Color
+	ButtonHover    widget.Color
+	ButtonDown     widget.Color
+	ButtonBorder   widget.Color
+	Disabled       widget.Color
 	Text           widget.Color
 	TitleText      widget.Color
 	MutedText      widget.Color
@@ -52,6 +57,11 @@ var Default = Theme{
 		WindowFooter:   fromRGBA(color.RGBA{R: 244, G: 246, B: 248, A: 255}),
 		FooterLine:     fromRGBA(color.RGBA{R: 174, G: 180, B: 188, A: 255}),
 		PanelBody:      fromRGBA(color.RGBA{R: 250, G: 252, B: 255, A: 255}),
+		Button:         fromRGBA(color.RGBA{R: 236, G: 244, B: 252, A: 255}),
+		ButtonHover:    fromRGBA(color.RGBA{R: 218, G: 235, B: 250, A: 255}),
+		ButtonDown:     fromRGBA(color.RGBA{R: 198, G: 222, B: 245, A: 255}),
+		ButtonBorder:   fromRGBA(color.RGBA{R: 138, G: 174, B: 214, A: 255}),
+		Disabled:       fromRGBA(color.RGBA{R: 226, G: 230, B: 235, A: 255}),
 		Text:           fromRGBA(color.RGBA{R: 38, G: 48, B: 58, A: 255}),
 		TitleText:      fromRGBA(color.RGBA{R: 22, G: 54, B: 88, A: 255}),
 		MutedText:      fromRGBA(color.RGBA{R: 98, G: 112, B: 126, A: 255}),

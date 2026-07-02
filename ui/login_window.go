@@ -12,6 +12,8 @@ import (
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
+const loginWindowButtonHeight = 22
+
 type LoginWindowDrawOptions struct {
 	X, Y, W, H    int
 	TitleH        int
@@ -194,9 +196,12 @@ func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField
 			CrossAlign(primitives.CrossAxisCenter).
 			Gap(12)
 	}
-	loginButton := roButtonAction("Login", onLogin).
-		SetBackground(widget.RGBA8(ButtonColor.R, ButtonColor.G, ButtonColor.B, ButtonColor.A)).
-		MinWidth(buttonW)
+	loginButton := primitives.Box(
+		rotheme.Button("Login", onLogin).
+			MinWidth(buttonW),
+	).
+		Width(buttonW).
+		Height(loginWindowButtonHeight)
 	footer := primitives.HBox(
 		primitives.Expanded(primitives.Box()),
 		loginButton,
@@ -227,7 +232,7 @@ func LoginWindowButtonRect(opts LoginWindowDrawOptions) (int, int, int, int) {
 	fieldX, _, fieldW, _ := LoginWindowFieldRect(opts, 0)
 	buttonW := ButtonLabelWidth("Login")
 	_, footerY, _, footerH := LoginWindowFooterRect(opts)
-	buttonH := roUIButtonHeight
+	buttonH := loginWindowButtonHeight
 	return fieldX + fieldW - buttonW, footerY + (footerH-buttonH)/2, buttonW, buttonH
 }
 
