@@ -15,16 +15,16 @@ type windowConfig struct {
 	footer        widget.Widget
 	width         float32
 	height        float32
-	titleHeight   float32
 	footerPadding float32
 	footerHeight  float32
 }
+
+const ROWindowTitleHeight = 28
 
 func Window(options ...WindowOption) widget.Widget {
 	cfg := windowConfig{
 		width:         300,
 		height:        240,
-		titleHeight:   28,
 		footerPadding: 8,
 	}
 	for _, option := range options {
@@ -38,13 +38,10 @@ func Window(options ...WindowOption) widget.Widget {
 	).
 		CrossAlign(primitives.CrossAxisCenter).
 		PaddingXY(14, 0).
-		Height(cfg.titleHeight)
+		Height(ROWindowTitleHeight)
 
 	children := []widget.Widget{
-		roTitleBar(
-			titleContent,
-			cfg.titleHeight,
-		),
+		roTitleBar(titleContent),
 	}
 	if cfg.content != nil {
 		children = append(children, primitives.Expanded(cfg.content))
@@ -108,12 +105,6 @@ func Content(content widget.Widget) WindowOption {
 func Footer(footer widget.Widget) WindowOption {
 	return func(cfg *windowConfig) {
 		cfg.footer = footer
-	}
-}
-
-func TitleHeight(height float32) WindowOption {
-	return func(cfg *windowConfig) {
-		cfg.titleHeight = height
 	}
 }
 

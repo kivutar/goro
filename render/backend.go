@@ -12,8 +12,11 @@ import (
 	"github.com/gogpu/gogpu"
 	gogputypes "github.com/gogpu/gogpu/gpu/types"
 	"github.com/gogpu/gpucontext"
+	uiapp "github.com/gogpu/ui/app"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const BackendName = "gogpu-wgpu"
@@ -29,6 +32,10 @@ type quitReceiver interface {
 	SetQuitFunc(func())
 }
 
+type uiAppReceiver interface {
+	SetUIApp(client.UIApp)
+}
+
 type runtimeSettingsProvider interface {
 	RuntimeFullscreen() bool
 	RuntimeVSync() bool
@@ -37,6 +44,7 @@ type runtimeSettingsProvider interface {
 
 type runner struct {
 	app            *gogpu.App
+	ui             *uiapp.App
 	game           Game
 	screen         *Image
 	gpu            *gpuRenderer
@@ -82,9 +90,17 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	gg := gogpu.NewApp(appConfig)
 	setCursorApp(gg)
 	defer setCursorApp(nil)
+	events := newFanoutEventSource(gg.EventSource())
+	ui := uiapp.New(
+		uiapp.WithWindowProvider(gg),
+		uiapp.WithPlatformProvider(gg),
+		uiapp.WithEventSource(events),
+		uiapp.WithTheme(rotheme.Default.AsTheme()),
+	)
 
 	r := &runner{
 		app:        gg,
+		ui:         ui,
 		game:       game,
 		width:      cfg.Width,
 		height:     cfg.Height,
@@ -99,8 +115,11 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	if receiver, ok := game.(quitReceiver); ok {
 		receiver.SetQuitFunc(gg.Quit)
 	}
+	if receiver, ok := game.(uiAppReceiver); ok {
+		receiver.SetUIApp(ui)
+	}
 	game.Resize(cfg.Width, cfg.Height)
-	wireInput(gg, game.InputState())
+	wireInput(events, game.InputState())
 
 	gg.OnResize(func(width, height int) {
 		if width <= 0 || height <= 0 {
@@ -155,11 +174,138 @@ func graphicsAPI(name string) (gogputypes.GraphicsAPI, error) {
 	}
 }
 
-func wireInput(app *gogpu.App, state *input.State) {
+type fanoutEventSource struct {
+	keyPress             []func(gpucontext.Key, gpucontext.Modifiers)
+	keyRelease           []func(gpucontext.Key, gpucontext.Modifiers)
+	textInput            []func(string)
+	mouseMove            []func(float64, float64)
+	mousePress           []func(gpucontext.MouseButton, float64, float64)
+	mouseRelease         []func(gpucontext.MouseButton, float64, float64)
+	scroll               []func(float64, float64)
+	resize               []func(int, int)
+	focus                []func(bool)
+	imeCompositionStart  []func()
+	imeCompositionEnd    []func(string)
+	imeCompositionUpdate []func(gpucontext.IMEState)
+}
+
+func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
+	f := &fanoutEventSource{}
+	source.OnKeyPress(func(key gpucontext.Key, mods gpucontext.Modifiers) {
+		for _, fn := range f.keyPress {
+			fn(key, mods)
+		}
+	})
+	source.OnKeyRelease(func(key gpucontext.Key, mods gpucontext.Modifiers) {
+		for _, fn := range f.keyRelease {
+			fn(key, mods)
+		}
+	})
+	source.OnTextInput(func(text string) {
+		for _, fn := range f.textInput {
+			fn(text)
+		}
+	})
+	source.OnMouseMove(func(x, y float64) {
+		for _, fn := range f.mouseMove {
+			fn(x, y)
+		}
+	})
+	source.OnMousePress(func(button gpucontext.MouseButton, x, y float64) {
+		for _, fn := range f.mousePress {
+			fn(button, x, y)
+		}
+	})
+	source.OnMouseRelease(func(button gpucontext.MouseButton, x, y float64) {
+		for _, fn := range f.mouseRelease {
+			fn(button, x, y)
+		}
+	})
+	source.OnScroll(func(x, y float64) {
+		for _, fn := range f.scroll {
+			fn(x, y)
+		}
+	})
+	source.OnResize(func(width, height int) {
+		for _, fn := range f.resize {
+			fn(width, height)
+		}
+	})
+	source.OnFocus(func(focused bool) {
+		for _, fn := range f.focus {
+			fn(focused)
+		}
+	})
+	source.OnIMECompositionStart(func() {
+		for _, fn := range f.imeCompositionStart {
+			fn()
+		}
+	})
+	source.OnIMECompositionUpdate(func(state gpucontext.IMEState) {
+		for _, fn := range f.imeCompositionUpdate {
+			fn(state)
+		}
+	})
+	source.OnIMECompositionEnd(func(committed string) {
+		for _, fn := range f.imeCompositionEnd {
+			fn(committed)
+		}
+	})
+	return f
+}
+
+func (f *fanoutEventSource) OnKeyPress(fn func(gpucontext.Key, gpucontext.Modifiers)) {
+	f.keyPress = append(f.keyPress, fn)
+}
+
+func (f *fanoutEventSource) OnKeyRelease(fn func(gpucontext.Key, gpucontext.Modifiers)) {
+	f.keyRelease = append(f.keyRelease, fn)
+}
+
+func (f *fanoutEventSource) OnTextInput(fn func(string)) {
+	f.textInput = append(f.textInput, fn)
+}
+
+func (f *fanoutEventSource) OnMouseMove(fn func(float64, float64)) {
+	f.mouseMove = append(f.mouseMove, fn)
+}
+
+func (f *fanoutEventSource) OnMousePress(fn func(gpucontext.MouseButton, float64, float64)) {
+	f.mousePress = append(f.mousePress, fn)
+}
+
+func (f *fanoutEventSource) OnMouseRelease(fn func(gpucontext.MouseButton, float64, float64)) {
+	f.mouseRelease = append(f.mouseRelease, fn)
+}
+
+func (f *fanoutEventSource) OnScroll(fn func(float64, float64)) {
+	f.scroll = append(f.scroll, fn)
+}
+
+func (f *fanoutEventSource) OnResize(fn func(int, int)) {
+	f.resize = append(f.resize, fn)
+}
+
+func (f *fanoutEventSource) OnFocus(fn func(bool)) {
+	f.focus = append(f.focus, fn)
+}
+
+func (f *fanoutEventSource) OnIMECompositionStart(fn func()) {
+	f.imeCompositionStart = append(f.imeCompositionStart, fn)
+}
+
+func (f *fanoutEventSource) OnIMECompositionUpdate(fn func(gpucontext.IMEState)) {
+	f.imeCompositionUpdate = append(f.imeCompositionUpdate, fn)
+}
+
+func (f *fanoutEventSource) OnIMECompositionEnd(fn func(string)) {
+	f.imeCompositionEnd = append(f.imeCompositionEnd, fn)
+}
+
+func wireInput(events gpucontext.EventSource, state *input.State) {
 	if state == nil {
 		return
 	}
-	events := app.EventSource()
 	events.OnKeyPress(func(key gpucontext.Key, _ gpucontext.Modifiers) {
 		if mapped, ok := mapKey(key); ok {
 			state.SetKey(mapped, true)
@@ -268,6 +414,9 @@ func (r *runner) update() error {
 	}
 	if err := r.game.Update(); err != nil {
 		return err
+	}
+	if r.ui != nil {
+		r.ui.Frame()
 	}
 	if r.duration <= 0 {
 		return nil

@@ -3,6 +3,7 @@ package client
 import (
 	"time"
 
+	"github.com/gogpu/ui/widget"
 	gameaudio "github.com/kivutar/goro/audio"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/input"
@@ -25,6 +26,12 @@ type Context struct {
 	ScreenH     int
 	Runtime     RuntimeSettings
 	RequestQuit func()
+	UIApp       UIApp
+}
+
+type UIApp interface {
+	SetRoot(widget.Widget)
+	Frame()
 }
 
 type RuntimeSettings interface {

@@ -27,6 +27,7 @@ type Game struct {
 	audio    *gameaudio.BGM
 	modes    *game.Manager
 	runtime  *runtimeSettings
+	uiApp    client.UIApp
 	started  time.Time
 	screenW  int
 	screenH  int
@@ -87,6 +88,10 @@ func (g *Game) InputState() *input.State {
 
 func (g *Game) SetQuitFunc(quit func()) {
 	g.quit = quit
+}
+
+func (g *Game) SetUIApp(uiApp client.UIApp) {
+	g.uiApp = uiApp
 }
 
 func (g *Game) RequestQuit() {
@@ -151,5 +156,6 @@ func (g *Game) modeContext() client.Context {
 		ScreenH:     g.screenH,
 		Runtime:     g.runtime,
 		RequestQuit: g.RequestQuit,
+		UIApp:       g.uiApp,
 	}
 }

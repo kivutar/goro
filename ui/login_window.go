@@ -2,12 +2,10 @@ package ui
 
 import (
 	"github.com/gogpu/ui/core/textfield"
-	"github.com/gogpu/ui/event"
-	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/offscreen"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
-	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/ui/rotheme"
 )
@@ -16,7 +14,6 @@ const loginWindowButtonHeight = 22
 
 type LoginWindowDrawOptions struct {
 	X, Y, W, H    int
-	TitleH        int
 	FooterH       int
 	FormTopPad    int
 	FieldGap      int
@@ -37,12 +34,10 @@ type LoginWindow struct {
 
 	opts      LoginWindowDrawOptions
 	callbacks LoginWindowCallbacks
-	ctx       *widget.ContextImpl
+	uiApp     client.UIApp
 	root      widget.Widget
 	user      *textfield.Widget
 	password  *textfield.Widget
-	lastMouse geometry.Point
-	hasMouse  bool
 }
 
 func NewLoginWindow(opts LoginWindowDrawOptions, callbacks LoginWindowCallbacks) *LoginWindow {
@@ -51,15 +46,24 @@ func NewLoginWindow(opts LoginWindowDrawOptions, callbacks LoginWindowCallbacks)
 		Password:  opts.Password,
 		opts:      opts,
 		callbacks: callbacks,
-		ctx:       widget.NewContext(),
 	}
-	w.ctx.SetThemeProvider(rotheme.Default.AsTheme())
 	w.rebuild()
 	return w
 }
 
+func (w *LoginWindow) SetUIApp(uiApp client.UIApp) {
+	if w == nil || w.uiApp == uiApp {
+		return
+	}
+	w.uiApp = uiApp
+	w.setAppRoot()
+}
+
 func (w *LoginWindow) SetOptions(opts LoginWindowDrawOptions) {
 	if w == nil {
+		return
+	}
+	if w.opts == opts {
 		return
 	}
 	if w.opts.W != opts.W || w.opts.H != opts.H || w.opts.FieldLeft != opts.FieldLeft || w.opts.FieldRightPad != opts.FieldRightPad {
@@ -68,50 +72,16 @@ func (w *LoginWindow) SetOptions(opts LoginWindowDrawOptions) {
 		return
 	}
 	w.opts = opts
-}
-
-func (w *LoginWindow) Update(state *input.State) {
-	if w == nil || state == nil || w.root == nil {
-		return
-	}
-	w.layout()
-	local := geometry.Pt(float32(state.MouseX-w.opts.X), float32(state.MouseY-w.opts.Y))
-	global := geometry.Pt(float32(state.MouseX), float32(state.MouseY))
-	if !w.hasMouse || w.lastMouse != local {
-		if w.hasMouse {
-			w.root.Event(w.ctx, event.NewMouseEvent(event.MouseLeave, event.ButtonNone, 0, w.lastMouse, w.lastMouse, event.ModNone))
-		}
-		w.root.Event(w.ctx, event.NewMouseEvent(event.MouseEnter, event.ButtonNone, 0, local, global, event.ModNone))
-		w.lastMouse = local
-		w.hasMouse = true
-	}
-	if state.MouseJustPressed(input.MouseButtonLeft) {
-		w.root.Event(w.ctx, event.NewMouseEvent(event.MousePress, event.ButtonLeft, event.ButtonStateLeft, local, global, event.ModNone))
-	}
-	if state.MouseJustReleased(input.MouseButtonLeft) {
-		w.root.Event(w.ctx, event.NewMouseEvent(event.MouseRelease, event.ButtonLeft, 0, local, global, event.ModNone))
-	}
-	if state.JustPressed(input.KeyTab) {
-		w.focusNext()
-	}
-	if state.JustPressed(input.KeyBackspace) {
-		w.root.Event(w.ctx, event.NewKeyEvent(event.KeyPress, event.KeyBackspace, 0, event.ModNone))
-	}
-	if state.JustPressed(input.KeyEnter) {
-		w.root.Event(w.ctx, event.NewKeyEvent(event.KeyPress, event.KeyEnter, 0, event.ModNone))
-	}
-	for _, r := range state.TextInput() {
-		w.root.Event(w.ctx, event.NewKeyEvent(event.KeyPress, event.KeyUnknown, r, event.ModNone))
-	}
+	w.setAppRoot()
 }
 
 func (w *LoginWindow) Draw(screen *render.Image) {
-	if w == nil || screen == nil || w.root == nil {
+	if w == nil || screen == nil {
 		return
 	}
-	w.layout()
+	root := w.drawTree()
 	renderer := offscreen.NewRenderer(w.opts.W, w.opts.H, offscreen.WithTheme(rotheme.Default.AsTheme()))
-	renderer.Render(w.root)
+	renderer.Render(root)
 	img := renderer.Image()
 	if img == nil {
 		return
@@ -121,25 +91,32 @@ func (w *LoginWindow) Draw(screen *render.Image) {
 	screen.DrawImage(render.NewImageFromImage(img), &drawOpts)
 }
 
+func (w *LoginWindow) drawTree() widget.Widget {
+	user := rotheme.TextField(w.Username, textfield.TypeText, nil, nil)
+	user.SetFocused(w.user != nil && w.user.IsFocused())
+	password := rotheme.TextField(w.Password, textfield.TypePassword, nil, nil)
+	password.SetFocused(w.password != nil && w.password.IsFocused())
+	return loginWindowTreeWithFields(w.opts, user, password, nil)
+}
+
 func (w *LoginWindow) rebuild() {
 	w.user = nil
 	w.password = nil
 	w.root = w.widgetTree()
-	w.layout()
-	w.ctx.RequestFocus(w.user)
+	w.setAppRoot()
 }
 
-func (w *LoginWindow) layout() {
-	w.ctx.SetWindowSize(geometry.Sz(float32(w.opts.W), float32(w.opts.H)))
-	w.root.Layout(w.ctx, geometry.Loose(geometry.Sz(float32(w.opts.W), float32(w.opts.H))))
-}
-
-func (w *LoginWindow) focusNext() {
-	if w.ctx.IsFocused(w.user) {
-		w.ctx.RequestFocus(w.password)
+func (w *LoginWindow) setAppRoot() {
+	if w.uiApp == nil || w.root == nil {
 		return
 	}
-	w.ctx.RequestFocus(w.user)
+	w.uiApp.SetRoot(
+		primitives.Box(w.root).
+			PaddingLeft(float32(w.opts.X)).
+			PaddingTop(float32(w.opts.Y)).
+			Width(float32(w.opts.X + w.opts.W)).
+			Height(float32(w.opts.Y + w.opts.H)),
+	)
 }
 
 func (w *LoginWindow) widgetTree() widget.Widget {
@@ -210,7 +187,6 @@ func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField
 		Title("Login"),
 		CloseButton(false),
 		Size(float32(local.W), float32(local.H)),
-		TitleHeight(float32(local.TitleH)),
 		FooterHeight(float32(local.FooterH)),
 		FooterPadding(float32(local.FieldRightPad)),
 		Content(
@@ -242,7 +218,7 @@ func LoginWindowFooterRect(opts LoginWindowDrawOptions) (int, int, int, int) {
 
 func LoginWindowFieldRect(opts LoginWindowDrawOptions, row int) (int, int, int, int) {
 	fieldX := opts.X + opts.FieldLeft
-	fieldY := opts.Y + opts.TitleH + opts.FormTopPad + row*(opts.FieldH+opts.FieldGap)
+	fieldY := opts.Y + ROWindowTitleHeight + opts.FormTopPad + row*(opts.FieldH+opts.FieldGap)
 	fieldW := opts.W - opts.FieldLeft - opts.FieldRightPad
 	return fieldX, fieldY, fieldW, opts.FieldH
 }

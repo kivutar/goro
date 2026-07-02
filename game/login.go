@@ -73,7 +73,7 @@ type loginQuitConfirmState struct {
 
 const (
 	loginTransitionDuration    = 500 * time.Millisecond
-	loginWindowTitleH          = 21
+	loginWindowTitleH          = gameui.ROWindowTitleHeight
 	loginWindowFooterH         = 42
 	loginWindowFormTopPad      = 18
 	loginWindowFormBottomPad   = 16
@@ -526,10 +526,7 @@ func rectArray(x, y, w, h int) [4]int {
 }
 
 func (m *LoginMode) updateFormInput(ctx client.Context) {
-	if ctx.Input == nil {
-		return
-	}
-	m.ensureLoginWindow(ctx).Update(ctx.Input)
+	m.ensureLoginWindow(ctx)
 }
 
 func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
@@ -916,8 +913,10 @@ func (m *LoginMode) ensureLoginWindow(ctx client.Context) *gameui.LoginWindow {
 				}
 			},
 		})
+		m.loginWindow.SetUIApp(ctx.UIApp)
 		return m.loginWindow
 	}
+	m.loginWindow.SetUIApp(ctx.UIApp)
 	m.loginWindow.SetOptions(opts)
 	m.username = m.loginWindow.Username
 	m.password = m.loginWindow.Password
@@ -1220,7 +1219,6 @@ func loginWindowDrawOptions(x, y, w, h int) gameui.LoginWindowDrawOptions {
 		Y:             y,
 		W:             w,
 		H:             h,
-		TitleH:        loginWindowTitleH,
 		FooterH:       loginWindowFooterH,
 		FormTopPad:    loginWindowFormTopPad,
 		FieldGap:      loginWindowFieldGap,

@@ -9,14 +9,12 @@ import (
 
 type roTitleBarWidget struct {
 	widget.WidgetBase
-	child  widget.Widget
-	height float32
+	child widget.Widget
 }
 
-func roTitleBar(child widget.Widget, height float32) *roTitleBarWidget {
+func roTitleBar(child widget.Widget) *roTitleBarWidget {
 	w := &roTitleBarWidget{
-		child:  child,
-		height: height,
+		child: child,
 	}
 	w.SetVisible(true)
 	w.SetEnabled(true)
@@ -24,13 +22,9 @@ func roTitleBar(child widget.Widget, height float32) *roTitleBarWidget {
 }
 
 func (w *roTitleBarWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	if w.height > 0 {
-		constraints = constraints.TightenHeight(w.height)
-	}
+	constraints = constraints.TightenHeight(ROWindowTitleHeight)
 	size := w.child.Layout(ctx, constraints)
-	if w.height > 0 {
-		size.Height = w.height
-	}
+	size.Height = ROWindowTitleHeight
 	size = constraints.Constrain(size)
 	w.child.(interface{ SetBounds(geometry.Rect) }).SetBounds(geometry.NewRect(0, 0, size.Width, size.Height))
 	w.SetBounds(geometry.FromPointSize(w.Position(), size))
