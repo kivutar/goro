@@ -26,7 +26,6 @@ type LoginMode struct {
 	fade           loginFadeState
 	username       string
 	password       string
-	focus          loginInputField
 	background     *render.Image
 	bgTiles        []*render.Image
 	bgSource       string
@@ -38,6 +37,7 @@ type LoginMode struct {
 	charViewFailed map[uint32]struct{}
 	charWindow     *render.Image
 	charBox        *render.Image
+	loginWindow    *gameui.LoginWindow
 	create         charCreateState
 	cursor         roCursorState
 	quitConfirm    loginQuitConfirmState
@@ -66,13 +66,6 @@ type loginFadeState struct {
 	hasTarget  bool
 	enterWorld bool
 }
-
-type loginInputField int
-
-const (
-	loginFieldUser loginInputField = iota
-	loginFieldPassword
-)
 
 type loginQuitConfirmState struct {
 	open bool
@@ -138,7 +131,7 @@ const (
 )
 
 func NewLoginMode() *LoginMode {
-	return &LoginMode{status: "select a server", focus: loginFieldUser, maxSlots: 9}
+	return &LoginMode{status: "select a server", maxSlots: 9}
 }
 
 func NewCharacterSelectMode(ctx client.Context, console gameui.ChatConsole) *LoginMode {
@@ -206,9 +199,6 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 			m.updateFormInput(ctx)
 		}
 
-		if m.phase == loginPhaseAccount && ctx.Input.JustPressed(render.KeyEnter) {
-			m.connectAndMaybeLogin(ctx, conns[0], true)
-		}
 	}
 
 	for _, pkt := range ctx.Network.DrainPackets() {
@@ -539,47 +529,7 @@ func (m *LoginMode) updateFormInput(ctx client.Context) {
 	if ctx.Input == nil {
 		return
 	}
-	if ctx.Input.JustPressed(render.KeyTab) {
-		if m.focus == loginFieldUser {
-			m.focus = loginFieldPassword
-		} else {
-			m.focus = loginFieldUser
-		}
-	}
-	if ctx.Input.JustPressed(render.KeyBackspace) {
-		if m.focus == loginFieldPassword {
-			m.password = trimLastRune(m.password)
-		} else {
-			m.username = trimLastRune(m.username)
-		}
-	}
-	if text := ctx.Input.TextInput(); text != "" {
-		if m.focus == loginFieldPassword {
-			m.password += text
-		} else {
-			m.username += text
-		}
-	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return
-	}
-	winX, winY, winW, _ := loginWindowRect(ctx)
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	userX, userY, userW, userH := loginUserFieldRect(winX, winY, winW)
-	passX, passY, passW, passH := loginPasswordFieldRect(winX, winY, winW)
-	buttonX, buttonY, buttonW, buttonH := loginButtonRect(winX, winY, winW)
-	if pointInRect(mx, my, userX, userY, userW, userH) {
-		m.focus = loginFieldUser
-		return
-	}
-	if pointInRect(mx, my, passX, passY, passW, passH) {
-		m.focus = loginFieldPassword
-		return
-	}
-	if pointInRect(mx, my, buttonX, buttonY, buttonW, buttonH) && len(ctx.Resources.ClientInfo.Connections) > 0 {
-		m.connectAndMaybeLogin(ctx, ctx.Resources.ClientInfo.Connections[0], true)
-		return
-	}
+	m.ensureLoginWindow(ctx).Update(ctx.Input)
 }
 
 func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
@@ -948,19 +898,32 @@ func (m *LoginMode) drawBackground(ctx client.Context, screen *render.Image) {
 }
 
 func (m *LoginMode) drawLoginWindow(ctx client.Context, screen *render.Image) {
+	m.ensureLoginWindow(ctx).Draw(screen)
+}
+
+func (m *LoginMode) ensureLoginWindow(ctx client.Context) *gameui.LoginWindow {
 	x, y, w, h := loginWindowRect(ctx)
-	buttonX, buttonY, buttonW, buttonH := loginButtonRect(x, y, w)
-	hoverLogin := false
-	if ctx.Input != nil && pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, buttonX, buttonY, buttonW, buttonH) {
-		hoverLogin = true
-	}
 	opts := loginWindowDrawOptions(x, y, w, h)
 	opts.Username = m.username
 	opts.Password = m.password
-	opts.FocusUser = m.focus == loginFieldUser
-	opts.FocusPassword = m.focus == loginFieldPassword
-	opts.LoginButtonHover = hoverLogin
-	gameui.DrawLoginWindow(screen, opts)
+	if m.loginWindow == nil {
+		m.loginWindow = gameui.NewLoginWindow(opts, gameui.LoginWindowCallbacks{
+			OnUsernameChange: func(v string) {
+				m.username = v
+			},
+			OnPasswordChange: func(v string) {
+				m.password = v
+			},
+			OnSubmit: func() {
+				if len(ctx.Resources.ClientInfo.Connections) > 0 {
+					m.connectAndMaybeLogin(ctx, ctx.Resources.ClientInfo.Connections[0], true)
+				}
+			},
+		})
+		return m.loginWindow
+	}
+	m.loginWindow.SetOptions(opts)
+	return m.loginWindow
 }
 
 func (m *LoginMode) drawCharacterSelect(ctx client.Context, screen *render.Image) {

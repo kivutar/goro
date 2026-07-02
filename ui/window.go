@@ -50,19 +50,30 @@ func Window(options ...WindowOption) widget.Widget {
 		children = append(children, primitives.Expanded(cfg.content))
 	}
 	if cfg.footer != nil {
-		footer := primitives.Box(cfg.footer).
+		footerBody := primitives.Box(cfg.footer).
 			Padding(cfg.footerPadding).
 			Background(rotheme.Default.Colors.WindowFooter)
 		if cfg.footerHeight > 0 {
-			footer = primitives.Box(
+			footerBody = primitives.Box(
 				primitives.Expanded(primitives.Box()),
 				cfg.footer,
 				primitives.Expanded(primitives.Box()),
 			).
 				PaddingXY(cfg.footerPadding, 0).
-				Height(cfg.footerHeight).
+				Height(cfg.footerHeight - 1).
 				Background(rotheme.Default.Colors.WindowFooter)
 		}
+		footer := primitives.Box(
+			primitives.HBox(
+				primitives.Expanded(
+					primitives.Box().
+						Height(1).
+						Background(rotheme.Default.Colors.FooterLine),
+				),
+			).
+				Height(1),
+			footerBody,
+		)
 		children = append(children,
 			footer,
 		)

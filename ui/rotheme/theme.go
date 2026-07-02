@@ -23,6 +23,7 @@ type Colors struct {
 	WindowTitle    widget.Color
 	WindowBorder   widget.Color
 	WindowFooter   widget.Color
+	FooterLine     widget.Color
 	PanelBody      widget.Color
 	Text           widget.Color
 	TitleText      widget.Color
@@ -47,6 +48,7 @@ var Default = Theme{
 		WindowTitle:    fromRGBA(color.RGBA{R: 184, G: 214, B: 242, A: 255}),
 		WindowBorder:   fromRGBA(color.RGBA{R: 118, G: 160, B: 206, A: 255}),
 		WindowFooter:   fromRGBA(color.RGBA{R: 244, G: 246, B: 248, A: 255}),
+		FooterLine:     fromRGBA(color.RGBA{R: 174, G: 180, B: 188, A: 255}),
 		PanelBody:      fromRGBA(color.RGBA{R: 250, G: 252, B: 255, A: 255}),
 		Text:           fromRGBA(color.RGBA{R: 38, G: 48, B: 58, A: 255}),
 		TitleText:      fromRGBA(color.RGBA{R: 22, G: 54, B: 88, A: 255}),

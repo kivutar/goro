@@ -67,11 +67,21 @@ func drawRoundedButtonGradient(canvas widget.Canvas, bounds geometry.Rect, botto
 }
 
 func roButton(label string) *roButtonWidget {
-	inner := button.New(
+	return roButtonAction(label, nil)
+}
+
+func roButtonAction(label string, onClick func()) *roButtonWidget {
+	opts := []button.Option{
 		button.TextOpt(label),
 		button.SizeOpt(button.Small),
 		button.PainterOpt(roButtonPainter{}),
 		button.RoundedOpt(roUIButtonRadius),
+	}
+	if onClick != nil {
+		opts = append(opts, button.OnClick(onClick))
+	}
+	inner := button.New(
+		opts...,
 	).PaddingXY(8, 1)
 	w := &roButtonWidget{inner: inner}
 	w.SetVisible(true)

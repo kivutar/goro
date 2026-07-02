@@ -53,11 +53,20 @@ func (roTextFieldPainter) PaintTextField(canvas widget.Canvas, state textfield.P
 	canvas.PopClip()
 }
 
-func roTextField(value string, inputType textfield.InputType, focused bool) *roTextFieldWidget {
-	inner := textfield.New(
+func roTextFieldAction(value string, inputType textfield.InputType, focused bool, onChange func(string), onSubmit func(string)) *roTextFieldWidget {
+	opts := []textfield.Option{
 		textfield.InitialValue(value),
 		textfield.InputTypeOpt(inputType),
 		textfield.PainterOpt(roTextFieldPainter{}),
+	}
+	if onChange != nil {
+		opts = append(opts, textfield.OnChange(onChange))
+	}
+	if onSubmit != nil {
+		opts = append(opts, textfield.OnSubmit(onSubmit))
+	}
+	inner := textfield.New(
+		opts...,
 	)
 	inner.SetFocused(focused)
 	w := &roTextFieldWidget{inner: inner}
