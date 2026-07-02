@@ -37,8 +37,8 @@ type LoginWindow struct {
 	callbacks LoginWindowCallbacks
 	ctx       *widget.ContextImpl
 	root      widget.Widget
-	user      *roTextFieldWidget
-	password  *roTextFieldWidget
+	user      *textfield.Widget
+	password  *textfield.Widget
 	lastMouse geometry.Point
 	hasMouse  bool
 }
@@ -146,12 +146,23 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 			w.callbacks.OnSubmit()
 		}
 	}
-	w.user = roTextFieldAction(w.Username, textfield.TypeText, true, func(v string) {
-		w.Username = v
-	}, submit)
-	w.password = roTextFieldAction(w.Password, textfield.TypePassword, false, func(v string) {
-		w.Password = v
-	}, submit)
+	w.user = textfield.New(
+		textfield.InitialValue(w.Username),
+		textfield.InputTypeOpt(textfield.TypeText),
+		textfield.OnChange(func(v string) {
+			w.Username = v
+		}),
+		textfield.OnSubmit(submit),
+	)
+	w.user.SetFocused(true)
+	w.password = textfield.New(
+		textfield.InitialValue(w.Password),
+		textfield.InputTypeOpt(textfield.TypePassword),
+		textfield.OnChange(func(v string) {
+			w.Password = v
+		}),
+		textfield.OnSubmit(submit),
+	)
 	return loginWindowTreeWithFields(w.opts, w.user, w.password, func() {
 		if w.callbacks.OnSubmit != nil {
 			w.callbacks.OnSubmit()
@@ -159,7 +170,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 	})
 }
 
-func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField *roTextFieldWidget, onLogin func()) widget.Widget {
+func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField widget.Widget, onLogin func()) widget.Widget {
 	local := opts
 	local.X = 0
 	local.Y = 0
@@ -176,7 +187,9 @@ func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField
 			primitives.Box(labelText(label)).
 				Width(labelW).
 				Height(fieldH),
-			field,
+			primitives.Box(field).
+				Width(fieldW).
+				Height(fieldH),
 		).
 			CrossAlign(primitives.CrossAxisCenter).
 			Gap(12)
@@ -197,8 +210,8 @@ func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField
 		FooterPadding(float32(local.FieldRightPad)),
 		Content(
 			primitives.Box(
-				formRow("Account", userField.Width(fieldW)),
-				formRow("Password", passField.Width(fieldW)),
+				formRow("Account", userField),
+				formRow("Password", passField),
 			).
 				PaddingTop(float32(local.FormTopPad)).
 				PaddingLeft(24).
