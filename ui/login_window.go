@@ -146,22 +146,22 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 			w.callbacks.OnSubmit()
 		}
 	}
-	w.user = textfield.New(
-		textfield.InitialValue(w.Username),
-		textfield.InputTypeOpt(textfield.TypeText),
-		textfield.OnChange(func(v string) {
+	w.user = rotheme.TextField(
+		w.Username,
+		textfield.TypeText,
+		func(v string) {
 			w.Username = v
-		}),
-		textfield.OnSubmit(submit),
+		},
+		submit,
 	)
 	w.user.SetFocused(true)
-	w.password = textfield.New(
-		textfield.InitialValue(w.Password),
-		textfield.InputTypeOpt(textfield.TypePassword),
-		textfield.OnChange(func(v string) {
+	w.password = rotheme.TextField(
+		w.Password,
+		textfield.TypePassword,
+		func(v string) {
 			w.Password = v
-		}),
-		textfield.OnSubmit(submit),
+		},
+		submit,
 	)
 	return loginWindowTreeWithFields(w.opts, w.user, w.password, func() {
 		if w.callbacks.OnSubmit != nil {

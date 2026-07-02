@@ -28,6 +28,8 @@ type Colors struct {
 	Text           widget.Color
 	TitleText      widget.Color
 	MutedText      widget.Color
+	InputBorder    widget.Color
+	InputFocus     widget.Color
 }
 
 type Typography struct {
@@ -53,6 +55,8 @@ var Default = Theme{
 		Text:           fromRGBA(color.RGBA{R: 38, G: 48, B: 58, A: 255}),
 		TitleText:      fromRGBA(color.RGBA{R: 22, G: 54, B: 88, A: 255}),
 		MutedText:      fromRGBA(color.RGBA{R: 98, G: 112, B: 126, A: 255}),
+		InputBorder:    fromRGBA(color.RGBA{R: 138, G: 174, B: 214, A: 255}),
+		InputFocus:     fromRGBA(color.RGBA{R: 82, G: 138, B: 200, A: 255}),
 	},
 	Typography: Typography{
 		FontFamily:     dejavuFamily,

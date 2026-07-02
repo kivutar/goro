@@ -12,7 +12,7 @@ import (
 
 const (
 	roUIButtonHeight = 22
-	roUIButtonRadius = 3
+	roUIButtonRadius = 6
 )
 
 type roButtonWidget struct {
