@@ -3,12 +3,12 @@ package game
 import (
 	"context"
 	"fmt"
-	"github.com/kivutar/goro/client"
 	"image/color"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"

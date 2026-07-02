@@ -2,12 +2,17 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"log"
 
+	"github.com/gogpu/ui/core/checkbox"
+	"github.com/gogpu/ui/core/slider"
+	"github.com/gogpu/ui/offscreen"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
@@ -87,79 +92,80 @@ func (w *SettingsWindow) Draw(screen *render.Image, ctx client.Context) {
 		return
 	}
 	w.EnsurePosition(ctx)
-	x, y := w.x, w.y
-	DrawTitledWindowFrame(screen, x, y, settingsWindowWidth, settingsWindowHeight, settingsWindowTitleH)
-	DrawWindowTitle(screen, x, y, settingsWindowTitleH, settingsWindowPad, "Settings", TitleTextColor)
-	cx, cy, cw, ch := w.closeBounds()
-	DrawCloseButton(screen, cx, cy, cw, ch, ButtonColor, TextColor)
-
-	labelX := x + settingsWindowPad
-	rowY := y + settingsWindowTitleH + 18
-	drawSettingsSectionLabel(screen, "Display", labelX, rowY)
-	fullscreenX, fullscreenY, fullscreenW, fullscreenH := w.fullscreenToggleBounds()
-	w.DrawRuntimeToggle(screen, ctx, "Fullscreen", fullscreenX, fullscreenY, fullscreenW, fullscreenH, settingsRuntimeFullscreen(ctx))
-	vsyncX, vsyncY, vsyncW, vsyncH := w.vsyncToggleBounds()
-	w.DrawRuntimeToggle(screen, ctx, "VSync (Restart)", vsyncX, vsyncY, vsyncW, vsyncH, settingsRuntimeVSync(ctx))
-	fpsX, fpsY, fpsW, fpsH := w.fpsToggleBounds()
-	w.DrawRuntimeToggle(screen, ctx, "FPS meter", fpsX, fpsY, fpsW, fpsH, settingsRuntimeFPS(ctx))
-
-	soundY := rowY + 114
-	drawSettingsSectionLabel(screen, "Sound", labelX, soundY)
-	_, bgmBarY, _, bgmBarH := w.bgmVolumeBarBounds()
-	render.DebugPrintAtColor(screen, "BGM Vol", labelX, settingsLabelY(bgmBarY, bgmBarH), TextColor)
-	w.DrawVolumeControls(screen, ctx, settingsVolumeBGM(ctx), w.bgmVolumeMinusBounds, w.bgmVolumeBarBounds, w.bgmVolumePlusBounds)
-	_, sfxBarY, _, sfxBarH := w.sfxVolumeBarBounds()
-	render.DebugPrintAtColor(screen, "SFX Vol", labelX, settingsLabelY(sfxBarY, sfxBarH), TextColor)
-	w.DrawVolumeControls(screen, ctx, settingsVolumeSFX(ctx), w.sfxVolumeMinusBounds, w.sfxVolumeBarBounds, w.sfxVolumePlusBounds)
-
-}
-
-func drawSettingsSectionLabel(screen *render.Image, label string, x, y int) {
-	render.DebugPrintAtColor(screen, label, x, y, TitleTextColor)
-	render.DebugPrintAtColor(screen, label, x+1, y, TitleTextColor)
-}
-
-func settingsLabelY(y, height int) int {
-	return y + render.DebugTextTopForCenter(height)
+	image := w.renderTree(ctx)
+	if image == nil {
+		return
+	}
+	var opts render.DrawImageOptions
+	opts.GeoM.Translate(float64(w.x), float64(w.y))
+	opts.Filter = render.FilterNearest
+	screen.DrawImage(image, &opts)
 }
 
 func (w *SettingsWindow) IsOpen() bool {
 	return w.open
 }
 
-func (w *SettingsWindow) DrawRuntimeToggle(screen *render.Image, ctx client.Context, label string, x, y, width, height int, on bool) {
-	fill := ButtonColor
-	if ctx.Input != nil && pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, x, y, width, height) {
-		fill = ButtonHoverColor
+func (w *SettingsWindow) renderTree(ctx client.Context) *render.Image {
+	r := offscreen.NewRenderer(settingsWindowWidth, settingsWindowHeight, offscreen.WithTheme(rotheme.Default.AsTheme()))
+	r.Render(w.widgetTree(ctx))
+	img := r.Image()
+	if img == nil {
+		return nil
 	}
-	DrawCheckboxButton(screen, x, y, fill, TextColor, on)
-	labelY := y + render.DebugTextTopForCenter(height)
-	render.DebugPrintAtColor(screen, label, x+width+settingsCheckboxGap, labelY, TextColor)
+	return render.NewImageFromImage(img)
 }
 
-func (w *SettingsWindow) DrawVolumeControls(screen *render.Image, ctx client.Context, volume float64, minusBounds, barBounds, plusBounds func() (int, int, int, int)) {
-	minusX, minusY, minusW, minusH := minusBounds()
-	plusX, plusY, plusW, plusH := plusBounds()
-	barX, barY, barW, barH := barBounds()
-	mx, my := -1, -1
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-	}
-	minusFill := ButtonColor
-	if pointInRect(mx, my, minusX, minusY, minusW, minusH) {
-		minusFill = ButtonHoverColor
-	}
-	plusFill := ButtonColor
-	if pointInRect(mx, my, plusX, plusY, plusW, plusH) {
-		plusFill = ButtonHoverColor
-	}
-	DrawMinusButton(screen, minusX, minusY, minusFill, TextColor)
-	DrawSurface(screen, barX, barY, barW, barH, PanelBodyColor, ButtonBorderColor)
-	fillW := int(volume * float64(barW-2))
-	if fillW > 0 {
-		render.DrawRect(screen, float64(barX+1), float64(barY+1), float64(fillW), float64(barH-2), color.RGBA{R: 104, G: 166, B: 224, A: 255})
-	}
-	DrawPlusButton(screen, plusX, plusY, plusFill, TextColor)
+func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
+	return Window(
+		Title("Settings"),
+		CloseButton(true),
+		Size(settingsWindowWidth, settingsWindowHeight),
+
+		Content(
+			primitives.Box(
+				rotheme.Title("Display"),
+
+				checkbox.New(
+					checkbox.Checked(settingsRuntimeFullscreen(ctx)),
+					checkbox.LabelOpt("Fullscreen"),
+				),
+
+				checkbox.New(
+					checkbox.Checked(settingsRuntimeVSync(ctx)),
+					checkbox.LabelOpt("VSync (Restart)"),
+				),
+
+				checkbox.New(
+					checkbox.Checked(settingsRuntimeFPS(ctx)),
+					checkbox.LabelOpt("FPS meter"),
+				),
+
+				rotheme.Title("Sound"),
+
+				primitives.HBox(
+					rotheme.Text("BGM Vol"),
+					slider.New(
+						slider.Min(0),
+						slider.Max(1),
+						slider.Value(float32(settingsVolumeBGM(ctx))),
+					),
+				).Gap(8),
+
+				primitives.HBox(
+					rotheme.Text("SFX Vol"),
+					slider.New(
+						slider.Min(0),
+						slider.Max(1),
+						slider.Value(float32(settingsVolumeSFX(ctx))),
+					),
+				).Gap(8),
+			).
+				Padding(14).
+				Gap(8).
+				Background(rotheme.Default.Colors.WindowBody),
+		),
+	)
 }
 
 func (w *SettingsWindow) CursorAction(ctx client.Context) (int, bool) {
