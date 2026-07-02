@@ -80,7 +80,7 @@ type loginQuitConfirmState struct {
 
 const (
 	loginTransitionDuration    = 500 * time.Millisecond
-	loginWindowTitleH          = 21
+	loginWindowTitleH          = 28
 	loginWindowFooterH         = 42
 	loginWindowFormTopPad      = 18
 	loginWindowFormBottomPad   = 16

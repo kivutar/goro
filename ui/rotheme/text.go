@@ -11,6 +11,10 @@ func Text(content string) *primitives.TextWidget {
 
 func Title(content string) *primitives.TextWidget {
 	return Text(content).
-		Bold().
 		Color(Default.Colors.TitleText)
+}
+
+func SectionLabel(content string) *primitives.TextWidget {
+	return Title(content).
+		Bold()
 }

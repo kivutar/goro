@@ -124,7 +124,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 
 		Content(
 			primitives.Box(
-				rotheme.Title("Display"),
+				rotheme.SectionLabel("Display"),
 
 				checkbox.New(
 					checkbox.Checked(settingsRuntimeFullscreen(ctx)),
@@ -141,7 +141,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 					checkbox.LabelOpt("FPS meter"),
 				),
 
-				rotheme.Title("Sound"),
+				rotheme.SectionLabel("Sound"),
 
 				primitives.HBox(
 					rotheme.Text("BGM Vol"),

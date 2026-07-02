@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"github.com/gogpu/ui/core/button"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -18,6 +17,7 @@ type windowConfig struct {
 	height        float32
 	titleHeight   float32
 	footerPadding float32
+	footerHeight  float32
 }
 
 func Window(options ...WindowOption) widget.Widget {
@@ -31,25 +31,40 @@ func Window(options ...WindowOption) widget.Widget {
 		option(&cfg)
 	}
 
+	titleContent := primitives.HBox(
+		rotheme.Title(cfg.title),
+		primitives.Expanded(primitives.Box()),
+		windowCloseButton(cfg.closeButton),
+	).
+		CrossAlign(primitives.CrossAxisCenter).
+		PaddingXY(14, 0).
+		Height(cfg.titleHeight)
+
 	children := []widget.Widget{
-		primitives.HBox(
-			rotheme.Title(cfg.title),
-			primitives.Expanded(primitives.Box()),
-			windowCloseButton(cfg.closeButton),
-		).
-			CrossAlign(primitives.CrossAxisCenter).
-			PaddingXY(14, 0).
-			Height(cfg.titleHeight).
-			Background(rotheme.Default.Colors.WindowTitle),
+		roTitleBar(
+			titleContent,
+			cfg.titleHeight,
+		),
 	}
 	if cfg.content != nil {
 		children = append(children, primitives.Expanded(cfg.content))
 	}
 	if cfg.footer != nil {
+		footer := primitives.Box(cfg.footer).
+			Padding(cfg.footerPadding).
+			Background(rotheme.Default.Colors.WindowFooter)
+		if cfg.footerHeight > 0 {
+			footer = primitives.Box(
+				primitives.Expanded(primitives.Box()),
+				cfg.footer,
+				primitives.Expanded(primitives.Box()),
+			).
+				PaddingXY(cfg.footerPadding, 0).
+				Height(cfg.footerHeight).
+				Background(rotheme.Default.Colors.WindowFooter)
+		}
 		children = append(children,
-			primitives.Box(cfg.footer).
-				Padding(cfg.footerPadding).
-				Background(rotheme.Default.Colors.WindowFooter),
+			footer,
 		)
 	}
 
@@ -97,6 +112,12 @@ func FooterPadding(padding float32) WindowOption {
 	}
 }
 
+func FooterHeight(height float32) WindowOption {
+	return func(cfg *windowConfig) {
+		cfg.footerHeight = height
+	}
+}
+
 func Size(width, height float32) WindowOption {
 	return func(cfg *windowConfig) {
 		cfg.width = width
@@ -108,5 +129,7 @@ func windowCloseButton(enabled bool) widget.Widget {
 	if !enabled {
 		return primitives.Box().Width(17).Height(17)
 	}
-	return button.New(button.TextOpt("x")).PaddingXY(4, 0)
+	return roButton("x").
+		PaddingXY(0, 0).
+		MinWidth(17)
 }

@@ -1,9 +1,7 @@
 package ui
 
 import (
-	"strings"
-
-	"github.com/gogpu/ui/core/button"
+	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/offscreen"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
@@ -36,11 +34,6 @@ func DrawLoginWindow(screen *render.Image, opts LoginWindowDrawOptions) {
 		drawOpts.GeoM.Translate(float64(opts.X), float64(opts.Y))
 		screen.DrawImage(window, &drawOpts)
 	}
-
-	userX, userY, userW, userH := LoginWindowFieldRect(opts, 0)
-	passX, passY, passW, passH := LoginWindowFieldRect(opts, 1)
-	DrawTextInput(screen, userX, userY, userW, userH, opts.Username, opts.FocusUser)
-	DrawTextInput(screen, passX, passY, passW, passH, strings.Repeat("*", len([]rune(opts.Password))), opts.FocusPassword)
 }
 
 func renderLoginWindowTree(opts LoginWindowDrawOptions) *render.Image {
@@ -61,18 +54,16 @@ func loginWindowTree(opts LoginWindowDrawOptions) widget.Widget {
 	fieldW := float32(local.W - local.FieldLeft - local.FieldRightPad)
 	fieldH := float32(local.FieldH)
 	buttonW := float32(ButtonLabelWidth("Login"))
-	inputFrame := func() widget.Widget {
-		return primitives.Box().
-			Width(fieldW).
-			Height(fieldH).
-			Background(rotheme.Default.Colors.WindowBody).
-			BorderStyle(1, rotheme.Default.Colors.WindowBorder)
+	labelText := func(label string) widget.Widget {
+		return rotheme.Text(label).
+			LineHeight(fieldH / rotheme.Default.Typography.TextSize)
 	}
-	formRow := func(label string) widget.Widget {
+	formRow := func(label string, field widget.Widget) widget.Widget {
 		return primitives.HBox(
-			primitives.Box(rotheme.Text(label)).
-				Width(labelW),
-			inputFrame(),
+			primitives.Box(labelText(label)).
+				Width(labelW).
+				Height(fieldH),
+			field,
 		).
 			CrossAlign(primitives.CrossAxisCenter).
 			Gap(12)
@@ -81,28 +72,24 @@ func loginWindowTree(opts LoginWindowDrawOptions) widget.Widget {
 	if local.LoginButtonHover {
 		buttonColor = ButtonHoverColor
 	}
-	buttonOptions := []button.Option{
-		button.TextOpt("Login"),
-		button.SizeOpt(button.Small),
-		button.VariantOpt(button.Filled),
-		button.BackgroundOpt(widget.RGBA8(buttonColor.R, buttonColor.G, buttonColor.B, buttonColor.A)),
-	}
+	loginButton := roButton("Login").
+		SetBackground(widget.RGBA8(buttonColor.R, buttonColor.G, buttonColor.B, buttonColor.A)).
+		MinWidth(buttonW)
 	footer := primitives.HBox(
 		primitives.Expanded(primitives.Box()),
-		primitives.Box(
-			button.New(buttonOptions...),
-		).Width(buttonW),
+		loginButton,
 	)
 	return Window(
 		Title("Login"),
 		CloseButton(false),
 		Size(float32(local.W), float32(local.H)),
 		TitleHeight(float32(local.TitleH)),
-		FooterPadding(5),
+		FooterHeight(float32(local.FooterH)),
+		FooterPadding(float32(local.FieldRightPad)),
 		Content(
 			primitives.Box(
-				formRow("Account"),
-				formRow("Password"),
+				formRow("Account", roTextField(local.Username, textfield.TypeText, local.FocusUser).Width(fieldW)),
+				formRow("Password", roTextField(local.Password, textfield.TypePassword, local.FocusPassword).Width(fieldW)),
 			).
 				PaddingTop(float32(local.FormTopPad)).
 				PaddingLeft(24).
@@ -118,7 +105,7 @@ func LoginWindowButtonRect(opts LoginWindowDrawOptions) (int, int, int, int) {
 	fieldX, _, fieldW, _ := LoginWindowFieldRect(opts, 0)
 	buttonW := ButtonLabelWidth("Login")
 	_, footerY, _, footerH := LoginWindowFooterRect(opts)
-	buttonH := 24
+	buttonH := roUIButtonHeight
 	return fieldX + fieldW - buttonW, footerY + (footerH-buttonH)/2, buttonW, buttonH
 }
 

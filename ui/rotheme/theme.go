@@ -9,14 +9,15 @@ import (
 )
 
 type Colors struct {
-	WindowBody   widget.Color
-	WindowTitle  widget.Color
-	WindowBorder widget.Color
-	WindowFooter widget.Color
-	PanelBody    widget.Color
-	Text         widget.Color
-	TitleText    widget.Color
-	MutedText    widget.Color
+	WindowBody     widget.Color
+	WindowTitleTop widget.Color
+	WindowTitle    widget.Color
+	WindowBorder   widget.Color
+	WindowFooter   widget.Color
+	PanelBody      widget.Color
+	Text           widget.Color
+	TitleText      widget.Color
+	MutedText      widget.Color
 }
 
 type Typography struct {
@@ -31,14 +32,15 @@ type Theme struct {
 
 var Default = Theme{
 	Colors: Colors{
-		WindowBody:   fromRGBA(color.RGBA{R: 255, G: 255, B: 255, A: 255}),
-		WindowTitle:  fromRGBA(color.RGBA{R: 184, G: 214, B: 242, A: 255}),
-		WindowBorder: fromRGBA(color.RGBA{R: 118, G: 160, B: 206, A: 255}),
-		WindowFooter: fromRGBA(color.RGBA{R: 244, G: 246, B: 248, A: 255}),
-		PanelBody:    fromRGBA(color.RGBA{R: 250, G: 252, B: 255, A: 255}),
-		Text:         fromRGBA(color.RGBA{R: 38, G: 48, B: 58, A: 255}),
-		TitleText:    fromRGBA(color.RGBA{R: 22, G: 54, B: 88, A: 255}),
-		MutedText:    fromRGBA(color.RGBA{R: 98, G: 112, B: 126, A: 255}),
+		WindowBody:     fromRGBA(color.RGBA{R: 255, G: 255, B: 255, A: 255}),
+		WindowTitleTop: fromRGBA(color.RGBA{R: 214, G: 232, B: 250, A: 255}),
+		WindowTitle:    fromRGBA(color.RGBA{R: 184, G: 214, B: 242, A: 255}),
+		WindowBorder:   fromRGBA(color.RGBA{R: 118, G: 160, B: 206, A: 255}),
+		WindowFooter:   fromRGBA(color.RGBA{R: 244, G: 246, B: 248, A: 255}),
+		PanelBody:      fromRGBA(color.RGBA{R: 250, G: 252, B: 255, A: 255}),
+		Text:           fromRGBA(color.RGBA{R: 38, G: 48, B: 58, A: 255}),
+		TitleText:      fromRGBA(color.RGBA{R: 22, G: 54, B: 88, A: 255}),
+		MutedText:      fromRGBA(color.RGBA{R: 98, G: 112, B: 126, A: 255}),
 	},
 	Typography: Typography{
 		FontFamily: "Inter",
