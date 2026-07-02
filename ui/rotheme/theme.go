@@ -4,8 +4,17 @@ package rotheme
 import (
 	"image/color"
 
+	"github.com/go-fonts/dejavu/dejavusans"
+	"github.com/go-fonts/dejavu/dejavusansbold"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/plugin"
 	"github.com/gogpu/ui/theme"
 	"github.com/gogpu/ui/widget"
+)
+
+const (
+	dejavuFamily     = "GoroDejaVuSans"
+	dejavuBoldFamily = "GoroDejaVuSansBold"
 )
 
 type Colors struct {
@@ -21,8 +30,9 @@ type Colors struct {
 }
 
 type Typography struct {
-	FontFamily string
-	TextSize   float32
+	FontFamily     string
+	BoldFontFamily string
+	TextSize       float32
 }
 
 type Theme struct {
@@ -43,9 +53,16 @@ var Default = Theme{
 		MutedText:      fromRGBA(color.RGBA{R: 98, G: 112, B: 126, A: 255}),
 	},
 	Typography: Typography{
-		FontFamily: "Inter",
-		TextSize:   11,
+		FontFamily:     dejavuFamily,
+		BoldFontFamily: dejavuBoldFamily,
+		TextSize:       11,
 	},
+}
+
+func init() {
+	ctx := plugin.NewDefaultPluginContext()
+	_ = ctx.Assets.LoadFont(dejavuFamily, dejavusans.TTF)
+	_ = ctx.Assets.LoadFont(dejavuBoldFamily, dejavusansbold.TTF)
 }
 
 func (t Theme) AsTheme() *theme.Theme {
@@ -74,6 +91,47 @@ func (t Theme) IsDark() bool {
 
 func (t Theme) OnSurface() widget.Color {
 	return t.Colors.Text
+}
+
+func DrawText(canvas widget.Canvas, text string, bounds geometry.Rect, size float32, color widget.Color, bold bool, align widget.TextAlign) {
+	if text == "" {
+		return
+	}
+	family := Default.Typography.FontFamily
+	if bold && Default.Typography.BoldFontFamily != "" {
+		family = Default.Typography.BoldFontFamily
+		bold = false
+	}
+	if styled, ok := canvas.(widget.StyledTextDrawer); ok {
+		styled.DrawStyledText(text, bounds, widget.TextStyle{
+			FontFamily: family,
+			FontSize:   size,
+			Bold:       bold,
+			Color:      color,
+			Align:      align,
+		})
+		return
+	}
+	canvas.DrawText(text, bounds, size, color, bold, align)
+}
+
+func MeasureText(canvas widget.Canvas, text string, size float32, bold bool) float32 {
+	if text == "" {
+		return 0
+	}
+	family := Default.Typography.FontFamily
+	if bold && Default.Typography.BoldFontFamily != "" {
+		family = Default.Typography.BoldFontFamily
+		bold = false
+	}
+	if styled, ok := canvas.(widget.StyledTextDrawer); ok {
+		return styled.MeasureStyledText(text, widget.TextStyle{
+			FontFamily: family,
+			FontSize:   size,
+			Bold:       bold,
+		})
+	}
+	return canvas.MeasureText(text, size, bold)
 }
 
 func fromRGBA(c color.RGBA) widget.Color {

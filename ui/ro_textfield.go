@@ -37,9 +37,9 @@ func (roTextFieldPainter) PaintTextField(canvas widget.Canvas, state textfield.P
 		displayText = strings.Repeat("*", len([]rune(state.Text)))
 	}
 	canvas.PushClip(content)
-	canvas.DrawText(displayText, content, rotheme.Default.Typography.TextSize, uiColor(TextColor), false, widget.TextAlignLeft)
+	rotheme.DrawText(canvas, displayText, content, rotheme.Default.Typography.TextSize, uiColor(TextColor), false, widget.TextAlignLeft)
 	if state.Focused {
-		cursorX := content.Min.X + canvas.MeasureText(displayText, rotheme.Default.Typography.TextSize, false)
+		cursorX := content.Min.X + rotheme.MeasureText(canvas, displayText, rotheme.Default.Typography.TextSize, false)
 		if cursorX > content.Max.X {
 			cursorX = content.Max.X
 		}

@@ -49,7 +49,7 @@ func (roButtonPainter) PaintButton(canvas widget.Canvas, state button.PaintState
 	if state.Disabled {
 		text = uiColor(MutedTextColor)
 	}
-	canvas.DrawText(state.Text, state.Bounds, rotheme.Default.Typography.TextSize, text, false, widget.TextAlignCenter)
+	rotheme.DrawText(canvas, state.Text, state.Bounds, rotheme.Default.Typography.TextSize, text, false, widget.TextAlignCenter)
 }
 
 func drawRoundedButtonGradient(canvas widget.Canvas, bounds geometry.Rect, bottom widget.Color, radius float32) {

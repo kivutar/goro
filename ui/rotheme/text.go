@@ -16,5 +16,5 @@ func Title(content string) *primitives.TextWidget {
 
 func SectionLabel(content string) *primitives.TextWidget {
 	return Title(content).
-		Bold()
+		FontFamily(Default.Typography.BoldFontFamily)
 }
