@@ -428,15 +428,6 @@ func (m *LoginMode) cursorAction(ctx client.Context) int {
 		}
 		return cursorActionDefault
 	}
-	winX, winY, winW, _ := loginWindowRect(ctx)
-	userX, userY, userW, userH := loginUserFieldRect(winX, winY, winW)
-	passX, passY, passW, passH := loginPasswordFieldRect(winX, winY, winW)
-	buttonX, buttonY, buttonW, buttonH := loginButtonRect(winX, winY, winW)
-	if pointInRect(mx, my, userX, userY, userW, userH) ||
-		pointInRect(mx, my, passX, passY, passW, passH) ||
-		pointInRect(mx, my, buttonX, buttonY, buttonW, buttonH) {
-		return cursorActionClick
-	}
 	return cursorActionDefault
 }
 
@@ -1191,22 +1182,6 @@ func loginWindowRect(ctx client.Context) (int, int, int, int) {
 		y = 8
 	}
 	return x, y, w, h
-}
-
-func loginUserFieldRect(x, y, w int) (int, int, int, int) {
-	return gameui.LoginWindowFieldRect(loginWindowDrawOptions(x, y, w, loginWindowHeight()), 0)
-}
-
-func loginPasswordFieldRect(x, y, w int) (int, int, int, int) {
-	return gameui.LoginWindowFieldRect(loginWindowDrawOptions(x, y, w, loginWindowHeight()), 1)
-}
-
-func loginButtonRect(x, y, w int) (int, int, int, int) {
-	return gameui.LoginWindowButtonRect(loginWindowDrawOptions(x, y, w, loginWindowHeight()))
-}
-
-func loginFooterRect(x, y, w int) (int, int, int, int) {
-	return gameui.LoginWindowFooterRect(loginWindowDrawOptions(x, y, w, loginWindowHeight()))
 }
 
 func loginWindowHeight() int {

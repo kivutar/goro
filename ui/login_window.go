@@ -10,8 +10,6 @@ import (
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
-const loginWindowButtonHeight = 22
-
 type LoginWindowDrawOptions struct {
 	X, Y, W, H    int
 	FooterH       int
@@ -179,40 +177,9 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 		Footer(
 			primitives.HBox(
 				primitives.Expanded(primitives.Box()),
-				primitives.Box(
-					rotheme.Button("Login", submit).
-						MinWidth(buttonW),
-				).
-					Width(buttonW).
-					Height(loginWindowButtonHeight),
+				rotheme.Button("Login", submit).
+					Width(buttonW),
 			),
 		),
 	)
-}
-
-func LoginWindowButtonRect(opts LoginWindowDrawOptions) (int, int, int, int) {
-	fieldX, _, fieldW, _ := LoginWindowFieldRect(opts, 0)
-	buttonW := ButtonLabelWidth("Login")
-	_, footerY, _, footerH := LoginWindowFooterRect(opts)
-	buttonH := loginWindowButtonHeight
-	return fieldX + fieldW - buttonW, footerY + (footerH-buttonH)/2, buttonW, buttonH
-}
-
-func LoginWindowFooterRect(opts LoginWindowDrawOptions) (int, int, int, int) {
-	return opts.X, opts.Y + opts.H - opts.FooterH, opts.W, opts.FooterH
-}
-
-func LoginWindowFieldRect(opts LoginWindowDrawOptions, row int) (int, int, int, int) {
-	fieldX := opts.X + opts.FieldLeft
-	fieldY := opts.Y + ROWindowTitleHeight + opts.FormTopPad + row*(opts.FieldH+opts.FieldGap)
-	fieldW := opts.W - opts.FieldLeft - opts.FieldRightPad
-	return fieldX, fieldY, fieldW, opts.FieldH
-}
-
-func LoginWindowLabelX(fieldX int, label string) int {
-	return fieldX - 12 - len([]rune(label))*7
-}
-
-func LoginWindowLabelY(fieldY, fieldH int) int {
-	return fieldY + maxInt(0, (fieldH-14)/2)
 }

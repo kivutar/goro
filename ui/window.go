@@ -133,8 +133,8 @@ func windowCloseButton(enabled bool) widget.Widget {
 	}
 	return primitives.Box(
 		rotheme.Button("x", nil).
-			PaddingXY(0, 0).
-			MinWidth(17),
+			Width(17).
+			Height(17),
 	).
 		Width(17).
 		Height(17)

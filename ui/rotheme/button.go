@@ -3,12 +3,17 @@ package rotheme
 import (
 	"github.com/gogpu/ui/core/button"
 	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 )
 
-const ButtonRadius float32 = 6
+const (
+	ButtonRadius   float32 = 6
+	ButtonPaddingX float32 = 8
+	ButtonPaddingY float32 = 5.5
+)
 
-func Button(label string, onClick func()) *button.Widget {
+func Button(label string, onClick func()) *primitives.BoxWidget {
 	opts := []button.Option{
 		button.TextOpt(label),
 		button.SizeOpt(button.Small),
@@ -18,7 +23,9 @@ func Button(label string, onClick func()) *button.Widget {
 	if onClick != nil {
 		opts = append(opts, button.OnClick(onClick))
 	}
-	return button.New(opts...).PaddingXY(8, 1)
+	return primitives.Box(
+		button.New(opts...).PaddingXY(ButtonPaddingX, ButtonPaddingY),
+	).Height(Default.Typography.TextSize + ButtonPaddingY*2)
 }
 
 type ButtonPainter struct{}

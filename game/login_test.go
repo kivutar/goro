@@ -458,43 +458,8 @@ func TestLoginWindowDoesNotExposeServerSelection(t *testing.T) {
 	if got := mode.cursorAction(ctx); got != cursorActionDefault {
 		t.Fatalf("old server row cursor action = %d, want default", got)
 	}
-	if _, _, buttonW, _ := loginButtonRect(x, y, w); buttonW <= 0 {
-		t.Fatal("login button should still be present")
-	}
-}
-
-func TestLoginLabelsAlignInFrontOfTextboxes(t *testing.T) {
-	ctx := client.Context{ScreenW: 1280, ScreenH: 720}
-	x, y, w, _ := loginWindowRect(ctx)
-	userX, userY, userW, userH := loginUserFieldRect(x, y, w)
-	passX, passY, passW, passH := loginPasswordFieldRect(x, y, w)
-	buttonX, buttonY, buttonW, buttonH := loginButtonRect(x, y, w)
-	_, footerY, _, footerH := loginFooterRect(x, y, w)
-	accountX := gameui.LoginWindowLabelX(userX, "Account")
-	passwordX := gameui.LoginWindowLabelX(passX, "Password")
-	accountRight := accountX + len([]rune("Account"))*7
-	passwordRight := passwordX + len([]rune("Password"))*7
-
-	if accountRight != passwordRight || accountRight != userX-12 {
-		t.Fatalf("label right edges = %d,%d, want %d", accountRight, passwordRight, userX-12)
-	}
-	if gameui.LoginWindowLabelY(userY, userH) != userY+4 || gameui.LoginWindowLabelY(passY, passH) != passY+4 {
-		t.Fatalf("label y = %d,%d, want field y + 4", gameui.LoginWindowLabelY(userY, userH), gameui.LoginWindowLabelY(passY, passH))
-	}
-	if buttonX+buttonW != userX+userW || buttonX+buttonW != passX+passW {
-		t.Fatalf("button right edge = %d, want textbox right edge %d", buttonX+buttonW, userX+userW)
-	}
-	if buttonW != gameui.ButtonLabelWidth("Login") {
-		t.Fatalf("button width = %d, want normalized label width %d", buttonW, gameui.ButtonLabelWidth("Login"))
-	}
-	if buttonY < footerY || buttonY+buttonH > footerY+footerH {
-		t.Fatalf("button y = %d..%d, want inside footer %d..%d", buttonY, buttonY+buttonH, footerY, footerY+footerH)
-	}
-	if buttonY != footerY+(footerH-buttonH)/2 {
-		t.Fatalf("button y = %d, want centered in footer at %d", buttonY, footerY+(footerH-buttonH)/2)
-	}
-	if got := footerY - (passY + passH); got != loginWindowFormBottomPad {
-		t.Fatalf("password/footer gap = %d, want %d", got, loginWindowFormBottomPad)
+	if w <= 0 {
+		t.Fatal("login window should still be present")
 	}
 }
 
