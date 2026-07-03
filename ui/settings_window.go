@@ -155,8 +155,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 				).Gap(8),
 			).
 				Padding(14).
-				Gap(8).
-				Background(rotheme.Default.Colors.WindowBody),
+				Gap(8),
 		),
 	)
 }

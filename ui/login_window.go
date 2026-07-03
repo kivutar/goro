@@ -156,8 +156,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 				PaddingTop(float32(w.opts.FormTopPad)).
 				PaddingLeft(24).
 				PaddingRight(float32(w.opts.FieldRightPad)).
-				Gap(float32(w.opts.FieldGap)).
-				Background(rotheme.Default.Colors.WindowBody),
+				Gap(float32(w.opts.FieldGap)),
 		),
 		Footer(
 			primitives.HBox(

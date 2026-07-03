@@ -87,6 +87,12 @@ func Window(options ...WindowOption) widget.Widget {
 		Rounded(WindowRadius)
 }
 
+func windowBodyColor(opacity float32) widget.Color {
+	color := rotheme.Default.Colors.WindowBody
+	color.A *= opacity
+	return color
+}
+
 func Title(title string) WindowOption {
 	return func(cfg *windowConfig) {
 		cfg.title = title
@@ -163,16 +169,17 @@ type WindowState struct {
 	dragDY      int
 	root        widget.Widget
 	placed      widget.Widget
-	placedDrag  widget.Widget
+	opacity     float32
 }
 
-const grabbedWindowOpacity = 0.8
+const grabbedWindowOpacity = 0.95
 
 func NewWindowState(width, height int) WindowState {
 	return WindowState{
 		width:       width,
 		height:      height,
 		titleHeight: ROWindowTitleHeight,
+		opacity:     1,
 	}
 }
 
@@ -191,7 +198,9 @@ func (w *WindowState) OpenAt(x, y int, root widget.Widget) {
 }
 
 func (w *WindowState) Close() {
+	w.setOpacity(1)
 	w.open = false
+	w.dragging = false
 	w.root = nil
 	w.placed = nil
 }
@@ -203,7 +212,11 @@ func (w *WindowState) IsOpen() bool {
 func (w *WindowState) SetRoot(root widget.Widget) {
 	w.root = root
 	w.placed = nil
-	w.placedDrag = nil
+	if w.dragging {
+		w.setOpacity(grabbedWindowOpacity)
+	} else {
+		w.setOpacity(1)
+	}
 }
 
 func (w *WindowState) SetSize(width, height int) {
@@ -213,7 +226,6 @@ func (w *WindowState) SetSize(width, height int) {
 	w.width = width
 	w.height = height
 	w.placed = nil
-	w.placedDrag = nil
 }
 
 func (w *WindowState) SetAutoPosition(x, y int) {
@@ -227,7 +239,6 @@ func (w *WindowState) SetAutoPosition(x, y int) {
 	w.y = y
 	w.positioned = true
 	w.placed = nil
-	w.placedDrag = nil
 }
 
 func (w *WindowState) Update(ctx client.Context) bool {
@@ -241,11 +252,10 @@ func (w *WindowState) Update(ctx client.Context) bool {
 			w.x = clampWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, screenW-w.width-8))
 			w.y = clampWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, screenH-w.height-8))
 			w.placed = nil
-			w.placedDrag = nil
 			return true
 		}
 		w.dragging = false
-		w.placedDrag = nil
+		w.setOpacity(1)
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
@@ -264,7 +274,7 @@ func (w *WindowState) Update(ctx client.Context) bool {
 		w.userMoved = true
 		w.dragDX = ctx.Input.MouseX - w.x
 		w.dragDY = ctx.Input.MouseY - w.y
-		w.placedDrag = nil
+		w.setOpacity(grabbedWindowOpacity)
 		return true
 	}
 	return true
@@ -279,7 +289,20 @@ func (w *WindowState) ensurePosition(ctx client.Context) {
 	w.y = maxInt(8, (screenH-w.height)/2)
 	w.positioned = true
 	w.placed = nil
-	w.placedDrag = nil
+}
+
+func (w *WindowState) setOpacity(opacity float32) {
+	changed := w.opacity != opacity
+	w.opacity = opacity
+	if box, ok := w.root.(*primitives.BoxWidget); ok {
+		box.Background(windowBodyColor(opacity))
+		box.SetNeedsRedraw(true)
+	}
+	if changed {
+		w.placed = nil
+	} else if box, ok := w.placed.(*primitives.BoxWidget); ok {
+		box.SetNeedsRedraw(true)
+	}
 }
 
 func (w *WindowState) Widget() widget.Widget {
@@ -292,12 +315,6 @@ func (w *WindowState) Widget() widget.Widget {
 			PaddingTop(float32(w.y)).
 			Width(float32(w.x + w.width)).
 			Height(float32(w.y + w.height))
-	}
-	if w.dragging {
-		if w.placedDrag == nil {
-			w.placedDrag = withOpacity(w.placed, grabbedWindowOpacity)
-		}
-		return w.placedDrag
 	}
 	return w.placed
 }

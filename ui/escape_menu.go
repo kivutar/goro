@@ -207,8 +207,7 @@ func (m *EscapeMenu) widgetTree(ctx client.Context) widget.Widget {
 			).
 				Padding(escapeMenuPad).
 				Gap(escapeMenuGap).
-				CrossAlign(primitives.CrossAxisStretch).
-				Background(rotheme.Default.Colors.WindowBody),
+				CrossAlign(primitives.CrossAxisStretch),
 		),
 	)
 }
