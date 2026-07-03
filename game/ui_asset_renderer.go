@@ -2,6 +2,7 @@ package game
 
 import (
 	"github.com/kivutar/goro/client"
+	"image"
 	"image/color"
 	"math"
 	"time"
@@ -84,4 +85,13 @@ func (m *WorldMode) DrawEquipmentPreview(screen *render.Image, ctx client.Contex
 		{DstX: float32(dstX + dstW), DstY: float32(dstY + dstH), SrcX: float32(bounds.Max.X), SrcY: float32(bounds.Max.Y), ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 	}
 	screen.DrawTrianglesOwned(vertices, quadIndices012213, billboard.image, &render.DrawTrianglesOptions{Filter: spriteDrawFilter(), Address: render.AddressClampToZero})
+}
+
+func (m *WorldMode) EquipmentPreviewImage(ctx client.Context, width, height int) image.Image {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	img := render.NewImage(width, height)
+	m.DrawEquipmentPreview(img, ctx, 0, 0, width, height)
+	return img.RGBA()
 }

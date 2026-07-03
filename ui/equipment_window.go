@@ -17,13 +17,14 @@ import (
 )
 
 const (
-	equipmentWindowWidth  = 300
-	equipmentWindowHeight = 178
-	equipmentWindowPad    = 10
-	equipmentLeftColW     = 112
-	equipmentCenterColW   = 56
-	equipmentRightColW    = 112
-	equipmentRowH         = 24
+	equipmentWindowWidth   = 300
+	equipmentWindowHeight  = 178
+	equipmentWindowPad     = 10
+	equipmentLeftColW      = 112
+	equipmentCenterColW    = 56
+	equipmentRightColW     = 112
+	equipmentRowH          = 24
+	equipmentPreviewImageH = 106
 )
 
 const (
@@ -45,6 +46,7 @@ type EquipmentWindow struct {
 	snapshot string
 	status   string
 	itemInfo *ItemInfoWindow
+	preview  image.Image
 	icons    map[equipmentItemIconKey]image.Image
 	iconMiss map[equipmentItemIconKey]struct{}
 }
@@ -105,19 +107,24 @@ func (w *EquipmentWindow) Toggle(ctx Context) {
 		return
 	}
 	w.snapshot = equipmentSnapshot(ctx.Session)
+	w.preview = nil
 	w.window.Open(ctx, w.widgetTree(ctx, nil))
 	w.Publish(ctx)
 }
 
-func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, assets AssetRenderer) bool {
 	w.ensureWindow()
 	if !w.window.IsOpen() {
 		return false
 	}
 	snapshot := equipmentSnapshot(ctx.Session)
-	if snapshot != w.snapshot || itemInfo != w.itemInfo {
+	needsPreview := w.preview == nil && assets != nil
+	if snapshot != w.snapshot || itemInfo != w.itemInfo || needsPreview {
 		w.snapshot = snapshot
 		w.itemInfo = itemInfo
+		if assets != nil {
+			w.preview = assets.EquipmentPreviewImage(ctx, equipmentCenterColW, equipmentPreviewImageH)
+		}
 		w.window.SetRoot(w.widgetTree(ctx, itemInfo))
 	}
 	consumed := w.window.Update(ctx)
@@ -172,10 +179,8 @@ func (w *EquipmentWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widg
 						Gap(0),
 
 					primitives.Box(
-						primitives.Box().
-							Height(30),
+						newStaticImageWidget(w.preview, equipmentCenterColW, equipmentPreviewImageH),
 						w.slotWidget(ctx, itemInfo, equipmentSlotAmmo, equipmentCenterColW),
-						primitives.Expanded(primitives.Box()),
 					).
 						Width(equipmentCenterColW).
 						Height(130).
@@ -262,6 +267,41 @@ func (w *EquipmentWindow) markIconMiss(key equipmentItemIconKey) {
 		w.iconMiss = make(map[equipmentItemIconKey]struct{})
 	}
 	w.iconMiss[key] = struct{}{}
+}
+
+type staticImageWidget struct {
+	widget.WidgetBase
+	image  image.Image
+	width  int
+	height int
+}
+
+func newStaticImageWidget(img image.Image, width, height int) *staticImageWidget {
+	w := &staticImageWidget{
+		image:  img,
+		width:  width,
+		height: height,
+	}
+	w.SetVisible(true)
+	w.SetEnabled(false)
+	return w
+}
+
+func (w *staticImageWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(float32(w.width), float32(w.height)))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *staticImageWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() || w.image == nil {
+		return
+	}
+	canvas.DrawImage(w.image, w.Bounds().Min)
+}
+
+func (w *staticImageWidget) Event(ctx widget.Context, e event.Event) bool {
+	return false
 }
 
 func (w *EquipmentWindow) activateItem(ctx Context, item session.InventoryItem) {

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"image"
+
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -34,6 +36,7 @@ type AssetRenderer interface {
 	DrawSkillIcon(screen *render.Image, manager *res.Manager, skill session.Skill, x, y, size int)
 	DrawItemInfoIllustration(screen *render.Image, manager *res.Manager, item session.InventoryItem, x, y, width, height int)
 	DrawEquipmentPreview(screen *render.Image, ctx client.Context, x, y, width, height int)
+	EquipmentPreviewImage(ctx client.Context, width, height int) image.Image
 }
 
 type GameActions interface {

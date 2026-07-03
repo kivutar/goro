@@ -873,7 +873,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.inventoryBag.Update(ctx, &m.shortcutBar, &m.storageWindow, &m.itemInfoWindow) {
 		return nil, nil
 	}
-	if m.equipmentWindow.Update(ctx, &m.itemInfoWindow) {
+	if m.equipmentWindow.Update(ctx, &m.itemInfoWindow, m) {
 		return nil, nil
 	}
 	if m.storageWindow.Update(ctx, &m.itemInfoWindow) {

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"testing"
 
 	"github.com/kivutar/goro/input"
@@ -83,6 +84,10 @@ func (r *skillWindowTestRenderer) DrawItemInfoIllustration(*render.Image, *res.M
 }
 
 func (r *skillWindowTestRenderer) DrawEquipmentPreview(*render.Image, Context, int, int, int, int) {
+}
+
+func (r *skillWindowTestRenderer) EquipmentPreviewImage(Context, int, int) image.Image {
+	return nil
 }
 
 func (r *skillWindowTestRenderer) UseShortcutSkill(_ Context, skill session.Skill) error {
