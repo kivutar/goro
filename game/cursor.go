@@ -213,15 +213,10 @@ func uiCursorAction(ctx client.Context) (int, bool) {
 	if ctx.UIApp == nil {
 		return 0, false
 	}
-	switch ctx.UIApp.Cursor() {
-	case uiwidget.CursorPointer:
+	if ctx.UIApp.Cursor() == uiwidget.CursorPointer {
 		return cursorActionClick, true
-	default:
-		if ctx.UIApp.HoveredWidget() != nil {
-			return cursorActionDefault, true
-		}
-		return 0, false
 	}
+	return 0, false
 }
 
 func hoveredCursorActor(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {

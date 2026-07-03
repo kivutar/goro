@@ -495,7 +495,8 @@ func TestLoginWindowUpdatesWithoutDiscoveredServers(t *testing.T) {
 }
 
 type fakeCursorUIApp struct {
-	cursor widget.CursorType
+	cursor  widget.CursorType
+	hovered widget.Widget
 }
 
 func (fakeCursorUIApp) SetRoot(widget.Widget) {}
@@ -504,8 +505,8 @@ func (a fakeCursorUIApp) Cursor() widget.CursorType {
 	return a.cursor
 }
 
-func (fakeCursorUIApp) HoveredWidget() widget.Widget {
-	return nil
+func (a fakeCursorUIApp) HoveredWidget() widget.Widget {
+	return a.hovered
 }
 
 type loginTestUIManager struct {
@@ -560,6 +561,30 @@ func TestLoginToWorldClearsPublishedUIRoot(t *testing.T) {
 	}
 	if mode.loginWindow != nil || mode.charSelectWindow != nil {
 		t.Fatal("login windows were not cleared before entering world")
+	}
+}
+
+func TestCharacterSelectModePublishesRootOnEnter(t *testing.T) {
+	staleRoot := primitives.Box()
+	manager := &loginTestUIManager{root: staleRoot}
+	mode := NewCharacterSelectMode(client.Context{}, gameui.ChatConsole{})
+	ctx := client.Context{
+		Resources: &res.Manager{},
+		Session: &session.Session{Characters: []session.Character{
+			{ID: 1, Slot: 0, Name: "Kivutar", Level: 1, JobLevel: 1},
+		}},
+		UIManager: manager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+
+	mode.Enter(ctx)
+
+	if manager.root == nil {
+		t.Fatal("character select mode did not publish a UI root on enter")
+	}
+	if manager.root == staleRoot {
+		t.Fatal("character select mode left stale UI root published")
 	}
 }
 

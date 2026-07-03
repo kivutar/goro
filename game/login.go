@@ -163,6 +163,7 @@ func (m *LoginMode) Enter(ctx client.Context) {
 	m.playLoginBGM(ctx)
 	if m.phase == loginPhaseCharacter {
 		m.prepareCharacterSelectFromSession(ctx)
+		m.publishCharacterSelectWindow(ctx)
 		m.reconnectCharacterServer(ctx)
 	}
 	if m.phase == loginPhaseAccount && len(ctx.Resources.ClientInfo.Connections) == 0 {

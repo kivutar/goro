@@ -1,7 +1,6 @@
 package game
 
 import (
-	"github.com/kivutar/goro/client"
 	"image/color"
 	"math"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogpu/ui/primitives"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
@@ -299,6 +300,53 @@ func TestClickedAttackTargetPicksMobOnly(t *testing.T) {
 	if actor.ID != 400 {
 		t.Fatalf("target id = %d, want 400", actor.ID)
 	}
+}
+
+func TestDefaultHoveredUIRootDoesNotHideWorldNPCCursor(t *testing.T) {
+	ctx, projection := cursorHoverTestContext(worldstate.Actor{
+		ID:            300,
+		X:             11,
+		Y:             20,
+		ObjectType:    actorObjectTypeNPC,
+		HasObjectType: true,
+	})
+	mode := &WorldMode{}
+
+	if got := mode.cursorDesiredAction(ctx, projection, time.Now()); got != cursorActionTalk {
+		t.Fatalf("cursor action = %d, want talk", got)
+	}
+}
+
+func TestDefaultHoveredUIRootDoesNotHideWorldWarpCursor(t *testing.T) {
+	ctx, projection := cursorHoverTestContext(worldstate.Actor{
+		ID:            300,
+		X:             11,
+		Y:             20,
+		Job:           actorJobWarpPortal,
+		ObjectType:    actorObjectTypeNPC,
+		HasObjectType: true,
+	})
+	mode := &WorldMode{}
+
+	if got := mode.cursorDesiredAction(ctx, projection, time.Now()); got != cursorActionWarp {
+		t.Fatalf("cursor action = %d, want warp", got)
+	}
+}
+
+func cursorHoverTestContext(actor worldstate.Actor) (client.Context, sceneProjection) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 200, X: 10, Y: 20}
+	world.UpsertActor(actor)
+	projection := newSceneProjectionForTarget(800, 600, cellCenter(10), cellCenter(20), 0)
+	point := projection.Project(cellCenter(float64(actor.X)), cellCenter(float64(actor.Y)), 0)
+	inputState := input.NewState()
+	inputState.SetMousePosition(int(point.x), int(point.y))
+	return client.Context{
+		Input:   inputState,
+		Session: &session.Session{AccountID: 100, CharID: 200},
+		World:   world,
+		UIApp:   fakeCursorUIApp{hovered: primitives.Box()},
+	}, projection
 }
 
 func TestClickedSkillTargetUsesRobrowserTargetFlags(t *testing.T) {
