@@ -46,9 +46,20 @@ func (m *Manager) Clear() {
 func (m *Manager) apply() {
 	if m.app != nil && m.root != nil {
 		m.app.SetRoot(m.root)
+		disableRootRepaintBoundary(m.root)
 	}
 }
 
 func emptyUIRoot() widget.Widget {
 	return emptyRoot
+}
+
+func disableRootRepaintBoundary(root widget.Widget) {
+	type boundarySetter interface{ SetRepaintBoundary(bool) }
+	if rb, ok := root.(boundarySetter); ok {
+		// The renderer already caches the complete UI image between dirty frames.
+		// Drawing the root directly keeps rounded clipping on the normal canvas;
+		// gogpu/ui's scene recorder currently degrades rounded clips to rectangles.
+		rb.SetRepaintBoundary(false)
+	}
 }

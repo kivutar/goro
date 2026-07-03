@@ -572,7 +572,12 @@ func (r *runner) drawUI(screen *Image, width, height int) error {
 		win.ClearAnimationFrame()
 		drawn := false
 		if err := r.uiCanvas.Draw(func(cc *gg.Context) {
-			drawn = win.DrawTo(uirender.NewCanvas(cc, width, height))
+			canvas := uirender.NewCanvas(cc, width, height)
+			if textMode, ok := canvas.(widget.TextModeController); ok {
+				textMode.SetTextMode(widget.TextModeVector)
+				defer textMode.SetTextMode(widget.TextModeAuto)
+			}
+			drawn = win.DrawTo(canvas)
 		}); err != nil {
 			return fmt.Errorf("draw ui canvas: %w", err)
 		}
