@@ -294,7 +294,7 @@ func TestLoginFadeTransitionsThroughBlack(t *testing.T) {
 	if got := mode.fadeAlpha(start); got != 0 {
 		t.Fatalf("fade alpha at start = %d, want 0", got)
 	}
-	if mode.updateFade(start.Add(loginTransitionDuration - time.Millisecond)) {
+	if mode.updateFade(client.Context{}, start.Add(loginTransitionDuration-time.Millisecond)) {
 		t.Fatal("fade unexpectedly entered world")
 	}
 	if mode.phase != loginPhaseAccount {
@@ -303,7 +303,7 @@ func TestLoginFadeTransitionsThroughBlack(t *testing.T) {
 	if got := mode.fadeAlpha(start.Add(loginTransitionDuration)); got != 255 {
 		t.Fatalf("fade alpha at black = %d, want 255", got)
 	}
-	if mode.updateFade(start.Add(loginTransitionDuration)) {
+	if mode.updateFade(client.Context{}, start.Add(loginTransitionDuration)) {
 		t.Fatal("phase fade unexpectedly entered world")
 	}
 	if mode.phase != loginPhaseCharacter {
@@ -313,7 +313,7 @@ func TestLoginFadeTransitionsThroughBlack(t *testing.T) {
 	if got := mode.fadeAlpha(fadeInStart); got != 255 {
 		t.Fatalf("fade-in alpha at start = %d, want 255", got)
 	}
-	mode.updateFade(fadeInStart.Add(loginTransitionDuration))
+	mode.updateFade(client.Context{}, fadeInStart.Add(loginTransitionDuration))
 	if got := mode.fadeAlpha(fadeInStart.Add(loginTransitionDuration)); got != 0 {
 		t.Fatalf("fade alpha after fade-in = %d, want 0", got)
 	}
@@ -422,13 +422,13 @@ func TestLoginWorldFadeWaitsForBlack(t *testing.T) {
 	start := time.Unix(20, 0)
 	mode := NewLoginMode()
 	mode.startWorldFade(start)
-	if mode.updateFade(start.Add(loginTransitionDuration - time.Millisecond)) {
+	if mode.updateFade(client.Context{}, start.Add(loginTransitionDuration-time.Millisecond)) {
 		t.Fatal("world handoff completed before black")
 	}
 	if got := mode.fadeAlpha(start.Add(loginTransitionDuration)); got != 255 {
 		t.Fatalf("world fade alpha at handoff = %d, want 255", got)
 	}
-	if !mode.updateFade(start.Add(loginTransitionDuration)) {
+	if !mode.updateFade(client.Context{}, start.Add(loginTransitionDuration)) {
 		t.Fatal("world handoff did not complete at black")
 	}
 }
@@ -585,6 +585,47 @@ func TestCharacterSelectModePublishesRootOnEnter(t *testing.T) {
 	}
 	if manager.root == staleRoot {
 		t.Fatal("character select mode left stale UI root published")
+	}
+}
+
+func TestCharacterSelectBackToLoginPublishesLoginRootAtFadeSwitch(t *testing.T) {
+	start := time.Unix(30, 0)
+	manager := &loginTestUIManager{}
+	mode := NewLoginMode()
+	mode.phase = loginPhaseCharacter
+	mode.charSelectWindow = gameui.NewCharacterSelectWindow(
+		charSelectWindowOptions(10, 20, 576, 356),
+		gameui.CharacterSelectWindowCallbacks{},
+	)
+	staleRoot := mode.charSelectWindow.Widget()
+	manager.root = staleRoot
+	mode.startPhaseFade(loginPhaseAccount, start)
+	ctx := client.Context{
+		Resources: &res.Manager{},
+		Input:     input.NewState(),
+		Session:   &session.Session{},
+		UIManager: manager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+
+	if mode.updateFade(ctx, start.Add(loginTransitionDuration)) {
+		t.Fatal("phase fade unexpectedly entered world")
+	}
+	if mode.phase != loginPhaseAccount {
+		t.Fatalf("phase = %d, want account", mode.phase)
+	}
+	if manager.root == nil {
+		t.Fatal("login root was not published at phase switch")
+	}
+	if manager.root == staleRoot {
+		t.Fatal("stale character select root stayed published after returning to login")
+	}
+	if mode.loginWindow == nil {
+		t.Fatal("login window was not rebuilt at phase switch")
+	}
+	if mode.charSelectWindow != nil {
+		t.Fatal("character select window was not cleared at phase switch")
 	}
 }
 

@@ -173,7 +173,7 @@ func (m *LoginMode) Enter(ctx client.Context) {
 
 func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
-	if m.updateFade(now) {
+	if m.updateFade(ctx, now) {
 		return m.nextWorldMode(ctx, now), nil
 	}
 
@@ -355,7 +355,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 		}
 	}
 
-	if m.updateFade(time.Now()) {
+	if m.updateFade(ctx, time.Now()) {
 		return m.nextWorldMode(ctx, time.Now()), nil
 	}
 	return nil, nil
@@ -817,7 +817,7 @@ func (m *LoginMode) startWorldFade(now time.Time) {
 	}
 }
 
-func (m *LoginMode) updateFade(now time.Time) bool {
+func (m *LoginMode) updateFade(ctx client.Context, now time.Time) bool {
 	switch m.fade.phase {
 	case loginFadeOut:
 		if now.Sub(m.fade.started) < loginTransitionDuration {
@@ -828,6 +828,7 @@ func (m *LoginMode) updateFade(now time.Time) bool {
 		}
 		if m.fade.hasTarget {
 			m.phase = m.fade.target
+			m.publishPhaseWindow(ctx)
 		}
 		m.fade = loginFadeState{phase: loginFadeIn, started: now}
 	case loginFadeIn:
@@ -836,6 +837,21 @@ func (m *LoginMode) updateFade(now time.Time) bool {
 		}
 	}
 	return false
+}
+
+func (m *LoginMode) publishPhaseWindow(ctx client.Context) {
+	switch m.phase {
+	case loginPhaseCharacter:
+		m.loginWindow = nil
+		m.publishCharacterSelectWindow(ctx)
+	case loginPhaseAccount:
+		m.charSelectWindow = nil
+		m.updateLoginWindow(ctx)
+	case loginPhaseCreate:
+		if ctx.UIManager != nil {
+			ctx.UIManager.Clear()
+		}
+	}
 }
 
 func (m *LoginMode) fadeAlpha(now time.Time) uint8 {
