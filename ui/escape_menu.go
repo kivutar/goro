@@ -116,13 +116,6 @@ func (m *EscapeMenu) ConsumeAction() EscapeMenuAction {
 
 func (m *EscapeMenu) Draw(screen *render.Image, ctx client.Context, width, height int) {}
 
-func (m *EscapeMenu) CursorAction(ctx client.Context) (int, bool) {
-	if !m.open {
-		return 0, false
-	}
-	return CursorActionDefault, true
-}
-
 func (m *EscapeMenu) IsOpen() bool {
 	return m.open
 }

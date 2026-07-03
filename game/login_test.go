@@ -503,6 +503,10 @@ func (a fakeCursorUIApp) Cursor() widget.CursorType {
 	return a.cursor
 }
 
+func (fakeCursorUIApp) HoveredWidget() widget.Widget {
+	return nil
+}
+
 func TestLoginConfirmSFXCandidatesPreferClassicButtonSound(t *testing.T) {
 	candidates := loginConfirmSFXCandidates()
 	if len(candidates) < 4 {

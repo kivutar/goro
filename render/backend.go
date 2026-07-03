@@ -60,6 +60,13 @@ func (b uiAppBridge) Cursor() widget.CursorType {
 	return b.App.Window().Context().Cursor()
 }
 
+func (b uiAppBridge) HoveredWidget() widget.Widget {
+	if b.App == nil || b.App.Window() == nil {
+		return nil
+	}
+	return b.App.Window().HoveredWidget()
+}
+
 type overlayDrawer interface {
 	DrawOverlay(*Image)
 }

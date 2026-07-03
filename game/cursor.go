@@ -152,9 +152,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if ctx.Input.MousePressed(render.MouseButtonRight) {
 		return cursorActionRotate
 	}
-	if action, ok := m.escapeMenu.CursorAction(ctx); ok {
-		return action
-	}
 	if action, ok := m.npcDialog.CursorAction(ctx); ok {
 		return action
 	}
@@ -226,6 +223,9 @@ func uiCursorAction(ctx client.Context) (int, bool) {
 	case uiwidget.CursorPointer:
 		return cursorActionClick, true
 	default:
+		if ctx.UIApp.HoveredWidget() != nil {
+			return cursorActionDefault, true
+		}
 		return 0, false
 	}
 }

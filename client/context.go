@@ -34,6 +34,7 @@ type UIApp interface {
 	SetRoot(widget.Widget)
 	Frame()
 	Cursor() widget.CursorType
+	HoveredWidget() widget.Widget
 }
 
 type UIManager interface {
