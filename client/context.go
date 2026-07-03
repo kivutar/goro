@@ -33,6 +33,7 @@ type Context struct {
 type UIApp interface {
 	SetRoot(widget.Widget)
 	Frame()
+	Cursor() widget.CursorType
 }
 
 type UIManager interface {

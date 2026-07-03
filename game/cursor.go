@@ -2,13 +2,14 @@ package game
 
 import (
 	"fmt"
-	"github.com/kivutar/goro/client"
 	"image"
 	"image/color"
 	"log"
 	"math"
 	"time"
 
+	uiwidget "github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
@@ -139,6 +140,9 @@ func (s *roCursorState) frame(action int, info cursorActionInfo, now time.Time) 
 
 func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProjection, now time.Time) int {
 	mouseX, mouseY := ctx.Input.MouseX, ctx.Input.MouseY
+	if action, ok := uiCursorAction(ctx); ok {
+		return action
+	}
 	if action, ok := m.deathModal.CursorAction(ctx); ok {
 		return action
 	}
@@ -212,6 +216,18 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 		}
 	}
 	return cursorActionDefault
+}
+
+func uiCursorAction(ctx client.Context) (int, bool) {
+	if ctx.UIApp == nil {
+		return 0, false
+	}
+	switch ctx.UIApp.Cursor() {
+	case uiwidget.CursorPointer:
+		return cursorActionClick, true
+	default:
+		return 0, false
+	}
 }
 
 func hoveredCursorActor(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {

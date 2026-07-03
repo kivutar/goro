@@ -391,6 +391,9 @@ func (m *LoginMode) cursorAction(ctx client.Context) int {
 	if ctx.Input == nil {
 		return cursorActionDefault
 	}
+	if action, ok := uiCursorAction(ctx); ok {
+		return action
+	}
 	if action, ok := m.quitConfirm.cursorAction(ctx); ok {
 		return action
 	}

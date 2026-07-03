@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/res"
@@ -464,6 +465,21 @@ func TestLoginWindowDoesNotExposeServerSelection(t *testing.T) {
 	}
 }
 
+func TestLoginCursorUsesGogpuPointerAsROHand(t *testing.T) {
+	mode := NewLoginMode()
+	inputState := input.NewState()
+	ctx := client.Context{
+		Input:   inputState,
+		UIApp:   fakeCursorUIApp{cursor: widget.CursorPointer},
+		ScreenW: 1280,
+		ScreenH: 720,
+	}
+
+	if got := mode.cursorAction(ctx); got != cursorActionClick {
+		t.Fatalf("cursor action = %d, want click hand", got)
+	}
+}
+
 func TestLoginWindowUpdatesWithoutDiscoveredServers(t *testing.T) {
 	mode := NewLoginMode()
 	inputState := input.NewState()
@@ -475,6 +491,16 @@ func TestLoginWindowUpdatesWithoutDiscoveredServers(t *testing.T) {
 	if mode.loginWindow == nil {
 		t.Fatal("login window was not updated without discovered servers")
 	}
+}
+
+type fakeCursorUIApp struct {
+	cursor widget.CursorType
+}
+
+func (fakeCursorUIApp) SetRoot(widget.Widget) {}
+func (fakeCursorUIApp) Frame()                {}
+func (a fakeCursorUIApp) Cursor() widget.CursorType {
+	return a.cursor
 }
 
 func TestLoginConfirmSFXCandidatesPreferClassicButtonSound(t *testing.T) {

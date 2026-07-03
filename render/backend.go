@@ -40,6 +40,26 @@ type uiAppReceiver interface {
 	SetUIApp(client.UIApp)
 }
 
+type uiAppBridge struct {
+	*uiapp.App
+}
+
+func (b uiAppBridge) SetRoot(root widget.Widget) {
+	if b.App != nil {
+		b.App.SetRoot(root)
+		if b.App.Window() != nil && b.App.Window().Context() != nil {
+			b.App.Window().Context().ResetCursor()
+		}
+	}
+}
+
+func (b uiAppBridge) Cursor() widget.CursorType {
+	if b.App == nil || b.App.Window() == nil || b.App.Window().Context() == nil {
+		return widget.CursorDefault
+	}
+	return b.App.Window().Context().Cursor()
+}
+
 type overlayDrawer interface {
 	DrawOverlay(*Image)
 }
@@ -130,7 +150,7 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 		receiver.SetQuitFunc(gg.Quit)
 	}
 	if receiver, ok := game.(uiAppReceiver); ok {
-		receiver.SetUIApp(ui)
+		receiver.SetUIApp(uiAppBridge{App: ui})
 	}
 	game.Resize(cfg.Width, cfg.Height)
 	wireInput(events, game.InputState())
