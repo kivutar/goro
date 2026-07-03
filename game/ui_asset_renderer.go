@@ -77,7 +77,7 @@ func (m *WorldMode) DrawEquipmentPreview(screen *render.Image, ctx client.Contex
 	}
 	dstW, dstH := srcW*scale, srcH*scale
 	dstX := float64(x) + (float64(width)-dstW)/2
-	dstY := float64(y+height) - dstH - 7
+	dstY := float64(y) + (float64(height)-dstH)/2
 	vertices := []render.Vertex{
 		{DstX: float32(dstX), DstY: float32(dstY), SrcX: float32(bounds.Min.X), SrcY: float32(bounds.Min.Y), ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{DstX: float32(dstX + dstW), DstY: float32(dstY), SrcX: float32(bounds.Max.X), SrcY: float32(bounds.Min.Y), ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},

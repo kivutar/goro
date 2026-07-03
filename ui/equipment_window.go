@@ -370,12 +370,14 @@ func (w *equipmentSlotWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 	if w.hovered && w.cfg.hasItem {
 		line = rotheme.Default.Colors.ButtonBorder
 	}
-	canvas.DrawLine(
-		geometry.Pt(bounds.Min.X, bounds.Max.Y-1),
-		geometry.Pt(bounds.Max.X, bounds.Max.Y-1),
-		line,
-		1,
-	)
+	if w.cfg.slot.side != equipmentSlotCenter {
+		canvas.DrawLine(
+			geometry.Pt(bounds.Min.X, bounds.Max.Y-1),
+			geometry.Pt(bounds.Max.X, bounds.Max.Y-1),
+			line,
+			1,
+		)
+	}
 
 	color := rotheme.Default.Colors.MutedText
 	text := w.cfg.slot.label
