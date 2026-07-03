@@ -84,11 +84,9 @@ const (
 	loginWindowFieldLeft       = 92
 	loginWindowFieldRightPad   = 20
 	loginWindowFieldH          = 22
-	charSelectTitleH           = 23
 	charSelectFooterH          = 42
 	charSelectFooterPadX       = 12
 	charSelectFooterGap        = 8
-	charSelectButtonH          = 24
 	charSelectPreviewDirection = 4
 	charSelectPreviewScale     = 0.92
 	charSelectPreviewFeetLift  = 10
@@ -1259,16 +1257,13 @@ func loginWindowDrawOptions(x, y, w, h int) gameui.LoginWindowDrawOptions {
 
 func charSelectWindowOptions(x, y, w, h int) gameui.CharacterSelectWindowOptions {
 	return gameui.CharacterSelectWindowOptions{
-		X:               x,
-		Y:               y,
-		W:               w,
-		H:               h,
-		TitleH:          charSelectTitleH,
-		FooterH:         charSelectFooterH,
-		FooterPadX:      charSelectFooterPadX,
-		FooterGap:       charSelectFooterGap,
-		ButtonH:         charSelectButtonH,
-		PreviewFeetLift: charSelectPreviewFeetLift,
+		X:          x,
+		Y:          y,
+		W:          w,
+		H:          h,
+		FooterH:    charSelectFooterH,
+		FooterPadX: charSelectFooterPadX,
+		FooterGap:  charSelectFooterGap,
 	}
 }
 
@@ -1385,46 +1380,6 @@ func charCreateMakeButtonRect(x, y, w, h int) (int, int, int, int) {
 
 func charCreateCancelButtonRect(x, y, w, h int) (int, int, int, int) {
 	return gameui.CharacterCreateCancelButtonRect(charCreateWindowOptions(x, y, w, h))
-}
-
-func charSelectSlotRect(x, y, localSlot int) (int, int, int, int) {
-	return gameui.CharacterSelectSlotRect(charSelectWindowOptions(x, y, 0, 0), localSlot)
-}
-
-func charSelectLeftArrowRect(x, y int) (int, int, int, int) {
-	return gameui.CharacterSelectLeftArrowRect(charSelectWindowOptions(x, y, 0, 0))
-}
-
-func charSelectRightArrowRect(x, y int) (int, int, int, int) {
-	return gameui.CharacterSelectRightArrowRect(charSelectWindowOptions(x, y, 0, 0))
-}
-
-func charSelectFooterRect(x, y, w, h int) (int, int, int, int) {
-	return gameui.CharacterSelectFooterRect(charSelectWindowOptions(x, y, w, h))
-}
-
-func charSelectInfoPanelRect(x, y int) (int, int, int, int) {
-	return gameui.CharacterSelectInfoPanelRect(charSelectWindowOptions(x, y, 0, 0))
-}
-
-func charSelectPagerTextRect(x, y, w int, label string) (int, int, int, int) {
-	return gameui.CharacterSelectPagerTextRect(charSelectWindowOptions(x, y, w, 0), label)
-}
-
-func charSelectDeleteButtonRect(x, y, w, h int) (int, int, int, int) {
-	return gameui.CharacterSelectDeleteButtonRect(charSelectWindowOptions(x, y, w, h))
-}
-
-func charSelectMakeButtonRect(x, y, w, h int) (int, int, int, int) {
-	return gameui.CharacterSelectMakeButtonRect(charSelectWindowOptions(x, y, w, h))
-}
-
-func charSelectOKButtonRect(x, y, w, h int) (int, int, int, int) {
-	return gameui.CharacterSelectOKButtonRect(charSelectWindowOptions(x, y, w, h))
-}
-
-func charSelectCancelButtonRect(x, y, w, h int) (int, int, int, int) {
-	return gameui.CharacterSelectCancelButtonRect(charSelectWindowOptions(x, y, w, h))
 }
 
 func charSelectPage(slot int) int {
