@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
@@ -541,6 +542,24 @@ func TestCharacterSelectPublishesUIRootDuringFadeIn(t *testing.T) {
 	}
 	if manager.root == nil {
 		t.Fatal("character select did not publish a UI root during fade-in")
+	}
+}
+
+func TestLoginToWorldClearsPublishedUIRoot(t *testing.T) {
+	manager := &loginTestUIManager{root: primitives.Box()}
+	mode := NewLoginMode()
+	mode.loginWindow = &gameui.LoginWindow{}
+	mode.charSelectWindow = &gameui.CharacterSelectWindow{}
+	ctx := client.Context{UIManager: manager}
+
+	if next := mode.nextWorldMode(ctx, time.Now()); next == nil {
+		t.Fatal("next world mode is nil")
+	}
+	if manager.root != nil {
+		t.Fatal("login UI root was not cleared before entering world")
+	}
+	if mode.loginWindow != nil || mode.charSelectWindow != nil {
+		t.Fatal("login windows were not cleared before entering world")
 	}
 }
 

@@ -173,7 +173,7 @@ func (m *LoginMode) Enter(ctx client.Context) {
 func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
 	if m.updateFade(now) {
-		return m.nextWorldMode(now), nil
+		return m.nextWorldMode(ctx, now), nil
 	}
 
 	conns := ctx.Resources.ClientInfo.Connections
@@ -355,7 +355,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	}
 
 	if m.updateFade(time.Now()) {
-		return m.nextWorldMode(time.Now()), nil
+		return m.nextWorldMode(ctx, time.Now()), nil
 	}
 	return nil, nil
 }
@@ -860,7 +860,12 @@ func (m *LoginMode) drawFade(ctx client.Context, screen *render.Image, now time.
 	render.DrawRect(screen, 0, 0, float64(width), float64(height), color.RGBA{A: alpha})
 }
 
-func (m *LoginMode) nextWorldMode(now time.Time) *WorldMode {
+func (m *LoginMode) nextWorldMode(ctx client.Context, now time.Time) *WorldMode {
+	if ctx.UIManager != nil {
+		ctx.UIManager.Clear()
+	}
+	m.loginWindow = nil
+	m.charSelectWindow = nil
 	next := NewWorldMode()
 	next.console = m.console
 	next.startMapFadeIn(now)
