@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"strings"
 
 	"github.com/gogpu/ui/event"
@@ -44,6 +45,13 @@ type EquipmentWindow struct {
 	snapshot string
 	status   string
 	itemInfo *ItemInfoWindow
+	icons    map[equipmentItemIconKey]image.Image
+	iconMiss map[equipmentItemIconKey]struct{}
+}
+
+type equipmentItemIconKey struct {
+	itemID     uint16
+	identified bool
 }
 
 type equipmentSlotDef struct {
@@ -200,6 +208,7 @@ func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot
 	return newEquipmentSlotWidget(equipmentSlotWidgetConfig{
 		slot:    slot,
 		item:    item,
+		icon:    w.itemIconImage(ctx.Resources, item),
 		hasItem: hasItem,
 		width:   width,
 		res:     ctx.Resources,
@@ -216,6 +225,43 @@ func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot
 			}
 		},
 	})
+}
+
+func (w *EquipmentWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
+	if manager == nil || item.ItemID == 0 {
+		return nil
+	}
+	key := equipmentItemIconKey{itemID: item.ItemID, identified: item.Identified}
+	if w.icons != nil {
+		if img := w.icons[key]; img != nil {
+			return img
+		}
+	}
+	if _, ok := w.iconMiss[key]; ok {
+		return nil
+	}
+	resourceName, ok := manager.ItemResourceName(int(item.ItemID), item.Identified)
+	if !ok {
+		w.markIconMiss(key)
+		return nil
+	}
+	img, _, err := res.LoadImage(manager, res.ItemIconTextureCandidates(resourceName))
+	if err != nil {
+		w.markIconMiss(key)
+		return nil
+	}
+	if w.icons == nil {
+		w.icons = make(map[equipmentItemIconKey]image.Image)
+	}
+	w.icons[key] = img
+	return img
+}
+
+func (w *EquipmentWindow) markIconMiss(key equipmentItemIconKey) {
+	if w.iconMiss == nil {
+		w.iconMiss = make(map[equipmentItemIconKey]struct{})
+	}
+	w.iconMiss[key] = struct{}{}
 }
 
 func (w *EquipmentWindow) activateItem(ctx Context, item session.InventoryItem) {
@@ -248,6 +294,7 @@ func equipmentSnapshot(s *session.Session) string {
 type equipmentSlotWidgetConfig struct {
 	slot         equipmentSlotDef
 	item         session.InventoryItem
+	icon         image.Image
 	hasItem      bool
 	width        int
 	res          *res.Manager
@@ -295,22 +342,37 @@ func (w *equipmentSlotWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 	if w.cfg.hasItem {
 		color = rotheme.Default.Colors.Text
 		text = inventoryItemDisplayName(w.cfg.res, w.cfg.item)
+		if w.cfg.slot.side == equipmentSlotCenter && w.cfg.icon != nil {
+			text = ""
+		}
 		if w.cfg.item.Refine > 0 {
 			text = "+" + formatHUDNumber(int64(w.cfg.item.Refine)) + " " + text
 		}
 		if equipmentSlotShowsAmount(w.cfg.slot, w.cfg.item) {
-			text = fmt.Sprintf("%s %d", text, w.cfg.item.Amount)
+			if text == "" {
+				text = fmt.Sprintf("%d", w.cfg.item.Amount)
+			} else {
+				text = fmt.Sprintf("%s %d", text, w.cfg.item.Amount)
+			}
 		}
 	}
 	text = trimRunes(text, equipmentSlotTextLimit(w.cfg.slot))
+	textBounds := equipmentSlotTextBounds(bounds, w.cfg.slot, w.cfg.icon)
+	if w.cfg.icon != nil {
+		canvas.DrawImage(w.cfg.icon, equipmentSlotIconPosition(bounds, w.cfg.slot, w.cfg.icon))
+	}
+	align := equipmentSlotTextAlign(w.cfg.slot)
+	if w.cfg.slot.side == equipmentSlotCenter && w.cfg.icon != nil {
+		align = widget.TextAlignRight
+	}
 	rotheme.DrawText(
 		canvas,
 		text,
-		geometry.NewRect(bounds.Min.X+4, bounds.Min.Y+4, bounds.Width()-8, bounds.Height()-8),
+		textBounds,
 		rotheme.Default.Typography.TextSize,
 		color,
 		false,
-		equipmentSlotTextAlign(w.cfg.slot),
+		align,
 	)
 }
 
@@ -353,6 +415,36 @@ func (w *equipmentSlotWidget) Event(ctx widget.Context, e event.Event) bool {
 		}
 	}
 	return w.cfg.hasItem
+}
+
+func equipmentSlotIconPosition(bounds geometry.Rect, slot equipmentSlotDef, icon image.Image) geometry.Point {
+	iconBounds := icon.Bounds()
+	width := float32(iconBounds.Dx())
+	height := float32(iconBounds.Dy())
+	y := bounds.Min.Y + (bounds.Height()-height)/2
+	switch slot.side {
+	case equipmentSlotRight:
+		return geometry.Pt(bounds.Max.X-width-4, y)
+	case equipmentSlotCenter:
+		return geometry.Pt(bounds.Min.X+(bounds.Width()-width)/2, y)
+	default:
+		return geometry.Pt(bounds.Min.X+4, y)
+	}
+}
+
+func equipmentSlotTextBounds(bounds geometry.Rect, slot equipmentSlotDef, icon image.Image) geometry.Rect {
+	if icon == nil {
+		return geometry.NewRect(bounds.Min.X+4, bounds.Min.Y+4, bounds.Width()-8, bounds.Height()-8)
+	}
+	iconWidth := float32(icon.Bounds().Dx())
+	switch slot.side {
+	case equipmentSlotRight:
+		return geometry.NewRect(bounds.Min.X+4, bounds.Min.Y+4, bounds.Width()-iconWidth-12, bounds.Height()-8)
+	case equipmentSlotCenter:
+		return geometry.NewRect(bounds.Min.X+4, bounds.Min.Y+8, bounds.Width()-8, bounds.Height()-8)
+	default:
+		return geometry.NewRect(bounds.Min.X+iconWidth+8, bounds.Min.Y+4, bounds.Width()-iconWidth-12, bounds.Height()-8)
+	}
 }
 
 func equipmentSlotTextAlign(slot equipmentSlotDef) widget.TextAlign {
