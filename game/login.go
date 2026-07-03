@@ -1319,8 +1319,15 @@ func loginQuitCancelRect(ctx client.Context) (int, int, int, int) {
 }
 
 func charSelectWindowRect(ctx client.Context) (int, int, int, int) {
+	return centeredLoginRect(ctx, 576, 356)
+}
+
+func charCreateWindowRect(ctx client.Context) (int, int, int, int) {
+	return centeredLoginRect(ctx, 576, 342)
+}
+
+func centeredLoginRect(ctx client.Context, w, h int) (int, int, int, int) {
 	width, height := ctx.ScreenSize()
-	w, h := 576, 342
 	x := (width - w) / 2
 	y := (height - h) / 2
 	if x < 8 {
@@ -1330,10 +1337,6 @@ func charSelectWindowRect(ctx client.Context) (int, int, int, int) {
 		y = 8
 	}
 	return x, y, w, h
-}
-
-func charCreateWindowRect(ctx client.Context) (int, int, int, int) {
-	return charSelectWindowRect(ctx)
 }
 
 func charCreateNameRect(x, y int) (int, int, int, int) {
