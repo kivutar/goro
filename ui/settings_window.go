@@ -32,6 +32,9 @@ func (w *SettingsWindow) OpenWindow(ctx client.Context) {
 func (w *SettingsWindow) Update(ctx client.Context) bool {
 	w.ensureWindow()
 	w.ctx = ctx
+	if !w.window.IsOpen() {
+		return false
+	}
 	consumed := w.window.Update(ctx)
 	w.Publish(ctx)
 	return consumed

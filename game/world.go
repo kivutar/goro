@@ -849,7 +849,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.settingsWindow.Update(ctx) {
 		return nil, nil
 	}
-	m.settingsWindow.Publish(ctx)
 	if m.escapeMenu.Update(ctx) {
 		switch m.escapeMenu.ConsumeAction() {
 		case gameui.EscapeMenuActionCharacterSelect:
