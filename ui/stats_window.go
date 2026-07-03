@@ -24,7 +24,6 @@ var (
 	statsWindowTextColor   = TextColor
 	statsWindowMutedColor  = MutedTextColor
 	statsWindowGoodColor   = GoodTextColor
-	statsWindowErrorColor  = ErrorTextColor
 	statsWindowButtonColor = ButtonColor
 	statsWindowHoverColor  = ButtonHoverColor
 	statsWindowDownColor   = ButtonDownColor

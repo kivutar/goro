@@ -1282,11 +1282,6 @@ func loginQuitConfirmOptions(ctx client.Context) gameui.ConfirmModalOptions {
 	}
 }
 
-func loginQuitConfirmRect(ctx client.Context) (int, int, int, int) {
-	opts := loginQuitConfirmOptions(ctx)
-	return opts.X, opts.Y, opts.W, opts.H
-}
-
 func loginQuitOKRect(ctx client.Context) (int, int, int, int) {
 	return gameui.ConfirmModalOKRect(loginQuitConfirmOptions(ctx))
 }
@@ -1477,10 +1472,6 @@ func upsertCharacter(characters []session.Character, character session.Character
 		}
 	}
 	return append(characters, character)
-}
-
-func charCreateStatLabels() [createStatCount]string {
-	return gameui.CharacterCreateStatLabels()
 }
 
 func pairedCreateStat(stat int) int {
