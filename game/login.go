@@ -526,7 +526,7 @@ func rectArray(x, y, w, h int) [4]int {
 }
 
 func (m *LoginMode) updateFormInput(ctx client.Context) {
-	m.ensureLoginWindow(ctx)
+	m.updateLoginWindow(ctx)
 }
 
 func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
@@ -895,10 +895,15 @@ func (m *LoginMode) drawBackground(ctx client.Context, screen *render.Image) {
 }
 
 func (m *LoginMode) drawLoginWindow(ctx client.Context, screen *render.Image) {
-	m.ensureLoginWindow(ctx).Draw(screen)
+	if m.loginWindow == nil {
+		m.updateLoginWindow(ctx)
+	}
+	if m.loginWindow != nil {
+		m.loginWindow.Draw(screen)
+	}
 }
 
-func (m *LoginMode) ensureLoginWindow(ctx client.Context) *gameui.LoginWindow {
+func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 	x, y, w, h := loginWindowRect(ctx)
 	opts := loginWindowDrawOptions(x, y, w, h)
 	if m.loginWindow == nil {
@@ -914,13 +919,12 @@ func (m *LoginMode) ensureLoginWindow(ctx client.Context) *gameui.LoginWindow {
 			},
 		})
 		m.loginWindow.SetUIApp(ctx.UIApp)
-		return m.loginWindow
+		return
 	}
 	m.loginWindow.SetUIApp(ctx.UIApp)
 	m.loginWindow.SetOptions(opts)
 	m.username = m.loginWindow.Username
 	m.password = m.loginWindow.Password
-	return m.loginWindow
 }
 
 func (m *LoginMode) drawCharacterSelect(ctx client.Context, screen *render.Image) {
