@@ -13,6 +13,7 @@ type windowConfig struct {
 	closeButton   bool
 	content       widget.Widget
 	footer        widget.Widget
+	onClose       func()
 	width         float32
 	height        float32
 	footerPadding float32
@@ -34,7 +35,7 @@ func Window(options ...WindowOption) widget.Widget {
 	titleContent := primitives.HBox(
 		rotheme.Title(cfg.title),
 		primitives.Expanded(primitives.Box()),
-		windowCloseButton(cfg.closeButton),
+		windowCloseButton(cfg.closeButton, cfg.onClose),
 	).
 		CrossAlign(primitives.CrossAxisCenter).
 		PaddingXY(14, 0).
@@ -96,6 +97,12 @@ func CloseButton(enabled bool) WindowOption {
 	}
 }
 
+func OnClose(onClose func()) WindowOption {
+	return func(cfg *windowConfig) {
+		cfg.onClose = onClose
+	}
+}
+
 func Content(content widget.Widget) WindowOption {
 	return func(cfg *windowConfig) {
 		cfg.content = content
@@ -127,12 +134,12 @@ func Size(width, height float32) WindowOption {
 	}
 }
 
-func windowCloseButton(enabled bool) widget.Widget {
+func windowCloseButton(enabled bool, onClose func()) widget.Widget {
 	if !enabled {
 		return primitives.Box().Width(17).Height(17)
 	}
 	return primitives.Box(
-		rotheme.Button("x", nil).
+		rotheme.Button("x", onClose).
 			Width(17).
 			Height(17),
 	).

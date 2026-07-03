@@ -19,9 +19,6 @@ const (
 	settingsWindowWidth  = 300
 	settingsWindowHeight = 272
 	settingsWindowTitleH = 28
-	settingsWindowPad    = 14
-	settingsVolumeBarH   = 5
-	settingsCheckboxGap  = 8
 )
 
 type SettingsWindow struct {
@@ -33,30 +30,35 @@ type SettingsWindow struct {
 	dragDX     int
 	dragDY     int
 	status     string
+	uiApp      client.UIApp
+	root       widget.Widget
 }
 
 func (w *SettingsWindow) OpenWindow(ctx client.Context) {
 	w.open = true
 	w.EnsurePosition(ctx)
+	w.rebuild(ctx)
 }
 
 func (w *SettingsWindow) Update(ctx client.Context) bool {
 	if !w.open || ctx.Input == nil {
 		return false
 	}
+	w.SetUIApp(ctx.UIApp)
 	w.EnsurePosition(ctx)
 	width, height := ctx.ScreenSize()
 	if w.dragging {
 		if ctx.Input.MousePressed(render.MouseButtonLeft) {
 			w.x = clampSettingsWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, width-settingsWindowWidth-8))
 			w.y = clampSettingsWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, height-settingsWindowHeight-8))
+			w.setAppRoot()
 			return true
 		}
 		w.dragging = false
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
-		w.open = false
+		w.Close()
 		return true
 	}
 	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, settingsWindowWidth, settingsWindowHeight)
@@ -67,21 +69,10 @@ func (w *SettingsWindow) Update(ctx client.Context) bool {
 	if !inside {
 		return false
 	}
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		w.open = false
-		return true
-	}
 	if pointInRect(mx, my, w.x, w.y, settingsWindowWidth, settingsWindowTitleH) {
 		w.dragging = true
 		w.dragDX = mx - w.x
 		w.dragDY = my - w.y
-		return true
-	}
-	if w.handleRuntimeToggleClick(ctx, mx, my) {
-		return true
-	}
-	if w.handleVolumeClick(ctx, mx, my) {
 		return true
 	}
 	return true
@@ -106,9 +97,46 @@ func (w *SettingsWindow) IsOpen() bool {
 	return w.open
 }
 
+func (w *SettingsWindow) Close() {
+	w.open = false
+	w.root = nil
+	if w.uiApp != nil {
+		w.uiApp.SetRoot(primitives.Box())
+	}
+}
+
+func (w *SettingsWindow) SetUIApp(uiApp client.UIApp) {
+	if w == nil || w.uiApp == uiApp {
+		return
+	}
+	w.uiApp = uiApp
+	w.setAppRoot()
+}
+
+func (w *SettingsWindow) rebuild(ctx client.Context) {
+	w.root = w.widgetTree(ctx)
+	w.setAppRoot()
+}
+
+func (w *SettingsWindow) setAppRoot() {
+	if w.uiApp == nil || w.root == nil {
+		return
+	}
+	w.uiApp.SetRoot(
+		primitives.Box(w.root).
+			PaddingLeft(float32(w.x)).
+			PaddingTop(float32(w.y)).
+			Width(float32(w.x + settingsWindowWidth)).
+			Height(float32(w.y + settingsWindowHeight)),
+	)
+}
+
 func (w *SettingsWindow) renderTree(ctx client.Context) *render.Image {
+	if w.root == nil {
+		w.rebuild(ctx)
+	}
 	r := offscreen.NewRenderer(settingsWindowWidth, settingsWindowHeight, offscreen.WithTheme(rotheme.Default.AsTheme()))
-	r.Render(w.widgetTree(ctx))
+	r.Render(w.root)
 	img := r.Image()
 	if img == nil {
 		return nil
@@ -120,6 +148,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 	return Window(
 		Title("Settings"),
 		CloseButton(true),
+		OnClose(w.Close),
 		Size(settingsWindowWidth, settingsWindowHeight),
 
 		Content(
@@ -129,16 +158,34 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 				checkbox.New(
 					checkbox.Checked(settingsRuntimeFullscreen(ctx)),
 					checkbox.LabelOpt("Fullscreen"),
+					checkbox.OnToggle(func(enabled bool) {
+						if ctx.Runtime != nil {
+							ctx.Runtime.SetFullscreen(enabled)
+						}
+						w.saveSettings(ctx, fmt.Sprintf("fullscreen %s", settingsBoolText(enabled)))
+					}),
 				),
 
 				checkbox.New(
 					checkbox.Checked(settingsRuntimeVSync(ctx)),
 					checkbox.LabelOpt("VSync (Restart)"),
+					checkbox.OnToggle(func(enabled bool) {
+						if ctx.Runtime != nil {
+							ctx.Runtime.SetVSync(enabled)
+						}
+						w.saveSettings(ctx, "vsync saved for restart")
+					}),
 				),
 
 				checkbox.New(
 					checkbox.Checked(settingsRuntimeFPS(ctx)),
 					checkbox.LabelOpt("FPS meter"),
+					checkbox.OnToggle(func(enabled bool) {
+						if ctx.Runtime != nil {
+							ctx.Runtime.SetFPS(enabled)
+						}
+						w.saveSettings(ctx, fmt.Sprintf("fps meter %s", settingsBoolText(enabled)))
+					}),
 				),
 
 				rotheme.SectionLabel("Sound"),
@@ -149,6 +196,12 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 						slider.Min(0),
 						slider.Max(1),
 						slider.Value(float32(settingsVolumeBGM(ctx))),
+						slider.OnChange(func(v float32) {
+							if ctx.Audio != nil {
+								ctx.Audio.SetBGMVolume(float64(v))
+							}
+							w.saveSettings(ctx, fmt.Sprintf("bgm volume %d%%", int(settingsVolumeBGM(ctx)*100+0.5)))
+						}),
 					),
 				).Gap(8),
 
@@ -158,6 +211,12 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 						slider.Min(0),
 						slider.Max(1),
 						slider.Value(float32(settingsVolumeSFX(ctx))),
+						slider.OnChange(func(v float32) {
+							if ctx.Audio != nil {
+								ctx.Audio.SetSFXVolume(float64(v))
+							}
+							w.saveSettings(ctx, fmt.Sprintf("sfx volume %d%%", int(settingsVolumeSFX(ctx)*100+0.5)))
+						}),
 					),
 				).Gap(8),
 			).
@@ -166,97 +225,6 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 				Background(rotheme.Default.Colors.WindowBody),
 		),
 	)
-}
-
-func (w *SettingsWindow) CursorAction(ctx client.Context) (int, bool) {
-	if !w.open || ctx.Input == nil {
-		return 0, false
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		return CursorActionClick, true
-	}
-	if pointInRect(mx, my, w.x, w.y, settingsWindowWidth, settingsWindowTitleH) {
-		return CursorActionClick, true
-	}
-	for _, rect := range [][4]int{
-		rectArray(w.fullscreenToggleBounds()),
-		rectArray(w.vsyncToggleBounds()),
-		rectArray(w.fpsToggleBounds()),
-		rectArray(w.bgmVolumeMinusBounds()),
-		rectArray(w.bgmVolumePlusBounds()),
-		rectArray(w.sfxVolumeMinusBounds()),
-		rectArray(w.sfxVolumePlusBounds()),
-	} {
-		if pointInRect(mx, my, rect[0], rect[1], rect[2], rect[3]) {
-			return CursorActionClick, true
-		}
-	}
-	if pointInRect(mx, my, w.x, w.y, settingsWindowWidth, settingsWindowHeight) {
-		return CursorActionDefault, true
-	}
-	return 0, false
-}
-
-func (w *SettingsWindow) handleRuntimeToggleClick(ctx client.Context, mx, my int) bool {
-	if ctx.Runtime == nil {
-		return false
-	}
-	fullscreenX, fullscreenY, fullscreenW, fullscreenH := w.fullscreenToggleBounds()
-	if pointInRect(mx, my, fullscreenX, fullscreenY, fullscreenW, fullscreenH) {
-		next := !ctx.Runtime.Fullscreen()
-		ctx.Runtime.SetFullscreen(next)
-		w.saveSettings(ctx, fmt.Sprintf("fullscreen %s", settingsBoolText(next)))
-		return true
-	}
-	vsyncX, vsyncY, vsyncW, vsyncH := w.vsyncToggleBounds()
-	if pointInRect(mx, my, vsyncX, vsyncY, vsyncW, vsyncH) {
-		next := !ctx.Runtime.VSync()
-		ctx.Runtime.SetVSync(next)
-		w.saveSettings(ctx, "vsync saved for restart")
-		return true
-	}
-	fpsX, fpsY, fpsW, fpsH := w.fpsToggleBounds()
-	if pointInRect(mx, my, fpsX, fpsY, fpsW, fpsH) {
-		next := !ctx.Runtime.FPS()
-		ctx.Runtime.SetFPS(next)
-		w.saveSettings(ctx, fmt.Sprintf("fps meter %s", settingsBoolText(next)))
-		return true
-	}
-	return false
-}
-
-func pointInAnyRect(mx, my int, bounds func() (int, int, int, int)) bool {
-	x, y, width, height := bounds()
-	return pointInRect(mx, my, x, y, width, height)
-}
-
-func (w *SettingsWindow) handleVolumeClick(ctx client.Context, mx, my int) bool {
-	if ctx.Audio == nil {
-		return false
-	}
-	if pointInAnyRect(mx, my, w.bgmVolumeMinusBounds) {
-		ctx.Audio.SetBGMVolume(ctx.Audio.BGMVolume() - 0.1)
-		w.saveSettings(ctx, fmt.Sprintf("bgm volume %d%%", int(ctx.Audio.BGMVolume()*100+0.5)))
-		return true
-	}
-	if pointInAnyRect(mx, my, w.bgmVolumePlusBounds) {
-		ctx.Audio.SetBGMVolume(ctx.Audio.BGMVolume() + 0.1)
-		w.saveSettings(ctx, fmt.Sprintf("bgm volume %d%%", int(ctx.Audio.BGMVolume()*100+0.5)))
-		return true
-	}
-	if pointInAnyRect(mx, my, w.sfxVolumeMinusBounds) {
-		ctx.Audio.SetSFXVolume(ctx.Audio.SFXVolume() - 0.1)
-		w.saveSettings(ctx, fmt.Sprintf("sfx volume %d%%", int(ctx.Audio.SFXVolume()*100+0.5)))
-		return true
-	}
-	if pointInAnyRect(mx, my, w.sfxVolumePlusBounds) {
-		ctx.Audio.SetSFXVolume(ctx.Audio.SFXVolume() + 0.1)
-		w.saveSettings(ctx, fmt.Sprintf("sfx volume %d%%", int(ctx.Audio.SFXVolume()*100+0.5)))
-		return true
-	}
-	return false
 }
 
 func (w *SettingsWindow) saveSettings(ctx client.Context, successStatus string) {
@@ -285,50 +253,6 @@ func (w *SettingsWindow) EnsurePosition(ctx client.Context) {
 	w.x = maxInt(8, (width-settingsWindowWidth)/2)
 	w.y = maxInt(8, (height-settingsWindowHeight)/2)
 	w.positioned = true
-}
-
-func (w *SettingsWindow) closeBounds() (int, int, int, int) {
-	return w.x + settingsWindowWidth - 25, w.y + 6, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) bgmVolumeMinusBounds() (int, int, int, int) {
-	return w.x + 104, w.y + settingsWindowTitleH + 161, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) bgmVolumeBarBounds() (int, int, int, int) {
-	x := w.x + 134
-	plusX, _, _, _ := w.bgmVolumePlusBounds()
-	return x, w.y + settingsWindowTitleH + 167, plusX - x - 6, settingsVolumeBarH
-}
-
-func (w *SettingsWindow) bgmVolumePlusBounds() (int, int, int, int) {
-	return w.x + settingsWindowWidth - settingsWindowPad - IconButtonSize, w.y + settingsWindowTitleH + 161, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) sfxVolumeMinusBounds() (int, int, int, int) {
-	return w.x + 104, w.y + settingsWindowTitleH + 199, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) sfxVolumeBarBounds() (int, int, int, int) {
-	x := w.x + 134
-	plusX, _, _, _ := w.sfxVolumePlusBounds()
-	return x, w.y + settingsWindowTitleH + 205, plusX - x - 6, settingsVolumeBarH
-}
-
-func (w *SettingsWindow) sfxVolumePlusBounds() (int, int, int, int) {
-	return w.x + settingsWindowWidth - settingsWindowPad - IconButtonSize, w.y + settingsWindowTitleH + 199, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) fullscreenToggleBounds() (int, int, int, int) {
-	return w.x + settingsWindowPad, w.y + settingsWindowTitleH + 42, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) vsyncToggleBounds() (int, int, int, int) {
-	return w.x + settingsWindowPad, w.y + settingsWindowTitleH + 72, IconButtonSize, IconButtonSize
-}
-
-func (w *SettingsWindow) fpsToggleBounds() (int, int, int, int) {
-	return w.x + settingsWindowPad, w.y + settingsWindowTitleH + 102, IconButtonSize, IconButtonSize
 }
 
 func settingsVolumeBGM(ctx client.Context) float64 {

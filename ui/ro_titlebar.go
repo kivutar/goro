@@ -53,12 +53,8 @@ func (w *roTitleBarWidget) Event(ctx widget.Context, e event.Event) bool {
 		local := *ev
 		local.Position = ev.Position.Sub(w.Bounds().Min)
 		return w.child.Event(ctx, &local)
-	case *event.WheelEvent:
-		local := *ev
-		local.Position = ev.Position.Sub(w.Bounds().Min)
-		return w.child.Event(ctx, &local)
 	default:
-		return w.child.Event(ctx, e)
+		return false
 	}
 }
 

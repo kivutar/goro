@@ -151,9 +151,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if action, ok := m.escapeMenu.CursorAction(ctx); ok {
 		return action
 	}
-	if action, ok := m.settingsWindow.CursorAction(ctx); ok {
-		return action
-	}
 	if action, ok := m.npcDialog.CursorAction(ctx); ok {
 		return action
 	}
