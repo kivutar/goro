@@ -144,15 +144,17 @@ func Size(width, height float32) WindowOption {
 
 func windowCloseButton(enabled bool, onClose func()) widget.Widget {
 	if !enabled {
-		return primitives.Box().Width(17).Height(17)
+		return primitives.Box().Width(17).Height(ROWindowTitleHeight)
 	}
 	return primitives.Box(
+		primitives.Expanded(primitives.Box()),
 		rotheme.Button("x", onClose).
 			Width(17).
 			Height(17),
+		primitives.Expanded(primitives.Box()),
 	).
 		Width(17).
-		Height(17)
+		Height(ROWindowTitleHeight)
 }
 
 type WindowState struct {
