@@ -135,32 +135,6 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 	fieldW := float32(w.opts.W - w.opts.FieldLeft - w.opts.FieldRightPad)
 	fieldH := float32(w.opts.FieldH)
 	buttonW := float32(ButtonLabelWidth("Login"))
-	labelText := func(label string) widget.Widget {
-		return rotheme.Text(label).
-			LineHeight(fieldH / rotheme.Default.Typography.TextSize)
-	}
-	formRow := func(label string, field widget.Widget) widget.Widget {
-		return primitives.HBox(
-			primitives.Box(labelText(label)).
-				Width(labelW).
-				Height(fieldH),
-			primitives.Box(field).
-				Width(fieldW).
-				Height(fieldH),
-		).
-			CrossAlign(primitives.CrossAxisCenter).
-			Gap(12)
-	}
-	loginButton := primitives.Box(
-		rotheme.Button("Login", submit).
-			MinWidth(buttonW),
-	).
-		Width(buttonW).
-		Height(loginWindowButtonHeight)
-	footer := primitives.HBox(
-		primitives.Expanded(primitives.Box()),
-		loginButton,
-	)
 	return Window(
 		Title("Login"),
 		CloseButton(false),
@@ -169,8 +143,32 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 		FooterPadding(float32(w.opts.FieldRightPad)),
 		Content(
 			primitives.Box(
-				formRow("Account", w.user),
-				formRow("Password", w.password),
+				primitives.HBox(
+					primitives.Box(
+						rotheme.Text("Account").
+							LineHeight(fieldH/rotheme.Default.Typography.TextSize),
+					).
+						Width(labelW).
+						Height(fieldH),
+					primitives.Box(w.user).
+						Width(fieldW).
+						Height(fieldH),
+				).
+					CrossAlign(primitives.CrossAxisCenter).
+					Gap(12),
+				primitives.HBox(
+					primitives.Box(
+						rotheme.Text("Password").
+							LineHeight(fieldH/rotheme.Default.Typography.TextSize),
+					).
+						Width(labelW).
+						Height(fieldH),
+					primitives.Box(w.password).
+						Width(fieldW).
+						Height(fieldH),
+				).
+					CrossAlign(primitives.CrossAxisCenter).
+					Gap(12),
 			).
 				PaddingTop(float32(w.opts.FormTopPad)).
 				PaddingLeft(24).
@@ -178,7 +176,17 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 				Gap(float32(w.opts.FieldGap)).
 				Background(rotheme.Default.Colors.WindowBody),
 		),
-		Footer(footer),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				primitives.Box(
+					rotheme.Button("Login", submit).
+						MinWidth(buttonW),
+				).
+					Width(buttonW).
+					Height(loginWindowButtonHeight),
+			),
+		),
 	)
 }
 
