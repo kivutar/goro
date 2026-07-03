@@ -2,19 +2,23 @@ package ui
 
 import (
 	"fmt"
-	"time"
+	"strings"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
 	equipmentWindowWidth  = 300
 	equipmentWindowHeight = 178
-	equipmentWindowTitleH = 28
 	equipmentWindowPad    = 10
-	equipmentContentW     = 280
-	equipmentContentH     = 130
 	equipmentLeftColW     = 112
 	equipmentCenterColW   = 56
 	equipmentRightColW    = 112
@@ -36,16 +40,10 @@ const (
 )
 
 type EquipmentWindow struct {
-	open       bool
-	x          int
-	y          int
-	positioned bool
-	dragging   bool
-	dragDX     int
-	dragDY     int
-	status     string
-	statusGood bool
-	statusAt   time.Time
+	window   WindowState
+	snapshot string
+	status   string
+	itemInfo *ItemInfoWindow
 }
 
 type equipmentSlotDef struct {
@@ -63,267 +61,319 @@ const (
 	equipmentSlotCenter
 )
 
-var equipmentSlots = []equipmentSlotDef{
-	{label: "Head Top", location: equipLocationHeadTop, side: equipmentSlotLeft, row: 0},
-	{label: "Head Mid", location: equipLocationHeadMid, side: equipmentSlotRight, row: 0},
-	{label: "Head Low", location: equipLocationHeadBottom, side: equipmentSlotLeft, row: 1},
-	{label: "Armor", location: equipLocationArmor, side: equipmentSlotRight, row: 1},
-	{label: "Weapon", location: equipLocationWeapon, side: equipmentSlotLeft, row: 2},
-	{label: "Shield", location: equipLocationShield, side: equipmentSlotRight, row: 2},
-	{label: "Garment", location: equipLocationGarment, side: equipmentSlotLeft, row: 3},
-	{label: "Shoes", location: equipLocationShoes, side: equipmentSlotRight, row: 3},
-	{label: "Accessory", location: equipLocationAccessory1, side: equipmentSlotLeft, row: 4},
-	{label: "Accessory", location: equipLocationAccessory2, side: equipmentSlotRight, row: 4},
-	{label: "Ammo", location: equipLocationAmmo, side: equipmentSlotCenter, row: 1},
-}
+var (
+	equipmentSlotHeadTop    = equipmentSlotDef{label: "Head Top", location: equipLocationHeadTop, side: equipmentSlotLeft, row: 0}
+	equipmentSlotHeadMid    = equipmentSlotDef{label: "Head Mid", location: equipLocationHeadMid, side: equipmentSlotRight, row: 0}
+	equipmentSlotHeadLow    = equipmentSlotDef{label: "Head Low", location: equipLocationHeadBottom, side: equipmentSlotLeft, row: 1}
+	equipmentSlotArmor      = equipmentSlotDef{label: "Armor", location: equipLocationArmor, side: equipmentSlotRight, row: 1}
+	equipmentSlotWeapon     = equipmentSlotDef{label: "Weapon", location: equipLocationWeapon, side: equipmentSlotLeft, row: 2}
+	equipmentSlotShield     = equipmentSlotDef{label: "Shield", location: equipLocationShield, side: equipmentSlotRight, row: 2}
+	equipmentSlotGarment    = equipmentSlotDef{label: "Garment", location: equipLocationGarment, side: equipmentSlotLeft, row: 3}
+	equipmentSlotShoes      = equipmentSlotDef{label: "Shoes", location: equipLocationShoes, side: equipmentSlotRight, row: 3}
+	equipmentSlotAccessory  = equipmentSlotDef{label: "Accessory", location: equipLocationAccessory1, side: equipmentSlotLeft, row: 4}
+	equipmentSlotAccessory2 = equipmentSlotDef{label: "Accessory", location: equipLocationAccessory2, side: equipmentSlotRight, row: 4}
+	equipmentSlotAmmo       = equipmentSlotDef{label: "Ammo", location: equipLocationAmmo, side: equipmentSlotCenter, row: 1}
+
+	equipmentSlots = []equipmentSlotDef{
+		equipmentSlotHeadTop,
+		equipmentSlotHeadMid,
+		equipmentSlotHeadLow,
+		equipmentSlotArmor,
+		equipmentSlotWeapon,
+		equipmentSlotShield,
+		equipmentSlotGarment,
+		equipmentSlotShoes,
+		equipmentSlotAccessory,
+		equipmentSlotAccessory2,
+		equipmentSlotAmmo,
+	}
+)
 
 func (w *EquipmentWindow) Toggle(ctx Context) {
-	if w.open {
-		w.open = false
-		w.dragging = false
+	w.ensureWindow()
+	if w.window.IsOpen() {
+		w.window.Close()
+		w.Publish(ctx)
 		return
 	}
-	w.open = true
-	w.PlaceDefault(ctx)
+	w.snapshot = equipmentSnapshot(ctx.Session)
+	w.window.Open(ctx, w.widgetTree(ctx, nil))
+	w.Publish(ctx)
 }
 
 func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
-	if !w.open || ctx.Input == nil {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
 		return false
 	}
-	w.EnsurePosition(ctx)
-	width, height := ctx.ScreenSize()
-	if w.dragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			w.x = clampInventoryWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, width-equipmentWindowWidth-8))
-			w.y = clampInventoryWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, height-equipmentWindowHeight-8))
-			return true
-		}
-		w.dragging = false
-		return true
+	snapshot := equipmentSnapshot(ctx.Session)
+	if snapshot != w.snapshot || itemInfo != w.itemInfo {
+		w.snapshot = snapshot
+		w.itemInfo = itemInfo
+		w.window.SetRoot(w.widgetTree(ctx, itemInfo))
 	}
+	consumed := w.window.Update(ctx)
+	if !w.window.IsOpen() {
+		w.Publish(ctx)
+		return consumed
+	}
+	w.Publish(ctx)
+	return consumed
+}
 
-	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, equipmentWindowWidth, equipmentWindowHeight)
-	if ctx.Input.JustPressed(render.KeyEscape) {
-		w.open = false
-		return true
+func (w *EquipmentWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {}
+
+func (w *EquipmentWindow) ensureWindow() {
+	if w.window.width == 0 {
+		w.window = NewWindowState(equipmentWindowWidth, equipmentWindowHeight)
 	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonRight) {
-		mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-		if !inside {
-			return false
-		}
-		if item, ok := w.itemAt(ctx.Session, mx, my); ok {
+}
+
+func (w *EquipmentWindow) Publish(ctx client.Context) {
+	w.ensureWindow()
+	if ctx.UIManager == nil {
+		return
+	}
+	if !w.window.IsOpen() {
+		ctx.UIManager.Clear()
+		return
+	}
+	ctx.UIManager.SetRoot(w.window.Widget())
+}
+
+func (w *EquipmentWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Widget {
+	return Window(
+		Title("Equipment"),
+		CloseButton(true),
+		OnClose(func() {
+			w.window.Close()
+			w.Publish(ctx)
+		}),
+		Size(equipmentWindowWidth, equipmentWindowHeight),
+		Content(
+			primitives.Box(
+				primitives.HBox(
+					primitives.Box(
+						w.slotWidget(ctx, itemInfo, equipmentSlotHeadTop, equipmentLeftColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotHeadLow, equipmentLeftColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotWeapon, equipmentLeftColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotGarment, equipmentLeftColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotAccessory, equipmentLeftColW),
+					).
+						Width(equipmentLeftColW).
+						Gap(0),
+
+					primitives.Box(
+						primitives.Box().
+							Height(30),
+						w.slotWidget(ctx, itemInfo, equipmentSlotAmmo, equipmentCenterColW),
+						primitives.Expanded(primitives.Box()),
+					).
+						Width(equipmentCenterColW).
+						Height(130).
+						Gap(0),
+
+					primitives.Box(
+						w.slotWidget(ctx, itemInfo, equipmentSlotHeadMid, equipmentRightColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotArmor, equipmentRightColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotShield, equipmentRightColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotShoes, equipmentRightColW),
+						w.slotWidget(ctx, itemInfo, equipmentSlotAccessory2, equipmentRightColW),
+					).
+						Width(equipmentRightColW).
+						Gap(0),
+				).
+					Gap(0),
+			).
+				Padding(equipmentWindowPad),
+		),
+	)
+}
+
+func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot equipmentSlotDef, width int) widget.Widget {
+	if !equipmentSlotVisible(ctx.Session, slot) {
+		return primitives.Box().
+			Width(float32(width)).
+			Height(equipmentRowH)
+	}
+	item, hasItem := equippedItemForSlot(ctx.Session, slot.location)
+	return newEquipmentSlotWidget(equipmentSlotWidgetConfig{
+		slot:    slot,
+		item:    item,
+		hasItem: hasItem,
+		width:   width,
+		res:     ctx.Resources,
+		onClick: func(item session.InventoryItem) {
+			w.activateItem(ctx, item)
+		},
+		onRightClick: func(item session.InventoryItem) {
 			if itemInfo != nil {
-				itemInfo.openItem(ctx, item, mx, my)
+				x, y := 0, 0
+				if ctx.Input != nil {
+					x, y = ctx.Input.MouseX, ctx.Input.MouseY
+				}
+				itemInfo.openItem(ctx, item, x, y)
 			}
-			return true
-		}
-		return true
-	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		if inside {
-			w.updateHoverStatus(ctx)
-		}
-		return inside
-	}
-
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if !inside {
-		return false
-	}
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		w.open = false
-		return true
-	}
-	if pointInRect(mx, my, w.x, w.y, equipmentWindowWidth, equipmentWindowTitleH) {
-		w.dragging = true
-		w.dragDX = mx - w.x
-		w.dragDY = my - w.y
-		return true
-	}
-	if item, ok := w.itemAt(ctx.Session, mx, my); ok {
-		w.activateItem(ctx, item)
-		return true
-	}
-	return true
-}
-
-func (w *EquipmentWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	if !w.open || screen == nil {
-		return
-	}
-	w.EnsurePosition(ctx)
-	x, y := w.x, w.y
-	DrawTitledWindowFrame(screen, x, y, equipmentWindowWidth, equipmentWindowHeight, equipmentWindowTitleH)
-	DrawWindowTitle(screen, x, y, equipmentWindowTitleH, equipmentWindowPad, "Equipment", inventoryTitleColor)
-	cx, cy, cw, ch := w.closeBounds()
-	DrawCloseButton(screen, cx, cy, cw, ch, inventoryButtonColor, inventoryTextColor)
-
-	px, py, pw, ph := w.previewBounds()
-	if assets != nil {
-		assets.DrawEquipmentPreview(screen, ctx, px, py, pw, ph)
-	}
-
-	mx, my := -1, -1
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-	}
-	for _, slot := range equipmentSlots {
-		if !equipmentSlotVisible(ctx.Session, slot) {
-			continue
-		}
-		sx, sy, sw, sh := w.slotBounds(slot)
-		lineColor := WindowBorderColor
-		if pointInRect(mx, my, sx, sy, sw, sh) {
-			lineColor = ButtonBorderColor
-		}
-		render.DrawRect(screen, float64(sx), float64(sy+sh-1), float64(sw), 1, lineColor)
-		item, ok := equippedItemForSlot(ctx.Session, slot.location)
-		if ok && assets != nil {
-			w.drawSlotItem(screen, ctx, assets, slot, item, sx, sy, sw, sh)
-			continue
-		}
-		w.drawEmptySlotLabel(screen, slot, sx, sy)
-	}
-
-}
-
-func (w *EquipmentWindow) CursorAction(ctx Context) (int, bool) {
-	if !w.open || ctx.Input == nil {
-		return 0, false
-	}
-	if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, equipmentWindowWidth, equipmentWindowHeight) {
-		return CursorActionClick, true
-	}
-	return 0, false
-}
-
-func (w *EquipmentWindow) EnsurePosition(ctx Context) {
-	if w.positioned {
-		return
-	}
-	w.PlaceDefault(ctx)
-}
-
-func (w *EquipmentWindow) PlaceDefault(ctx Context) {
-	width, height := ctx.ScreenSize()
-	w.x = clampInventoryWindowInt((width-equipmentWindowWidth)/2, 8, maxInt(8, width-equipmentWindowWidth-8))
-	w.y = clampInventoryWindowInt((height-equipmentWindowHeight)/2, 8, maxInt(8, height-equipmentWindowHeight-8))
-	w.positioned = true
-}
-
-func (w *EquipmentWindow) closeBounds() (int, int, int, int) {
-	return w.x + equipmentWindowWidth - 24, w.y + 7, IconButtonSize, IconButtonSize
-}
-
-func (w *EquipmentWindow) contentOrigin() (int, int) {
-	return w.x + equipmentWindowPad, w.y + equipmentWindowTitleH + equipmentWindowPad
-}
-
-func (w *EquipmentWindow) previewBounds() (int, int, int, int) {
-	x, y := w.contentOrigin()
-	return x + equipmentLeftColW, y + 2, equipmentCenterColW, 125
-}
-
-func (w *EquipmentWindow) slotBounds(slot equipmentSlotDef) (int, int, int, int) {
-	x, y := w.contentOrigin()
-	switch slot.side {
-	case equipmentSlotLeft:
-		return x, y + slot.row*equipmentRowH, equipmentLeftColW, equipmentRowH
-	case equipmentSlotRight:
-		return x + equipmentLeftColW + equipmentCenterColW, y + slot.row*equipmentRowH, equipmentRightColW, equipmentRowH
-	case equipmentSlotCenter:
-		return x + equipmentLeftColW, y + 30, equipmentCenterColW, equipmentRowH
-	default:
-		return x, y, 0, 0
-	}
-}
-
-func (w *EquipmentWindow) itemAt(s *session.Session, mx, my int) (session.InventoryItem, bool) {
-	for _, slot := range equipmentSlots {
-		if !equipmentSlotVisible(s, slot) {
-			continue
-		}
-		x, y, width, height := w.slotBounds(slot)
-		if !pointInRect(mx, my, x, y, width, height) {
-			continue
-		}
-		return equippedItemForSlot(s, slot.location)
-	}
-	return session.InventoryItem{}, false
-}
-
-func (w *EquipmentWindow) updateHoverStatus(ctx Context) {
-	item, ok := w.itemAt(ctx.Session, ctx.Input.MouseX, ctx.Input.MouseY)
-	if !ok {
-		return
-	}
-	w.status = inventoryItemDisplayName(ctx.Resources, item)
-	w.statusGood = true
-	w.statusAt = time.Now()
+		},
+	})
 }
 
 func (w *EquipmentWindow) activateItem(ctx Context, item session.InventoryItem) {
 	if ctx.Network == nil {
-		w.setStatus("Not connected", false)
+		w.status = "Not connected"
 		return
 	}
 	if err := ctx.Network.SendTakeoffEquip(item.Index); err != nil {
-		w.setStatus(err.Error(), false)
+		w.status = err.Error()
 		return
 	}
-	w.setStatus("Unequip requested", true)
+	w.status = "Unequip requested"
 }
 
-func (w *EquipmentWindow) setStatus(text string, good bool) {
-	w.status = text
-	w.statusGood = good
-	w.statusAt = time.Now()
+func equipmentSnapshot(s *session.Session) string {
+	if s == nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "job=%d;", selectedCharacter(s).Job)
+	for _, item := range s.Inventory.Items {
+		if !item.Equip || !item.Equipped {
+			continue
+		}
+		fmt.Fprintf(&b, "%d:%d:%d:%d:%d;", item.Index, item.ItemID, item.Location, item.Amount, item.Refine)
+	}
+	return b.String()
 }
 
-func (w *EquipmentWindow) drawSlotItem(screen *render.Image, ctx Context, assets AssetRenderer, slot equipmentSlotDef, item session.InventoryItem, x, y, width, height int) {
-	name := inventoryItemDisplayName(ctx.Resources, item)
+type equipmentSlotWidgetConfig struct {
+	slot         equipmentSlotDef
+	item         session.InventoryItem
+	hasItem      bool
+	width        int
+	res          *res.Manager
+	onClick      func(session.InventoryItem)
+	onRightClick func(session.InventoryItem)
+}
+
+type equipmentSlotWidget struct {
+	widget.WidgetBase
+	cfg     equipmentSlotWidgetConfig
+	hovered bool
+}
+
+func newEquipmentSlotWidget(cfg equipmentSlotWidgetConfig) *equipmentSlotWidget {
+	w := &equipmentSlotWidget{cfg: cfg}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *equipmentSlotWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(float32(w.cfg.width), equipmentRowH))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *equipmentSlotWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() {
+		return
+	}
+	bounds := w.Bounds()
+	line := rotheme.Default.Colors.WindowBorder
+	if w.hovered && w.cfg.hasItem {
+		line = rotheme.Default.Colors.ButtonBorder
+	}
+	canvas.DrawLine(
+		geometry.Pt(bounds.Min.X, bounds.Max.Y-1),
+		geometry.Pt(bounds.Max.X, bounds.Max.Y-1),
+		line,
+		1,
+	)
+
+	color := rotheme.Default.Colors.MutedText
+	text := w.cfg.slot.label
+	if w.cfg.hasItem {
+		color = rotheme.Default.Colors.Text
+		text = inventoryItemDisplayName(w.cfg.res, w.cfg.item)
+		if w.cfg.item.Refine > 0 {
+			text = "+" + formatHUDNumber(int64(w.cfg.item.Refine)) + " " + text
+		}
+		if equipmentSlotShowsAmount(w.cfg.slot, w.cfg.item) {
+			text = fmt.Sprintf("%s %d", text, w.cfg.item.Amount)
+		}
+	}
+	text = trimRunes(text, equipmentSlotTextLimit(w.cfg.slot))
+	rotheme.DrawText(
+		canvas,
+		text,
+		geometry.NewRect(bounds.Min.X+4, bounds.Min.Y+4, bounds.Width()-8, bounds.Height()-8),
+		rotheme.Default.Typography.TextSize,
+		color,
+		false,
+		equipmentSlotTextAlign(w.cfg.slot),
+	)
+}
+
+func (w *equipmentSlotWidget) Event(ctx widget.Context, e event.Event) bool {
+	if !w.IsVisible() || !w.IsEnabled() {
+		return false
+	}
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseEnter:
+		w.hovered = true
+		if w.cfg.hasItem {
+			ctx.SetCursor(widget.CursorPointer)
+		}
+		w.SetNeedsRedraw(true)
+		return w.cfg.hasItem
+	case event.MouseLeave:
+		w.hovered = false
+		ctx.SetCursor(widget.CursorDefault)
+		w.SetNeedsRedraw(true)
+		return false
+	case event.MousePress:
+		if !w.cfg.hasItem {
+			return true
+		}
+		switch mouse.Button {
+		case event.ButtonLeft:
+			if w.cfg.onClick != nil {
+				w.cfg.onClick(w.cfg.item)
+			}
+			return true
+		case event.ButtonRight:
+			if w.cfg.onRightClick != nil {
+				w.cfg.onRightClick(w.cfg.item)
+			}
+			return true
+		}
+	}
+	return w.cfg.hasItem
+}
+
+func equipmentSlotTextAlign(slot equipmentSlotDef) widget.TextAlign {
+	if slot.side == equipmentSlotRight {
+		return widget.TextAlignRight
+	}
 	if slot.side == equipmentSlotCenter {
-		iconX := x + (width-inventoryIconSize)/2
-		assets.DrawInventoryItemIcon(screen, ctx.Resources, item, iconX, y)
-		if equipmentSlotShowsAmount(slot, item) {
-			render.DebugPrintAtColor(screen, fmt.Sprintf("%d", item.Amount), x+width-18, y+height-14, TextColor)
-		}
-		return
+		return widget.TextAlignCenter
 	}
-	if slot.side == equipmentSlotLeft {
-		assets.DrawInventoryItemIcon(screen, ctx.Resources, item, x+4, y)
-		render.DebugPrintAtColor(screen, trimRunes(name, 10), x+32, y+6, TextColor)
-		if item.Refine > 0 {
-			render.DebugPrintAtColor(screen, "+"+formatHUDNumber(int64(item.Refine)), x+2, y+1, shopGoodColor)
-		}
-		return
+	return widget.TextAlignLeft
+}
+
+func equipmentSlotTextLimit(slot equipmentSlotDef) int {
+	if slot.side == equipmentSlotCenter {
+		return 8
 	}
-	iconX := x + width - inventoryIconSize - 4
-	assets.DrawInventoryItemIcon(screen, ctx.Resources, item, iconX, y)
-	render.DebugPrintAtColor(screen, trimRunes(name, 10), x+4, y+6, TextColor)
-	if item.Refine > 0 {
-		render.DebugPrintAtColor(screen, "+"+formatHUDNumber(int64(item.Refine)), iconX-2, y+1, shopGoodColor)
-	}
+	return 14
 }
 
 func equipmentSlotShowsAmount(slot equipmentSlotDef, item session.InventoryItem) bool {
 	return slot.location == equipLocationAmmo && item.Amount > 0
-}
-
-func (w *EquipmentWindow) drawEmptySlotLabel(screen *render.Image, slot equipmentSlotDef, x, y int) {
-	if slot.side == equipmentSlotCenter {
-		render.DebugPrintAtColor(screen, "Ammo", x+14, y+6, MutedTextColor)
-		return
-	}
-	label := slot.label
-	if slot.side == equipmentSlotLeft {
-		render.DebugPrintAtColor(screen, label, x+8, y+6, MutedTextColor)
-		return
-	}
-	render.DebugPrintAtColor(screen, label, x+widthForRightSlotLabel(label), y+6, MutedTextColor)
 }
 
 func equippedItemForSlot(s *session.Session, location uint16) (session.InventoryItem, bool) {
@@ -359,10 +409,6 @@ func jobSupportsAmmo(job int) bool {
 	default:
 		return false
 	}
-}
-
-func widthForRightSlotLabel(label string) int {
-	return maxInt(4, equipmentRightColW-8-len([]rune(label))*7)
 }
 
 func equipmentSlotByLocation(location uint16) (equipmentSlotDef, bool) {

@@ -51,13 +51,13 @@ func TestEquipmentSlotShowsAmountOnlyForAmmo(t *testing.T) {
 }
 
 func TestEquipmentWindowOpensCentered(t *testing.T) {
-	window := EquipmentWindow{x: 12, y: 34, positioned: true}
+	window := EquipmentWindow{}
 	window.Toggle(Context{ScreenW: 1280, ScreenH: 720})
 
-	if !window.open {
+	if !window.window.IsOpen() {
 		t.Fatal("equipment window did not open")
 	}
-	if window.x != (1280-equipmentWindowWidth)/2 || window.y != (720-equipmentWindowHeight)/2 {
-		t.Fatalf("equipment position = %d,%d, want centered", window.x, window.y)
+	if window.window.x != (1280-equipmentWindowWidth)/2 || window.window.y != (720-equipmentWindowHeight)/2 {
+		t.Fatalf("equipment position = %d,%d, want centered", window.window.x, window.window.y)
 	}
 }
