@@ -75,6 +75,10 @@ func (g *Game) Draw(screen *render.Image) {
 	g.modes.Draw(screen)
 }
 
+func (g *Game) DrawOverlay(screen *render.Image) {
+	g.modes.DrawOverlay(screen)
+}
+
 func (g *Game) Resize(width, height int) {
 	if width <= 0 || height <= 0 {
 		g.screenW = g.cfg.Window.Width

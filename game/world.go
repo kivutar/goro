@@ -2959,8 +2959,14 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.escapeMenu.Draw(screen, ctx, width, height)
 	m.teleportModal.Draw(screen, ctx, width, height)
 	m.deathModal.Draw(screen, ctx, width, height)
-	m.drawROCursor(screen, ctx, projection, now)
+}
+
+func (m *WorldMode) DrawOverlay(ctx client.Context, screen *render.Image) {
+	width, height := screen.Bounds().Dx(), screen.Bounds().Dy()
+	now := time.Now()
+	projection := m.sceneProjection(ctx, width, height, now)
 	m.drawMapFade(screen, now)
+	m.drawROCursor(screen, ctx, projection, now)
 }
 
 type followCamera struct {

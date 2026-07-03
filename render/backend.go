@@ -40,6 +40,10 @@ type uiAppReceiver interface {
 	SetUIApp(client.UIApp)
 }
 
+type overlayDrawer interface {
+	DrawOverlay(*Image)
+}
+
 type runtimeSettingsProvider interface {
 	RuntimeFullscreen() bool
 	RuntimeVSync() bool
@@ -50,6 +54,7 @@ type runner struct {
 	app            *gogpu.App
 	ui             *uiapp.App
 	uiCanvas       *ggcanvas.Canvas
+	uiImage        *Image
 	game           Game
 	screen         *Image
 	gpu            *gpuRenderer
@@ -520,10 +525,13 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	r.screen.BeginFrame()
 	r.game.Draw(r.screen)
 	r.drawFPSCounter()
-	if err := r.gpu.Draw(ctx, r.screen); err != nil {
+	if err := r.drawUI(r.screen, width, height); err != nil {
 		return err
 	}
-	if err := r.drawUI(ctx, width, height); err != nil {
+	if drawer, ok := r.game.(overlayDrawer); ok {
+		drawer.DrawOverlay(r.screen)
+	}
+	if err := r.gpu.Draw(ctx, r.screen); err != nil {
 		return err
 	}
 	r.frames++
@@ -534,8 +542,8 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	return nil
 }
 
-func (r *runner) drawUI(ctx *gogpu.Context, width, height int) error {
-	if r.ui == nil || ctx == nil || width <= 0 || height <= 0 {
+func (r *runner) drawUI(screen *Image, width, height int) error {
+	if r.ui == nil || screen == nil || width <= 0 || height <= 0 {
 		return nil
 	}
 	provider := r.app.GPUContextProvider()
@@ -555,6 +563,7 @@ func (r *runner) drawUI(ctx *gogpu.Context, width, height int) error {
 			return fmt.Errorf("resize ui canvas: %w", err)
 		}
 		r.uiDrawnOnce = false
+		r.uiImage = nil
 	}
 
 	win := r.ui.Window()
@@ -569,26 +578,21 @@ func (r *runner) drawUI(ctx *gogpu.Context, width, height int) error {
 		}
 		if drawn {
 			r.uiDrawnOnce = true
-			if err := r.uiCanvas.RenderTo(ctx.AsTextureDrawer()); err != nil {
-				return fmt.Errorf("render ui canvas: %w", err)
+			if _, err := r.uiCanvas.Flush(); err != nil {
+				return fmt.Errorf("flush ui canvas: %w", err)
 			}
-			return nil
+			r.uiImage = NewImageFromImage(r.uiCanvas.Context().Image())
+			if r.uiImage == nil {
+				return nil
+			}
 		}
 	}
-	if !r.uiDrawnOnce {
+	if !r.uiDrawnOnce || r.uiImage == nil {
 		return nil
 	}
-	tex, err := r.uiCanvas.FlushPixmap()
-	if err != nil {
-		return fmt.Errorf("flush ui canvas: %w", err)
-	}
-	gpuTex, ok := tex.(gpucontext.Texture)
-	if !ok {
-		return fmt.Errorf("ui canvas returned %T, not gpu texture", tex)
-	}
-	if err := ctx.AsTextureDrawer().DrawTexture(gpuTex, 0, 0); err != nil {
-		return fmt.Errorf("render ui canvas: %w", err)
-	}
+	var opts DrawImageOptions
+	opts.Filter = FilterNearest
+	screen.DrawImage(r.uiImage, &opts)
 	return nil
 }
 

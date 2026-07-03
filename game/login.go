@@ -370,9 +370,12 @@ func (m *LoginMode) Draw(ctx client.Context, screen *render.Image) {
 	} else {
 		m.drawLoginWindow(ctx)
 	}
+}
+
+func (m *LoginMode) DrawOverlay(ctx client.Context, screen *render.Image) {
 	now := time.Now()
-	m.drawFade(ctx, screen, now)
 	m.drawQuitConfirm(ctx, screen)
+	m.drawFade(ctx, screen, now)
 	m.drawROCursor(screen, ctx, now)
 }
 
