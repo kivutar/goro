@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kivutar/goro/client"
+	"image"
 	"image/color"
 	"log"
 	"strings"
@@ -17,30 +18,32 @@ import (
 )
 
 type LoginMode struct {
-	selected       int
-	phase          loginPhase
-	status         string
-	packets        []string
-	console        gameui.ChatConsole
-	autoAttempted  bool
-	fade           loginFadeState
-	username       string
-	password       string
-	background     *render.Image
-	bgTiles        []*render.Image
-	bgSource       string
-	bgLoaded       bool
-	bgmStarted     bool
-	selectedSlot   int
-	maxSlots       int
-	charViews      map[uint32]*humanoidSpriteView
-	charViewFailed map[uint32]struct{}
-	charWindow     *render.Image
-	charBox        *render.Image
-	loginWindow    *gameui.LoginWindow
-	create         charCreateState
-	cursor         roCursorState
-	quitConfirm    loginQuitConfirmState
+	selected          int
+	phase             loginPhase
+	status            string
+	packets           []string
+	console           gameui.ChatConsole
+	autoAttempted     bool
+	fade              loginFadeState
+	username          string
+	password          string
+	background        *render.Image
+	bgTiles           []*render.Image
+	bgSource          string
+	bgLoaded          bool
+	bgmStarted        bool
+	selectedSlot      int
+	maxSlots          int
+	charViews         map[uint32]*humanoidSpriteView
+	charViewFailed    map[uint32]struct{}
+	charPreviewImages map[uint32]image.Image
+	charWindow        *render.Image
+	charBox           *render.Image
+	loginWindow       *gameui.LoginWindow
+	charSelectWindow  *gameui.CharacterSelectWindow
+	create            charCreateState
+	cursor            roCursorState
+	quitConfirm       loginQuitConfirmState
 }
 
 type loginPhase int
@@ -288,6 +291,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				m.create = charCreateState{}
 				m.charViews = nil
 				m.charViewFailed = nil
+				m.charPreviewImages = nil
 				m.status = fmt.Sprintf("created character %s", created.Name)
 				log.Printf("character created slot=%d id=%d name=%s", created.Slot, created.ID, created.Name)
 				m.startPhaseFade(loginPhaseCharacter, time.Now())
@@ -361,13 +365,12 @@ func (m *LoginMode) Draw(ctx client.Context, screen *render.Image) {
 		if ctx.UIManager != nil {
 			ctx.UIManager.Clear()
 		}
+		m.charSelectWindow = nil
 		m.drawCharacterCreate(ctx, screen)
 	} else if m.phase == loginPhaseCharacter {
-		if ctx.UIManager != nil {
-			ctx.UIManager.Clear()
-		}
-		m.drawCharacterSelect(ctx, screen)
+		m.drawCharacterSelect(ctx)
 	} else {
+		m.charSelectWindow = nil
 		m.drawLoginWindow(ctx)
 	}
 }
@@ -398,28 +401,6 @@ func (m *LoginMode) cursorAction(ctx client.Context) int {
 		return action
 	}
 	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if m.phase == loginPhaseCharacter {
-		x, y, w, h := charSelectWindowRect(ctx)
-		for localSlot := 0; localSlot < 3; localSlot++ {
-			slotX, slotY, slotW, slotH := charSelectSlotRect(x, y, localSlot)
-			if pointInRect(mx, my, slotX, slotY, slotW, slotH) {
-				return cursorActionClick
-			}
-		}
-		for _, rect := range [][4]int{
-			rectArray(charSelectLeftArrowRect(x, y)),
-			rectArray(charSelectRightArrowRect(x, y)),
-			rectArray(charSelectDeleteButtonRect(x, y, w, h)),
-			rectArray(charSelectMakeButtonRect(x, y, w, h)),
-			rectArray(charSelectOKButtonRect(x, y, w, h)),
-			rectArray(charSelectCancelButtonRect(x, y, w, h)),
-		} {
-			if pointInRect(mx, my, rect[0], rect[1], rect[2], rect[3]) {
-				return cursorActionClick
-			}
-		}
-		return cursorActionDefault
-	}
 	if m.phase == loginPhaseCreate {
 		x, y, w, h := charCreateWindowRect(ctx)
 		rects := [][4]int{
@@ -539,6 +520,17 @@ func (m *LoginMode) updateFormInput(ctx client.Context) {
 }
 
 func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
+	if ctx.Input != nil && ctx.Input.JustPressed(render.KeyEscape) {
+		m.cancelCharacterSelect(ctx)
+		return
+	}
+	m.updateCharacterSelectWindow(ctx)
+	if m.charSelectWindow != nil {
+		m.charSelectWindow.Update(ctx)
+		if ctx.UIManager != nil {
+			ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
+		}
+	}
 	if ctx.Input == nil {
 		return
 	}
@@ -551,59 +543,87 @@ func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
 	if ctx.Input.JustPressed(render.KeyEnter) {
 		m.submitSelectedCharacter(ctx)
 	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
+}
+
+func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
 	x, y, w, h := charSelectWindowRect(ctx)
-	for localSlot := 0; localSlot < 3; localSlot++ {
-		slotX, slotY, slotW, slotH := charSelectSlotRect(x, y, localSlot)
-		if pointInRect(mx, my, slotX, slotY, slotW, slotH) {
-			clickedSlot := charSelectPage(m.selectedSlot)*3 + localSlot
-			if clickedSlot == m.selectedSlot {
-				if _, ok := characterBySlot(ctx.Session.Characters, clickedSlot); ok {
-					m.submitSelectedCharacter(ctx)
-				} else {
-					m.openCharacterCreate(ctx, clickedSlot, time.Now())
+	opts := charSelectWindowOptions(x, y, w, h)
+	opts.SelectedSlot = m.selectedSlot
+	opts.MaxSlots = m.maxSlots
+	if ctx.Session != nil {
+		opts.Characters = ctx.Session.Characters
+	}
+	opts.PreviewImages = m.characterSelectPreviewImages(ctx, opts)
+	callbacks := gameui.CharacterSelectWindowCallbacks{
+		OnSelectSlot: func(slot int) {
+			m.selectedSlot = clampCharacterSlot(slot, m.maxSlots)
+			m.updateCharacterSelectWindow(ctx)
+		},
+		OnActivateSlot: func(slot int) {
+			if _, ok := characterBySlot(ctx.Session.Characters, slot); ok {
+				m.submitSelectedCharacter(ctx)
+			} else {
+				m.openCharacterCreate(ctx, slot, time.Now())
+			}
+		},
+		OnPreviousPage: func() {
+			m.moveSelectedSlot(-3)
+			m.updateCharacterSelectWindow(ctx)
+		},
+		OnNextPage: func() {
+			m.moveSelectedSlot(3)
+			m.updateCharacterSelectWindow(ctx)
+		},
+		OnMake: func() {
+			slot := m.selectedSlot
+			if _, ok := characterBySlot(ctx.Session.Characters, slot); ok {
+				if empty, hasEmpty := firstEmptyCharacterSlot(ctx.Session.Characters, m.maxSlots); hasEmpty {
+					slot = empty
 				}
-				return
 			}
-			m.selectedSlot = clampCharacterSlot(clickedSlot, m.maxSlots)
-			return
+			m.openCharacterCreate(ctx, slot, time.Now())
+		},
+		OnOK: func() {
+			m.submitSelectedCharacter(ctx)
+		},
+		OnCancel: func() {
+			m.cancelCharacterSelect(ctx)
+		},
+		OnDelete: func() {
+			m.status = "character deletion is not implemented yet"
+			m.updateCharacterSelectWindow(ctx)
+		},
+	}
+	if m.charSelectWindow == nil {
+		m.charSelectWindow = gameui.NewCharacterSelectWindow(opts, callbacks)
+		return
+	}
+	m.charSelectWindow.SetOptions(opts)
+}
+
+func (m *LoginMode) characterSelectPreviewImages(ctx client.Context, opts gameui.CharacterSelectWindowOptions) map[int]image.Image {
+	images := make(map[int]image.Image, 3)
+	pageStart := charSelectPage(opts.SelectedSlot) * 3
+	for localSlot := 0; localSlot < 3; localSlot++ {
+		slot := pageStart + localSlot
+		character, ok := characterBySlot(opts.Characters, slot)
+		if !ok {
+			continue
+		}
+		if image := m.characterPreviewImage(ctx, character); image != nil {
+			images[slot] = image
 		}
 	}
-	leftX, leftY, leftW, leftH := charSelectLeftArrowRect(x, y)
-	rightX, rightY, rightW, rightH := charSelectRightArrowRect(x, y)
-	if pointInRect(mx, my, leftX, leftY, leftW, leftH) {
-		m.moveSelectedSlot(-1)
-		return
-	}
-	if pointInRect(mx, my, rightX, rightY, rightW, rightH) {
-		m.moveSelectedSlot(1)
-		return
-	}
-	okX, okY, okW, okH := charSelectOKButtonRect(x, y, w, h)
-	cancelX, cancelY, cancelW, cancelH := charSelectCancelButtonRect(x, y, w, h)
-	makeX, makeY, makeW, makeH := charSelectMakeButtonRect(x, y, w, h)
-	deleteX, deleteY, deleteW, deleteH := charSelectDeleteButtonRect(x, y, w, h)
-	switch {
-	case pointInRect(mx, my, okX, okY, okW, okH):
-		m.submitSelectedCharacter(ctx)
-	case pointInRect(mx, my, cancelX, cancelY, cancelW, cancelH):
-		m.startPhaseFade(loginPhaseAccount, time.Now())
+	return images
+}
+
+func (m *LoginMode) cancelCharacterSelect(ctx client.Context) {
+	m.charSelectWindow = nil
+	m.startPhaseFade(loginPhaseAccount, time.Now())
+	if ctx.Network != nil {
 		ctx.Network.Close()
-		m.status = "char select cancelled"
-	case pointInRect(mx, my, makeX, makeY, makeW, makeH):
-		slot := m.selectedSlot
-		if _, ok := characterBySlot(ctx.Session.Characters, slot); ok {
-			if empty, hasEmpty := firstEmptyCharacterSlot(ctx.Session.Characters, m.maxSlots); hasEmpty {
-				slot = empty
-			}
-		}
-		m.openCharacterCreate(ctx, slot, time.Now())
-	case pointInRect(mx, my, deleteX, deleteY, deleteW, deleteH):
-		m.status = "character deletion is not implemented yet"
 	}
+	m.status = "char select cancelled"
 }
 
 func (m *LoginMode) prepareCharacterSelectFromSession(ctx client.Context) {
@@ -940,21 +960,11 @@ func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 	}
 }
 
-func (m *LoginMode) drawCharacterSelect(ctx client.Context, screen *render.Image) {
-	x, y, w, h := charSelectWindowRect(ctx)
-	opts := charSelectWindowOptions(x, y, w, h)
-	opts.SelectedSlot = m.selectedSlot
-	opts.MaxSlots = m.maxSlots
-	opts.Characters = ctx.Session.Characters
-	opts.DrawPreview = func(screen *render.Image, character session.Character, centerX, feetY int) {
-		m.drawCharacterPreview(screen, ctx, character, centerX, feetY)
+func (m *LoginMode) drawCharacterSelect(ctx client.Context) {
+	m.updateCharacterSelectWindow(ctx)
+	if m.charSelectWindow != nil && ctx.UIManager != nil {
+		ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
 	}
-	if ctx.Input != nil {
-		opts.HasMouse = true
-		opts.MouseX = ctx.Input.MouseX
-		opts.MouseY = ctx.Input.MouseY
-	}
-	gameui.DrawCharacterSelectWindow(screen, opts)
 }
 
 func (m *LoginMode) drawCharacterCreate(ctx client.Context, screen *render.Image) {
@@ -1054,6 +1064,22 @@ func (m *LoginMode) drawCharacterPreview(screen *render.Image, ctx client.Contex
 	opts.GeoM.Translate(float64(centerX)-billboard.anchorX*scale, float64(feetY)-billboard.anchorY*scale)
 	opts.Filter = spriteDrawFilter()
 	screen.DrawImage(billboard.image, &opts)
+}
+
+func (m *LoginMode) characterPreviewImage(ctx client.Context, character session.Character) image.Image {
+	if character.ID == 0 {
+		return nil
+	}
+	if m.charPreviewImages == nil {
+		m.charPreviewImages = make(map[uint32]image.Image)
+	}
+	if img := m.charPreviewImages[character.ID]; img != nil {
+		return img
+	}
+	img := render.NewImage(139, 144)
+	m.drawCharacterPreview(img, ctx, character, 139/2, 144-15-charSelectPreviewFeetLift)
+	m.charPreviewImages[character.ID] = img.RGBA()
+	return m.charPreviewImages[character.ID]
 }
 
 func (m *LoginMode) characterPreviewView(ctx client.Context, character session.Character) *humanoidSpriteView {

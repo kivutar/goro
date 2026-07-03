@@ -2,10 +2,17 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 type CharacterPreviewFunc func(screen *render.Image, character session.Character, centerX, feetY int)
@@ -24,6 +31,337 @@ type CharacterSelectWindowOptions struct {
 	MouseX, MouseY  int
 	HasMouse        bool
 	DrawPreview     CharacterPreviewFunc
+	PreviewImages   map[int]image.Image
+}
+
+type CharacterSelectWindowCallbacks struct {
+	OnSelectSlot   func(int)
+	OnActivateSlot func(int)
+	OnPreviousPage func()
+	OnNextPage     func()
+	OnMake         func()
+	OnOK           func()
+	OnCancel       func()
+	OnDelete       func()
+}
+
+type CharacterSelectWindow struct {
+	opts      CharacterSelectWindowOptions
+	callbacks CharacterSelectWindowCallbacks
+	window    WindowState
+}
+
+func NewCharacterSelectWindow(opts CharacterSelectWindowOptions, callbacks CharacterSelectWindowCallbacks) *CharacterSelectWindow {
+	w := &CharacterSelectWindow{
+		opts:      opts,
+		callbacks: callbacks,
+		window:    NewWindowState(opts.W, opts.H),
+	}
+	w.window.OpenAt(opts.X, opts.Y, w.widgetTree())
+	return w
+}
+
+func (w *CharacterSelectWindow) SetOptions(opts CharacterSelectWindowOptions) {
+	if w == nil {
+		return
+	}
+	sameTree := characterSelectWindowTreeEqual(w.opts, opts)
+	w.opts = opts
+	w.window.SetAutoPosition(opts.X, opts.Y)
+	w.window.SetSize(opts.W, opts.H)
+	if sameTree {
+		return
+	}
+	w.window.SetRoot(w.widgetTree())
+}
+
+func (w *CharacterSelectWindow) Widget() widget.Widget {
+	if w == nil {
+		return nil
+	}
+	return w.window.Widget()
+}
+
+func (w *CharacterSelectWindow) Update(ctx client.Context) bool {
+	if w == nil {
+		return false
+	}
+	return w.window.Update(ctx)
+}
+
+func characterSelectWindowTreeEqual(a, b CharacterSelectWindowOptions) bool {
+	if a.W != b.W ||
+		a.H != b.H ||
+		a.FooterH != b.FooterH ||
+		a.FooterPadX != b.FooterPadX ||
+		a.FooterGap != b.FooterGap ||
+		a.SelectedSlot != b.SelectedSlot ||
+		a.MaxSlots != b.MaxSlots ||
+		len(a.Characters) != len(b.Characters) {
+		return false
+	}
+	for i := range a.Characters {
+		if a.Characters[i] != b.Characters[i] {
+			return false
+		}
+	}
+	if len(a.PreviewImages) != len(b.PreviewImages) {
+		return false
+	}
+	for slot, image := range a.PreviewImages {
+		if b.PreviewImages[slot] != image {
+			return false
+		}
+	}
+	return true
+}
+
+func (w *CharacterSelectWindow) widgetTree() widget.Widget {
+	page := CharacterSelectPage(w.opts.SelectedSlot)
+	pageCount := maxInt(1, (w.opts.MaxSlots+2)/3)
+	pageStart := page * 3
+	selected, hasSelection := characterBySlot(w.opts.Characters, w.opts.SelectedSlot)
+	buttonW := func(label string) float32 {
+		return float32(ButtonLabelWidth(label))
+	}
+	return Window(
+		Title("Select Character"),
+		CloseButton(false),
+		Size(float32(w.opts.W), float32(w.opts.H)),
+		FooterHeight(float32(w.opts.FooterH)),
+		FooterPadding(float32(w.opts.FooterPadX)),
+		Content(
+			primitives.Box(
+				primitives.HBox(
+					rotheme.Button("<", func() {
+						if w.callbacks.OnPreviousPage != nil {
+							w.callbacks.OnPreviousPage()
+						}
+					}).
+						Width(18).
+						Height(18),
+					primitives.HBox(
+						w.slotWidget(pageStart),
+						w.slotWidget(pageStart+1),
+						w.slotWidget(pageStart+2),
+					).
+						Gap(25),
+					rotheme.Button(">", func() {
+						if w.callbacks.OnNextPage != nil {
+							w.callbacks.OnNextPage()
+						}
+					}).
+						Width(18).
+						Height(18),
+				).
+					CrossAlign(primitives.CrossAxisCenter).
+					Gap(18),
+
+				rotheme.Text(fmt.Sprintf("%d / %d", page+1, pageCount)).
+					Color(rotheme.Default.Colors.MutedText),
+
+				w.infoPanel(selected, hasSelection),
+			).
+				PaddingTop(12).
+				PaddingLeft(24).
+				PaddingRight(24).
+				Gap(9).
+				CrossAlign(primitives.CrossAxisCenter),
+		),
+		Footer(
+			primitives.HBox(
+				rotheme.Button("Delete", func() {
+					if w.callbacks.OnDelete != nil {
+						w.callbacks.OnDelete()
+					}
+				}).
+					Width(buttonW("Delete")),
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("Make", func() {
+					if w.callbacks.OnMake != nil {
+						w.callbacks.OnMake()
+					}
+				}).
+					Width(buttonW("Make")),
+				rotheme.Button("OK", func() {
+					if w.callbacks.OnOK != nil {
+						w.callbacks.OnOK()
+					}
+				}).
+					Width(buttonW("OK")),
+				rotheme.Button("Cancel", func() {
+					if w.callbacks.OnCancel != nil {
+						w.callbacks.OnCancel()
+					}
+				}).
+					Width(buttonW("Cancel")),
+			).
+				CrossAlign(primitives.CrossAxisCenter).
+				Gap(float32(w.opts.FooterGap)),
+		),
+	)
+}
+
+func (w *CharacterSelectWindow) slotWidget(slot int) widget.Widget {
+	character, hasCharacter := characterBySlot(w.opts.Characters, slot)
+	var preview image.Image
+	if w.opts.PreviewImages != nil {
+		preview = w.opts.PreviewImages[slot]
+	}
+	return newCharacterSelectSlotWidget(characterSelectSlotWidgetConfig{
+		slot:         slot,
+		selected:     slot == w.opts.SelectedSlot,
+		hasCharacter: hasCharacter,
+		character:    character,
+		preview:      preview,
+		onSelect: func(slot int) {
+			if w.callbacks.OnSelectSlot != nil {
+				w.callbacks.OnSelectSlot(slot)
+			}
+		},
+		onActivate: func(slot int) {
+			if w.callbacks.OnActivateSlot != nil {
+				w.callbacks.OnActivateSlot(slot)
+			}
+		},
+	})
+}
+
+func (w *CharacterSelectWindow) infoPanel(character session.Character, hasCharacter bool) widget.Widget {
+	if !hasCharacter {
+		return primitives.Box(
+			rotheme.Text("Empty Slot"),
+			rotheme.Text("Use Make to create a character later."),
+		).
+			Width(318).
+			Height(88).
+			Padding(12).
+			Gap(8).
+			Background(rotheme.Default.Colors.PanelBody).
+			BorderStyle(1, rotheme.Default.Colors.WindowBorder)
+	}
+	return primitives.Box(
+		primitives.HBox(
+			primitives.Box(
+				rotheme.Text(trimRunes(character.Name, 24)),
+				rotheme.Text(fmt.Sprintf("Job: %s", trimRunes(CharacterJobName(character), 18))),
+				rotheme.Text(fmt.Sprintf("Lv: %d / Job %d", character.Level, character.JobLevel)),
+				rotheme.Text(fmt.Sprintf("HP: %d / %d", character.HP, character.MaxHP)),
+				rotheme.Text(fmt.Sprintf("SP: %d / %d", character.SP, character.MaxSP)),
+			).
+				Width(160).
+				Gap(2),
+			primitives.Box(
+				rotheme.Text(fmt.Sprintf("STR %d", character.Str)),
+				rotheme.Text(fmt.Sprintf("AGI %d", character.Agi)),
+				rotheme.Text(fmt.Sprintf("VIT %d", character.Vit)),
+			).
+				Width(58).
+				Gap(2),
+			primitives.Box(
+				rotheme.Text(fmt.Sprintf("INT %d", character.Int)),
+				rotheme.Text(fmt.Sprintf("DEX %d", character.Dex)),
+				rotheme.Text(fmt.Sprintf("LUK %d", character.Luk)),
+			).
+				Width(58).
+				Gap(2),
+		).
+			Gap(8),
+	).
+		Width(318).
+		Height(88).
+		Padding(10).
+		Background(rotheme.Default.Colors.PanelBody).
+		BorderStyle(1, rotheme.Default.Colors.WindowBorder)
+}
+
+type characterSelectSlotWidgetConfig struct {
+	slot         int
+	selected     bool
+	hasCharacter bool
+	character    session.Character
+	preview      image.Image
+	onSelect     func(int)
+	onActivate   func(int)
+}
+
+type characterSelectSlotWidget struct {
+	widget.WidgetBase
+	cfg     characterSelectSlotWidgetConfig
+	hovered bool
+}
+
+func newCharacterSelectSlotWidget(cfg characterSelectSlotWidgetConfig) *characterSelectSlotWidget {
+	w := &characterSelectSlotWidget{cfg: cfg}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *characterSelectSlotWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(139, 144))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *characterSelectSlotWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() {
+		return
+	}
+	bounds := w.Bounds()
+	bg := rotheme.Default.Colors.PanelBody
+	border := rotheme.Default.Colors.WindowBorder
+	if w.cfg.selected {
+		bg = widget.RGBA8(222, 237, 252, 255)
+		border = rotheme.Default.Colors.ButtonBorder
+	}
+	if w.hovered {
+		border = rotheme.Default.Colors.ButtonBorder
+	}
+	canvas.DrawRect(bounds, bg)
+	canvas.StrokeRect(bounds, border, 1)
+	if w.cfg.preview != nil {
+		imgBounds := w.cfg.preview.Bounds()
+		x := bounds.Min.X + (bounds.Width()-float32(imgBounds.Dx()))/2
+		y := bounds.Min.Y + (bounds.Height()-float32(imgBounds.Dy()))/2
+		canvas.DrawImage(w.cfg.preview, geometry.Pt(x, y))
+		return
+	}
+	if !w.cfg.hasCharacter {
+		rotheme.DrawText(canvas, "Create", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
+	}
+}
+
+func (w *characterSelectSlotWidget) Event(ctx widget.Context, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseEnter:
+		w.hovered = true
+		ctx.SetCursor(widget.CursorPointer)
+		w.SetNeedsRedraw(true)
+		return true
+	case event.MouseLeave:
+		w.hovered = false
+		ctx.SetCursor(widget.CursorDefault)
+		w.SetNeedsRedraw(true)
+		return false
+	case event.MousePress:
+		if mouse.Button != event.ButtonLeft {
+			return true
+		}
+		if w.cfg.selected {
+			if w.cfg.onActivate != nil {
+				w.cfg.onActivate(w.cfg.slot)
+			}
+		} else if w.cfg.onSelect != nil {
+			w.cfg.onSelect(w.cfg.slot)
+		}
+		return true
+	}
+	return true
 }
 
 func DrawCharacterSelectWindow(screen *render.Image, opts CharacterSelectWindowOptions) {
