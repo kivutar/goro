@@ -581,10 +581,7 @@ func (r *runner) drawUI(screen *Image, width, height int) error {
 			if _, err := r.uiCanvas.Flush(); err != nil {
 				return fmt.Errorf("flush ui canvas: %w", err)
 			}
-			r.uiImage = NewImageFromImage(r.uiCanvas.Context().Image())
-			if r.uiImage == nil {
-				return nil
-			}
+			r.updateUIImage()
 		}
 	}
 	if !r.uiDrawnOnce || r.uiImage == nil {
@@ -594,6 +591,29 @@ func (r *runner) drawUI(screen *Image, width, height int) error {
 	opts.Filter = FilterNearest
 	screen.DrawImage(r.uiImage, &opts)
 	return nil
+}
+
+func (r *runner) updateUIImage() {
+	if r.uiCanvas == nil || r.uiCanvas.Context() == nil {
+		return
+	}
+	src := r.uiCanvas.Context().ResizeTarget().ImageView()
+	if src == nil {
+		return
+	}
+	width, height := src.Bounds().Dx(), src.Bounds().Dy()
+	if r.uiImage == nil || r.uiImage.pix == nil || r.uiImage.Bounds().Dx() != width || r.uiImage.Bounds().Dy() != height {
+		r.uiImage = NewImage(width, height)
+	}
+	dst := r.uiImage.pix
+	if src.Stride == width*4 && dst.Stride == width*4 {
+		copy(dst.Pix, src.Pix)
+	} else {
+		for y := 0; y < height; y++ {
+			copy(dst.Pix[y*dst.Stride:y*dst.Stride+width*4], src.Pix[y*src.Stride:y*src.Stride+width*4])
+		}
+	}
+	r.uiImage.version++
 }
 
 func (r *runner) updateFPSCounter(now time.Time) {
