@@ -66,22 +66,19 @@ func (w *LoginWindow) SetOptions(opts LoginWindowDrawOptions) {
 	if w.opts == opts {
 		return
 	}
-	if w.opts.W != opts.W || w.opts.H != opts.H || w.opts.FieldLeft != opts.FieldLeft || w.opts.FieldRightPad != opts.FieldRightPad {
-		w.opts = opts
-		w.rebuild()
-		return
-	}
 	w.opts = opts
-	w.setAppRoot()
+	w.rebuild()
 }
 
 func (w *LoginWindow) Draw(screen *render.Image) {
 	if w == nil || screen == nil {
 		return
 	}
-	root := w.drawTree()
+	if w.root == nil {
+		w.rebuild()
+	}
 	renderer := offscreen.NewRenderer(w.opts.W, w.opts.H, offscreen.WithTheme(rotheme.Default.AsTheme()))
-	renderer.Render(root)
+	renderer.Render(w.root)
 	img := renderer.Image()
 	if img == nil {
 		return
@@ -89,14 +86,6 @@ func (w *LoginWindow) Draw(screen *render.Image) {
 	var drawOpts render.DrawImageOptions
 	drawOpts.GeoM.Translate(float64(w.opts.X), float64(w.opts.Y))
 	screen.DrawImage(render.NewImageFromImage(img), &drawOpts)
-}
-
-func (w *LoginWindow) drawTree() widget.Widget {
-	user := rotheme.TextField(w.Username, textfield.TypeText, nil, nil)
-	user.SetFocused(w.user != nil && w.user.IsFocused())
-	password := rotheme.TextField(w.Password, textfield.TypePassword, nil, nil)
-	password.SetFocused(w.password != nil && w.password.IsFocused())
-	return loginWindowTreeWithFields(w.opts, user, password, nil)
 }
 
 func (w *LoginWindow) rebuild() {
@@ -120,7 +109,7 @@ func (w *LoginWindow) setAppRoot() {
 }
 
 func (w *LoginWindow) widgetTree() widget.Widget {
-	submit := func(string) {
+	submit := func() {
 		if w.callbacks.OnSubmit != nil {
 			w.callbacks.OnSubmit()
 		}
@@ -131,7 +120,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 		func(v string) {
 			w.Username = v
 		},
-		submit,
+		func(string) { submit() },
 	)
 	w.user.SetFocused(true)
 	w.password = rotheme.TextField(
@@ -140,22 +129,11 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 		func(v string) {
 			w.Password = v
 		},
-		submit,
+		func(string) { submit() },
 	)
-	return loginWindowTreeWithFields(w.opts, w.user, w.password, func() {
-		if w.callbacks.OnSubmit != nil {
-			w.callbacks.OnSubmit()
-		}
-	})
-}
-
-func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField widget.Widget, onLogin func()) widget.Widget {
-	local := opts
-	local.X = 0
-	local.Y = 0
-	labelW := float32(local.FieldLeft - 36)
-	fieldW := float32(local.W - local.FieldLeft - local.FieldRightPad)
-	fieldH := float32(local.FieldH)
+	labelW := float32(w.opts.FieldLeft - 36)
+	fieldW := float32(w.opts.W - w.opts.FieldLeft - w.opts.FieldRightPad)
+	fieldH := float32(w.opts.FieldH)
 	buttonW := float32(ButtonLabelWidth("Login"))
 	labelText := func(label string) widget.Widget {
 		return rotheme.Text(label).
@@ -174,7 +152,7 @@ func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField
 			Gap(12)
 	}
 	loginButton := primitives.Box(
-		rotheme.Button("Login", onLogin).
+		rotheme.Button("Login", submit).
 			MinWidth(buttonW),
 	).
 		Width(buttonW).
@@ -186,18 +164,18 @@ func loginWindowTreeWithFields(opts LoginWindowDrawOptions, userField, passField
 	return Window(
 		Title("Login"),
 		CloseButton(false),
-		Size(float32(local.W), float32(local.H)),
-		FooterHeight(float32(local.FooterH)),
-		FooterPadding(float32(local.FieldRightPad)),
+		Size(float32(w.opts.W), float32(w.opts.H)),
+		FooterHeight(float32(w.opts.FooterH)),
+		FooterPadding(float32(w.opts.FieldRightPad)),
 		Content(
 			primitives.Box(
-				formRow("Account", userField),
-				formRow("Password", passField),
+				formRow("Account", w.user),
+				formRow("Password", w.password),
 			).
-				PaddingTop(float32(local.FormTopPad)).
+				PaddingTop(float32(w.opts.FormTopPad)).
 				PaddingLeft(24).
-				PaddingRight(float32(local.FieldRightPad)).
-				Gap(float32(local.FieldGap)).
+				PaddingRight(float32(w.opts.FieldRightPad)).
+				Gap(float32(w.opts.FieldGap)).
 				Background(rotheme.Default.Colors.WindowBody),
 		),
 		Footer(footer),
