@@ -194,6 +194,9 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 		}
 
 	}
+	if fading && m.phase == loginPhaseCharacter {
+		m.publishCharacterSelectWindow(ctx)
+	}
 
 	if len(conns) == 0 {
 		return nil, nil
@@ -524,24 +527,23 @@ func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
 		m.cancelCharacterSelect(ctx)
 		return
 	}
-	m.updateCharacterSelectWindow(ctx)
+	if ctx.Input != nil {
+		if ctx.Input.JustPressed(render.KeyArrowLeft) {
+			m.moveSelectedSlot(-1)
+		}
+		if ctx.Input.JustPressed(render.KeyArrowRight) {
+			m.moveSelectedSlot(1)
+		}
+		if ctx.Input.JustPressed(render.KeyEnter) {
+			m.submitSelectedCharacter(ctx)
+		}
+	}
+	m.publishCharacterSelectWindow(ctx)
 	if m.charSelectWindow != nil {
 		m.charSelectWindow.Update(ctx)
 		if ctx.UIManager != nil {
 			ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
 		}
-	}
-	if ctx.Input == nil {
-		return
-	}
-	if ctx.Input.JustPressed(render.KeyArrowLeft) {
-		m.moveSelectedSlot(-1)
-	}
-	if ctx.Input.JustPressed(render.KeyArrowRight) {
-		m.moveSelectedSlot(1)
-	}
-	if ctx.Input.JustPressed(render.KeyEnter) {
-		m.submitSelectedCharacter(ctx)
 	}
 }
 
@@ -557,7 +559,6 @@ func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
 	callbacks := gameui.CharacterSelectWindowCallbacks{
 		OnSelectSlot: func(slot int) {
 			m.selectedSlot = clampCharacterSlot(slot, m.maxSlots)
-			m.updateCharacterSelectWindow(ctx)
 		},
 		OnActivateSlot: func(slot int) {
 			if _, ok := characterBySlot(ctx.Session.Characters, slot); ok {
@@ -568,11 +569,9 @@ func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
 		},
 		OnPreviousPage: func() {
 			m.moveSelectedSlot(-3)
-			m.updateCharacterSelectWindow(ctx)
 		},
 		OnNextPage: func() {
 			m.moveSelectedSlot(3)
-			m.updateCharacterSelectWindow(ctx)
 		},
 		OnMake: func() {
 			slot := m.selectedSlot
@@ -591,7 +590,6 @@ func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
 		},
 		OnDelete: func() {
 			m.status = "character deletion is not implemented yet"
-			m.updateCharacterSelectWindow(ctx)
 		},
 	}
 	if m.charSelectWindow == nil {
@@ -615,6 +613,13 @@ func (m *LoginMode) characterSelectPreviewImages(ctx client.Context, opts gameui
 		}
 	}
 	return images
+}
+
+func (m *LoginMode) publishCharacterSelectWindow(ctx client.Context) {
+	m.updateCharacterSelectWindow(ctx)
+	if m.charSelectWindow != nil && ctx.UIManager != nil {
+		ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
+	}
 }
 
 func (m *LoginMode) cancelCharacterSelect(ctx client.Context) {
@@ -961,10 +966,7 @@ func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 }
 
 func (m *LoginMode) drawCharacterSelect(ctx client.Context) {
-	m.updateCharacterSelectWindow(ctx)
-	if m.charSelectWindow != nil && ctx.UIManager != nil {
-		ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
-	}
+	m.publishCharacterSelectWindow(ctx)
 }
 
 func (m *LoginMode) drawCharacterCreate(ctx client.Context, screen *render.Image) {

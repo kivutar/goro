@@ -5,7 +5,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/core/button"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
@@ -203,28 +203,71 @@ func (w *CharacterSelectWindow) widgetTree() widget.Widget {
 }
 
 func (w *CharacterSelectWindow) slotWidget(slot int) widget.Widget {
-	character, hasCharacter := characterBySlot(w.opts.Characters, slot)
+	_, hasCharacter := characterBySlot(w.opts.Characters, slot)
 	var preview image.Image
 	if w.opts.PreviewImages != nil {
 		preview = w.opts.PreviewImages[slot]
 	}
-	return newCharacterSelectSlotWidget(characterSelectSlotWidgetConfig{
-		slot:         slot,
-		selected:     slot == w.opts.SelectedSlot,
-		hasCharacter: hasCharacter,
-		character:    character,
-		preview:      preview,
-		onSelect: func(slot int) {
-			if w.callbacks.OnSelectSlot != nil {
-				w.callbacks.OnSelectSlot(slot)
-			}
-		},
-		onActivate: func(slot int) {
-			if w.callbacks.OnActivateSlot != nil {
-				w.callbacks.OnActivateSlot(slot)
-			}
-		},
-	})
+	return primitives.Box(
+		primitives.Expanded(
+			button.New(
+				button.TextOpt(""),
+				button.PainterOpt(characterSelectSlotPainter{
+					selected:     slot == w.opts.SelectedSlot,
+					hasCharacter: hasCharacter,
+					preview:      preview,
+				}),
+				button.OnClick(func() {
+					if slot == w.opts.SelectedSlot {
+						if w.callbacks.OnActivateSlot != nil {
+							w.callbacks.OnActivateSlot(slot)
+						}
+						return
+					}
+					if w.callbacks.OnSelectSlot != nil {
+						w.callbacks.OnSelectSlot(slot)
+					}
+				}),
+			),
+		),
+	).
+		Width(139).
+		Height(144).
+		CrossAlign(primitives.CrossAxisStretch)
+}
+
+type characterSelectSlotPainter struct {
+	selected     bool
+	hasCharacter bool
+	preview      image.Image
+}
+
+func (p characterSelectSlotPainter) PaintButton(canvas widget.Canvas, state button.PaintState) {
+	bounds := state.Bounds
+	if bounds.IsEmpty() {
+		return
+	}
+	bg := rotheme.Default.Colors.PanelBody
+	border := rotheme.Default.Colors.WindowBorder
+	if p.selected {
+		bg = widget.RGBA8(222, 237, 252, 255)
+		border = rotheme.Default.Colors.ButtonBorder
+	}
+	if state.Hovered || state.Pressed {
+		border = rotheme.Default.Colors.ButtonBorder
+	}
+	canvas.DrawRect(bounds, bg)
+	canvas.StrokeRect(bounds, border, 1)
+	if p.preview != nil {
+		imgBounds := p.preview.Bounds()
+		x := bounds.Min.X + (bounds.Width()-float32(imgBounds.Dx()))/2
+		y := bounds.Min.Y + (bounds.Height()-float32(imgBounds.Dy()))/2
+		canvas.DrawImage(p.preview, geometry.Pt(x, y))
+		return
+	}
+	if !p.hasCharacter {
+		rotheme.DrawText(canvas, "Create", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
+	}
 }
 
 func (w *CharacterSelectWindow) infoPanel(character session.Character, hasCharacter bool) widget.Widget {
@@ -273,95 +316,6 @@ func (w *CharacterSelectWindow) infoPanel(character session.Character, hasCharac
 		Padding(10).
 		Background(rotheme.Default.Colors.PanelBody).
 		BorderStyle(1, rotheme.Default.Colors.WindowBorder)
-}
-
-type characterSelectSlotWidgetConfig struct {
-	slot         int
-	selected     bool
-	hasCharacter bool
-	character    session.Character
-	preview      image.Image
-	onSelect     func(int)
-	onActivate   func(int)
-}
-
-type characterSelectSlotWidget struct {
-	widget.WidgetBase
-	cfg     characterSelectSlotWidgetConfig
-	hovered bool
-}
-
-func newCharacterSelectSlotWidget(cfg characterSelectSlotWidgetConfig) *characterSelectSlotWidget {
-	w := &characterSelectSlotWidget{cfg: cfg}
-	w.SetVisible(true)
-	w.SetEnabled(true)
-	return w
-}
-
-func (w *characterSelectSlotWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	size := constraints.Constrain(geometry.Sz(139, 144))
-	w.SetBounds(geometry.FromPointSize(w.Position(), size))
-	return size
-}
-
-func (w *characterSelectSlotWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
-	if !w.IsVisible() {
-		return
-	}
-	bounds := w.Bounds()
-	bg := rotheme.Default.Colors.PanelBody
-	border := rotheme.Default.Colors.WindowBorder
-	if w.cfg.selected {
-		bg = widget.RGBA8(222, 237, 252, 255)
-		border = rotheme.Default.Colors.ButtonBorder
-	}
-	if w.hovered {
-		border = rotheme.Default.Colors.ButtonBorder
-	}
-	canvas.DrawRect(bounds, bg)
-	canvas.StrokeRect(bounds, border, 1)
-	if w.cfg.preview != nil {
-		imgBounds := w.cfg.preview.Bounds()
-		x := bounds.Min.X + (bounds.Width()-float32(imgBounds.Dx()))/2
-		y := bounds.Min.Y + (bounds.Height()-float32(imgBounds.Dy()))/2
-		canvas.DrawImage(w.cfg.preview, geometry.Pt(x, y))
-		return
-	}
-	if !w.cfg.hasCharacter {
-		rotheme.DrawText(canvas, "Create", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
-	}
-}
-
-func (w *characterSelectSlotWidget) Event(ctx widget.Context, e event.Event) bool {
-	mouse, ok := e.(*event.MouseEvent)
-	if !ok {
-		return false
-	}
-	switch mouse.MouseType {
-	case event.MouseEnter:
-		w.hovered = true
-		ctx.SetCursor(widget.CursorPointer)
-		w.SetNeedsRedraw(true)
-		return true
-	case event.MouseLeave:
-		w.hovered = false
-		ctx.SetCursor(widget.CursorDefault)
-		w.SetNeedsRedraw(true)
-		return false
-	case event.MousePress:
-		if mouse.Button != event.ButtonLeft {
-			return true
-		}
-		if w.cfg.selected {
-			if w.cfg.onActivate != nil {
-				w.cfg.onActivate(w.cfg.slot)
-			}
-		} else if w.cfg.onSelect != nil {
-			w.cfg.onSelect(w.cfg.slot)
-		}
-		return true
-	}
-	return true
 }
 
 func DrawCharacterSelectWindow(screen *render.Image, opts CharacterSelectWindowOptions) {

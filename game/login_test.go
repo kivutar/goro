@@ -507,6 +507,43 @@ func (fakeCursorUIApp) HoveredWidget() widget.Widget {
 	return nil
 }
 
+type loginTestUIManager struct {
+	root widget.Widget
+}
+
+func (m *loginTestUIManager) SetRoot(root widget.Widget) {
+	m.root = root
+}
+
+func (m *loginTestUIManager) Clear() {
+	m.root = nil
+}
+
+func TestCharacterSelectPublishesUIRootDuringFadeIn(t *testing.T) {
+	manager := &loginTestUIManager{}
+	mode := NewLoginMode()
+	mode.phase = loginPhaseCharacter
+	mode.fade = loginFadeState{phase: loginFadeIn, started: time.Now()}
+	mode.maxSlots = 9
+	ctx := client.Context{
+		Input:     input.NewState(),
+		Resources: &res.Manager{},
+		Session: &session.Session{Characters: []session.Character{
+			{ID: 1, Slot: 0, Name: "Kivutar", Level: 1, JobLevel: 1},
+		}},
+		UIManager: manager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if manager.root == nil {
+		t.Fatal("character select did not publish a UI root during fade-in")
+	}
+}
+
 func TestLoginConfirmSFXCandidatesPreferClassicButtonSound(t *testing.T) {
 	candidates := loginConfirmSFXCandidates()
 	if len(candidates) < 4 {
