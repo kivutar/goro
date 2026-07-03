@@ -27,11 +27,17 @@ type Context struct {
 	Runtime     RuntimeSettings
 	RequestQuit func()
 	UIApp       UIApp
+	UIManager   UIManager
 }
 
 type UIApp interface {
 	SetRoot(widget.Widget)
 	Frame()
+}
+
+type UIManager interface {
+	SetRoot(widget.Widget)
+	Clear()
 }
 
 type RuntimeSettings interface {

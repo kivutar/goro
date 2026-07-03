@@ -849,6 +849,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.settingsWindow.Update(ctx) {
 		return nil, nil
 	}
+	m.settingsWindow.Publish(ctx)
 	if m.escapeMenu.Update(ctx) {
 		switch m.escapeMenu.ConsumeAction() {
 		case gameui.EscapeMenuActionCharacterSelect:
@@ -2950,7 +2951,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.shopWindow.Draw(screen, ctx, m)
 	m.statsWindow.Draw(screen, ctx)
 	m.skillWindow.Draw(screen, ctx, m)
-	m.settingsWindow.Draw(screen, ctx)
 	m.itemInfoWindow.Draw(screen, ctx, m)
 	m.identifyWindow.Draw(screen, ctx, m)
 	m.drawHoveredGroundItemLabel(screen, ctx, projection, now)

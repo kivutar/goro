@@ -176,15 +176,6 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	}
 
 	conns := ctx.Resources.ClientInfo.Connections
-	if len(conns) == 0 {
-		return nil, nil
-	}
-
-	if ctx.Config.Login.AutoLogin && !m.autoAttempted {
-		m.autoAttempted = true
-		m.connectAndMaybeLogin(ctx, conns[m.selected], false)
-	}
-
 	fading := m.fade.phase != loginFadeNone
 	if !fading {
 		if m.updateQuitConfirm(ctx) {
@@ -199,6 +190,15 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 			m.updateFormInput(ctx)
 		}
 
+	}
+
+	if len(conns) == 0 {
+		return nil, nil
+	}
+
+	if ctx.Config.Login.AutoLogin && !m.autoAttempted {
+		m.autoAttempted = true
+		m.connectAndMaybeLogin(ctx, conns[m.selected], false)
 	}
 
 	for _, pkt := range ctx.Network.DrainPackets() {
@@ -358,11 +358,17 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 func (m *LoginMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawBackground(ctx, screen)
 	if m.phase == loginPhaseCreate {
+		if ctx.UIManager != nil {
+			ctx.UIManager.Clear()
+		}
 		m.drawCharacterCreate(ctx, screen)
 	} else if m.phase == loginPhaseCharacter {
+		if ctx.UIManager != nil {
+			ctx.UIManager.Clear()
+		}
 		m.drawCharacterSelect(ctx, screen)
 	} else {
-		m.drawLoginWindow(ctx, screen)
+		m.drawLoginWindow(ctx)
 	}
 	now := time.Now()
 	m.drawFade(ctx, screen, now)
@@ -518,6 +524,12 @@ func rectArray(x, y, w, h int) [4]int {
 
 func (m *LoginMode) updateFormInput(ctx client.Context) {
 	m.updateLoginWindow(ctx)
+	if m.loginWindow != nil {
+		m.loginWindow.Update(ctx)
+		if ctx.UIManager != nil {
+			ctx.UIManager.SetRoot(m.loginWindow.Widget())
+		}
+	}
 }
 
 func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
@@ -885,12 +897,12 @@ func (m *LoginMode) drawBackground(ctx client.Context, screen *render.Image) {
 	screen.DrawImage(m.background, &opts)
 }
 
-func (m *LoginMode) drawLoginWindow(ctx client.Context, screen *render.Image) {
+func (m *LoginMode) drawLoginWindow(ctx client.Context) {
 	if m.loginWindow == nil {
 		m.updateLoginWindow(ctx)
 	}
-	if m.loginWindow != nil {
-		m.loginWindow.Draw(screen)
+	if m.loginWindow != nil && ctx.UIManager != nil {
+		ctx.UIManager.SetRoot(m.loginWindow.Widget())
 	}
 }
 
@@ -909,13 +921,17 @@ func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 				}
 			},
 		})
-		m.loginWindow.SetUIApp(ctx.UIApp)
+		if ctx.UIManager != nil {
+			ctx.UIManager.SetRoot(m.loginWindow.Widget())
+		}
 		return
 	}
-	m.loginWindow.SetUIApp(ctx.UIApp)
 	m.loginWindow.SetOptions(opts)
 	m.username = m.loginWindow.Username
 	m.password = m.loginWindow.Password
+	if ctx.UIManager != nil {
+		ctx.UIManager.SetRoot(m.loginWindow.Widget())
+	}
 }
 
 func (m *LoginMode) drawCharacterSelect(ctx client.Context, screen *render.Image) {

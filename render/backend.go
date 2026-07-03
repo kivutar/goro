@@ -9,10 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogpu/gg"
 	"github.com/gogpu/gogpu"
 	gogputypes "github.com/gogpu/gogpu/gpu/types"
 	"github.com/gogpu/gpucontext"
 	uiapp "github.com/gogpu/ui/app"
+	uirender "github.com/gogpu/ui/render"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/input"
@@ -45,6 +47,7 @@ type runtimeSettingsProvider interface {
 type runner struct {
 	app            *gogpu.App
 	ui             *uiapp.App
+	uiContext      *gg.Context
 	game           Game
 	screen         *Image
 	gpu            *gpuRenderer
@@ -507,6 +510,9 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	r.screen.BeginFrame()
 	r.game.Draw(r.screen)
 	r.drawFPSCounter()
+	if err := r.drawUI(r.screen, width, height); err != nil {
+		return err
+	}
 	if err := r.gpu.Draw(ctx, r.screen); err != nil {
 		return err
 	}
@@ -515,6 +521,28 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 		r.measuredFrames++
 	}
 	r.updateFPSCounter(time.Now())
+	return nil
+}
+
+func (r *runner) drawUI(screen *Image, width, height int) error {
+	if r.ui == nil || screen == nil || width <= 0 || height <= 0 {
+		return nil
+	}
+	if r.uiContext == nil {
+		r.uiContext = gg.NewContext(width, height)
+	}
+	if err := r.uiContext.Resize(width, height); err != nil {
+		return fmt.Errorf("resize ui canvas: %w", err)
+	}
+	r.uiContext.Clear()
+	r.ui.Window().DrawTo(uirender.NewCanvas(r.uiContext, width, height))
+	uiImage := NewImageFromImage(r.uiContext.Image())
+	if uiImage == nil {
+		return nil
+	}
+	var opts DrawImageOptions
+	opts.Filter = FilterNearest
+	screen.DrawImage(uiImage, &opts)
 	return nil
 }
 

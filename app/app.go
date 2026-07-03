@@ -14,6 +14,7 @@ import (
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
+	gameui "github.com/kivutar/goro/ui"
 	"github.com/kivutar/goro/world"
 )
 
@@ -28,6 +29,7 @@ type Game struct {
 	modes    *game.Manager
 	runtime  *runtimeSettings
 	uiApp    client.UIApp
+	ui       *gameui.Manager
 	started  time.Time
 	screenW  int
 	screenH  int
@@ -51,6 +53,7 @@ func New(cfg config.Config) (*Game, error) {
 		network:  network.NewClient(cfg.Packet.ClientDate, cfg.Network.Trace),
 		audio:    gameaudio.NewBGM(resource, cfg.Audio.BGM, cfg.Audio.BGMVolume, cfg.Audio.SFXVolume),
 		runtime:  newRuntimeSettings(cfg.Window.Fullscreen, cfg.Render.VSync, cfg.Render.FPS),
+		ui:       gameui.NewManager(),
 		started:  time.Now(),
 		screenW:  cfg.Window.Width,
 		screenH:  cfg.Window.Height,
@@ -92,6 +95,9 @@ func (g *Game) SetQuitFunc(quit func()) {
 
 func (g *Game) SetUIApp(uiApp client.UIApp) {
 	g.uiApp = uiApp
+	if g.ui != nil {
+		g.ui.SetUIApp(uiApp)
+	}
 }
 
 func (g *Game) RequestQuit() {
@@ -157,5 +163,6 @@ func (g *Game) modeContext() client.Context {
 		Runtime:     g.runtime,
 		RequestQuit: g.RequestQuit,
 		UIApp:       g.uiApp,
+		UIManager:   g.ui,
 	}
 }

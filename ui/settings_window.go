@@ -9,7 +9,6 @@ import (
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
-	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -20,21 +19,22 @@ const (
 
 type SettingsWindow struct {
 	window WindowState
+	ctx    client.Context
 }
 
 func (w *SettingsWindow) OpenWindow(ctx client.Context) {
 	w.ensureWindow()
+	w.ctx = ctx
 	w.window.Open(ctx, w.widgetTree(ctx))
+	w.Publish(ctx)
 }
 
 func (w *SettingsWindow) Update(ctx client.Context) bool {
 	w.ensureWindow()
-	return w.window.Update(ctx)
-}
-
-func (w *SettingsWindow) Draw(screen *render.Image, ctx client.Context) {
-	w.ensureWindow()
-	w.window.Draw(screen)
+	w.ctx = ctx
+	consumed := w.window.Update(ctx)
+	w.Publish(ctx)
+	return consumed
 }
 
 func (w *SettingsWindow) IsOpen() bool {
@@ -45,6 +45,19 @@ func (w *SettingsWindow) IsOpen() bool {
 func (w *SettingsWindow) Close() {
 	w.ensureWindow()
 	w.window.Close()
+	w.Publish(w.ctx)
+}
+
+func (w *SettingsWindow) Publish(ctx client.Context) {
+	w.ensureWindow()
+	if ctx.UIManager == nil {
+		return
+	}
+	if !w.window.IsOpen() {
+		ctx.UIManager.Clear()
+		return
+	}
+	ctx.UIManager.SetRoot(w.window.Widget())
 }
 
 func (w *SettingsWindow) ensureWindow() {
@@ -72,6 +85,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 							ctx.Runtime.SetFullscreen(enabled)
 						}
 						w.saveSettings(ctx)
+						w.refresh(ctx)
 					}),
 				),
 
@@ -83,6 +97,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 							ctx.Runtime.SetVSync(enabled)
 						}
 						w.saveSettings(ctx)
+						w.refresh(ctx)
 					}),
 				),
 
@@ -94,6 +109,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 							ctx.Runtime.SetFPS(enabled)
 						}
 						w.saveSettings(ctx)
+						w.refresh(ctx)
 					}),
 				),
 
@@ -101,31 +117,37 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 
 				primitives.HBox(
 					rotheme.Text("BGM Vol"),
-					slider.New(
-						slider.Min(0),
-						slider.Max(1),
-						slider.Value(float32(settingsVolumeBGM(ctx))),
-						slider.OnChange(func(v float32) {
-							if ctx.Audio != nil {
-								ctx.Audio.SetBGMVolume(float64(v))
-							}
-							w.saveSettings(ctx)
-						}),
+					primitives.Expanded(
+						slider.New(
+							slider.Min(0),
+							slider.Max(1),
+							slider.Value(float32(settingsVolumeBGM(ctx))),
+							slider.OnChange(func(v float32) {
+								if ctx.Audio != nil {
+									ctx.Audio.SetBGMVolume(float64(v))
+								}
+								w.saveSettings(ctx)
+								w.refresh(ctx)
+							}),
+						),
 					),
 				).Gap(8),
 
 				primitives.HBox(
 					rotheme.Text("SFX Vol"),
-					slider.New(
-						slider.Min(0),
-						slider.Max(1),
-						slider.Value(float32(settingsVolumeSFX(ctx))),
-						slider.OnChange(func(v float32) {
-							if ctx.Audio != nil {
-								ctx.Audio.SetSFXVolume(float64(v))
-							}
-							w.saveSettings(ctx)
-						}),
+					primitives.Expanded(
+						slider.New(
+							slider.Min(0),
+							slider.Max(1),
+							slider.Value(float32(settingsVolumeSFX(ctx))),
+							slider.OnChange(func(v float32) {
+								if ctx.Audio != nil {
+									ctx.Audio.SetSFXVolume(float64(v))
+								}
+								w.saveSettings(ctx)
+								w.refresh(ctx)
+							}),
+						),
 					),
 				).Gap(8),
 			).
@@ -134,6 +156,13 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 				Background(rotheme.Default.Colors.WindowBody),
 		),
 	)
+}
+
+func (w *SettingsWindow) refresh(ctx client.Context) {
+	w.ensureWindow()
+	w.ctx = ctx
+	w.window.SetRoot(w.widgetTree(ctx))
+	w.Publish(ctx)
 }
 
 func (w *SettingsWindow) saveSettings(ctx client.Context) {

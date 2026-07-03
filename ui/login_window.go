@@ -2,11 +2,9 @@ package ui
 
 import (
 	"github.com/gogpu/ui/core/textfield"
-	"github.com/gogpu/ui/offscreen"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
-	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -32,8 +30,7 @@ type LoginWindow struct {
 
 	opts      LoginWindowDrawOptions
 	callbacks LoginWindowCallbacks
-	uiApp     client.UIApp
-	root      widget.Widget
+	window    WindowState
 	user      *textfield.Widget
 	password  *textfield.Widget
 }
@@ -44,66 +41,49 @@ func NewLoginWindow(opts LoginWindowDrawOptions, callbacks LoginWindowCallbacks)
 		Password:  opts.Password,
 		opts:      opts,
 		callbacks: callbacks,
+		window:    NewWindowState(opts.W, opts.H),
 	}
-	w.rebuild()
+	w.window.OpenAt(opts.X, opts.Y, w.widgetTree())
 	return w
-}
-
-func (w *LoginWindow) SetUIApp(uiApp client.UIApp) {
-	if w == nil || w.uiApp == uiApp {
-		return
-	}
-	w.uiApp = uiApp
-	w.setAppRoot()
 }
 
 func (w *LoginWindow) SetOptions(opts LoginWindowDrawOptions) {
 	if w == nil {
 		return
 	}
-	if w.opts == opts {
+	sameLayout := loginWindowLayoutEqual(w.opts, opts)
+	w.opts = opts
+	w.window.SetAutoPosition(opts.X, opts.Y)
+	w.window.SetSize(opts.W, opts.H)
+	if sameLayout {
 		return
 	}
-	w.opts = opts
 	w.rebuild()
 }
 
-func (w *LoginWindow) Draw(screen *render.Image) {
-	if w == nil || screen == nil {
-		return
+func (w *LoginWindow) Widget() widget.Widget {
+	if w == nil {
+		return nil
 	}
-	if w.root == nil {
-		w.rebuild()
+	return w.window.Widget()
+}
+
+func (w *LoginWindow) Update(ctx client.Context) bool {
+	if w == nil {
+		return false
 	}
-	renderer := offscreen.NewRenderer(w.opts.W, w.opts.H, offscreen.WithTheme(rotheme.Default.AsTheme()))
-	renderer.Render(w.root)
-	img := renderer.Image()
-	if img == nil {
-		return
-	}
-	var drawOpts render.DrawImageOptions
-	drawOpts.GeoM.Translate(float64(w.opts.X), float64(w.opts.Y))
-	screen.DrawImage(render.NewImageFromImage(img), &drawOpts)
+	return w.window.Update(ctx)
 }
 
 func (w *LoginWindow) rebuild() {
-	w.user = nil
-	w.password = nil
-	w.root = w.widgetTree()
-	w.setAppRoot()
-}
-
-func (w *LoginWindow) setAppRoot() {
-	if w.uiApp == nil || w.root == nil {
-		return
+	userFocused, passwordFocused := w.fieldFocus()
+	w.window.SetRoot(w.widgetTree())
+	if w.user != nil {
+		w.user.SetFocused(userFocused)
 	}
-	w.uiApp.SetRoot(
-		primitives.Box(w.root).
-			PaddingLeft(float32(w.opts.X)).
-			PaddingTop(float32(w.opts.Y)).
-			Width(float32(w.opts.X + w.opts.W)).
-			Height(float32(w.opts.Y + w.opts.H)),
-	)
+	if w.password != nil {
+		w.password.SetFocused(passwordFocused)
+	}
 }
 
 func (w *LoginWindow) widgetTree() widget.Widget {
@@ -112,23 +92,28 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 			w.callbacks.OnSubmit()
 		}
 	}
-	w.user = rotheme.TextField(
-		w.Username,
+	userFocused, passwordFocused := w.fieldFocus()
+	username, passwordValue := w.fieldValues()
+	user := rotheme.TextField(
+		username,
 		textfield.TypeText,
 		func(v string) {
 			w.Username = v
 		},
 		func(string) { submit() },
 	)
-	w.user.SetFocused(true)
-	w.password = rotheme.TextField(
-		w.Password,
+	user.SetFocused(userFocused)
+	password := rotheme.TextField(
+		passwordValue,
 		textfield.TypePassword,
 		func(v string) {
 			w.Password = v
 		},
 		func(string) { submit() },
 	)
+	password.SetFocused(passwordFocused)
+	w.user = user
+	w.password = password
 	labelW := float32(w.opts.FieldLeft - 36)
 	fieldW := float32(w.opts.W - w.opts.FieldLeft - w.opts.FieldRightPad)
 	fieldH := float32(w.opts.FieldH)
@@ -148,7 +133,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 					).
 						Width(labelW).
 						Height(fieldH),
-					primitives.Box(w.user).
+					primitives.Box(user).
 						Width(fieldW).
 						Height(fieldH),
 				).
@@ -161,7 +146,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 					).
 						Width(labelW).
 						Height(fieldH),
-					primitives.Box(w.password).
+					primitives.Box(password).
 						Width(fieldW).
 						Height(fieldH),
 				).
@@ -182,4 +167,38 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 			),
 		),
 	)
+}
+
+func (w *LoginWindow) fieldFocus() (bool, bool) {
+	if w.user == nil && w.password == nil {
+		return true, false
+	}
+	userFocused := w.user != nil && w.user.IsFocused()
+	passwordFocused := w.password != nil && w.password.IsFocused()
+	if !userFocused && !passwordFocused {
+		return true, false
+	}
+	return userFocused, passwordFocused
+}
+
+func (w *LoginWindow) fieldValues() (string, string) {
+	username, password := w.Username, w.Password
+	if w.user != nil {
+		username = w.user.Text()
+	}
+	if w.password != nil {
+		password = w.password.Text()
+	}
+	return username, password
+}
+
+func loginWindowLayoutEqual(a, b LoginWindowDrawOptions) bool {
+	return a.W == b.W &&
+		a.H == b.H &&
+		a.FooterH == b.FooterH &&
+		a.FormTopPad == b.FormTopPad &&
+		a.FieldGap == b.FieldGap &&
+		a.FieldLeft == b.FieldLeft &&
+		a.FieldRightPad == b.FieldRightPad &&
+		a.FieldH == b.FieldH
 }

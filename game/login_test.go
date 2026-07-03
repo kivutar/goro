@@ -7,6 +7,7 @@ import (
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 )
@@ -460,6 +461,19 @@ func TestLoginWindowDoesNotExposeServerSelection(t *testing.T) {
 	}
 	if w <= 0 {
 		t.Fatal("login window should still be present")
+	}
+}
+
+func TestLoginWindowUpdatesWithoutDiscoveredServers(t *testing.T) {
+	mode := NewLoginMode()
+	inputState := input.NewState()
+	ctx := client.Context{Input: inputState, Resources: &res.Manager{}, ScreenW: 1280, ScreenH: 720}
+
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if mode.loginWindow == nil {
+		t.Fatal("login window was not updated without discovered servers")
 	}
 }
 

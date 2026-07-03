@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"github.com/gogpu/ui/offscreen"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
@@ -158,11 +157,12 @@ type WindowState struct {
 	height      int
 	titleHeight int
 	positioned  bool
+	userMoved   bool
 	dragging    bool
 	dragDX      int
 	dragDY      int
-	uiApp       client.UIApp
 	root        widget.Widget
+	placed      widget.Widget
 }
 
 func NewWindowState(width, height int) WindowState {
@@ -179,12 +179,18 @@ func (w *WindowState) Open(ctx client.Context, root widget.Widget) {
 	w.SetRoot(root)
 }
 
+func (w *WindowState) OpenAt(x, y int, root widget.Widget) {
+	w.open = true
+	w.x = x
+	w.y = y
+	w.positioned = true
+	w.SetRoot(root)
+}
+
 func (w *WindowState) Close() {
 	w.open = false
 	w.root = nil
-	if w.uiApp != nil {
-		w.uiApp.SetRoot(primitives.Box())
-	}
+	w.placed = nil
 }
 
 func (w *WindowState) IsOpen() bool {
@@ -193,21 +199,42 @@ func (w *WindowState) IsOpen() bool {
 
 func (w *WindowState) SetRoot(root widget.Widget) {
 	w.root = root
-	w.setAppRoot()
+	w.placed = nil
+}
+
+func (w *WindowState) SetSize(width, height int) {
+	if w.width == width && w.height == height {
+		return
+	}
+	w.width = width
+	w.height = height
+	w.placed = nil
+}
+
+func (w *WindowState) SetAutoPosition(x, y int) {
+	if w.userMoved {
+		return
+	}
+	if w.x == x && w.y == y && w.positioned {
+		return
+	}
+	w.x = x
+	w.y = y
+	w.positioned = true
+	w.placed = nil
 }
 
 func (w *WindowState) Update(ctx client.Context) bool {
 	if !w.open || ctx.Input == nil {
 		return false
 	}
-	w.SetUIApp(ctx.UIApp)
 	w.ensurePosition(ctx)
 	screenW, screenH := ctx.ScreenSize()
 	if w.dragging {
 		if ctx.Input.MousePressed(render.MouseButtonLeft) {
 			w.x = clampWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, screenW-w.width-8))
 			w.y = clampWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, screenH-w.height-8))
-			w.setAppRoot()
+			w.placed = nil
 			return true
 		}
 		w.dragging = false
@@ -226,35 +253,12 @@ func (w *WindowState) Update(ctx client.Context) bool {
 	}
 	if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, w.width, w.titleHeight) {
 		w.dragging = true
+		w.userMoved = true
 		w.dragDX = ctx.Input.MouseX - w.x
 		w.dragDY = ctx.Input.MouseY - w.y
 		return true
 	}
 	return true
-}
-
-func (w *WindowState) Draw(screen *render.Image) {
-	if !w.open || screen == nil || w.root == nil {
-		return
-	}
-	r := offscreen.NewRenderer(w.width, w.height, offscreen.WithTheme(rotheme.Default.AsTheme()))
-	r.Render(w.root)
-	img := r.Image()
-	if img == nil {
-		return
-	}
-	var opts render.DrawImageOptions
-	opts.GeoM.Translate(float64(w.x), float64(w.y))
-	opts.Filter = render.FilterNearest
-	screen.DrawImage(render.NewImageFromImage(img), &opts)
-}
-
-func (w *WindowState) SetUIApp(uiApp client.UIApp) {
-	if w == nil || w.uiApp == uiApp {
-		return
-	}
-	w.uiApp = uiApp
-	w.setAppRoot()
 }
 
 func (w *WindowState) ensurePosition(ctx client.Context) {
@@ -265,19 +269,21 @@ func (w *WindowState) ensurePosition(ctx client.Context) {
 	w.x = maxInt(8, (screenW-w.width)/2)
 	w.y = maxInt(8, (screenH-w.height)/2)
 	w.positioned = true
+	w.placed = nil
 }
 
-func (w *WindowState) setAppRoot() {
-	if w.uiApp == nil || w.root == nil {
-		return
+func (w *WindowState) Widget() widget.Widget {
+	if w == nil || !w.open || w.root == nil {
+		return nil
 	}
-	w.uiApp.SetRoot(
-		primitives.Box(w.root).
+	if w.placed == nil {
+		w.placed = primitives.Box(w.root).
 			PaddingLeft(float32(w.x)).
 			PaddingTop(float32(w.y)).
 			Width(float32(w.x + w.width)).
-			Height(float32(w.y + w.height)),
-	)
+			Height(float32(w.y + w.height))
+	}
+	return w.placed
 }
 
 func clampWindowInt(value, low, high int) int {
