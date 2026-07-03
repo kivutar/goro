@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
@@ -18,15 +18,10 @@ const (
 	escapeMenuGap    = 8
 )
 
-var (
-	escapeMenuDisabledColor = DisabledColor
-)
-
 type EscapeMenu struct {
 	open    bool
 	action  EscapeMenuAction
 	pending bool
-	status  string
 	window  WindowState
 	ctx     client.Context
 }
@@ -45,7 +40,6 @@ func (m *EscapeMenu) OpenMenu() {
 	m.open = true
 	m.action = EscapeMenuActionNone
 	m.pending = false
-	m.status = ""
 }
 
 func (m *EscapeMenu) Update(ctx client.Context) bool {
@@ -77,16 +71,14 @@ func (m *EscapeMenu) Update(ctx client.Context) bool {
 
 func (m *EscapeMenu) RequestCharacterSelect(ctx client.Context) {
 	m.pending = true
-	m.status = "Requesting character select..."
 	if ctx.Network == nil {
 		m.pending = false
-		m.status = "Character select failed: not connected"
 		m.refresh(ctx)
 		return
 	}
 	if err := ctx.Network.SendRestart(network.RestartTypeCharSelect); err != nil {
 		m.pending = false
-		m.status = fmt.Sprintf("Character select failed: %v", err)
+		log.Printf("escape menu character select failed: %v", err)
 		m.refresh(ctx)
 		return
 	}
@@ -98,12 +90,10 @@ func (m *EscapeMenu) ApplyRestartAck(ack network.RestartAck) bool {
 		return false
 	}
 	if ack.Allowed {
-		m.status = "Returning to character select..."
 		m.refresh(m.ctx)
 		return true
 	}
 	m.pending = false
-	m.status = "Please wait before changing characters."
 	m.refresh(m.ctx)
 	return false
 }
@@ -122,10 +112,6 @@ func (m *EscapeMenu) IsOpen() bool {
 
 func (m *EscapeMenu) Pending() bool {
 	return m.pending
-}
-
-func (m *EscapeMenu) Status() string {
-	return m.status
 }
 
 func (m *EscapeMenu) Action() EscapeMenuAction {

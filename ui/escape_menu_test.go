@@ -42,9 +42,6 @@ func TestEscapeMenuCharacterSelectAckRequestsModeSwitch(t *testing.T) {
 	if !menu.ApplyRestartAck(network.RestartAck{Allowed: true}) {
 		t.Fatal("allowed restart ack should request character-select transition")
 	}
-	if menu.status != "Returning to character select..." {
-		t.Fatalf("status = %q", menu.status)
-	}
 }
 
 func TestEscapeMenuCharacterSelectAckDeniedKeepsMenuOpen(t *testing.T) {
@@ -64,8 +61,5 @@ func TestEscapeMenuCharacterSelectWithoutNetworkShowsError(t *testing.T) {
 
 	if menu.pending {
 		t.Fatal("menu stayed pending without a network connection")
-	}
-	if menu.status != "Character select failed: not connected" {
-		t.Fatalf("status = %q", menu.status)
 	}
 }

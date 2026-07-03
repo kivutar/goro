@@ -3124,9 +3124,6 @@ func TestBasicMenuOptionOpensEscapeMenu(t *testing.T) {
 	if mode.escapeMenu.Pending() {
 		t.Fatal("escape menu kept stale pending state")
 	}
-	if mode.escapeMenu.Status() != "" {
-		t.Fatalf("escape menu status = %q, want empty", mode.escapeMenu.Status())
-	}
 }
 
 func TestPendingSkillTargetCancelWithRightClick(t *testing.T) {

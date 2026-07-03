@@ -143,9 +143,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if action, ok := uiCursorAction(ctx); ok {
 		return action
 	}
-	if action, ok := m.deathModal.CursorAction(ctx); ok {
-		return action
-	}
 	if action, ok := m.teleportModal.CursorAction(ctx); ok {
 		return action
 	}

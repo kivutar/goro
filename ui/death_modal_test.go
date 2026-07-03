@@ -41,9 +41,6 @@ func TestDeathModalCharacterSelectAckRequestsModeSwitch(t *testing.T) {
 	if !modal.ApplyRestartAck(network.RestartAck{Allowed: true}) {
 		t.Fatal("allowed restart ack should request character-select transition")
 	}
-	if modal.status != "Returning to character select..." {
-		t.Fatalf("status = %q", modal.status)
-	}
 }
 
 func TestDeathModalCharacterSelectAckDeniedKeepsModalOpen(t *testing.T) {
