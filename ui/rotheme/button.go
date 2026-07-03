@@ -8,24 +8,44 @@ import (
 )
 
 const (
-	ButtonRadius   float32 = 6
-	ButtonPaddingX float32 = 8
-	ButtonPaddingY float32 = 5.5
+	ButtonRadius        float32 = 6
+	ButtonPaddingX      float32 = 8
+	ButtonPaddingY      float32 = 5.5
+	LargeButtonPaddingY float32 = 8.5
 )
 
 func Button(label string, onClick func()) *primitives.BoxWidget {
+	return ButtonDisabled(label, false, onClick)
+}
+
+func ButtonDisabled(label string, disabled bool, onClick func()) *primitives.BoxWidget {
+	return buttonWithPadding(label, disabled, ButtonPaddingY, onClick)
+}
+
+func LargeButton(label string, onClick func()) *primitives.BoxWidget {
+	return LargeButtonDisabled(label, false, onClick)
+}
+
+func LargeButtonDisabled(label string, disabled bool, onClick func()) *primitives.BoxWidget {
+	return buttonWithPadding(label, disabled, LargeButtonPaddingY, onClick)
+}
+
+func buttonWithPadding(label string, disabled bool, paddingY float32, onClick func()) *primitives.BoxWidget {
 	opts := []button.Option{
 		button.TextOpt(label),
 		button.SizeOpt(button.Small),
 		button.PainterOpt(ButtonPainter{}),
 		button.RoundedOpt(ButtonRadius),
+		button.Disabled(disabled),
 	}
 	if onClick != nil {
 		opts = append(opts, button.OnClick(onClick))
 	}
 	return primitives.Box(
-		button.New(opts...).PaddingXY(ButtonPaddingX, ButtonPaddingY),
-	).Height(Default.Typography.TextSize + ButtonPaddingY*2)
+		button.New(opts...).PaddingXY(ButtonPaddingX, paddingY),
+	).
+		CrossAlign(primitives.CrossAxisStretch).
+		Height(Default.Typography.TextSize + paddingY*2)
 }
 
 type ButtonPainter struct{}

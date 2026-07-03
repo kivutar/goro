@@ -3,25 +3,36 @@ package ui
 import (
 	"testing"
 
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 )
 
-func TestEscapeMenuCharacterSelectButtonRequestsAction(t *testing.T) {
+type escapeMenuTestUIManager struct {
+	root widget.Widget
+}
+
+func (m *escapeMenuTestUIManager) SetRoot(root widget.Widget) {
+	m.root = root
+}
+
+func (m *escapeMenuTestUIManager) Clear() {
+	m.root = nil
+}
+
+func TestEscapeMenuOpenPublishesGogpuWindow(t *testing.T) {
 	inputState := input.NewState()
-	menu := EscapeMenu{open: true}
-	ctx := client.Context{Input: inputState, ScreenW: 800, ScreenH: 600}
-	x, y, w, _ := escapeMenuBounds(800, 600)
-	bx, by, bw, bh := escapeMenuButtonBounds(x, y, w, 0)
-	inputState.SetMousePosition(bx+bw/2, by+bh/2)
-	inputState.SetMouseButton(input.MouseButtonLeft, true)
+	manager := &escapeMenuTestUIManager{}
+	menu := EscapeMenu{}
+	menu.OpenMenu()
+	ctx := client.Context{Input: inputState, UIManager: manager, ScreenW: 800, ScreenH: 600}
 
 	if !menu.Update(ctx) {
-		t.Fatal("escape menu did not consume character-select click")
+		t.Fatal("escape menu did not consume update while open")
 	}
-	if got := menu.ConsumeAction(); got != EscapeMenuActionCharacterSelect {
-		t.Fatalf("action = %d, want character select", got)
+	if manager.root == nil {
+		t.Fatal("escape menu did not publish its gogpu/ui root")
 	}
 }
 

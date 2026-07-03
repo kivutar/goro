@@ -163,7 +163,10 @@ type WindowState struct {
 	dragDY      int
 	root        widget.Widget
 	placed      widget.Widget
+	placedDrag  widget.Widget
 }
+
+const grabbedWindowOpacity = 0.8
 
 func NewWindowState(width, height int) WindowState {
 	return WindowState{
@@ -200,6 +203,7 @@ func (w *WindowState) IsOpen() bool {
 func (w *WindowState) SetRoot(root widget.Widget) {
 	w.root = root
 	w.placed = nil
+	w.placedDrag = nil
 }
 
 func (w *WindowState) SetSize(width, height int) {
@@ -209,6 +213,7 @@ func (w *WindowState) SetSize(width, height int) {
 	w.width = width
 	w.height = height
 	w.placed = nil
+	w.placedDrag = nil
 }
 
 func (w *WindowState) SetAutoPosition(x, y int) {
@@ -222,6 +227,7 @@ func (w *WindowState) SetAutoPosition(x, y int) {
 	w.y = y
 	w.positioned = true
 	w.placed = nil
+	w.placedDrag = nil
 }
 
 func (w *WindowState) Update(ctx client.Context) bool {
@@ -235,9 +241,11 @@ func (w *WindowState) Update(ctx client.Context) bool {
 			w.x = clampWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, screenW-w.width-8))
 			w.y = clampWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, screenH-w.height-8))
 			w.placed = nil
+			w.placedDrag = nil
 			return true
 		}
 		w.dragging = false
+		w.placedDrag = nil
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
@@ -256,6 +264,7 @@ func (w *WindowState) Update(ctx client.Context) bool {
 		w.userMoved = true
 		w.dragDX = ctx.Input.MouseX - w.x
 		w.dragDY = ctx.Input.MouseY - w.y
+		w.placedDrag = nil
 		return true
 	}
 	return true
@@ -270,6 +279,7 @@ func (w *WindowState) ensurePosition(ctx client.Context) {
 	w.y = maxInt(8, (screenH-w.height)/2)
 	w.positioned = true
 	w.placed = nil
+	w.placedDrag = nil
 }
 
 func (w *WindowState) Widget() widget.Widget {
@@ -282,6 +292,12 @@ func (w *WindowState) Widget() widget.Widget {
 			PaddingTop(float32(w.y)).
 			Width(float32(w.x + w.width)).
 			Height(float32(w.y + w.height))
+	}
+	if w.dragging {
+		if w.placedDrag == nil {
+			w.placedDrag = withOpacity(w.placed, grabbedWindowOpacity)
+		}
+		return w.placedDrag
 	}
 	return w.placed
 }
