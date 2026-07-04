@@ -169,8 +169,9 @@ type WindowState struct {
 	dragging    bool
 	dragDX      int
 	dragDY      int
-	root        widget.Widget
+	content     widget.Widget
 	placed      widget.Widget
+	published   widget.Widget
 	opacity     float32
 	closeOnEsc  bool
 }
@@ -187,25 +188,25 @@ func NewWindowState(width, height int) WindowState {
 	}
 }
 
-func (w *WindowState) Open(ctx client.Context, root widget.Widget) {
+func (w *WindowState) Open(ctx client.Context, content widget.Widget) {
 	w.open = true
 	w.ensurePosition(ctx)
-	w.SetRoot(root)
+	w.SetContent(content)
 }
 
-func (w *WindowState) OpenAt(x, y int, root widget.Widget) {
+func (w *WindowState) OpenAt(x, y int, content widget.Widget) {
 	w.open = true
 	w.x = x
 	w.y = y
 	w.positioned = true
-	w.SetRoot(root)
+	w.SetContent(content)
 }
 
 func (w *WindowState) Close() {
 	w.setOpacity(1)
 	w.open = false
 	w.dragging = false
-	w.root = nil
+	w.content = nil
 	w.placed = nil
 }
 
@@ -213,14 +214,39 @@ func (w *WindowState) IsOpen() bool {
 	return w.open
 }
 
-func (w *WindowState) SetRoot(root widget.Widget) {
-	w.root = root
+func (w *WindowState) SetContent(content widget.Widget) {
+	w.content = content
 	w.placed = nil
 	if w.dragging {
 		w.setOpacity(grabbedWindowOpacity)
 	} else {
 		w.setOpacity(1)
 	}
+}
+
+func (w *WindowState) Publish(ctx client.Context) {
+	if w == nil || ctx.UIManager == nil {
+		return
+	}
+	if !w.open || w.content == nil {
+		w.Unpublish(ctx)
+		return
+	}
+	root := w.Widget()
+	if root == nil || root == w.published {
+		return
+	}
+	w.Unpublish(ctx)
+	w.published = root
+	ctx.UIManager.AddOverlay(root)
+}
+
+func (w *WindowState) Unpublish(ctx client.Context) {
+	if w == nil || ctx.UIManager == nil || w.published == nil {
+		return
+	}
+	ctx.UIManager.RemoveOverlay(w.published)
+	w.published = nil
 }
 
 func (w *WindowState) SetSize(width, height int) {
@@ -232,17 +258,18 @@ func (w *WindowState) SetSize(width, height int) {
 	w.placed = nil
 }
 
-func (w *WindowState) SetAutoPosition(x, y int) {
+func (w *WindowState) SetAutoPosition(x, y int) bool {
 	if w.userMoved {
-		return
+		return false
 	}
 	if w.x == x && w.y == y && w.positioned {
-		return
+		return false
 	}
 	w.x = x
 	w.y = y
 	w.positioned = true
 	w.placed = nil
+	return true
 }
 
 func (w *WindowState) SetCloseOnEscape(enabled bool) {
@@ -302,7 +329,7 @@ func (w *WindowState) ensurePosition(ctx client.Context) {
 func (w *WindowState) setOpacity(opacity float32) {
 	changed := w.opacity != opacity
 	w.opacity = opacity
-	if box, ok := w.root.(*primitives.BoxWidget); ok {
+	if box, ok := w.content.(*primitives.BoxWidget); ok {
 		box.Background(windowBodyColor(opacity))
 		box.SetNeedsRedraw(true)
 	}
@@ -314,11 +341,11 @@ func (w *WindowState) setOpacity(opacity float32) {
 }
 
 func (w *WindowState) Widget() widget.Widget {
-	if w == nil || !w.open || w.root == nil {
+	if w == nil || !w.open || w.content == nil {
 		return nil
 	}
 	if w.placed == nil {
-		w.placed = primitives.Box(w.root).
+		w.placed = primitives.Box(w.content).
 			PaddingLeft(float32(w.x)).
 			PaddingTop(float32(w.y)).
 			Width(float32(w.x + w.width)).

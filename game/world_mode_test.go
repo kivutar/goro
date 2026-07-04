@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
@@ -20,6 +21,27 @@ import (
 	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
 )
+
+type worldModeTestUIManager struct {
+	overlays []widget.Widget
+}
+
+func (m *worldModeTestUIManager) AddOverlay(root widget.Widget) {
+	m.overlays = append(m.overlays, root)
+}
+
+func (m *worldModeTestUIManager) RemoveOverlay(root widget.Widget) {
+	for i, overlay := range m.overlays {
+		if overlay == root {
+			m.overlays = append(m.overlays[:i], m.overlays[i+1:]...)
+			return
+		}
+	}
+}
+
+func (m *worldModeTestUIManager) Clear() {
+	m.overlays = nil
+}
 
 func TestApplyLocalActorLookChangeUpdatesSelectedCharacter(t *testing.T) {
 	sessionState := &session.Session{
@@ -4163,15 +4185,31 @@ func TestHandleMapChangeSameServerUpdatesMapAndResetsActors(t *testing.T) {
 	world.SetPlayerPosition(10, 20, 4)
 	world.UpsertActor(worldstate.Actor{ID: 300, Name: "Remote", X: 11, Y: 20})
 	sessionState := &session.Session{AccountID: 100, CharID: 200, PlayerDir: 4}
+	uiManager := &worldModeTestUIManager{}
 	ctx := client.Context{
-		Session: sessionState,
-		World:   world,
+		Session:   sessionState,
+		World:     world,
+		Input:     input.NewState(),
+		UIManager: uiManager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+	mode := &WorldMode{}
+	mode.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogSay, NPCID: 10, Message: "Warping..."})
+	if !mode.npcDialog.Update(ctx) {
+		t.Fatal("npc dialog did not publish before map change")
+	}
+	if len(uiManager.overlays) == 0 {
+		t.Fatal("npc dialog overlay was not published before map change")
 	}
 
-	next := (&WorldMode{}).handleMapChange(ctx, network.MapChange{MapName: "geffen", X: 120, Y: 80})
+	next := mode.handleMapChange(ctx, network.MapChange{MapName: "geffen", X: 120, Y: 80})
 
 	if next == nil || next.Name() != "world" {
 		t.Fatalf("next mode = %#v, want world", next)
+	}
+	if len(uiManager.overlays) != 0 {
+		t.Fatalf("npc dialog overlays after map change = %d, want 0", len(uiManager.overlays))
 	}
 	if world.MapName != "geffen" || sessionState.Zone.MapName != "geffen" {
 		t.Fatalf("map = world %q session %q, want geffen", world.MapName, sessionState.Zone.MapName)

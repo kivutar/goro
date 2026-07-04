@@ -149,9 +149,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if ctx.Input.MousePressed(render.MouseButtonRight) {
 		return cursorActionRotate
 	}
-	if action, ok := m.npcDialog.CursorAction(ctx); ok {
-		return action
-	}
 	if action, ok := m.itemInfoWindow.CursorAction(ctx); ok {
 		return action
 	}

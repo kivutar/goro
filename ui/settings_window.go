@@ -56,11 +56,7 @@ func (w *SettingsWindow) Publish(ctx client.Context) {
 	if ctx.UIManager == nil {
 		return
 	}
-	if !w.window.IsOpen() {
-		ctx.UIManager.Clear()
-		return
-	}
-	ctx.UIManager.SetRoot(w.window.Widget())
+	w.window.Publish(ctx)
 }
 
 func (w *SettingsWindow) ensureWindow() {
@@ -163,7 +159,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 func (w *SettingsWindow) refresh(ctx client.Context) {
 	w.ensureWindow()
 	w.ctx = ctx
-	w.window.SetRoot(w.widgetTree(ctx))
+	w.window.SetContent(w.widgetTree(ctx))
 	w.Publish(ctx)
 }
 

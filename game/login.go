@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"fmt"
+	uiwidget "github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"image"
 	"image/color"
@@ -42,6 +43,7 @@ type LoginMode struct {
 	loginWindow       *gameui.LoginWindow
 	charSelectWindow  *gameui.CharacterSelectWindow
 	charCreateWindow  *gameui.CharacterCreateWindow
+	publishedUI       uiwidget.Widget
 	create            charCreateState
 	cursor            roCursorState
 	quitConfirm       loginQuitConfirmState
@@ -488,9 +490,7 @@ func (m *LoginMode) updateFormInput(ctx client.Context) {
 	m.updateLoginWindow(ctx)
 	if m.loginWindow != nil {
 		m.loginWindow.Update(ctx)
-		if ctx.UIManager != nil {
-			ctx.UIManager.SetRoot(m.loginWindow.Widget())
-		}
+		m.publishUI(ctx, m.loginWindow.Widget())
 	}
 }
 
@@ -513,9 +513,7 @@ func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
 	m.publishCharacterSelectWindow(ctx)
 	if m.charSelectWindow != nil {
 		m.charSelectWindow.Update(ctx)
-		if ctx.UIManager != nil {
-			ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
-		}
+		m.publishUI(ctx, m.charSelectWindow.Widget())
 	}
 }
 
@@ -589,8 +587,8 @@ func (m *LoginMode) characterSelectPreviewImages(ctx client.Context, opts gameui
 
 func (m *LoginMode) publishCharacterSelectWindow(ctx client.Context) {
 	m.updateCharacterSelectWindow(ctx)
-	if m.charSelectWindow != nil && ctx.UIManager != nil {
-		ctx.UIManager.SetRoot(m.charSelectWindow.Widget())
+	if m.charSelectWindow != nil {
+		m.publishUI(ctx, m.charSelectWindow.Widget())
 	}
 }
 
@@ -634,9 +632,7 @@ func (m *LoginMode) updateCharacterCreateInput(ctx client.Context) {
 	m.publishCharacterCreateWindow(ctx)
 	if m.charCreateWindow != nil {
 		m.charCreateWindow.Update(ctx)
-		if ctx.UIManager != nil {
-			ctx.UIManager.SetRoot(m.charCreateWindow.Widget())
-		}
+		m.publishUI(ctx, m.charCreateWindow.Widget())
 	}
 }
 
@@ -816,6 +812,7 @@ func (m *LoginMode) nextWorldMode(ctx client.Context, now time.Time) *WorldMode 
 	if ctx.UIManager != nil {
 		ctx.UIManager.Clear()
 	}
+	m.publishedUI = nil
 	m.loginWindow = nil
 	m.charSelectWindow = nil
 	m.charCreateWindow = nil
@@ -889,7 +886,7 @@ func (m *LoginMode) drawLoginWindow(ctx client.Context) {
 		m.updateLoginWindow(ctx)
 	}
 	if m.loginWindow != nil && ctx.UIManager != nil {
-		ctx.UIManager.SetRoot(m.loginWindow.Widget())
+		m.publishUI(ctx, m.loginWindow.Widget())
 	}
 }
 
@@ -908,17 +905,22 @@ func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 				}
 			},
 		})
-		if ctx.UIManager != nil {
-			ctx.UIManager.SetRoot(m.loginWindow.Widget())
-		}
+		m.publishUI(ctx, m.loginWindow.Widget())
 		return
 	}
 	m.loginWindow.SetOptions(opts)
 	m.username = m.loginWindow.Username
 	m.password = m.loginWindow.Password
-	if ctx.UIManager != nil {
-		ctx.UIManager.SetRoot(m.loginWindow.Widget())
+	m.publishUI(ctx, m.loginWindow.Widget())
+}
+
+func (m *LoginMode) publishUI(ctx client.Context, root uiwidget.Widget) {
+	if ctx.UIManager == nil || root == nil || root == m.publishedUI {
+		return
 	}
+	ctx.UIManager.Clear()
+	ctx.UIManager.AddOverlay(root)
+	m.publishedUI = root
 }
 
 func (m *LoginMode) drawCharacterSelect(ctx client.Context) {
@@ -931,8 +933,8 @@ func (m *LoginMode) drawCharacterCreate(ctx client.Context) {
 
 func (m *LoginMode) publishCharacterCreateWindow(ctx client.Context) {
 	m.updateCharacterCreateWindow(ctx)
-	if m.charCreateWindow != nil && ctx.UIManager != nil {
-		ctx.UIManager.SetRoot(m.charCreateWindow.Widget())
+	if m.charCreateWindow != nil {
+		m.publishUI(ctx, m.charCreateWindow.Widget())
 	}
 }
 

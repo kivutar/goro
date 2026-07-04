@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/network"
 )
 
 func TestNPCDialogTextRunsParseColorCodes(t *testing.T) {
@@ -43,55 +44,29 @@ func TestNPCDialogWrapIgnoresColorCodeWidth(t *testing.T) {
 	}
 }
 
-func TestNPCDialogMenuScrollChangesVisibleChoiceRange(t *testing.T) {
-	dialog := NPCDialog{
-		action:  npcDialogActionMenu,
-		options: []string{"one", "two", "three", "four", "five", "six"},
+func TestNPCDialogChoiceWindowOpensBelowDialogImmediately(t *testing.T) {
+	dialog := NPCDialog{}
+	ctx := Context{
+		Input:   input.NewState(),
+		ScreenW: 1280,
+		ScreenH: 720,
 	}
-	height := npcMenuTitleH + npcMenuTopPad + 4*npcMenuRowH + npcMenuBottomH
+	dialog.Apply(network.NPCDialog{
+		Kind:    network.NPCDialogMenu,
+		NPCID:   100,
+		Options: []string{"Prontera", "Geffen", "Payon", "Alberta"},
+	})
 
-	start, end := dialog.visibleMenuRange(height)
-	if start != 0 || end != 4 {
-		t.Fatalf("initial range = %d,%d, want 0,4", start, end)
-	}
-
-	dialog.scrollMenuBy(-2, height)
-	start, end = dialog.visibleMenuRange(height)
-	if start != 2 || end != 6 {
-		t.Fatalf("scrolled range = %d,%d, want 2,6", start, end)
-	}
-
-	dialog.scrollMenuBy(-10, height)
-	start, end = dialog.visibleMenuRange(height)
-	if start != 2 || end != 6 {
-		t.Fatalf("clamped range = %d,%d, want 2,6", start, end)
+	if !dialog.Update(ctx) {
+		t.Fatal("dialog update did not open choice window")
 	}
 
-	dialog.scrollMenuBy(1, height)
-	start, end = dialog.visibleMenuRange(height)
-	if start != 1 || end != 5 {
-		t.Fatalf("scroll up range = %d,%d, want 1,5", start, end)
+	expectedX, expectedY, _, _ := dialog.menuBounds(ctx.ScreenW, ctx.ScreenH, dialog.dialogWindow.x, dialog.dialogWindow.y, dialog.dialogWindow.width, dialog.dialogWindow.height)
+	if dialog.menuWindow.x != expectedX || dialog.menuWindow.y != expectedY {
+		t.Fatalf("choice position = %d,%d, want %d,%d", dialog.menuWindow.x, dialog.menuWindow.y, expectedX, expectedY)
 	}
-}
-
-func TestNPCDialogMenuScrollConsumesWheelInsideMenu(t *testing.T) {
-	state := input.NewState()
-	state.SetMousePosition(20, 20)
-	state.AddWheel(0, -1)
-	dialog := NPCDialog{
-		action:  npcDialogActionMenu,
-		options: []string{"one", "two", "three", "four", "five", "six"},
-	}
-	height := npcMenuTitleH + npcMenuTopPad + 4*npcMenuRowH + npcMenuBottomH
-
-	if !dialog.updateMenuScrollAt(Context{Input: state}, 10, 10, npcMenuWidth, height) {
-		t.Fatal("wheel inside menu was not consumed")
-	}
-	if dialog.menuScroll != 1 {
-		t.Fatalf("menu scroll = %d, want 1", dialog.menuScroll)
-	}
-	if state.WheelY != 0 {
-		t.Fatalf("wheel y = %.1f, want consumed", state.WheelY)
+	if dialog.menuWindow.x == 0 && dialog.menuWindow.y == 0 {
+		t.Fatal("choice window opened at origin")
 	}
 }
 

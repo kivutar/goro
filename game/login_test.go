@@ -426,8 +426,8 @@ type fakeCursorUIApp struct {
 	hovered widget.Widget
 }
 
-func (fakeCursorUIApp) SetRoot(widget.Widget) {}
-func (fakeCursorUIApp) Frame()                {}
+func (fakeCursorUIApp) SetUIRoot(widget.Widget) {}
+func (fakeCursorUIApp) Frame()                  {}
 func (a fakeCursorUIApp) Cursor() widget.CursorType {
 	return a.cursor
 }
@@ -437,15 +437,77 @@ func (a fakeCursorUIApp) HoveredWidget() widget.Widget {
 }
 
 type loginTestUIManager struct {
-	root widget.Widget
+	overlays []widget.Widget
+	adds     int
+	clears   int
 }
 
-func (m *loginTestUIManager) SetRoot(root widget.Widget) {
-	m.root = root
+func (m *loginTestUIManager) AddOverlay(root widget.Widget) {
+	m.overlays = append(m.overlays, root)
+	m.adds++
+}
+
+func (m *loginTestUIManager) RemoveOverlay(root widget.Widget) {
+	for i, overlay := range m.overlays {
+		if overlay == root {
+			m.overlays = append(m.overlays[:i], m.overlays[i+1:]...)
+			return
+		}
+	}
 }
 
 func (m *loginTestUIManager) Clear() {
-	m.root = nil
+	m.overlays = nil
+	m.clears++
+}
+
+func TestLoginWindowPublishesOnlyWhenWidgetChanges(t *testing.T) {
+	manager := &loginTestUIManager{}
+	mode := NewLoginMode()
+	ctx := client.Context{
+		Resources: &res.Manager{},
+		UIManager: manager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+
+	mode.drawLoginWindow(ctx)
+	mode.drawLoginWindow(ctx)
+	mode.updateFormInput(ctx)
+
+	if manager.adds != 1 {
+		t.Fatalf("login window AddOverlay calls = %d, want 1", manager.adds)
+	}
+	if manager.clears != 1 {
+		t.Fatalf("login window Clear calls = %d, want 1", manager.clears)
+	}
+}
+
+func TestCharacterSelectPublishesOnlyWhenWidgetChanges(t *testing.T) {
+	manager := &loginTestUIManager{}
+	mode := NewLoginMode()
+	mode.phase = loginPhaseCharacter
+	mode.maxSlots = 9
+	ctx := client.Context{
+		Resources: &res.Manager{},
+		Session: &session.Session{Characters: []session.Character{
+			{Slot: 0, Name: "Kivutar", Level: 1, JobLevel: 1},
+		}},
+		UIManager: manager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+
+	mode.publishCharacterSelectWindow(ctx)
+	mode.publishCharacterSelectWindow(ctx)
+	mode.updateCharacterSelectInput(ctx)
+
+	if manager.adds != 1 {
+		t.Fatalf("character select AddOverlay calls = %d, want 1", manager.adds)
+	}
+	if manager.clears != 1 {
+		t.Fatalf("character select Clear calls = %d, want 1", manager.clears)
+	}
 }
 
 func TestCharacterSelectPublishesUIRootDuringFadeIn(t *testing.T) {
@@ -468,13 +530,13 @@ func TestCharacterSelectPublishesUIRootDuringFadeIn(t *testing.T) {
 	if _, err := mode.Update(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if manager.root == nil {
-		t.Fatal("character select did not publish a UI root during fade-in")
+	if len(manager.overlays) != 1 {
+		t.Fatalf("character select overlays = %d, want 1 during fade-in", len(manager.overlays))
 	}
 }
 
 func TestLoginToWorldClearsPublishedUIRoot(t *testing.T) {
-	manager := &loginTestUIManager{root: primitives.Box()}
+	manager := &loginTestUIManager{overlays: []widget.Widget{primitives.Box()}}
 	mode := NewLoginMode()
 	mode.loginWindow = &gameui.LoginWindow{}
 	mode.charSelectWindow = &gameui.CharacterSelectWindow{}
@@ -483,8 +545,8 @@ func TestLoginToWorldClearsPublishedUIRoot(t *testing.T) {
 	if next := mode.nextWorldMode(ctx, time.Now()); next == nil {
 		t.Fatal("next world mode is nil")
 	}
-	if manager.root != nil {
-		t.Fatal("login UI root was not cleared before entering world")
+	if len(manager.overlays) != 0 {
+		t.Fatalf("login UI overlays = %d, want 0 before entering world", len(manager.overlays))
 	}
 	if mode.loginWindow != nil || mode.charSelectWindow != nil {
 		t.Fatal("login windows were not cleared before entering world")
@@ -493,7 +555,7 @@ func TestLoginToWorldClearsPublishedUIRoot(t *testing.T) {
 
 func TestCharacterSelectModePublishesRootOnEnter(t *testing.T) {
 	staleRoot := primitives.Box()
-	manager := &loginTestUIManager{root: staleRoot}
+	manager := &loginTestUIManager{overlays: []widget.Widget{staleRoot}}
 	mode := NewCharacterSelectMode(client.Context{}, gameui.ChatConsole{})
 	ctx := client.Context{
 		Resources: &res.Manager{},
@@ -507,10 +569,10 @@ func TestCharacterSelectModePublishesRootOnEnter(t *testing.T) {
 
 	mode.Enter(ctx)
 
-	if manager.root == nil {
-		t.Fatal("character select mode did not publish a UI root on enter")
+	if len(manager.overlays) != 1 {
+		t.Fatalf("character select mode overlays = %d, want 1 on enter", len(manager.overlays))
 	}
-	if manager.root == staleRoot {
+	if manager.overlays[0] == staleRoot {
 		t.Fatal("character select mode left stale UI root published")
 	}
 }
@@ -525,7 +587,7 @@ func TestCharacterSelectBackToLoginPublishesLoginRootAtFadeSwitch(t *testing.T) 
 		gameui.CharacterSelectWindowCallbacks{},
 	)
 	staleRoot := mode.charSelectWindow.Widget()
-	manager.root = staleRoot
+	manager.overlays = []widget.Widget{staleRoot}
 	mode.startPhaseFade(loginPhaseAccount, start)
 	ctx := client.Context{
 		Resources: &res.Manager{},
@@ -542,10 +604,10 @@ func TestCharacterSelectBackToLoginPublishesLoginRootAtFadeSwitch(t *testing.T) 
 	if mode.phase != loginPhaseAccount {
 		t.Fatalf("phase = %d, want account", mode.phase)
 	}
-	if manager.root == nil {
-		t.Fatal("login root was not published at phase switch")
+	if len(manager.overlays) != 1 {
+		t.Fatalf("login overlays = %d, want 1 at phase switch", len(manager.overlays))
 	}
-	if manager.root == staleRoot {
+	if manager.overlays[0] == staleRoot {
 		t.Fatal("stale character select root stayed published after returning to login")
 	}
 	if mode.loginWindow == nil {

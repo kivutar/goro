@@ -62,7 +62,7 @@ func (w *CharacterSelectWindow) SetOptions(opts CharacterSelectWindowOptions) {
 	if sameTree {
 		return
 	}
-	w.window.SetRoot(w.widgetTree())
+	w.window.SetContent(w.widgetTree())
 }
 
 func (w *CharacterSelectWindow) Widget() widget.Widget {

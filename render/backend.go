@@ -44,7 +44,7 @@ type uiAppBridge struct {
 	*uiapp.App
 }
 
-func (b uiAppBridge) SetRoot(root widget.Widget) {
+func (b uiAppBridge) SetUIRoot(root widget.Widget) {
 	if b.App != nil {
 		b.App.SetRoot(root)
 		if b.App.Window() != nil && b.App.Window().Context() != nil {

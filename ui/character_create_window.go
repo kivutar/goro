@@ -82,7 +82,7 @@ func (w *CharacterCreateWindow) SetOptions(opts CharacterCreateWindowOptions) {
 		return
 	}
 	focused := w.name != nil && w.name.IsFocused()
-	w.window.SetRoot(w.widgetTree())
+	w.window.SetContent(w.widgetTree())
 	if w.name != nil {
 		w.name.SetFocused(focused)
 	}

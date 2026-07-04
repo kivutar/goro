@@ -3,37 +3,36 @@ package ui
 import (
 	"fmt"
 	"image/color"
-	"math"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/gogpu/ui/core/scrollview"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
 	npcDialogWidth       = 560
 	npcDialogHeight      = 178
 	npcDialogPad         = 12
-	npcDialogTitleH      = 30
 	npcDialogButtonW     = 78
-	npcDialogButtonH     = 24
 	npcDialogLineH       = 14
 	npcDialogMaxMessages = 32
 	npcMenuWidth         = 260
 	npcMenuMinRows       = 4
 	npcMenuMaxRows       = 8
 	npcMenuRowH          = 24
-	npcMenuTitleH        = 26
-	npcMenuTopPad        = 8
-	npcMenuBottomH       = 30
-	npcMenuMinHeight     = npcMenuTitleH + npcMenuTopPad + npcMenuMinRows*npcMenuRowH + npcMenuBottomH
+	npcMenuPad           = 8
+	npcMenuFooterH       = 32
+	npcMenuMinHeight     = ROWindowTitleHeight + npcMenuPad*2 + npcMenuMinRows*npcMenuRowH + npcMenuFooterH
 )
 
 var (
 	npcDialogTextColor   = TextColor
 	npcDialogMutedColor  = MutedTextColor
-	npcDialogTitleColor  = TitleTextColor
 	npcDialogOptionColor = TextColor
 )
 
@@ -55,20 +54,9 @@ type NPCDialog struct {
 	clearOnText bool
 	status      string
 
-	positioned bool
-	x          int
-	y          int
-	dragging   bool
-	dragDX     int
-	dragDY     int
-
-	menuPositioned bool
-	menuX          int
-	menuY          int
-	menuDragging   bool
-	menuDragDX     int
-	menuDragDY     int
-	menuScroll     int
+	dialogWindow WindowState
+	menuWindow   WindowState
+	dirty        bool
 }
 
 type npcDialogTextRun struct {
@@ -93,22 +81,25 @@ func (d *NPCDialog) Apply(packet network.NPCDialog) {
 				d.lines = append([]string(nil), d.lines[len(d.lines)-npcDialogMaxMessages:]...)
 			}
 		}
+		d.dirty = true
 	case network.NPCDialogNext:
 		d.open = true
 		d.npcID = packet.NPCID
 		d.action = npcDialogActionNext
 		d.options = nil
+		d.dirty = true
 	case network.NPCDialogClose:
 		d.open = true
 		d.npcID = packet.NPCID
 		d.action = npcDialogActionClose
 		d.options = nil
+		d.dirty = true
 	case network.NPCDialogMenu:
 		d.open = true
 		d.npcID = packet.NPCID
 		d.action = npcDialogActionMenu
 		d.options = append([]string(nil), packet.Options...)
-		d.menuScroll = 0
+		d.dirty = true
 	case network.NPCDialogClear:
 		if !d.open || d.npcID == 0 || packet.NPCID == 0 || d.npcID == packet.NPCID {
 			d.Reset()
@@ -117,36 +108,35 @@ func (d *NPCDialog) Apply(packet network.NPCDialog) {
 }
 
 func (d *NPCDialog) Reset() {
-	*d = NPCDialog{}
+	d.closeWindows()
+	d.open = false
+	d.npcID = 0
+	d.lines = nil
+	d.options = nil
+	d.action = npcDialogActionNone
+	d.clearOnText = false
+	d.status = ""
+	d.dirty = true
+}
+
+func (d *NPCDialog) ResetPublished(ctx Context) {
+	d.Reset()
+	d.publish(ctx)
 }
 
 func (d *NPCDialog) Update(ctx Context) bool {
-	if !d.open || ctx.Input == nil {
+	if !d.open {
+		if d.dialogWindow.published != nil || d.menuWindow.published != nil {
+			d.publish(ctx)
+			return true
+		}
 		return false
 	}
-	width, height := ctx.ScreenSize()
-	x, y, w, h := d.resolvedDialogBounds(width, height)
-	menuX, menuY, menuW, menuH := d.menuBounds(width, height, x, y, w, h)
-	if d.updateMenuScrollAt(ctx, menuX, menuY, menuW, menuH) {
+	if ctx.Input == nil {
+		return false
+	}
+	if d.openWindows(ctx) {
 		return true
-	}
-	if d.dragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			d.x = clampNPCDialogInt(ctx.Input.MouseX-d.dragDX, 8, maxInt(8, width-w-8))
-			d.y = clampNPCDialogInt(ctx.Input.MouseY-d.dragDY, 8, maxInt(8, height-h-8))
-			d.positioned = true
-			return true
-		}
-		d.dragging = false
-	}
-	if d.menuDragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			d.menuX = clampNPCDialogInt(ctx.Input.MouseX-d.menuDragDX, 8, maxInt(8, width-menuW-8))
-			d.menuY = clampNPCDialogInt(ctx.Input.MouseY-d.menuDragDY, 8, maxInt(8, height-menuH-8))
-			d.menuPositioned = true
-			return true
-		}
-		d.menuDragging = false
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
 		if d.action == npcDialogActionMenu {
@@ -154,6 +144,7 @@ func (d *NPCDialog) Update(ctx Context) bool {
 		} else {
 			d.close(ctx)
 		}
+		d.publish(ctx)
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEnter) {
@@ -163,84 +154,62 @@ func (d *NPCDialog) Update(ctx Context) bool {
 		case npcDialogActionClose:
 			d.close(ctx)
 		}
+		d.publish(ctx)
 		return true
 	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-		if d.action == npcDialogActionMenu && pointInRect(mx, my, menuX, menuY, menuW, menuH) {
-			if pointInRect(mx, my, menuX, menuY, menuW, npcMenuTitleH) {
-				d.menuDragging = true
-				d.menuDragDX = mx - menuX
-				d.menuDragDY = my - menuY
-				return true
-			}
-			start, end := d.visibleMenuRange(menuH)
-			for i, optionIndex := 0, start; optionIndex < end; i, optionIndex = i+1, optionIndex+1 {
-				ox, oy, ow, oh := npcDialogOptionBounds(menuX, menuY, menuW, i)
-				if pointInRect(mx, my, ox, oy, ow, oh) {
-					d.choose(ctx, optionIndex+1)
-					return true
-				}
-			}
-			cancelX, cancelY, cancelW, cancelH := npcDialogMenuCancelBounds(menuX, menuY, menuW, menuH)
-			if pointInRect(mx, my, cancelX, cancelY, cancelW, cancelH) {
-				d.choose(ctx, 255)
-				return true
-			}
-			return true
-		}
-		if !pointInRect(mx, my, x, y, w, h) {
-			return true
-		}
-		if pointInRect(mx, my, x, y, w, npcDialogTitleH) {
-			d.dragging = true
-			d.dragDX = mx - x
-			d.dragDY = my - y
-			return true
-		}
-		if d.action == npcDialogActionNext || d.action == npcDialogActionClose {
-			bx, by, bw, bh := npcDialogButtonBounds(x, y, w, h)
-			if pointInRect(mx, my, bx, by, bw, bh) {
-				if d.action == npcDialogActionNext {
-					d.next(ctx)
-				} else {
-					d.close(ctx)
-				}
-				return true
-			}
-		}
+
+	consumed := false
+	if d.action == npcDialogActionMenu && d.menuWindow.Update(ctx) {
+		consumed = true
+	}
+	if d.dialogWindow.Update(ctx) {
+		consumed = true
+	}
+	if consumed {
+		d.publish(ctx)
 		return true
 	}
-	return true
+	return false
 }
 
 func (d *NPCDialog) next(ctx Context) {
 	if ctx.Network == nil {
 		d.status = "not connected"
+		d.dirty = true
+		d.refresh(ctx)
 		return
 	}
 	if err := ctx.Network.SendNPCNext(d.npcID); err != nil {
 		d.status = err.Error()
+		d.dirty = true
+		d.refresh(ctx)
 		return
 	}
 	d.action = npcDialogActionNone
 	d.clearOnText = true
 	d.status = ""
+	d.dirty = true
+	d.refresh(ctx)
 }
 
 func (d *NPCDialog) close(ctx Context) {
 	if ctx.Network != nil && d.npcID != 0 {
 		if err := ctx.Network.SendNPCClose(d.npcID); err != nil {
 			d.status = err.Error()
+			d.dirty = true
+			d.refresh(ctx)
 			return
 		}
 	}
 	d.Reset()
+	d.publish(ctx)
 }
 
 func (d *NPCDialog) choose(ctx Context, choice int) {
 	if ctx.Network == nil {
 		d.status = "not connected"
+		d.dirty = true
+		d.refresh(ctx)
 		return
 	}
 	cancel := choice < 1 || choice > 254
@@ -252,79 +221,250 @@ func (d *NPCDialog) choose(ctx Context, choice int) {
 	}
 	if err := ctx.Network.SendNPCMenuChoice(d.npcID, uint8(choice)); err != nil {
 		d.status = err.Error()
+		d.dirty = true
+		d.refresh(ctx)
 		return
 	}
 	if cancel || choice == 255 {
 		d.Reset()
+		d.publish(ctx)
 		return
 	}
 	d.action = npcDialogActionNone
 	d.options = nil
-	d.menuDragging = false
 	d.status = ""
+	d.dirty = true
+	d.refresh(ctx)
 }
 
-func (d *NPCDialog) Draw(screen *render.Image, ctx Context, width, height int) {
-	if !d.open || screen == nil {
-		return
-	}
-	x, y, w, h := d.resolvedDialogBounds(width, height)
-	DrawTitledWindowFrame(screen, x, y, w, h, npcDialogTitleH)
-
-	title := d.title(ctx)
-	DrawWindowTitle(screen, x, y, npcDialogTitleH, npcDialogPad, title, npcDialogTitleColor)
-	if d.status != "" {
-		render.DebugPrintAtColor(screen, trimRunes(d.status, 48), x+w-260, y+10, ErrorTextColor)
-	}
-
-	lineY := y + 38
-	lineMax := maxInt(12, (w-2*npcDialogPad)/7)
-	for _, line := range wrapNPCDialogLines(d.lines, lineMax) {
-		if lineY > y+h-38 {
-			break
+func (d *NPCDialog) ensureWindows(ctx Context) {
+	width, height := ctx.ScreenSize()
+	x, y, w, h := npcDialogBounds(width, height)
+	if d.dialogWindow.width == 0 {
+		d.dialogWindow = NewWindowState(w, h)
+		d.dialogWindow.SetCloseOnEscape(false)
+		d.dialogWindow.OpenAt(x, y, d.dialogTree(ctx, w, h))
+	} else {
+		if d.dialogWindow.width != w || d.dialogWindow.height != h {
+			d.dirty = true
 		}
-		drawNPCDialogTextRuns(screen, line, x+npcDialogPad, lineY)
-		lineY += npcDialogLineH
+		d.dialogWindow.SetSize(w, h)
+		if d.dialogWindow.SetAutoPosition(x, y) {
+			d.dirty = true
+		}
 	}
+	menuX, menuY, menuW, menuH := d.menuBounds(width, height, d.dialogWindow.x, d.dialogWindow.y, w, h)
+	if d.menuWindow.width == 0 {
+		d.menuWindow = NewWindowState(menuW, menuH)
+		d.menuWindow.SetCloseOnEscape(false)
+		d.menuWindow.SetAutoPosition(menuX, menuY)
+	} else {
+		if d.menuWindow.width != menuW || d.menuWindow.height != menuH {
+			d.dirty = true
+		}
+		d.menuWindow.SetSize(menuW, menuH)
+		if d.menuWindow.SetAutoPosition(menuX, menuY) {
+			d.dirty = true
+		}
+	}
+}
 
+func (d *NPCDialog) openWindows(ctx Context) bool {
+	d.ensureWindows(ctx)
+	changed := d.dirty
+	if !d.dialogWindow.IsOpen() {
+		d.dialogWindow.OpenAt(d.dialogWindow.x, d.dialogWindow.y, d.dialogTree(ctx, d.dialogWindow.width, d.dialogWindow.height))
+		changed = true
+	} else if d.dirty {
+		d.dialogWindow.SetContent(d.dialogTree(ctx, d.dialogWindow.width, d.dialogWindow.height))
+	}
 	if d.action == npcDialogActionMenu {
-		menuX, menuY, menuW, menuH := d.menuBounds(width, height, x, y, w, h)
-		d.drawMenu(screen, menuX, menuY, menuW, menuH)
+		if !d.menuWindow.IsOpen() {
+			d.menuWindow.OpenAt(d.menuWindow.x, d.menuWindow.y, d.menuTree(ctx, d.menuWindow.width, d.menuWindow.height))
+			changed = true
+		} else if d.dirty {
+			d.menuWindow.SetContent(d.menuTree(ctx, d.menuWindow.width, d.menuWindow.height))
+		}
+	} else if d.menuWindow.IsOpen() {
+		d.menuWindow.Close()
+		changed = true
+	}
+	d.dirty = false
+	if changed {
+		d.publish(ctx)
+	}
+	return changed
+}
+
+func (d *NPCDialog) closeWindows() {
+	if d.dialogWindow.IsOpen() {
+		d.dialogWindow.Close()
+	}
+	if d.menuWindow.IsOpen() {
+		d.menuWindow.Close()
+	}
+}
+
+func (d *NPCDialog) refresh(ctx Context) {
+	if !d.open || !d.dialogWindow.IsOpen() {
 		return
 	}
+	d.openWindows(ctx)
+}
+
+func (d *NPCDialog) publish(ctx Context) {
+	if ctx.UIManager == nil {
+		return
+	}
+	if !d.open || !d.dialogWindow.IsOpen() {
+		d.dialogWindow.Unpublish(ctx)
+		d.menuWindow.Unpublish(ctx)
+		return
+	}
+	d.dialogWindow.Publish(ctx)
+	if d.action != npcDialogActionMenu || !d.menuWindow.IsOpen() {
+		d.menuWindow.Unpublish(ctx)
+		return
+	}
+	d.menuWindow.Publish(ctx)
+}
+
+func (d *NPCDialog) dialogTree(ctx Context, width, height int) widget.Widget {
+	contentHeight := height - ROWindowTitleHeight
+	footer := widget.Widget(nil)
 	if d.action == npcDialogActionNext || d.action == npcDialogActionClose {
+		contentHeight -= 40
 		label := "Next"
+		action := d.next
 		if d.action == npcDialogActionClose {
 			label = "Close"
+			action = d.close
 		}
-		drawNPCDialogButton(screen, x, y, w, h, label)
-		return
+		footer = primitives.HBox(
+			primitives.Expanded(primitives.Box()),
+			rotheme.Button(label, func() {
+				action(ctx)
+			}).Width(npcDialogButtonW),
+		).CrossAlign(primitives.CrossAxisCenter)
 	}
-	render.DebugPrintAtColor(screen, "Waiting...", x+w-92, y+h-25, npcDialogMutedColor)
+	lines := d.dialogLineWidgets(width, contentHeight)
+	if len(lines) == 0 {
+		lines = append(lines, rotheme.Text(""))
+	}
+	if d.status != "" {
+		lines = append(lines, rotheme.Text(trimRunes(d.status, 64)).Color(npcDialogWidgetColor(ErrorTextColor)))
+	} else if d.action == npcDialogActionNone {
+		lines = append(lines,
+			primitives.Box(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Text("Waiting...").Color(npcDialogWidgetColor(npcDialogMutedColor)),
+			),
+		)
+	}
+	options := []WindowOption{
+		Title(d.title(ctx)),
+		CloseButton(false),
+		Size(float32(width), float32(height)),
+		Content(
+			primitives.Box(lines...).
+				Padding(npcDialogPad).
+				Gap(2),
+		),
+	}
+	if footer != nil {
+		options = append(options,
+			FooterHeight(40),
+			Footer(footer),
+		)
+	}
+	return Window(options...)
 }
 
-func (d *NPCDialog) drawMenu(screen *render.Image, x, y, w, h int) {
-	DrawTitledWindowFrame(screen, x, y, w, h, npcMenuTitleH)
-	DrawWindowTitle(screen, x, y, npcMenuTitleH, npcDialogPad, "Choose", npcDialogTitleColor)
-	if len(d.options) == 0 {
-		render.DebugPrintAtColor(screen, "No options.", x+npcDialogPad, y+npcMenuTitleH+12, npcDialogMutedColor)
-		return
+func (d *NPCDialog) dialogLineWidgets(width, contentHeight int) []widget.Widget {
+	lineMax := maxInt(12, (width-2*npcDialogPad)/7)
+	maxLines := maxInt(1, (contentHeight-2*npcDialogPad)/npcDialogLineH)
+	wrapped := wrapNPCDialogLines(d.lines, lineMax)
+	if len(wrapped) > maxLines {
+		wrapped = wrapped[len(wrapped)-maxLines:]
 	}
-	start, end := d.visibleMenuRange(h)
-	for i, optionIndex := 0, start; optionIndex < end; i, optionIndex = i+1, optionIndex+1 {
-		ox, oy, ow, oh := npcDialogOptionBounds(x, y, w, i)
-		DrawButtonSurface(screen, ox, oy, ow, oh, ButtonColor)
-		runs := npcDialogTextRuns(d.options[optionIndex], npcDialogOptionColor)
-		runs = append([]npcDialogTextRun{{text: fmt.Sprintf("%d. ", optionIndex+1), color: npcDialogOptionColor}}, runs...)
-		runs = trimNPCDialogTextRuns(runs, maxInt(8, (ow-12)/7))
-		_, textH := render.DebugTextSize("Ag")
-		drawNPCDialogTextRuns(screen, runs, ox+6, oy+(oh-textH)/2)
+	lines := make([]widget.Widget, 0, len(wrapped))
+	for _, line := range wrapped {
+		lines = append(lines, npcDialogTextLine(line))
 	}
-	if len(d.options) > maxNPCMenuVisibleRows(h) {
-		d.drawMenuScrollBar(screen, x, y, w, h)
+	return lines
+}
+
+func (d *NPCDialog) menuTree(ctx Context, width, height int) widget.Widget {
+	rows := make([]widget.Widget, 0, maxInt(1, len(d.options)))
+	for i, option := range d.options {
+		choice := i + 1
+		rows = append(rows,
+			rotheme.Button(fmt.Sprintf("%d. %s", choice, npcDialogRunsPlainText(npcDialogTextRuns(option, npcDialogOptionColor))), func() {
+				d.choose(ctx, choice)
+			}).Height(npcMenuRowH),
+		)
 	}
-	cancelX, cancelY, cancelW, cancelH := npcDialogMenuCancelBounds(x, y, w, h)
-	DrawButtonLabel(screen, cancelX, cancelY, cancelW, cancelH, "Cancel", ButtonColor, TextColor)
+	if len(rows) == 0 {
+		rows = append(rows, rotheme.Text("No options.").Color(npcDialogWidgetColor(npcDialogMutedColor)))
+	}
+	return Window(
+		Title("Choose"),
+		CloseButton(false),
+		Size(float32(width), float32(height)),
+		Content(
+			primitives.Box(
+				scrollview.New(
+					primitives.Box(rows...).
+						Gap(2).
+						CrossAlign(primitives.CrossAxisStretch),
+					scrollview.DirectionOpt(scrollview.Vertical),
+					scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+					scrollview.ScrollStep(npcMenuRowH),
+				),
+			).Padding(npcMenuPad),
+		),
+		FooterHeight(32),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("Cancel", func() {
+					d.choose(ctx, 255)
+				}).Width(68),
+			).CrossAlign(primitives.CrossAxisCenter),
+		),
+	)
+}
+
+func npcDialogTextLine(runs []npcDialogTextRun) widget.Widget {
+	parts := make([]widget.Widget, 0, len(runs))
+	for _, run := range runs {
+		if run.text == "" {
+			continue
+		}
+		parts = append(parts,
+			rotheme.Text(run.text).
+				Color(npcDialogWidgetColor(run.color)).
+				LineHeight(npcDialogLineH/rotheme.Default.Typography.TextSize),
+		)
+	}
+	if len(parts) == 0 {
+		return primitives.Box().Height(npcDialogLineH)
+	}
+	return primitives.HBox(parts...).
+		Height(npcDialogLineH).
+		CrossAlign(primitives.CrossAxisCenter)
+}
+
+func npcDialogRunsPlainText(runs []npcDialogTextRun) string {
+	var b strings.Builder
+	for _, run := range runs {
+		b.WriteString(run.text)
+	}
+	return b.String()
+}
+
+func npcDialogWidgetColor(c color.RGBA) widget.Color {
+	return widget.RGBA8(c.R, c.G, c.B, c.A)
 }
 
 func npcDialogBounds(width, height int) (int, int, int, int) {
@@ -338,123 +478,15 @@ func npcDialogBounds(width, height int) (int, int, int, int) {
 	return x, y, w, h
 }
 
-func (d *NPCDialog) resolvedDialogBounds(width, height int) (int, int, int, int) {
-	x, y, w, h := npcDialogBounds(width, height)
-	if d.positioned {
-		x = clampNPCDialogInt(d.x, 8, maxInt(8, width-w-8))
-		y = clampNPCDialogInt(d.y, 8, maxInt(8, height-h-8))
-	}
-	return x, y, w, h
-}
-
 func (d *NPCDialog) menuBounds(width, height, dialogX, dialogY, dialogW, dialogH int) (int, int, int, int) {
 	w := minInt(npcMenuWidth, maxInt(220, width-40))
 	rows := maxInt(npcMenuMinRows, minInt(len(d.options), npcMenuMaxRows))
-	h := maxInt(npcMenuMinHeight, npcMenuTitleH+npcMenuTopPad+rows*npcMenuRowH+npcMenuBottomH)
+	h := maxInt(npcMenuMinHeight, ROWindowTitleHeight+npcMenuPad*2+rows*npcMenuRowH+npcMenuFooterH)
 	x := dialogX + (dialogW-w)/2
 	y := dialogY + dialogH + 8
-	if d.menuPositioned {
-		x = d.menuX
-		y = d.menuY
-	}
-	x = clampNPCDialogInt(x, 8, maxInt(8, width-w-8))
-	y = clampNPCDialogInt(y, 8, maxInt(8, height-h-8))
+	x = clampWindowInt(x, 8, maxInt(8, width-w-8))
+	y = clampWindowInt(y, 8, maxInt(8, height-h-8))
 	return x, y, w, h
-}
-
-func npcDialogButtonBounds(x, y, w, h int) (int, int, int, int) {
-	return x + w - npcDialogButtonW - npcDialogPad, y + h - npcDialogButtonH - 10, npcDialogButtonW, npcDialogButtonH
-}
-
-func npcDialogOptionBounds(x, y, w, index int) (int, int, int, int) {
-	return x + npcDialogPad, y + npcMenuTitleH + npcMenuTopPad + index*npcMenuRowH, w - 2*npcDialogPad, 22
-}
-
-func npcDialogMenuCancelBounds(x, y, w, h int) (int, int, int, int) {
-	return x + w - 68, y + h - 24, 56, 18
-}
-
-func maxNPCMenuVisibleRows(height int) int {
-	return maxInt(1, (height-npcMenuTitleH-npcMenuTopPad-npcMenuBottomH)/npcMenuRowH)
-}
-
-func (d *NPCDialog) UpdateMenuScroll(ctx Context) bool {
-	if !d.open || d.action != npcDialogActionMenu || ctx.Input == nil || ctx.Input.WheelY == 0 {
-		return false
-	}
-	width, height := ctx.ScreenSize()
-	dialogX, dialogY, dialogW, dialogH := d.resolvedDialogBounds(width, height)
-	x, y, w, h := d.menuBounds(width, height, dialogX, dialogY, dialogW, dialogH)
-	return d.updateMenuScrollAt(ctx, x, y, w, h)
-}
-
-func (d *NPCDialog) updateMenuScrollAt(ctx Context, x, y, w, h int) bool {
-	if d.action != npcDialogActionMenu || ctx.Input == nil || ctx.Input.WheelY == 0 {
-		return false
-	}
-	if !pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, x, y, w, h) {
-		return false
-	}
-	d.scrollMenuBy(ctx.Input.WheelY, h)
-	ctx.Input.WheelY = 0
-	return true
-}
-
-func (d *NPCDialog) scrollMenuBy(wheelY float64, height int) {
-	step := int(math.Ceil(math.Abs(wheelY)))
-	if step < 1 {
-		step = 1
-	}
-	if wheelY > 0 {
-		d.menuScroll -= step
-	} else {
-		d.menuScroll += step
-	}
-	d.clampMenuScroll(height)
-}
-
-func (d *NPCDialog) visibleMenuRange(height int) (int, int) {
-	d.clampMenuScroll(height)
-	visible := minInt(len(d.options), maxNPCMenuVisibleRows(height))
-	start := d.menuScroll
-	end := minInt(len(d.options), start+visible)
-	return start, end
-}
-
-func (d *NPCDialog) clampMenuScroll(height int) {
-	maxScroll := maxInt(0, len(d.options)-maxNPCMenuVisibleRows(height))
-	if d.menuScroll < 0 {
-		d.menuScroll = 0
-	}
-	if d.menuScroll > maxScroll {
-		d.menuScroll = maxScroll
-	}
-}
-
-func (d *NPCDialog) drawMenuScrollBar(screen *render.Image, x, y, w, h int) {
-	visible := maxNPCMenuVisibleRows(h)
-	if len(d.options) <= visible {
-		return
-	}
-	trackX := x + w - 9
-	trackY := y + npcMenuTitleH + npcMenuTopPad
-	trackH := maxInt(1, visible*npcMenuRowH-2)
-	total := len(d.options)
-	maxScroll := maxInt(1, total-visible)
-	thumbH := maxInt(18, trackH*visible/total)
-	thumbTravel := maxInt(1, trackH-thumbH)
-	thumbY := trackY + thumbTravel*d.menuScroll/maxScroll
-	render.DrawRect(screen, float64(trackX), float64(trackY), 3, float64(trackH), PanelAltColor)
-	render.DrawRect(screen, float64(trackX), float64(thumbY), 3, float64(thumbH), WindowBorderColor)
-}
-
-func drawNPCWindowFrame(screen *render.Image, x, y, w, h int) {
-	DrawTitledWindowFrame(screen, x, y, w, h, 28)
-}
-
-func drawNPCDialogButton(screen *render.Image, x, y, w, h int, label string) {
-	bx, by, bw, bh := npcDialogButtonBounds(x, y, w, h)
-	DrawButtonLabel(screen, bx, by, bw, bh, label, ButtonColor, TextColor)
 }
 
 func (d *NPCDialog) title(ctx Context) string {
@@ -584,19 +616,6 @@ func wrapNPCDialogTextRuns(runs []npcDialogTextRun, maxRunes int) [][]npcDialogT
 	return out
 }
 
-func trimNPCDialogTextRuns(runs []npcDialogTextRun, maxRunes int) []npcDialogTextRun {
-	chars := npcDialogRunsToRunes(runs)
-	if len(chars) <= maxRunes {
-		return runs
-	}
-	if maxRunes <= 3 {
-		return npcDialogRunesToRuns(chars[:maxRunes])
-	}
-	trimmed := npcDialogRunesToRuns(chars[:maxRunes-3])
-	trimmed = append(trimmed, npcDialogTextRun{text: "...", color: runs[len(runs)-1].color})
-	return trimmed
-}
-
 func npcDialogRunsToRunes(runs []npcDialogTextRun) []npcDialogColoredRune {
 	var chars []npcDialogColoredRune
 	for _, run := range runs {
@@ -625,67 +644,4 @@ func npcDialogRunesToRuns(chars []npcDialogColoredRune) []npcDialogTextRun {
 	}
 	runs[len(runs)-1].text = b.String()
 	return runs
-}
-
-func drawNPCDialogTextRuns(screen *render.Image, runs []npcDialogTextRun, x, y int) {
-	offset := 0
-	for _, run := range runs {
-		if run.text == "" {
-			continue
-		}
-		render.DebugPrintAtColor(screen, run.text, x+offset, y, run.color)
-		offset += len([]rune(run.text)) * 7
-	}
-}
-
-func clampNPCDialogInt(value, minValue, maxValue int) int {
-	if value < minValue {
-		return minValue
-	}
-	if value > maxValue {
-		return maxValue
-	}
-	return value
-}
-
-func (d *NPCDialog) CursorAction(ctx Context) (int, bool) {
-	if !d.open || ctx.Input == nil {
-		return 0, false
-	}
-	width, height := ctx.ScreenSize()
-	x, y, w, h := d.resolvedDialogBounds(width, height)
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if d.action == npcDialogActionMenu {
-		menuX, menuY, menuW, menuH := d.menuBounds(width, height, x, y, w, h)
-		if pointInRect(mx, my, menuX, menuY, menuW, menuH) {
-			if pointInRect(mx, my, menuX, menuY, menuW, npcMenuTitleH) {
-				return CursorActionClick, true
-			}
-			start, end := d.visibleMenuRange(menuH)
-			for i := 0; start+i < end; i++ {
-				ox, oy, ow, oh := npcDialogOptionBounds(menuX, menuY, menuW, i)
-				if pointInRect(mx, my, ox, oy, ow, oh) {
-					return CursorActionClick, true
-				}
-			}
-			cancelX, cancelY, cancelW, cancelH := npcDialogMenuCancelBounds(menuX, menuY, menuW, menuH)
-			if pointInRect(mx, my, cancelX, cancelY, cancelW, cancelH) {
-				return CursorActionClick, true
-			}
-			return CursorActionDefault, true
-		}
-	}
-	if pointInRect(mx, my, x, y, w, h) {
-		if pointInRect(mx, my, x, y, w, npcDialogTitleH) {
-			return CursorActionClick, true
-		}
-		if d.action == npcDialogActionNext || d.action == npcDialogActionClose {
-			bx, by, bw, bh := npcDialogButtonBounds(x, y, w, h)
-			if pointInRect(mx, my, bx, by, bw, bh) {
-				return CursorActionClick, true
-			}
-		}
-		return CursorActionDefault, true
-	}
-	return 0, false
 }

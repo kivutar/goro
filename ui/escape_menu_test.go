@@ -10,15 +10,24 @@ import (
 )
 
 type escapeMenuTestUIManager struct {
-	root widget.Widget
+	overlays []widget.Widget
 }
 
-func (m *escapeMenuTestUIManager) SetRoot(root widget.Widget) {
-	m.root = root
+func (m *escapeMenuTestUIManager) AddOverlay(root widget.Widget) {
+	m.overlays = append(m.overlays, root)
+}
+
+func (m *escapeMenuTestUIManager) RemoveOverlay(root widget.Widget) {
+	for i, overlay := range m.overlays {
+		if overlay == root {
+			m.overlays = append(m.overlays[:i], m.overlays[i+1:]...)
+			return
+		}
+	}
 }
 
 func (m *escapeMenuTestUIManager) Clear() {
-	m.root = nil
+	m.overlays = nil
 }
 
 func TestEscapeMenuOpenPublishesGogpuWindow(t *testing.T) {
@@ -31,8 +40,8 @@ func TestEscapeMenuOpenPublishesGogpuWindow(t *testing.T) {
 	if !menu.Update(ctx) {
 		t.Fatal("escape menu did not consume update while open")
 	}
-	if manager.root == nil {
-		t.Fatal("escape menu did not publish its gogpu/ui root")
+	if len(manager.overlays) != 1 {
+		t.Fatalf("escape menu overlays = %d, want 1", len(manager.overlays))
 	}
 }
 

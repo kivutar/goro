@@ -137,11 +137,7 @@ func (m *EscapeMenu) Publish(ctx client.Context) {
 	if ctx.UIManager == nil {
 		return
 	}
-	if !m.open || !m.window.IsOpen() {
-		ctx.UIManager.Clear()
-		return
-	}
-	ctx.UIManager.SetRoot(m.window.Widget())
+	m.window.Publish(ctx)
 }
 
 func (m *EscapeMenu) refresh(ctx client.Context) {
@@ -149,7 +145,7 @@ func (m *EscapeMenu) refresh(ctx client.Context) {
 	if !m.open || !m.window.IsOpen() {
 		return
 	}
-	m.window.SetRoot(m.widgetTree(ctx))
+	m.window.SetContent(m.widgetTree(ctx))
 	m.Publish(ctx)
 }
 

@@ -31,14 +31,15 @@ type Context struct {
 }
 
 type UIApp interface {
-	SetRoot(widget.Widget)
+	SetUIRoot(widget.Widget)
 	Frame()
 	Cursor() widget.CursorType
 	HoveredWidget() widget.Widget
 }
 
 type UIManager interface {
-	SetRoot(widget.Widget)
+	AddOverlay(widget.Widget)
+	RemoveOverlay(widget.Widget)
 	Clear()
 }
 

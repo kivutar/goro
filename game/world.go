@@ -295,7 +295,7 @@ func (m *WorldMode) Enter(ctx client.Context) {
 	m.actorSoundFrames = make(map[uint32]actorSoundFrame)
 	m.actorLife = make(map[uint32]actorLife)
 	m.shortcutBar.Load(ctx)
-	m.npcDialog.Reset()
+	m.npcDialog.ResetPublished(ctx)
 	ctx.World.Items = make(map[uint32]worldstate.FloorItem)
 	playerStatus := ""
 	character := selectedCharacter(ctx.Session)
@@ -820,9 +820,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 	}
 
-	if m.npcDialog.UpdateMenuScroll(ctx) {
-		return nil, nil
-	}
 	m.camera.Update(ctx, now)
 	if m.mapFade.phase == mapFadeHold {
 		return nil, nil
@@ -970,6 +967,7 @@ func (m *WorldMode) handleBasicMenuAction(ctx client.Context) {
 func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange) Mode {
 	m.pendingAttack = attackIntent{}
 	m.clearLockedAttack()
+	m.npcDialog.ResetPublished(ctx)
 	m.teleportModal = gameui.TeleportModal{}
 	m.clearLocalDeathState(ctx)
 	currentMap := ctx.World.MapName
@@ -2954,7 +2952,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.identifyWindow.Draw(screen, ctx, m)
 	m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 	m.console.Draw(screen, width, height)
-	m.npcDialog.Draw(screen, ctx, width, height)
 	m.escapeMenu.Draw(screen, ctx, width, height)
 	m.teleportModal.Draw(screen, ctx, width, height)
 	m.deathModal.Draw(screen, ctx, width, height)

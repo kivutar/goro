@@ -125,7 +125,7 @@ func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, assets A
 		if assets != nil {
 			w.preview = assets.EquipmentPreviewImage(ctx, equipmentCenterColW, equipmentPreviewImageH)
 		}
-		w.window.SetRoot(w.widgetTree(ctx, itemInfo))
+		w.window.SetContent(w.widgetTree(ctx, itemInfo))
 	}
 	consumed := w.window.Update(ctx)
 	if !w.window.IsOpen() {
@@ -149,11 +149,7 @@ func (w *EquipmentWindow) Publish(ctx client.Context) {
 	if ctx.UIManager == nil {
 		return
 	}
-	if !w.window.IsOpen() {
-		ctx.UIManager.Clear()
-		return
-	}
-	ctx.UIManager.SetRoot(w.window.Widget())
+	w.window.Publish(ctx)
 }
 
 func (w *EquipmentWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Widget {

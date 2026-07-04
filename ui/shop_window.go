@@ -324,7 +324,7 @@ func (w *ShopWindow) drawDeal(screen *render.Image, ctx Context) {
 	width, height := ctx.ScreenSize()
 	x := (width - shopDealWidth) / 2
 	y := (height - shopDealHeight) * 2 / 3
-	drawNPCWindowFrame(screen, x, y, shopDealWidth, shopDealHeight)
+	DrawTitledWindowFrame(screen, x, y, shopDealWidth, shopDealHeight, shopWindowTitleH)
 	DrawWindowTitle(screen, x, y, shopWindowTitleH, shopWindowPad, "Shop", shopTitleColor)
 	prompt := "What do you want to do?"
 	promptW, _ := render.DebugTextSize(prompt)

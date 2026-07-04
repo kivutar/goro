@@ -77,7 +77,7 @@ func (w *LoginWindow) Update(ctx client.Context) bool {
 
 func (w *LoginWindow) rebuild() {
 	userFocused, passwordFocused := w.fieldFocus()
-	w.window.SetRoot(w.widgetTree())
+	w.window.SetContent(w.widgetTree())
 	if w.user != nil {
 		w.user.SetFocused(userFocused)
 	}
