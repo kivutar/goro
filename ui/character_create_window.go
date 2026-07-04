@@ -355,9 +355,9 @@ func (w *characterCreatePreview) Event(ctx widget.Context, e event.Event) bool {
 	if !ok {
 		return false
 	}
-	hit := characterCreatePreviewButtonAt(w.Bounds(), mouse.GlobalPosition)
+	hit := characterCreatePreviewButtonAt(w.Bounds(), mouse.Position)
 	switch mouse.MouseType {
-	case event.MouseEnter, event.MouseDrag:
+	case event.MouseEnter, event.MouseMove, event.MouseDrag:
 		w.setHovered(ctx, hit)
 		return hit >= 0
 	case event.MouseLeave:
@@ -387,15 +387,15 @@ func (w *characterCreatePreview) Event(ctx widget.Context, e event.Event) bool {
 }
 
 func (w *characterCreatePreview) setHovered(ctx widget.Context, button int) {
-	if w.hovered == button {
-		return
-	}
-	w.hovered = button
 	if button >= 0 {
 		ctx.SetCursor(widget.CursorPointer)
 	} else {
 		ctx.SetCursor(widget.CursorDefault)
 	}
+	if w.hovered == button {
+		return
+	}
+	w.hovered = button
 	w.SetNeedsRedraw(true)
 }
 
@@ -510,9 +510,9 @@ func (w *characterCreateStatGraph) Event(ctx widget.Context, e event.Event) bool
 	if !ok {
 		return false
 	}
-	hit := characterCreateStatButtonAt(w.Bounds(), mouse.GlobalPosition)
+	hit := characterCreateStatButtonAt(w.Bounds(), mouse.Position)
 	switch mouse.MouseType {
-	case event.MouseEnter, event.MouseDrag:
+	case event.MouseEnter, event.MouseMove, event.MouseDrag:
 		w.setHovered(ctx, hit)
 		return hit >= 0
 	case event.MouseLeave:
@@ -531,15 +531,15 @@ func (w *characterCreateStatGraph) Event(ctx widget.Context, e event.Event) bool
 }
 
 func (w *characterCreateStatGraph) setHovered(ctx widget.Context, stat int) {
-	if w.hovered == stat {
-		return
-	}
-	w.hovered = stat
 	if stat >= 0 {
 		ctx.SetCursor(widget.CursorPointer)
 	} else {
 		ctx.SetCursor(widget.CursorDefault)
 	}
+	if w.hovered == stat {
+		return
+	}
+	w.hovered = stat
 	w.SetNeedsRedraw(true)
 }
 
