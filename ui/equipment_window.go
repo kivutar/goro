@@ -10,7 +10,6 @@ import (
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
-	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -44,7 +43,6 @@ const (
 type EquipmentWindow struct {
 	window   WindowState
 	snapshot string
-	status   string
 	itemInfo *ItemInfoWindow
 	preview  image.Image
 	icons    map[equipmentItemIconKey]image.Image
@@ -135,8 +133,6 @@ func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, assets A
 	w.Publish(ctx)
 	return consumed
 }
-
-func (w *EquipmentWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {}
 
 func (w *EquipmentWindow) ensureWindow() {
 	if w.window.width == 0 {
@@ -302,14 +298,11 @@ func (w *staticImageWidget) Event(ctx widget.Context, e event.Event) bool {
 
 func (w *EquipmentWindow) activateItem(ctx Context, item session.InventoryItem) {
 	if ctx.Network == nil {
-		w.status = "Not connected"
 		return
 	}
 	if err := ctx.Network.SendTakeoffEquip(item.Index); err != nil {
-		w.status = err.Error()
 		return
 	}
-	w.status = "Unequip requested"
 }
 
 func equipmentSnapshot(s *session.Session) string {

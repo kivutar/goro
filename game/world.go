@@ -2943,7 +2943,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawStatusIcons(screen, ctx, now)
 	m.inventoryWindow.Draw(screen, ctx, m)
 	m.inventoryBag.Draw(screen, ctx, m)
-	m.equipmentWindow.Draw(screen, ctx, m)
 	m.storageWindow.Draw(screen, ctx, m)
 	m.shopWindow.Draw(screen, ctx, m)
 	m.skillWindow.Draw(screen, ctx, m)
@@ -2951,7 +2950,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.identifyWindow.Draw(screen, ctx, m)
 	m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 	m.console.Draw(screen, width, height)
-	m.escapeMenu.Draw(screen, ctx, width, height)
 	m.teleportModal.Draw(screen, ctx, width, height)
 	m.deathModal.Draw(screen, ctx, width, height)
 }

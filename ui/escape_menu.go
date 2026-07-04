@@ -104,8 +104,6 @@ func (m *EscapeMenu) ConsumeAction() EscapeMenuAction {
 	return action
 }
 
-func (m *EscapeMenu) Draw(screen *render.Image, ctx client.Context, width, height int) {}
-
 func (m *EscapeMenu) IsOpen() bool {
 	return m.open
 }
