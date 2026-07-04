@@ -18,6 +18,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Character selection window
 - [x] Character creation window
 - [x] Equipment window
+- [x] Stats window
 
 ## High Priority
 
@@ -37,10 +38,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Similar enough to inventory/shop lists that it should reuse the same item-list primitives.
 
 ## Medium Priority
-
-- [ ] Stats window
-  - Mostly simple rows and plus buttons, but currently sends stat-increase packets from legacy input handling.
-  - Good target for standardized row layout, footer buttons, and icon-sized plus buttons.
 
 - [ ] Skills window
   - Needs skill rows, icons, pending level changes, confirm/cancel footer, and skill tooltip behavior.
@@ -80,7 +77,9 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 ## Cleanup After Each Migration
 
 - [ ] Remove old `Update(ctx)` mouse handling for the migrated window.
+- [ ] Remove old `Draw(...)` methods and render-loop calls when the migrated window is fully published through gogpu/ui overlays.
 - [ ] Remove the migrated window's `CursorAction` and its call from `game/cursor.go`.
+- [ ] Remove legacy transient status fields/helpers when the migrated gogpu/ui tree does not display them.
 - [ ] Do not re-add per-window cursor bridges for gogpu/ui windows. If blank UI areas need to block world cursors, solve it once in `WindowState`/the UI manager.
 - [ ] Do not add custom `Root`/`Event` types inside migrated dialogs. Use the normal window tree, and use `WindowState.Publish(ctx)` / `UIManager.AddOverlay` for floating windows.
 - [ ] Do not call `UIManager.SetRoot` or `UIManager.Clear` from in-game windows. Closing one window must unpublish only that window.

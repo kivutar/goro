@@ -3,44 +3,26 @@ package ui
 import (
 	"fmt"
 	"log"
-	"time"
 
+	"github.com/gogpu/ui/core/button"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/network"
-	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
-	statsWindowWidth  = 286
-	statsWindowHeight = 302
-	statsWindowTitleH = 28
-	statsWindowPad    = 12
-	statsRowH         = 22
-	statsButtonSize   = IconButtonSize
-)
-
-var (
-	statsWindowTitleColor  = TitleTextColor
-	statsWindowTextColor   = TextColor
-	statsWindowMutedColor  = MutedTextColor
-	statsWindowGoodColor   = GoodTextColor
-	statsWindowButtonColor = ButtonColor
-	statsWindowHoverColor  = ButtonHoverColor
-	statsWindowDownColor   = ButtonDownColor
-	statsWindowDisabled    = DisabledColor
+	statsWindowWidth    = 286
+	statsWindowHeight   = 302
+	statsWindowPad      = 12
+	statsRowH           = 22
+	statsIconButtonSize = 17
 )
 
 type StatsWindow struct {
-	open       bool
-	x          int
-	y          int
-	positioned bool
-	dragging   bool
-	dragDX     int
-	dragDY     int
-	status     string
-	statusGood bool
-	statusAt   time.Time
+	window   WindowState
+	snapshot string
 }
 
 type statRow struct {
@@ -52,202 +34,208 @@ type statRow struct {
 }
 
 func (w *StatsWindow) Toggle(ctx Context) {
-	if w.open {
-		w.open = false
-		w.dragging = false
+	w.ensureWindow()
+	if w.window.IsOpen() {
+		w.window.Close()
+		w.Publish(ctx)
 		return
 	}
-	w.open = true
-	w.EnsurePosition(ctx)
+	x, y := statsWindowPosition(ctx)
+	w.snapshot = statsWindowSnapshot(ctx.Session)
+	w.window.OpenAt(x, y, w.widgetTree(ctx))
+	w.Publish(ctx)
 }
 
 func (w *StatsWindow) Update(ctx Context) bool {
-	if !w.open || ctx.Input == nil {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
 		return false
 	}
-	w.EnsurePosition(ctx)
-	width, height := ctx.ScreenSize()
-	if w.dragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			w.x = clampStatsWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, width-statsWindowWidth-8))
-			w.y = clampStatsWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, height-statsWindowHeight-8))
-			return true
-		}
-		w.dragging = false
-		return true
+	nextSnapshot := statsWindowSnapshot(ctx.Session)
+	if nextSnapshot != w.snapshot {
+		w.snapshot = nextSnapshot
+		w.window.SetContent(w.widgetTree(ctx))
 	}
-	if ctx.Input.JustPressed(render.KeyEscape) {
-		w.open = false
-		return true
-	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, statsWindowWidth, statsWindowHeight)
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if !pointInRect(mx, my, w.x, w.y, statsWindowWidth, statsWindowHeight) {
-		return false
-	}
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		w.open = false
-		return true
-	}
-	if pointInRect(mx, my, w.x, w.y, statsWindowWidth, statsWindowTitleH) {
-		w.dragging = true
-		w.dragDX = mx - w.x
-		w.dragDY = my - w.y
-		return true
-	}
-	for _, row := range statsRows(ctx.Session) {
-		bx, by, bw, bh := w.statButtonBounds(row.statusID)
-		if !pointInRect(mx, my, bx, by, bw, bh) {
-			continue
-		}
-		if !canIncreaseStat(ctx.Session, row) {
-			w.setStatus("Not enough status points", false)
-			return true
-		}
-		if ctx.Network == nil {
-			w.setStatus("Not connected", false)
-			return true
-		}
-		if err := ctx.Network.SendStatusIncrease(row.statusID); err != nil {
-			w.setStatus(err.Error(), false)
-			return true
-		}
-		w.setStatus(fmt.Sprintf("%s increase requested", row.label), true)
-		return true
-	}
-	return true
+	consumed := w.window.Update(ctx)
+	w.Publish(ctx)
+	return consumed
 }
 
-func (w *StatsWindow) Draw(screen *render.Image, ctx Context) {
-	if !w.open || screen == nil {
+func (w *StatsWindow) Publish(ctx Context) {
+	w.ensureWindow()
+	w.window.Publish(ctx)
+}
+
+func (w *StatsWindow) refresh(ctx Context) {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
 		return
 	}
-	w.EnsurePosition(ctx)
-	x, y := w.x, w.y
-	DrawTitledWindowFrame(screen, x, y, statsWindowWidth, statsWindowHeight, statsWindowTitleH)
-	DrawWindowTitle(screen, x, y, statsWindowTitleH, statsWindowPad, "Status", statsWindowTitleColor)
-	cx, cy, cw, ch := w.closeBounds()
-	DrawCloseButton(screen, cx, cy, cw, ch, statsWindowButtonColor, statsWindowTextColor)
+	w.snapshot = statsWindowSnapshot(ctx.Session)
+	w.window.SetContent(w.widgetTree(ctx))
+	w.Publish(ctx)
+}
 
+func (w *StatsWindow) ensureWindow() {
+	if w.window.width == 0 {
+		w.window = NewWindowState(statsWindowWidth, statsWindowHeight)
+	}
+}
+
+func (w *StatsWindow) close(ctx Context) {
+	w.ensureWindow()
+	w.window.Close()
+	w.Publish(ctx)
+}
+
+func statsWindowPosition(ctx Context) (int, int) {
+	width, height := ctx.ScreenSize()
+	x := minInt(characterWindowX+characterWindowWidth+12, maxInt(8, width-statsWindowWidth-8))
+	y := minInt(characterWindowY, maxInt(8, height-statsWindowHeight-8))
+	if x < 8 {
+		x = 8
+	}
+	if y < 8 {
+		y = 8
+	}
+	return x, y
+}
+
+func (w *StatsWindow) widgetTree(ctx Context) widget.Widget {
 	stats := sessionStats(ctx.Session)
-	render.DebugPrintAtColor(screen, fmt.Sprintf("Status Point : %d", stats.Points), x+statsWindowPad, y+statsWindowTitleH+10, statsWindowTextColor)
-	render.DebugPrintAtColor(screen, "Stat", x+statsWindowPad, y+statsWindowTitleH+32, statsWindowMutedColor)
-	render.DebugPrintAtColor(screen, "Value", x+72, y+statsWindowTitleH+32, statsWindowMutedColor)
-	render.DebugPrintAtColor(screen, "Need", x+132, y+statsWindowTitleH+32, statsWindowMutedColor)
+	return Window(
+		Title("Status"),
+		CloseButton(true),
+		OnClose(func() { w.close(ctx) }),
+		Size(statsWindowWidth, statsWindowHeight),
+		Content(
+			primitives.Box(
+				rotheme.Text(fmt.Sprintf("Status Point : %d", stats.Points)),
+				primitives.HBox(
+					statsTextCell("Stat", 48, rotheme.Default.Colors.MutedText),
+					statsTextCell("Value", 58, rotheme.Default.Colors.MutedText),
+					statsTextCell("Need", 42, rotheme.Default.Colors.MutedText),
+				).
+					Height(16).
+					CrossAlign(primitives.CrossAxisCenter),
+				w.statRowsWidget(ctx),
+				statsDerivedWidget(stats),
+			).
+				Padding(statsWindowPad).
+				Gap(4),
+		),
+	)
+}
 
-	mx, my := -1, -1
-	mouseDown := false
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-		mouseDown = ctx.Input.MousePressed(render.MouseButtonLeft)
-	}
-	for i, row := range statsRows(ctx.Session) {
-		ry := w.statRowY(i)
-		rowColor := PanelAltColor
+func (w *StatsWindow) statRowsWidget(ctx Context) widget.Widget {
+	rows := statsRows(ctx.Session)
+	children := make([]widget.Widget, 0, len(rows))
+	for i, row := range rows {
+		row := row
+		bg := rotheme.Default.Colors.Button
 		if i%2 == 1 {
-			rowColor = PanelBodyColor
+			bg = rotheme.Default.Colors.PanelBody
 		}
-		DrawRowSurface(screen, x+statsWindowPad, ry, statsWindowWidth-2*statsWindowPad, statsRowH-2, rowColor)
-		render.DebugPrintAtColor(screen, row.label, x+statsWindowPad, ry+4, statsWindowTextColor)
-		render.DebugPrintAtColor(screen, formatStatValue(row.value, row.bonus), x+72, ry+4, statsWindowTextColor)
-		render.DebugPrintAtColor(screen, fmt.Sprintf("%d", statCost(row)), x+132, ry+4, statsWindowMutedColor)
-		bx, by, bw, bh := w.statButtonBounds(row.statusID)
-		fill := statsWindowButtonColor
-		textColor := statsWindowGoodColor
-		if !canIncreaseStat(ctx.Session, row) {
-			fill = statsWindowDisabled
-			textColor = statsWindowMutedColor
-		} else if pointInRect(mx, my, bx, by, bw, bh) {
-			if mouseDown {
-				fill = statsWindowDownColor
-			} else {
-				fill = statsWindowHoverColor
-			}
-		}
-		DrawPlusButton(screen, bx, by, fill, textColor)
+		children = append(children,
+			primitives.HBox(
+				statsTextCell(row.label, 48, rotheme.Default.Colors.Text),
+				statsTextCell(formatStatValue(row.value, row.bonus), 58, rotheme.Default.Colors.Text),
+				statsTextCell(fmt.Sprintf("%d", statCost(row)), 42, rotheme.Default.Colors.MutedText),
+				primitives.Expanded(primitives.Box()),
+				statPlusButton(!canIncreaseStat(ctx.Session, row), func() {
+					w.requestStatIncrease(ctx, row)
+				}),
+			).
+				Height(statsRowH-2).
+				PaddingXY(4, 0).
+				CrossAlign(primitives.CrossAxisCenter).
+				Background(bg),
+		)
 	}
-
-	leftX := x + statsWindowPad
-	rightX := x + 150
-	derivedY := y + 220
-	drawStatsDerived(screen, leftX, derivedY, "ATK", fmt.Sprintf("%d + %d", stats.Attack, stats.AttackBonus))
-	drawStatsDerived(screen, leftX, derivedY+18, "MATK", fmt.Sprintf("%d - %d", stats.MatkMin, stats.MatkMax))
-	drawStatsDerived(screen, leftX, derivedY+36, "HIT", fmt.Sprintf("%d", stats.Hit))
-	drawStatsDerived(screen, leftX, derivedY+54, "CRIT", fmt.Sprintf("%d", stats.Critical))
-	drawStatsDerived(screen, rightX, derivedY, "DEF", fmt.Sprintf("%d + %d", stats.Defense, stats.DefenseBonus))
-	drawStatsDerived(screen, rightX, derivedY+18, "MDEF", fmt.Sprintf("%d + %d", stats.MDefense, stats.MDefenseBonus))
-	drawStatsDerived(screen, rightX, derivedY+36, "FLEE", fmt.Sprintf("%d + %d", stats.Flee, stats.FleeBonus))
-	drawStatsDerived(screen, rightX, derivedY+54, "ASPD", fmt.Sprintf("%d", displayASPD(stats.ASPD+stats.ASPDBonus)))
+	return primitives.Box(children...).Gap(0)
 }
 
-func (w *StatsWindow) CursorAction(ctx Context) (int, bool) {
-	if !w.open || ctx.Input == nil {
-		return 0, false
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		return CursorActionClick, true
-	}
-	if pointInRect(mx, my, w.x, w.y, statsWindowWidth, statsWindowTitleH) {
-		return CursorActionClick, true
-	}
-	for _, row := range statsRows(ctx.Session) {
-		if !canIncreaseStat(ctx.Session, row) {
-			continue
-		}
-		bx, by, bw, bh := w.statButtonBounds(row.statusID)
-		if pointInRect(mx, my, bx, by, bw, bh) {
-			return CursorActionClick, true
-		}
-	}
-	if pointInRect(mx, my, w.x, w.y, statsWindowWidth, statsWindowHeight) {
-		return CursorActionDefault, true
-	}
-	return 0, false
-}
-
-func (w *StatsWindow) EnsurePosition(ctx Context) {
-	if w.positioned {
+func (w *StatsWindow) requestStatIncrease(ctx Context, row statRow) {
+	if !canIncreaseStat(ctx.Session, row) {
 		return
 	}
-	width, height := ctx.ScreenSize()
-	w.x = minInt(characterWindowX+characterWindowWidth+12, maxInt(8, width-statsWindowWidth-8))
-	w.y = minInt(characterWindowY, maxInt(8, height-statsWindowHeight-8))
-	if w.x < 8 {
-		w.x = 8
+	if ctx.Network == nil {
+		return
 	}
-	if w.y < 8 {
-		w.y = 8
+	if err := ctx.Network.SendStatusIncrease(row.statusID); err != nil {
+		log.Printf("status increase request status=%d failed: %v", row.statusID, err)
+		return
 	}
-	w.positioned = true
 }
 
-func (w *StatsWindow) closeBounds() (int, int, int, int) {
-	return w.x + statsWindowWidth - 25, w.y + 6, IconButtonSize, IconButtonSize
+func statsTextCell(text string, width float32, color widget.Color) widget.Widget {
+	return primitives.Box(
+		rotheme.Text(text).Color(color),
+	).Width(width)
 }
 
-func (w *StatsWindow) statRowY(index int) int {
-	return w.y + statsWindowTitleH + 50 + index*statsRowH
-}
-
-func (w *StatsWindow) statButtonBounds(statusID uint16) (int, int, int, int) {
-	rows := statsRows(nil)
-	for i, row := range rows {
-		if row.statusID == statusID {
-			return w.x + statsWindowWidth - statsWindowPad - statsButtonSize, w.statRowY(i) + 3, statsButtonSize, statsButtonSize
-		}
+func statPlusButton(disabled bool, onClick func()) widget.Widget {
+	opts := []button.Option{
+		button.TextOpt("+"),
+		button.SizeOpt(button.Small),
+		button.PainterOpt(rotheme.ButtonPainter{}),
+		button.RoundedOpt(rotheme.ButtonRadius),
+		button.Disabled(disabled),
 	}
-	return 0, 0, 0, 0
+	if !disabled && onClick != nil {
+		opts = append(opts, button.OnClick(onClick))
+	}
+	return primitives.Box(
+		button.New(opts...).PaddingXY(0, 0),
+	).
+		Width(statsIconButtonSize).
+		Height(statsIconButtonSize)
 }
 
-func (w *StatsWindow) setStatus(status string, good bool) {
-	w.status = status
-	w.statusGood = good
-	w.statusAt = time.Now()
+func statsDerivedWidget(stats session.Stats) widget.Widget {
+	return primitives.HBox(
+		primitives.Box(
+			statsDerivedRow("ATK", fmt.Sprintf("%d + %d", stats.Attack, stats.AttackBonus)),
+			statsDerivedRow("MATK", fmt.Sprintf("%d - %d", stats.MatkMin, stats.MatkMax)),
+			statsDerivedRow("HIT", fmt.Sprintf("%d", stats.Hit)),
+			statsDerivedRow("CRIT", fmt.Sprintf("%d", stats.Critical)),
+		).
+			Width(118).
+			Gap(2),
+		primitives.Box(
+			statsDerivedRow("DEF", fmt.Sprintf("%d + %d", stats.Defense, stats.DefenseBonus)),
+			statsDerivedRow("MDEF", fmt.Sprintf("%d + %d", stats.MDefense, stats.MDefenseBonus)),
+			statsDerivedRow("FLEE", fmt.Sprintf("%d + %d", stats.Flee, stats.FleeBonus)),
+			statsDerivedRow("ASPD", fmt.Sprintf("%d", displayASPD(stats.ASPD+stats.ASPDBonus))),
+		).
+			Width(118).
+			Gap(2),
+	).
+		PaddingTop(8).
+		Gap(12)
+}
+
+func statsDerivedRow(label, value string) widget.Widget {
+	return primitives.HBox(
+		statsTextCell(label, 46, rotheme.Default.Colors.MutedText),
+		statsTextCell(value, 62, rotheme.Default.Colors.Text),
+	).
+		Height(18).
+		CrossAlign(primitives.CrossAxisCenter)
+}
+
+func statsWindowSnapshot(s *session.Session) string {
+	stats := sessionStats(s)
+	rows := statsRows(s)
+	return fmt.Sprintf(
+		"%d|%d/%d/%d/%d/%d/%d|%d/%d/%d/%d/%d/%d|%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
+		stats.Points,
+		rows[0].value, rows[1].value, rows[2].value, rows[3].value, rows[4].value, rows[5].value,
+		rows[0].bonus, rows[1].bonus, rows[2].bonus, rows[3].bonus, rows[4].bonus, rows[5].bonus,
+		stats.Attack, stats.AttackBonus, stats.MatkMin, stats.MatkMax,
+		stats.Hit, stats.Critical, stats.Defense, stats.DefenseBonus,
+		stats.MDefense, stats.MDefenseBonus, stats.Flee, stats.FleeBonus, stats.ASPD+stats.ASPDBonus,
+	)
 }
 
 func statsRows(s *session.Session) []statRow {
@@ -320,11 +308,6 @@ func formatStatValue(value, bonus int) string {
 	return fmt.Sprintf("%d - %d", value, -bonus)
 }
 
-func drawStatsDerived(screen *render.Image, x, y int, label, value string) {
-	render.DebugPrintAtColor(screen, label, x, y, statsWindowMutedColor)
-	render.DebugPrintAtColor(screen, value, x+46, y, statsWindowTextColor)
-}
-
 func displayASPD(raw int) int {
 	if raw <= 0 {
 		return 0
@@ -332,23 +315,11 @@ func displayASPD(raw int) int {
 	return raw / 4
 }
 
-func clampStatsWindowInt(value, minValue, maxValue int) int {
-	if value < minValue {
-		return minValue
-	}
-	if value > maxValue {
-		return maxValue
-	}
-	return value
-}
-
 func (w *StatsWindow) ApplyStatusChangeAck(ctx Context, ack network.StatusChangeAck) {
 	if ctx.Session == nil {
 		return
 	}
-	label := statLabel(ack.StatusID)
 	if !ack.Success {
-		w.setStatus(fmt.Sprintf("%s increase failed", label), false)
 		log.Printf("status increase ack status=%d success=false value=%d", ack.StatusID, ack.Value)
 		return
 	}
@@ -356,8 +327,8 @@ func (w *StatsWindow) ApplyStatusChangeAck(ctx Context, ack network.StatusChange
 	if ctx.Session.Stats.Points > 0 {
 		ctx.Session.Stats.Points--
 	}
-	w.setStatus(fmt.Sprintf("%s increased to %d", label, ack.Value), true)
 	log.Printf("status increase ack status=%d success=true value=%d", ack.StatusID, ack.Value)
+	w.refresh(ctx)
 }
 
 func setSessionStat(s *session.Session, statusID uint16, value int) {
@@ -386,24 +357,5 @@ func setSessionStat(s *session.Session, statusID uint16, value int) {
 	case network.StatusLuk:
 		s.Stats.Luk = value
 		s.Selected.Luk = uint8(value)
-	}
-}
-
-func statLabel(statusID uint16) string {
-	switch statusID {
-	case network.StatusStr:
-		return "STR"
-	case network.StatusAgi:
-		return "AGI"
-	case network.StatusVit:
-		return "VIT"
-	case network.StatusInt:
-		return "INT"
-	case network.StatusDex:
-		return "DEX"
-	case network.StatusLuk:
-		return "LUK"
-	default:
-		return fmt.Sprintf("Stat %d", statusID)
 	}
 }

@@ -167,9 +167,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if action, ok := m.skillWindow.CursorAction(ctx); ok {
 		return action
 	}
-	if action, ok := m.statsWindow.CursorAction(ctx); ok {
-		return action
-	}
 	if action, ok := m.shortcutBar.CursorAction(ctx); ok {
 		return action
 	}

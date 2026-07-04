@@ -2946,7 +2946,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.equipmentWindow.Draw(screen, ctx, m)
 	m.storageWindow.Draw(screen, ctx, m)
 	m.shopWindow.Draw(screen, ctx, m)
-	m.statsWindow.Draw(screen, ctx)
 	m.skillWindow.Draw(screen, ctx, m)
 	m.itemInfoWindow.Draw(screen, ctx, m)
 	m.identifyWindow.Draw(screen, ctx, m)
