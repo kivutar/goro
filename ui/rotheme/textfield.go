@@ -8,14 +8,16 @@ import (
 	"github.com/gogpu/ui/widget"
 )
 
-func TextField(value string, inputType textfield.InputType, onChange func(string), onSubmit func(string)) *textfield.Widget {
-	return textfield.New(
+func TextField(value string, inputType textfield.InputType, onChange func(string), onSubmit func(string), extra ...textfield.Option) *textfield.Widget {
+	opts := []textfield.Option{
 		textfield.InitialValue(value),
 		textfield.InputTypeOpt(inputType),
 		textfield.OnChange(onChange),
 		textfield.OnSubmit(onSubmit),
 		textfield.PainterOpt(TextFieldPainter{}),
-	)
+	}
+	opts = append(opts, extra...)
+	return textfield.New(opts...)
 }
 
 type TextFieldPainter struct{}

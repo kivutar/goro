@@ -98,7 +98,3 @@ func skillByID(s *session.Session, skillID uint16) (session.Skill, bool) {
 	}
 	return session.Skill{}, false
 }
-
-func rectArray(x, y, w, h int) [4]int {
-	return [4]int{x, y, w, h}
-}

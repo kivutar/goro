@@ -2,9 +2,17 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
+	"image"
+	"math"
+	"strings"
 
-	"github.com/kivutar/goro/render"
+	"github.com/gogpu/ui/core/textfield"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const CharacterCreateStatCount = 6
@@ -18,126 +26,215 @@ const (
 	CharacterCreateStatLuk
 )
 
-type CharacterCreatePreviewFunc func(screen *render.Image, panelX, panelY, panelW, panelH int)
+const (
+	characterCreatePanelW = 142
+	characterCreatePanelH = 166
+	characterCreateGraphW = 166
+	characterCreateListW  = 136
+)
 
 type CharacterCreateWindowOptions struct {
-	X, Y, W, H  int
-	TitleH      int
-	FooterH     int
-	FooterPadX  int
-	FooterGap   int
-	ButtonH     int
-	PanelH      int
-	Name        string
-	FocusName   bool
-	Stats       [CharacterCreateStatCount]uint8
-	MouseX      int
-	MouseY      int
-	HasMouse    bool
-	DrawPreview CharacterCreatePreviewFunc
+	X, Y, W, H int
+	FooterH    int
+	FooterPadX int
+	FooterGap  int
+	Name       string
+	Stats      [CharacterCreateStatCount]uint8
+	Preview    image.Image
 }
 
-func DrawCharacterCreateWindow(screen *render.Image, opts CharacterCreateWindowOptions) {
-	if screen == nil {
+type CharacterCreateWindowCallbacks struct {
+	OnNameChange func(string)
+	OnSubmit     func()
+	OnCancel     func()
+	OnHairPrev   func()
+	OnHairNext   func()
+	OnHairColor  func()
+	OnStat       func(int)
+}
+
+type CharacterCreateWindow struct {
+	opts      CharacterCreateWindowOptions
+	callbacks CharacterCreateWindowCallbacks
+	window    WindowState
+	name      *textfield.Widget
+}
+
+func NewCharacterCreateWindow(opts CharacterCreateWindowOptions, callbacks CharacterCreateWindowCallbacks) *CharacterCreateWindow {
+	w := &CharacterCreateWindow{
+		opts:      opts,
+		callbacks: callbacks,
+		window:    NewWindowState(opts.W, opts.H),
+	}
+	w.window.OpenAt(opts.X, opts.Y, w.widgetTree())
+	return w
+}
+
+func (w *CharacterCreateWindow) SetOptions(opts CharacterCreateWindowOptions) {
+	if w == nil {
 		return
 	}
-	DrawTitledWindowFrame(screen, opts.X, opts.Y, opts.W, opts.H, opts.TitleH)
-	DrawWindowTitle(screen, opts.X, opts.Y, opts.TitleH, 12, "Make Character", TitleTextColor)
-	DrawWindowFooter(screen, opts.X, opts.Y, opts.W, opts.H, opts.FooterH)
-
-	drawCharacterCreatePreview(screen, opts)
-	drawCharacterCreateStats(screen, opts)
-
-	nameX, nameY, nameW, nameH := CharacterCreateNameRect(opts)
-	render.DebugPrintAtColor(screen, "Name", nameX, nameY-15, TextColor)
-	DrawTextInput(screen, nameX, nameY, nameW, nameH, opts.Name, opts.FocusName)
-
-	drawCharacterCreateButtonRect(screen, opts, rectArray(CharacterCreateMakeButtonRect(opts)), "Make")
-	drawCharacterCreateButtonRect(screen, opts, rectArray(CharacterCreateCancelButtonRect(opts)), "Cancel")
-}
-
-func drawCharacterCreatePreview(screen *render.Image, opts CharacterCreateWindowOptions) {
-	panelX, panelY, panelW, panelH := CharacterCreatePreviewPanelRect(opts)
-	DrawPanelSurface(screen, panelX, panelY, panelW, panelH, PanelBodyColor)
-	if opts.DrawPreview != nil {
-		opts.DrawPreview(screen, panelX, panelY, panelW, panelH)
-	}
-
-	drawCharacterCreateButtonRect(screen, opts, rectArray(CharacterCreateHairPrevRect(opts)), "<")
-	drawCharacterCreateButtonRect(screen, opts, rectArray(CharacterCreateHairNextRect(opts)), ">")
-	drawCharacterCreateButtonRect(screen, opts, rectArray(CharacterCreateHairColorRect(opts)), "^")
-}
-
-func drawCharacterCreateStats(screen *render.Image, opts CharacterCreateWindowOptions) {
-	graphX, graphY, graphW, graphH := CharacterCreateGraphPanelRect(opts)
-	DrawCharacterCreateStatGraph(screen, graphX+graphW/2, graphY+graphH/2, opts.Stats)
-
-	for i := 0; i < CharacterCreateStatCount; i++ {
-		sx, sy, sw, sh := CharacterCreateStatButtonRect(opts, i)
-		bg := ButtonColor
-		if opts.HasMouse && pointInRect(opts.MouseX, opts.MouseY, sx, sy, sw, sh) {
-			bg = ButtonHoverColor
-		}
-		label := CharacterCreateStatLabels()[i]
-		DrawButtonSurface(screen, sx, sy, sw, sh, bg)
-		DrawCenteredText(screen, sx, sy+2, sw, 15, label, TextColor)
-		DrawCenteredText(screen, sx, sy+18, sw, 15, fmt.Sprintf("%d", opts.Stats[i]), TextColor)
-	}
-
-	listX, listY, listW, listH := CharacterCreateStatListPanelRect(opts)
-	DrawPanelSurface(screen, listX, listY, listW, listH, PanelBodyColor)
-	for i, label := range CharacterCreateStatLabels() {
-		render.DebugPrintAtColor(screen, label, listX+18, listY+16+i*22, TextColor)
-		render.DebugPrintAtColor(screen, fmt.Sprintf("%d", opts.Stats[i]), listX+92, listY+16+i*22, TextColor)
-	}
-}
-
-func DrawCharacterCreateStatGraph(screen *render.Image, cx, cy int, stats [CharacterCreateStatCount]uint8) {
-	outer := 64.0
-	inner := 32.0
-	points := CharacterCreateGraphPoints(cx, cy, outer)
-	mid := CharacterCreateGraphPoints(cx, cy, inner)
-	order := CharacterCreateGraphDrawOrder()
-	for i := 0; i < CharacterCreateStatCount; i++ {
-		current := order[i]
-		next := order[(i+1)%CharacterCreateStatCount]
-		render.DrawLine(screen, points[current][0], points[current][1], points[next][0], points[next][1], SeparatorColor)
-		render.DrawLine(screen, mid[current][0], mid[current][1], mid[next][0], mid[next][1], SeparatorColor)
-		render.DrawLine(screen, float64(cx), float64(cy), points[current][0], points[current][1], color.RGBA{R: 185, G: 204, B: 224, A: 150})
-	}
-	statPoints := [CharacterCreateStatCount][2]float64{}
-	for i := 0; i < CharacterCreateStatCount; i++ {
-		scale := 0.22 + float64(stats[i])/9.0*0.78
-		statPoints[i][0] = float64(cx) + (points[i][0]-float64(cx))*scale
-		statPoints[i][1] = float64(cy) + (points[i][1]-float64(cy))*scale
-	}
-	drawFilledCharacterCreateStatPolygon(screen, statPoints, order, color.RGBA{R: 36, G: 92, B: 154, A: 220})
-}
-
-func drawFilledCharacterCreateStatPolygon(screen *render.Image, points [CharacterCreateStatCount][2]float64, order [CharacterCreateStatCount]int, fill color.RGBA) {
-	if screen == nil {
+	sameTree := characterCreateWindowTreeEqual(w.opts, opts)
+	w.opts = opts
+	w.window.SetAutoPosition(opts.X, opts.Y)
+	w.window.SetSize(opts.W, opts.H)
+	if sameTree {
 		return
 	}
-	r := float32(fill.R) / 255
-	g := float32(fill.G) / 255
-	b := float32(fill.B) / 255
-	a := float32(fill.A) / 255
-	vertices := make([]render.Vertex, 0, CharacterCreateStatCount)
-	for _, stat := range order {
-		vertices = append(vertices, render.Vertex{
-			DstX:   float32(points[stat][0]),
-			DstY:   float32(points[stat][1]),
-			ColorR: r,
-			ColorG: g,
-			ColorB: b,
-			ColorA: a,
-		})
+	focused := w.name != nil && w.name.IsFocused()
+	w.window.SetRoot(w.widgetTree())
+	if w.name != nil {
+		w.name.SetFocused(focused)
 	}
-	indices := make([]uint16, 0, (CharacterCreateStatCount-2)*3)
-	for i := 1; i < CharacterCreateStatCount-1; i++ {
-		indices = append(indices, 0, uint16(i), uint16(i+1))
+}
+
+func (w *CharacterCreateWindow) Widget() widget.Widget {
+	if w == nil {
+		return nil
 	}
-	screen.DrawTrianglesOwned(vertices, indices, render.WhiteImage(), &render.DrawTrianglesOptions{Filter: render.FilterNearest, Address: render.AddressUnsafe})
+	return w.window.Widget()
+}
+
+func (w *CharacterCreateWindow) Update(ctx client.Context) bool {
+	if w == nil {
+		return false
+	}
+	return w.window.Update(ctx)
+}
+
+func characterCreateWindowTreeEqual(a, b CharacterCreateWindowOptions) bool {
+	return a.W == b.W &&
+		a.H == b.H &&
+		a.FooterH == b.FooterH &&
+		a.FooterPadX == b.FooterPadX &&
+		a.FooterGap == b.FooterGap &&
+		a.Preview == b.Preview &&
+		a.Stats == b.Stats
+}
+
+func (w *CharacterCreateWindow) widgetTree() widget.Widget {
+	nameValue := w.opts.Name
+	if w.name != nil {
+		nameValue = w.name.Text()
+	}
+	name := rotheme.TextField(
+		nameValue,
+		textfield.TypeText,
+		func(value string) {
+			if w.callbacks.OnNameChange != nil {
+				w.callbacks.OnNameChange(value)
+			}
+		},
+		func(string) {
+			if w.callbacks.OnSubmit != nil {
+				w.callbacks.OnSubmit()
+			}
+		},
+		textfield.MaxLength(23),
+	)
+	if w.name == nil {
+		name.SetFocused(true)
+	} else if w.name.IsFocused() {
+		name.SetFocused(true)
+	}
+	w.name = name
+
+	buttonW := func(label string) float32 {
+		return float32(ButtonLabelWidth(label))
+	}
+	return Window(
+		Title("Make Character"),
+		CloseButton(false),
+		Size(float32(w.opts.W), float32(w.opts.H)),
+		FooterHeight(float32(w.opts.FooterH)),
+		FooterPadding(float32(w.opts.FooterPadX)),
+		Content(
+			primitives.Box(
+				primitives.HBox(
+					primitives.Box(
+						newCharacterCreatePreview(w.opts.Preview, characterCreatePreviewCallbacks{
+							prev:  w.callbacks.OnHairPrev,
+							next:  w.callbacks.OnHairNext,
+							color: w.callbacks.OnHairColor,
+						}).
+							Width(characterCreatePanelW).
+							Height(characterCreatePanelH),
+						primitives.Box(
+							rotheme.Text("Name").
+								LineHeight(22/rotheme.Default.Typography.TextSize),
+							primitives.Box(name).
+								Width(characterCreatePanelW).
+								Height(22),
+						).
+							Gap(5).
+							PaddingTop(8),
+					).
+						Width(characterCreatePanelW),
+					newCharacterCreateStatGraph(w.opts.Stats, func(stat int) {
+						if w.callbacks.OnStat != nil {
+							w.callbacks.OnStat(stat)
+						}
+					}).
+						Width(characterCreateGraphW).
+						Height(characterCreatePanelH),
+					primitives.Box(
+						characterCreateStatListRow(0, w.opts.Stats[0], true),
+						characterCreateStatListRow(1, w.opts.Stats[1], false),
+						characterCreateStatListRow(2, w.opts.Stats[2], true),
+						characterCreateStatListRow(3, w.opts.Stats[3], false),
+						characterCreateStatListRow(4, w.opts.Stats[4], true),
+						characterCreateStatListRow(5, w.opts.Stats[5], false),
+					).
+						Width(characterCreateListW).
+						Height(characterCreatePanelH).
+						Background(rotheme.Default.Colors.PanelBody).
+						BorderStyle(1, rotheme.Default.Colors.WindowBorder).
+						PaddingTop(13),
+				).
+					Gap(32).
+					CrossAlign(primitives.CrossAxisStart),
+			).
+				PaddingTop(30).
+				PaddingLeft(32).
+				PaddingRight(32),
+		),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("Make", func() {
+					if w.callbacks.OnSubmit != nil {
+						w.callbacks.OnSubmit()
+					}
+				}).
+					Width(buttonW("Make")),
+				rotheme.Button("Cancel", func() {
+					if w.callbacks.OnCancel != nil {
+						w.callbacks.OnCancel()
+					}
+				}).
+					Width(buttonW("Cancel")),
+			).
+				CrossAlign(primitives.CrossAxisCenter).
+				Gap(float32(w.opts.FooterGap)),
+		),
+	)
+}
+
+func characterCreateStatListRow(stat int, value uint8, shaded bool) widget.Widget {
+	bg := rotheme.Default.Colors.PanelBody
+	if shaded {
+		bg = rotheme.Default.Colors.WindowFooter
+	}
+	return primitives.HBox(
+		primitives.Box(rotheme.Text(CharacterCreateStatLabels()[stat])).
+			Width(72),
+		primitives.Box(rotheme.Text(fmt.Sprintf("%d", value))).
+			Width(32),
+	).
+		Height(22).
+		PaddingXY(12, 0).
+		CrossAlign(primitives.CrossAxisCenter).
+		Background(bg)
 }
 
 func CharacterCreateGraphDrawOrder() [CharacterCreateStatCount]int {
@@ -172,91 +269,320 @@ func CharacterCreateStatLabels() [CharacterCreateStatCount]string {
 	return [CharacterCreateStatCount]string{"STR", "AGI", "VIT", "INT", "DEX", "LUK"}
 }
 
-func CharacterCreateNameRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	previewX, _, previewW, _ := CharacterCreatePreviewPanelRect(opts)
-	return previewX, opts.Y + 252, previewW, 22
+type characterCreateStatGraph struct {
+	widget.WidgetBase
+	stats   [CharacterCreateStatCount]uint8
+	onClick func(int)
+	hovered int
+	width   float32
+	height  float32
 }
 
-func CharacterCreateHairPrevRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X + 44, opts.Y + 126, 24, 22
+type characterCreatePreviewCallbacks struct {
+	prev  func()
+	next  func()
+	color func()
 }
 
-func CharacterCreateHairNextRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X + 138, opts.Y + 126, 24, 22
+type characterCreatePreview struct {
+	widget.WidgetBase
+	image     image.Image
+	callbacks characterCreatePreviewCallbacks
+	hovered   int
+	width     float32
+	height    float32
 }
 
-func CharacterCreateHairColorRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X + 91, opts.Y + 66, 24, 22
+func newCharacterCreatePreview(img image.Image, callbacks characterCreatePreviewCallbacks) *characterCreatePreview {
+	w := &characterCreatePreview{
+		image:     img,
+		callbacks: callbacks,
+		hovered:   -1,
+		width:     characterCreatePanelW,
+		height:    characterCreatePanelH,
+	}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
 }
 
-func CharacterCreatePreviewPanelRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X + 32, opts.Y + 58, 142, opts.PanelH
+func (w *characterCreatePreview) Width(width float32) *characterCreatePreview {
+	w.width = width
+	return w
 }
 
-func CharacterCreatePreviewSpriteOrigin(panelX, panelY, panelW, panelH, imageW, imageH int, scale float64) (float64, float64) {
-	return float64(panelX) + float64(panelW)/2 - float64(imageW)*scale/2,
-		float64(panelY) + float64(panelH)/2 - float64(imageH)*scale/2
+func (w *characterCreatePreview) Height(height float32) *characterCreatePreview {
+	w.height = height
+	return w
 }
 
-func CharacterCreateGraphPanelRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X + 204, opts.Y + 58, 166, opts.PanelH
+func (w *characterCreatePreview) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(w.width, w.height))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
 }
 
-func CharacterCreateStatListPanelRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X + 402, opts.Y + 58, 136, opts.PanelH
+func (w *characterCreatePreview) Draw(_ widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() {
+		return
+	}
+	bounds := w.Bounds()
+	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
+	if w.image != nil {
+		imgBounds := w.image.Bounds()
+		x := bounds.Min.X + (bounds.Width()-float32(imgBounds.Dx()))/2
+		y := bounds.Min.Y + (bounds.Height()-float32(imgBounds.Dy()))/2
+		canvas.DrawImage(w.image, geometry.Pt(x, y))
+	}
+	for i, label := range [...]string{"<", "^", ">"} {
+		rect := characterCreatePreviewButtonRect(bounds, i)
+		bg := rotheme.Default.Colors.Button
+		if w.hovered == i {
+			bg = rotheme.Default.Colors.ButtonHover
+		}
+		canvas.DrawRoundRect(rect, bg, rotheme.ButtonRadius)
+		canvas.StrokeRoundRect(rect, rotheme.Default.Colors.ButtonBorder, rotheme.ButtonRadius, 1)
+		rotheme.DrawText(canvas, label, rect, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
+	}
 }
 
-func CharacterCreateStatButtonRect(opts CharacterCreateWindowOptions, stat int) (int, int, int, int) {
-	rects := [CharacterCreateStatCount][4]int{
-		{opts.X + 269, opts.Y + 36, 38, 36},
-		{opts.X + 181, opts.Y + 100, 38, 36},
-		{opts.X + 356, opts.Y + 100, 38, 36},
-		{opts.X + 269, opts.Y + 210, 38, 36},
-		{opts.X + 181, opts.Y + 156, 38, 36},
-		{opts.X + 356, opts.Y + 156, 38, 36},
+func (w *characterCreatePreview) Event(ctx widget.Context, e event.Event) bool {
+	if !w.IsVisible() || !w.IsEnabled() {
+		return false
+	}
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	hit := characterCreatePreviewButtonAt(w.Bounds(), mouse.GlobalPosition)
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseDrag:
+		w.setHovered(ctx, hit)
+		return hit >= 0
+	case event.MouseLeave:
+		w.setHovered(ctx, -1)
+		return false
+	case event.MousePress:
+		if mouse.Button != event.ButtonLeft || hit < 0 {
+			return false
+		}
+		switch hit {
+		case 0:
+			if w.callbacks.prev != nil {
+				w.callbacks.prev()
+			}
+		case 1:
+			if w.callbacks.color != nil {
+				w.callbacks.color()
+			}
+		case 2:
+			if w.callbacks.next != nil {
+				w.callbacks.next()
+			}
+		}
+		return true
+	}
+	return hit >= 0
+}
+
+func (w *characterCreatePreview) setHovered(ctx widget.Context, button int) {
+	if w.hovered == button {
+		return
+	}
+	w.hovered = button
+	if button >= 0 {
+		ctx.SetCursor(widget.CursorPointer)
+	} else {
+		ctx.SetCursor(widget.CursorDefault)
+	}
+	w.SetNeedsRedraw(true)
+}
+
+func characterCreatePreviewButtonAt(bounds geometry.Rect, point geometry.Point) int {
+	for i := 0; i < 3; i++ {
+		if characterCreatePreviewButtonRect(bounds, i).Contains(point) {
+			return i
+		}
+	}
+	return -1
+}
+
+func characterCreatePreviewButtonRect(bounds geometry.Rect, index int) geometry.Rect {
+	y := bounds.Min.Y + 68
+	xs := [...]float32{bounds.Min.X + 12, bounds.Min.X + bounds.Width()/2 - 12, bounds.Max.X - 36}
+	if index < 0 || index >= len(xs) {
+		index = 0
+	}
+	return geometry.NewRect(xs[index], y, 24, 22)
+}
+
+func newCharacterCreateStatGraph(stats [CharacterCreateStatCount]uint8, onClick func(int)) *characterCreateStatGraph {
+	w := &characterCreateStatGraph{
+		stats:   stats,
+		onClick: onClick,
+		hovered: -1,
+		width:   characterCreateGraphW,
+		height:  characterCreatePanelH,
+	}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *characterCreateStatGraph) Width(width float32) *characterCreateStatGraph {
+	w.width = width
+	return w
+}
+
+func (w *characterCreateStatGraph) Height(height float32) *characterCreateStatGraph {
+	w.height = height
+	return w
+}
+
+func (w *characterCreateStatGraph) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(w.width, w.height))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *characterCreateStatGraph) Draw(_ widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() {
+		return
+	}
+	bounds := w.Bounds()
+	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
+
+	cx := bounds.Min.X + bounds.Width()/2
+	cy := bounds.Min.Y + bounds.Height()/2
+	outer := float32(58)
+	inner := float32(29)
+	points := characterCreateWidgetGraphPoints(cx, cy, outer)
+	mid := characterCreateWidgetGraphPoints(cx, cy, inner)
+	order := CharacterCreateGraphDrawOrder()
+	for i := 0; i < CharacterCreateStatCount; i++ {
+		current := order[i]
+		next := order[(i+1)%CharacterCreateStatCount]
+		canvas.DrawLine(points[current], points[next], rotheme.Default.Colors.FooterLine, 1)
+		canvas.DrawLine(mid[current], mid[next], rotheme.Default.Colors.FooterLine, 1)
+		canvas.DrawLine(geometry.Pt(cx, cy), points[current], widget.RGBA8(185, 204, 224, 150), 1)
+	}
+	if filler, ok := canvas.(widget.SVGFiller); ok {
+		filler.FillSVGPath(w.statPolygonSVG(bounds.Width()/2, bounds.Height()/2, outer, order), maxFloat32(bounds.Width(), bounds.Height()), bounds, widget.RGBA8(36, 92, 154, 220))
+	}
+
+	for stat := 0; stat < CharacterCreateStatCount; stat++ {
+		rect := characterCreateStatButtonRect(bounds, stat)
+		bg := rotheme.Default.Colors.Button
+		if stat == w.hovered {
+			bg = rotheme.Default.Colors.ButtonHover
+		}
+		canvas.DrawRoundRect(rect, bg, rotheme.ButtonRadius)
+		canvas.StrokeRoundRect(rect, rotheme.Default.Colors.ButtonBorder, rotheme.ButtonRadius, 1)
+		rotheme.DrawText(canvas, CharacterCreateStatLabels()[stat], geometry.NewRect(rect.Min.X, rect.Min.Y+3, rect.Width(), 12), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
+		rotheme.DrawText(canvas, fmt.Sprintf("%d", w.stats[stat]), geometry.NewRect(rect.Min.X, rect.Min.Y+18, rect.Width(), 12), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
+	}
+}
+
+func (w *characterCreateStatGraph) statPolygonSVG(cx, cy, outer float32, order [CharacterCreateStatCount]int) string {
+	points := characterCreateWidgetGraphPoints(cx, cy, outer)
+	var b strings.Builder
+	for i, stat := range order {
+		scale := float32(0.22) + float32(w.stats[stat])/9*0.78
+		x := cx + (points[stat].X-cx)*scale
+		y := cy + (points[stat].Y-cy)*scale
+		if i == 0 {
+			fmt.Fprintf(&b, "M%.2f %.2f", x, y)
+		} else {
+			fmt.Fprintf(&b, "L%.2f %.2f", x, y)
+		}
+	}
+	b.WriteString("Z")
+	return b.String()
+}
+
+func (w *characterCreateStatGraph) Event(ctx widget.Context, e event.Event) bool {
+	if !w.IsVisible() || !w.IsEnabled() {
+		return false
+	}
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	hit := characterCreateStatButtonAt(w.Bounds(), mouse.GlobalPosition)
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseDrag:
+		w.setHovered(ctx, hit)
+		return hit >= 0
+	case event.MouseLeave:
+		w.setHovered(ctx, -1)
+		return false
+	case event.MousePress:
+		if mouse.Button != event.ButtonLeft || hit < 0 {
+			return false
+		}
+		if w.onClick != nil {
+			w.onClick(hit)
+		}
+		return true
+	}
+	return hit >= 0
+}
+
+func (w *characterCreateStatGraph) setHovered(ctx widget.Context, stat int) {
+	if w.hovered == stat {
+		return
+	}
+	w.hovered = stat
+	if stat >= 0 {
+		ctx.SetCursor(widget.CursorPointer)
+	} else {
+		ctx.SetCursor(widget.CursorDefault)
+	}
+	w.SetNeedsRedraw(true)
+}
+
+func characterCreateWidgetGraphPoints(cx, cy, radius float32) [CharacterCreateStatCount]geometry.Point {
+	model := CharacterCreateGraphPoints(0, 0, float64(radius))
+	points := [CharacterCreateStatCount]geometry.Point{}
+	for i := range model {
+		points[i] = geometry.Pt(cx+float32(model[i][0]), cy+float32(model[i][1]))
+	}
+	return points
+}
+
+func characterCreateStatButtonAt(bounds geometry.Rect, point geometry.Point) int {
+	for stat := 0; stat < CharacterCreateStatCount; stat++ {
+		if characterCreateStatButtonRect(bounds, stat).Contains(point) {
+			return stat
+		}
+	}
+	return -1
+}
+
+func characterCreateStatButtonRect(bounds geometry.Rect, stat int) geometry.Rect {
+	cx := bounds.Min.X + bounds.Width()/2
+	top := bounds.Min.Y + 5
+	midTop := bounds.Min.Y + 47
+	midBottom := bounds.Min.Y + 92
+	bottom := bounds.Max.Y - 41
+	left := bounds.Min.X + 8
+	right := bounds.Max.X - 46
+	rects := [CharacterCreateStatCount]geometry.Rect{
+		geometry.NewRect(cx-19, top, 38, 36),
+		geometry.NewRect(left, midTop, 38, 36),
+		geometry.NewRect(right, midTop, 38, 36),
+		geometry.NewRect(cx-19, bottom, 38, 36),
+		geometry.NewRect(left, midBottom, 38, 36),
+		geometry.NewRect(right, midBottom, 38, 36),
 	}
 	if stat < 0 || stat >= len(rects) {
 		stat = 0
 	}
-	rect := rects[stat]
-	return rect[0], rect[1], rect[2], rect[3]
+	return rects[stat]
 }
 
-func CharacterCreateFooterRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return opts.X, opts.Y + opts.H - opts.FooterH, opts.W, opts.FooterH
-}
-
-func CharacterCreateMakeButtonRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return characterCreateFooterButtonRect(opts, 0)
-}
-
-func CharacterCreateCancelButtonRect(opts CharacterCreateWindowOptions) (int, int, int, int) {
-	return characterCreateFooterButtonRect(opts, 1)
-}
-
-func characterCreateFooterButtonRect(opts CharacterCreateWindowOptions, index int) (int, int, int, int) {
-	labels := [...]string{"Make", "Cancel"}
-	if index < 0 || index >= len(labels) {
-		index = 0
-	}
-	_, footerY, _, footerH := CharacterCreateFooterRect(opts)
-	totalW := 0
-	for _, label := range labels {
-		totalW += ButtonLabelWidth(label)
-	}
-	totalW += opts.FooterGap * (len(labels) - 1)
-	bx := opts.X + opts.W - opts.FooterPadX - totalW
-	for i := 0; i < index; i++ {
-		bx += ButtonLabelWidth(labels[i]) + opts.FooterGap
-	}
-	return bx, footerY + (footerH-opts.ButtonH)/2, ButtonLabelWidth(labels[index]), opts.ButtonH
-}
-
-func drawCharacterCreateButtonRect(screen *render.Image, opts CharacterCreateWindowOptions, rect [4]int, label string) {
-	x, y, w, h := rect[0], rect[1], rect[2], rect[3]
-	bg := ButtonColor
-	if opts.HasMouse && pointInRect(opts.MouseX, opts.MouseY, x, y, w, h) {
-		bg = ButtonHoverColor
-	}
-	DrawButtonLabel(screen, x, y, w, h, label, bg, TextColor)
+func maxFloat32(a, b float32) float32 {
+	return float32(math.Max(float64(a), float64(b)))
 }

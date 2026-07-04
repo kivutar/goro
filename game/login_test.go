@@ -38,15 +38,6 @@ func TestLoginInterfaceCandidatesUseROInterfacePath(t *testing.T) {
 	}
 }
 
-func TestTrimLastRune(t *testing.T) {
-	if got := trimLastRune("abé"); got != "ab" {
-		t.Fatalf("trimLastRune = %q, want ab", got)
-	}
-	if got := trimLastRune(""); got != "" {
-		t.Fatalf("trimLastRune empty = %q", got)
-	}
-}
-
 func TestLoginBackgroundRealDataWhenConfigured(t *testing.T) {
 	manager := realDataManager(t)
 	img, source, ok := loadLoginBackgroundImage(manager, "bgi_temp.bmp")
@@ -128,18 +119,6 @@ func TestCharacterCreateGraphDrawOrderIsValidHexagon(t *testing.T) {
 	if points[createStatLuk][0] <= 0 || points[createStatLuk][1] <= 0 {
 		t.Fatalf("LUK graph point = %#v, want lower-right", points[createStatLuk])
 	}
-	dexX, dexY, _, _ := charCreateStatButtonRect(0, 0, createStatDex)
-	lukX, lukY, _, _ := charCreateStatButtonRect(0, 0, createStatLuk)
-	if dexX >= lukX || dexY != lukY {
-		t.Fatalf("DEX/LUK button positions = DEX(%d,%d) LUK(%d,%d), want DEX lower-left and LUK lower-right", dexX, dexY, lukX, lukY)
-	}
-	_, graphY, _, graphH := charCreateGraphPanelRect(0, 0)
-	_, strY, _, strH := charCreateStatButtonRect(0, 0, createStatStr)
-	_, intY, _, intH := charCreateStatButtonRect(0, 0, createStatInt)
-	graphCenterY := graphY + graphH/2
-	if graphCenterY-(strY+strH/2) != (intY+intH/2)-graphCenterY {
-		t.Fatalf("STR/INT vertical distances = %d/%d, want symmetric around graph center %d", graphCenterY-(strY+strH/2), (intY+intH/2)-graphCenterY, graphCenterY)
-	}
 
 	for i := 0; i < createStatCount; i++ {
 		a1 := points[order[i]]
@@ -153,58 +132,6 @@ func TestCharacterCreateGraphDrawOrderIsValidHexagon(t *testing.T) {
 			if graphSegmentsCross(a1, a2, b1, b2) {
 				t.Fatalf("graph edges %d and %d cross", i, j)
 			}
-		}
-	}
-}
-
-func TestCharacterCreateUsesFooterAndEqualPanels(t *testing.T) {
-	ctx := client.Context{ScreenW: 1280, ScreenH: 720}
-	x, y, w, h := charCreateWindowRect(ctx)
-	_, footerY, _, footerH := charCreateFooterRect(x, y, w, h)
-	nameX, nameY, nameW, nameH := charCreateNameRect(x, y)
-	previewX, previewY, previewW, previewH := charCreatePreviewPanelRect(x, y)
-	graphX, graphY, graphW, graphH := charCreateGraphPanelRect(x, y)
-	listX, listY, listW, listH := charCreateStatListPanelRect(x, y)
-	makeX, makeY, makeW, makeH := charCreateMakeButtonRect(x, y, w, h)
-	cancelX, cancelY, cancelW, cancelH := charCreateCancelButtonRect(x, y, w, h)
-
-	if previewH != graphH || previewH != listH || previewH != charCreatePanelH {
-		t.Fatalf("panel heights preview/graph/list = %d/%d/%d, want %d", previewH, graphH, listH, charCreatePanelH)
-	}
-	if previewY != graphY || previewY != listY {
-		t.Fatalf("panel y positions preview/graph/list = %d/%d/%d, want aligned", previewY, graphY, listY)
-	}
-	if previewX >= graphX || graphX >= listX || previewW <= 0 || graphW <= 0 || listW <= 0 {
-		t.Fatalf("panel rects preview=%v graph=%v list=%v", [4]int{previewX, previewY, previewW, previewH}, [4]int{graphX, graphY, graphW, graphH}, [4]int{listX, listY, listW, listH})
-	}
-	if nameY+nameH >= footerY || nameX != previewX || nameW != previewW {
-		t.Fatalf("name field rect = %d,%d,%d,%d footer starts=%d", nameX, nameY, nameW, nameH, footerY)
-	}
-	spriteX, spriteY := charCreatePreviewSpriteOrigin(previewX, previewY, previewW, previewH, 48, 96, 1.25)
-	if spriteX+48*1.25/2 != float64(previewX)+float64(previewW)/2 {
-		t.Fatalf("preview sprite x origin = %.2f, want centered in panel", spriteX)
-	}
-	if spriteY+96*1.25/2 != float64(previewY)+float64(previewH)/2 {
-		t.Fatalf("preview sprite y origin = %.2f, want centered in panel", spriteY)
-	}
-	if makeW != gameui.ButtonLabelWidth("Make") || cancelW != gameui.ButtonLabelWidth("Cancel") {
-		t.Fatalf("create button widths = %d,%d, want normalized", makeW, cancelW)
-	}
-	if cancelX+cancelW != x+w-charCreateFooterPadX {
-		t.Fatalf("cancel button right edge = %d, want %d", cancelX+cancelW, x+w-charCreateFooterPadX)
-	}
-	if makeX+makeW+charCreateFooterGap != cancelX {
-		t.Fatalf("create button gap = %d, want %d", cancelX-(makeX+makeW), charCreateFooterGap)
-	}
-	for label, rect := range map[string][4]int{
-		"Make":   {makeX, makeY, makeW, makeH},
-		"Cancel": {cancelX, cancelY, cancelW, cancelH},
-	} {
-		if rect[1] != footerY+(footerH-charCreateButtonH)/2 || rect[3] != charCreateButtonH {
-			t.Fatalf("%s button vertical rect = %d,%d, want centered in footer", label, rect[1], rect[3])
-		}
-		if rect[1] < footerY || rect[1]+rect[3] > footerY+footerH {
-			t.Fatalf("%s button is outside footer: %v footer=%d..%d", label, rect, footerY, footerY+footerH)
 		}
 	}
 }
