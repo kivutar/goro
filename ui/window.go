@@ -148,9 +148,7 @@ func windowCloseButton(enabled bool, onClose func()) widget.Widget {
 	}
 	return primitives.Box(
 		primitives.Expanded(primitives.Box()),
-		rotheme.Button("x", onClose).
-			Width(17).
-			Height(17),
+		rotheme.IconButton(rotheme.IconButtonClose, onClose),
 		primitives.Expanded(primitives.Box()),
 	).
 		Width(17).

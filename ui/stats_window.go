@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gogpu/ui/core/button"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/network"
@@ -13,11 +12,10 @@ import (
 )
 
 const (
-	statsWindowWidth    = 286
-	statsWindowHeight   = 302
-	statsWindowPad      = 12
-	statsRowH           = 22
-	statsIconButtonSize = 17
+	statsWindowWidth  = 286
+	statsWindowHeight = 302
+	statsWindowPad    = 12
+	statsRowH         = 22
 )
 
 type StatsWindow struct {
@@ -142,7 +140,7 @@ func (w *StatsWindow) statRowsWidget(ctx Context) widget.Widget {
 				statsTextCell(formatStatValue(row.value, row.bonus), 58, rotheme.Default.Colors.Text),
 				statsTextCell(fmt.Sprintf("%d", statCost(row)), 42, rotheme.Default.Colors.MutedText),
 				primitives.Expanded(primitives.Box()),
-				statPlusButton(!canIncreaseStat(ctx.Session, row), func() {
+				rotheme.IconButtonDisabled(rotheme.IconButtonPlus, !canIncreaseStat(ctx.Session, row), func() {
 					w.requestStatIncrease(ctx, row)
 				}),
 			).
@@ -172,24 +170,6 @@ func statsTextCell(text string, width float32, color widget.Color) widget.Widget
 	return primitives.Box(
 		rotheme.Text(text).Color(color),
 	).Width(width)
-}
-
-func statPlusButton(disabled bool, onClick func()) widget.Widget {
-	opts := []button.Option{
-		button.TextOpt("+"),
-		button.SizeOpt(button.Small),
-		button.PainterOpt(rotheme.ButtonPainter{}),
-		button.RoundedOpt(rotheme.ButtonRadius),
-		button.Disabled(disabled),
-	}
-	if !disabled && onClick != nil {
-		opts = append(opts, button.OnClick(onClick))
-	}
-	return primitives.Box(
-		button.New(opts...).PaddingXY(0, 0),
-	).
-		Width(statsIconButtonSize).
-		Height(statsIconButtonSize)
 }
 
 func statsDerivedWidget(stats session.Stats) widget.Widget {

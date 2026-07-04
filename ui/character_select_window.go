@@ -123,26 +123,22 @@ func (w *CharacterSelectWindow) widgetTree() widget.Widget {
 		Content(
 			primitives.Box(
 				primitives.HBox(
-					rotheme.Button("<", func() {
+					rotheme.IconButton(rotheme.IconButtonLeft, func() {
 						if w.callbacks.OnPreviousPage != nil {
 							w.callbacks.OnPreviousPage()
 						}
-					}).
-						Width(18).
-						Height(18),
+					}),
 					primitives.HBox(
 						w.slotWidget(pageStart),
 						w.slotWidget(pageStart+1),
 						w.slotWidget(pageStart+2),
 					).
 						Gap(25),
-					rotheme.Button(">", func() {
+					rotheme.IconButton(rotheme.IconButtonRight, func() {
 						if w.callbacks.OnNextPage != nil {
 							w.callbacks.OnNextPage()
 						}
-					}).
-						Width(18).
-						Height(18),
+					}),
 				).
 					CrossAlign(primitives.CrossAxisCenter).
 					Gap(18),
