@@ -46,7 +46,7 @@ type LoginMode struct {
 	publishedUI       uiwidget.Widget
 	create            charCreateState
 	cursor            roCursorState
-	quitConfirm       loginQuitConfirmState
+	quitConfirm       gameui.ConfirmModal
 }
 
 type loginPhase int
@@ -71,10 +71,6 @@ type loginFadeState struct {
 	target     loginPhase
 	hasTarget  bool
 	enterWorld bool
-}
-
-type loginQuitConfirmState struct {
-	open bool
 }
 
 const (
@@ -379,7 +375,6 @@ func (m *LoginMode) Draw(ctx client.Context, screen *render.Image) {
 
 func (m *LoginMode) DrawOverlay(ctx client.Context, screen *render.Image) {
 	now := time.Now()
-	m.drawQuitConfirm(ctx, screen)
 	m.drawFade(ctx, screen, now)
 	m.drawROCursor(screen, ctx, now)
 }
@@ -399,9 +394,6 @@ func (m *LoginMode) cursorAction(ctx client.Context) int {
 	if action, ok := uiCursorAction(ctx); ok {
 		return action
 	}
-	if action, ok := m.quitConfirm.cursorAction(ctx); ok {
-		return action
-	}
 	return cursorActionDefault
 }
 
@@ -419,71 +411,25 @@ func (m *LoginMode) updatePhaseEscape(ctx client.Context, now time.Time) bool {
 		}
 		m.status = "char select cancelled"
 	case loginPhaseAccount:
-		m.quitConfirm.open = true
+		m.updateLoginWindow(ctx)
+		m.openQuitConfirm(ctx)
 	}
 	return true
 }
 
 func (m *LoginMode) updateQuitConfirm(ctx client.Context) bool {
-	if ctx.Input == nil {
+	if !m.quitConfirm.IsOpen() {
 		return false
 	}
-	if !m.quitConfirm.open {
-		return false
-	}
-	if ctx.Input.JustPressed(render.KeyEscape) {
-		m.quitConfirm.open = false
-		return true
-	}
-	if ctx.Input.JustPressed(render.KeyEnter) {
-		m.quitConfirm.open = false
+	return m.quitConfirm.Update(ctx)
+}
+
+func (m *LoginMode) openQuitConfirm(ctx client.Context) {
+	m.quitConfirm.Open(ctx, "Exit", "Do you really want to quit?", func() {
 		if ctx.RequestQuit != nil {
 			ctx.RequestQuit()
 		}
-		return true
-	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return true
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	okX, okY, okW, okH := loginQuitOKRect(ctx)
-	cancelX, cancelY, cancelW, cancelH := loginQuitCancelRect(ctx)
-	switch {
-	case pointInRect(mx, my, okX, okY, okW, okH):
-		m.quitConfirm.open = false
-		if ctx.RequestQuit != nil {
-			ctx.RequestQuit()
-		}
-	case pointInRect(mx, my, cancelX, cancelY, cancelW, cancelH):
-		m.quitConfirm.open = false
-	}
-	return true
-}
-
-func (m *LoginMode) drawQuitConfirm(ctx client.Context, screen *render.Image) {
-	if !m.quitConfirm.open || screen == nil {
-		return
-	}
-	opts := loginQuitConfirmOptions(ctx)
-	if ctx.Input != nil {
-		opts.HasMouse = true
-		opts.MouseX = ctx.Input.MouseX
-		opts.MouseY = ctx.Input.MouseY
-	}
-	gameui.DrawConfirmModal(screen, opts)
-}
-
-func (q loginQuitConfirmState) cursorAction(ctx client.Context) (int, bool) {
-	if !q.open || ctx.Input == nil {
-		return 0, false
-	}
-	okX, okY, okW, okH := loginQuitOKRect(ctx)
-	cancelX, cancelY, cancelW, cancelH := loginQuitCancelRect(ctx)
-	if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, okX, okY, okW, okH) ||
-		pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, cancelX, cancelY, cancelW, cancelH) {
-		return cursorActionClick, true
-	}
-	return cursorActionDefault, true
+	}, nil)
 }
 
 func (m *LoginMode) updateFormInput(ctx client.Context) {
@@ -816,6 +762,7 @@ func (m *LoginMode) nextWorldMode(ctx client.Context, now time.Time) *WorldMode 
 	m.loginWindow = nil
 	m.charSelectWindow = nil
 	m.charCreateWindow = nil
+	m.quitConfirm = gameui.ConfirmModal{}
 	next := NewWorldMode()
 	next.console = m.console
 	next.startMapFadeIn(now)
@@ -918,7 +865,11 @@ func (m *LoginMode) publishUI(ctx client.Context, root uiwidget.Widget) {
 	if ctx.UIManager == nil || root == nil || root == m.publishedUI {
 		return
 	}
-	ctx.UIManager.Clear()
+	if m.publishedUI != nil {
+		ctx.UIManager.RemoveOverlay(m.publishedUI)
+	} else {
+		ctx.UIManager.Clear()
+	}
 	ctx.UIManager.AddOverlay(root)
 	m.publishedUI = root
 }
@@ -1285,37 +1236,6 @@ func charCreateWindowOptions(x, y, w, h int) gameui.CharacterCreateWindowOptions
 		FooterPadX: charCreateFooterPadX,
 		FooterGap:  charCreateFooterGap,
 	}
-}
-
-func loginQuitConfirmOptions(ctx client.Context) gameui.ConfirmModalOptions {
-	width, height := ctx.ScreenSize()
-	w, h := 286, 128
-	x := (width - w) / 2
-	y := (height - h) / 2
-	if x < 8 {
-		x = 8
-	}
-	if y < 8 {
-		y = 8
-	}
-	return gameui.ConfirmModalOptions{
-		ScreenW: width,
-		ScreenH: height,
-		X:       x,
-		Y:       y,
-		W:       w,
-		H:       h,
-		Title:   "Exit",
-		Message: "Do you really want to quit?",
-	}
-}
-
-func loginQuitOKRect(ctx client.Context) (int, int, int, int) {
-	return gameui.ConfirmModalOKRect(loginQuitConfirmOptions(ctx))
-}
-
-func loginQuitCancelRect(ctx client.Context) (int, int, int, int) {
-	return gameui.ConfirmModalCancelRect(loginQuitConfirmOptions(ctx))
 }
 
 func charSelectWindowRect(ctx client.Context) (int, int, int, int) {

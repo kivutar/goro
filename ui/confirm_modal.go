@@ -1,47 +1,145 @@
 package ui
 
 import (
-	"image/color"
-
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
-type ConfirmModalOptions struct {
-	ScreenW, ScreenH int
-	X, Y, W, H       int
-	Title            string
-	Message          string
-	MouseX, MouseY   int
-	HasMouse         bool
+const (
+	confirmModalWidth   = 286
+	confirmModalHeight  = 128
+	confirmModalFooterH = 42
+)
+
+type ConfirmModal struct {
+	open     bool
+	title    string
+	message  string
+	onOK     func()
+	onCancel func()
+	window   WindowState
+	ctx      client.Context
 }
 
-func DrawConfirmModal(screen *render.Image, opts ConfirmModalOptions) {
-	if screen == nil {
+func (m *ConfirmModal) Open(ctx client.Context, title, message string, onOK, onCancel func()) {
+	m.open = true
+	m.title = title
+	m.message = message
+	m.onOK = onOK
+	m.onCancel = onCancel
+	m.ctx = ctx
+	m.ensureWindow()
+	m.window.Open(ctx, m.widgetTree(ctx))
+	m.Publish(ctx)
+}
+
+func (m *ConfirmModal) Update(ctx client.Context) bool {
+	m.ctx = ctx
+	if !m.open {
+		return false
+	}
+	if ctx.Input != nil {
+		if ctx.Input.JustPressed(render.KeyEscape) {
+			m.Cancel(ctx)
+			return true
+		}
+		if ctx.Input.JustPressed(render.KeyEnter) {
+			m.Confirm(ctx)
+			return true
+		}
+	}
+	m.openWindow(ctx)
+	if m.window.Update(ctx) {
+		m.Publish(ctx)
+		return true
+	}
+	m.Publish(ctx)
+	return true
+}
+
+func (m *ConfirmModal) IsOpen() bool {
+	return m.open
+}
+
+func (m *ConfirmModal) Confirm(ctx client.Context) {
+	m.close(ctx)
+	if m.onOK != nil {
+		m.onOK()
+	}
+}
+
+func (m *ConfirmModal) Cancel(ctx client.Context) {
+	m.close(ctx)
+	if m.onCancel != nil {
+		m.onCancel()
+	}
+}
+
+func (m *ConfirmModal) Close(ctx client.Context) {
+	m.close(ctx)
+}
+
+func (m *ConfirmModal) Publish(ctx client.Context) {
+	if ctx.UIManager == nil {
 		return
 	}
-	DrawSurface(screen, 0, 0, opts.ScreenW, opts.ScreenH, color.RGBA{A: 80}, color.RGBA{})
-	DrawTitledWindowFrame(screen, opts.X, opts.Y, opts.W, opts.H, 24)
-	DrawWindowTitle(screen, opts.X, opts.Y, 24, 12, opts.Title, TitleTextColor)
-	render.DebugPrintAtColor(screen, opts.Message, opts.X+28, opts.Y+52, TextColor)
-
-	okX, okY, okW, okH := ConfirmModalOKRect(opts)
-	cancelX, cancelY, cancelW, cancelH := ConfirmModalCancelRect(opts)
-	drawConfirmButton(screen, opts, okX, okY, okW, okH, "OK")
-	drawConfirmButton(screen, opts, cancelX, cancelY, cancelW, cancelH, "Cancel")
+	m.window.Publish(ctx)
 }
 
-func ConfirmModalOKRect(opts ConfirmModalOptions) (int, int, int, int) {
-	return opts.X + opts.W - 150, opts.Y + opts.H - 36, 56, 23
-}
-
-func ConfirmModalCancelRect(opts ConfirmModalOptions) (int, int, int, int) {
-	return opts.X + opts.W - 84, opts.Y + opts.H - 36, 66, 23
-}
-
-func drawConfirmButton(screen *render.Image, opts ConfirmModalOptions, x, y, w, h int, label string) {
-	fill := ButtonColor
-	if opts.HasMouse && pointInRect(opts.MouseX, opts.MouseY, x, y, w, h) {
-		fill = ButtonHoverColor
+func (m *ConfirmModal) ensureWindow() {
+	if m.window.width != 0 {
+		return
 	}
-	DrawButtonLabel(screen, x, y, w, h, label, fill, TextColor)
+	m.window = NewWindowState(confirmModalWidth, confirmModalHeight)
+	m.window.SetCloseOnEscape(false)
+}
+
+func (m *ConfirmModal) openWindow(ctx client.Context) {
+	m.ensureWindow()
+	if !m.window.IsOpen() {
+		m.window.Open(ctx, m.widgetTree(ctx))
+	}
+}
+
+func (m *ConfirmModal) close(ctx client.Context) {
+	m.open = false
+	m.window.Close()
+	m.Publish(ctx)
+}
+
+func (m *ConfirmModal) widgetTree(ctx client.Context) widget.Widget {
+	okW := float32(ButtonLabelWidth("OK"))
+	cancelW := float32(ButtonLabelWidth("Cancel"))
+	return Window(
+		Title(m.title),
+		CloseButton(false),
+		Size(confirmModalWidth, confirmModalHeight),
+		FooterHeight(confirmModalFooterH),
+		FooterPadding(18),
+		Content(
+			primitives.Box(
+				rotheme.Text(m.message),
+			).
+				PaddingTop(22).
+				PaddingLeft(28).
+				PaddingRight(28),
+		),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("OK", func() {
+					m.Confirm(ctx)
+				}).
+					Width(okW),
+				rotheme.Button("Cancel", func() {
+					m.Cancel(ctx)
+				}).
+					Width(cancelW),
+			).
+				Gap(8),
+		),
+	)
 }

@@ -258,7 +258,7 @@ func TestLoginEscapeOpensQuitConfirmation(t *testing.T) {
 	if !mode.updatePhaseEscape(ctx, time.Unix(20, 0)) {
 		t.Fatal("escape was not consumed by account phase")
 	}
-	if !mode.quitConfirm.open {
+	if !mode.quitConfirm.IsOpen() {
 		t.Fatal("quit confirmation did not open")
 	}
 }
@@ -274,7 +274,7 @@ func TestCharacterSelectEscapeReturnsToLogin(t *testing.T) {
 	if !mode.updatePhaseEscape(ctx, now) {
 		t.Fatal("escape was not consumed by character phase")
 	}
-	if mode.quitConfirm.open {
+	if mode.quitConfirm.IsOpen() {
 		t.Fatal("character select escape opened quit confirmation")
 	}
 	if mode.fade.phase != loginFadeOut || !mode.fade.hasTarget || mode.fade.target != loginPhaseAccount {
@@ -294,7 +294,7 @@ func TestCharacterCreateEscapeCancelsToSelect(t *testing.T) {
 	if !mode.updatePhaseEscape(ctx, now) {
 		t.Fatal("escape was not consumed by create phase")
 	}
-	if mode.quitConfirm.open {
+	if mode.quitConfirm.IsOpen() {
 		t.Fatal("character create escape opened quit confirmation")
 	}
 	if mode.fade.phase != loginFadeOut || !mode.fade.hasTarget || mode.fade.target != loginPhaseCharacter {
@@ -302,9 +302,8 @@ func TestCharacterCreateEscapeCancelsToSelect(t *testing.T) {
 	}
 }
 
-func TestLoginQuitConfirmationCancelAndOK(t *testing.T) {
+func TestLoginQuitConfirmationEscapeAndEnter(t *testing.T) {
 	mode := NewLoginMode()
-	mode.quitConfirm.open = true
 	inputState := input.NewState()
 	quit := false
 	ctx := client.Context{
@@ -313,35 +312,54 @@ func TestLoginQuitConfirmationCancelAndOK(t *testing.T) {
 		ScreenH:     600,
 		RequestQuit: func() { quit = true },
 	}
+	mode.openQuitConfirm(ctx)
 
-	cancelX, cancelY, cancelW, cancelH := loginQuitCancelRect(ctx)
-	inputState.SetMousePosition(cancelX+cancelW/2, cancelY+cancelH/2)
-	inputState.SetMouseButton(input.MouseButtonLeft, true)
+	inputState.SetKey(input.KeyEscape, true)
 	if !mode.updateQuitConfirm(ctx) {
-		t.Fatal("cancel click was not consumed")
+		t.Fatal("escape was not consumed")
 	}
-	if mode.quitConfirm.open {
-		t.Fatal("cancel did not close quit confirmation")
+	if mode.quitConfirm.IsOpen() {
+		t.Fatal("escape did not close quit confirmation")
 	}
 	if quit {
-		t.Fatal("cancel requested quit")
+		t.Fatal("escape requested quit")
 	}
 
 	inputState.EndFrame()
-	inputState.SetMouseButton(input.MouseButtonLeft, false)
+	inputState.SetKey(input.KeyEscape, false)
 	inputState.EndFrame()
-	mode.quitConfirm.open = true
-	okX, okY, okW, okH := loginQuitOKRect(ctx)
-	inputState.SetMousePosition(okX+okW/2, okY+okH/2)
-	inputState.SetMouseButton(input.MouseButtonLeft, true)
+	mode.openQuitConfirm(ctx)
+	inputState.SetKey(input.KeyEnter, true)
 	if !mode.updateQuitConfirm(ctx) {
-		t.Fatal("ok click was not consumed")
+		t.Fatal("enter was not consumed")
 	}
-	if mode.quitConfirm.open {
-		t.Fatal("ok did not close quit confirmation")
+	if mode.quitConfirm.IsOpen() {
+		t.Fatal("enter did not close quit confirmation")
 	}
 	if !quit {
-		t.Fatal("ok did not request quit")
+		t.Fatal("enter did not request quit")
+	}
+}
+
+func TestLoginQuitConfirmationUsesSeparateOverlay(t *testing.T) {
+	manager := &loginTestUIManager{}
+	mode := NewLoginMode()
+	inputState := input.NewState()
+	ctx := client.Context{
+		Input:     inputState,
+		Resources: &res.Manager{},
+		UIManager: manager,
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+
+	mode.drawLoginWindow(ctx)
+	inputState.SetKey(input.KeyEscape, true)
+	if !mode.updatePhaseEscape(ctx, time.Unix(20, 0)) {
+		t.Fatal("escape was not consumed")
+	}
+	if len(manager.overlays) != 2 {
+		t.Fatalf("login overlays = %d, want login window plus confirm modal", len(manager.overlays))
 	}
 }
 
