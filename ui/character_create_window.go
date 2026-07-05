@@ -335,15 +335,9 @@ func (w *characterCreatePreview) Draw(_ widget.Context, canvas widget.Canvas) {
 		y := bounds.Min.Y + (bounds.Height()-float32(imgBounds.Dy()))/2
 		canvas.DrawImage(w.image, geometry.Pt(x, y))
 	}
-	for i, label := range [...]string{"<", "^", ">"} {
+	for i, kind := range [...]rotheme.IconButtonKind{rotheme.IconButtonLeft, rotheme.IconButtonUp, rotheme.IconButtonRight} {
 		rect := characterCreatePreviewButtonRect(bounds, i)
-		bg := rotheme.Default.Colors.Button
-		if w.hovered == i {
-			bg = rotheme.Default.Colors.ButtonHover
-		}
-		canvas.DrawRoundRect(rect, bg, rotheme.ButtonRadius)
-		canvas.StrokeRoundRect(rect, rotheme.Default.Colors.ButtonBorder, rotheme.ButtonRadius, 1)
-		rotheme.DrawText(canvas, label, rect, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
+		rotheme.DrawIconButton(canvas, rect, kind, w.hovered == i, false)
 	}
 }
 
@@ -409,12 +403,13 @@ func characterCreatePreviewButtonAt(bounds geometry.Rect, point geometry.Point) 
 }
 
 func characterCreatePreviewButtonRect(bounds geometry.Rect, index int) geometry.Rect {
-	y := bounds.Min.Y + 68
-	xs := [...]float32{bounds.Min.X + 12, bounds.Min.X + bounds.Width()/2 - 12, bounds.Max.X - 36}
+	size := rotheme.IconButtonSize
+	y := bounds.Min.Y + 70
+	xs := [...]float32{bounds.Min.X + 16, bounds.Min.X + bounds.Width()/2 - size/2, bounds.Max.X - 16 - size}
 	if index < 0 || index >= len(xs) {
 		index = 0
 	}
-	return geometry.NewRect(xs[index], y, 24, 22)
+	return geometry.NewRect(xs[index], y, size, size)
 }
 
 func newCharacterCreateStatGraph(stats [CharacterCreateStatCount]uint8, onClick func(int)) *characterCreateStatGraph {
