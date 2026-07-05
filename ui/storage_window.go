@@ -7,9 +7,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -21,14 +22,16 @@ const (
 	storageWindowWidth   = 312
 	storageWindowTitleH  = ROWindowTitleHeight
 	storageWindowFooterH = 38
+	storageTableHeaderH  = 36
 	storageRowH          = 32
 	storageRows          = 9
-	storageWindowHeight  = storageWindowTitleH + storageRows*storageRowH + storageWindowFooterH
+	storageWindowHeight  = storageWindowTitleH + storageTableHeaderH + storageRows*storageRowH + storageWindowFooterH
 )
 
 type StorageWindow struct {
 	window        WindowState
-	scroll        int
+	scrollY       state.Signal[float32]
+	selectedRow   int
 	snapshot      string
 	itemInfo      *ItemInfoWindow
 	lastClickItem uint16
@@ -42,6 +45,11 @@ type storageItemIconKey struct {
 	identified bool
 }
 
+type storageTableRow struct {
+	name   string
+	amount string
+}
+
 func (w *StorageWindow) SetOpen(open bool) {
 	w.ensureWindow()
 	if !open {
@@ -52,6 +60,7 @@ func (w *StorageWindow) SetOpen(open bool) {
 func (w *StorageWindow) OpenWindow(ctx Context) {
 	w.ensureWindow()
 	w.ClampScroll(ctx.Session)
+	w.selectedRow = -1
 	w.snapshot = w.storageSnapshot(ctx.Session)
 	x, y := storageDefaultPosition(ctx)
 	if !w.window.IsOpen() {
@@ -84,6 +93,9 @@ func (w *StorageWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 		w.snapshot = snapshot
 		w.itemInfo = itemInfo
 		w.window.SetContent(w.widgetTree(ctx, itemInfo))
+	}
+	if w.handlePointer(ctx, itemInfo) {
+		return true
 	}
 	consumed := w.window.Update(ctx)
 	if !w.window.IsOpen() {
@@ -132,6 +144,7 @@ func (w *StorageWindow) ensureWindow() {
 	if w.window.width == 0 {
 		w.window = NewWindowState(storageWindowWidth, storageWindowHeight)
 		w.window.SetCloseOnEscape(false)
+		w.selectedRow = -1
 	}
 }
 
@@ -147,23 +160,8 @@ func (w *StorageWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget
 		FooterHeight(storageWindowFooterH),
 		FooterPadding(10),
 		Content(
-			primitives.Box(
-				newStorageListWidget(storageListConfig{
-					items:   visibleStorageItems(sortedStorageItems(ctx.Session), w.scroll),
-					icons:   w.visibleItemIcons(ctx),
-					names:   w.visibleItemNames(ctx),
-					total:   len(sortedStorageItems(ctx.Session)),
-					scroll:  w.scroll,
-					onWheel: func(delta float32) { w.scrollBy(delta, ctx.Session); w.refresh(ctx, itemInfo) },
-					onPress: func(item session.InventoryItem) { w.activateItem(ctx, item) },
-					onRightClick: func(item session.InventoryItem, mx, my int) {
-						if itemInfo != nil {
-							itemInfo.openItem(ctx, item, mx, my)
-						}
-					},
-				}),
-			).
-				Height(storageRows*storageRowH).
+			primitives.Box(w.storageTableWidget(ctx)).
+				Height(storageTableHeight()).
 				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
@@ -176,6 +174,41 @@ func (w *StorageWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget
 	)
 }
 
+func (w *StorageWindow) storageTableWidget(ctx Context) *datatable.Widget {
+	items := sortedStorageItems(ctx.Session)
+	rows := w.storageRows(ctx, items)
+	return datatable.New(
+		datatable.Columns([]datatable.Column{
+			{Key: "item", Title: "Item", Width: 236},
+			{Key: "amount", Title: "Qty", Width: 76, Align: widget.TextAlignRight},
+		}),
+		datatable.RowCount(len(rows)),
+		datatable.RowHeight(storageRowH),
+		datatable.ScrollYSignal(w.ensureScrollSignal()),
+		datatable.SelectionModeOpt(datatable.SelectionSingle),
+		datatable.SelectedRow(w.selectedRow),
+		datatable.PainterOpt(storageTablePainter{icons: w.storageItemIcons(ctx, items)}),
+		datatable.CellValue(func(row int, col string) string {
+			if row < 0 || row >= len(rows) {
+				return ""
+			}
+			switch col {
+			case "item":
+				return rows[row].name
+			case "amount":
+				return rows[row].amount
+			default:
+				return ""
+			}
+		}),
+		datatable.OnRowSelect(func(row int) {
+			if row >= 0 && row < len(rows) {
+				w.selectedRow = row
+			}
+		}),
+	)
+}
+
 func (w *StorageWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
 	w.ClampScroll(ctx.Session)
 	w.snapshot = w.storageSnapshot(ctx.Session)
@@ -184,16 +217,36 @@ func (w *StorageWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
 	w.Publish(ctx)
 }
 
-func (w *StorageWindow) activateItem(ctx Context, item session.InventoryItem) {
+func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) bool {
+	if ctx.Input.MouseJustPressed(render.MouseButtonRight) {
+		item, _, ok := w.itemAt(ctx.Session, ctx.Input.MouseX, ctx.Input.MouseY)
+		if !ok {
+			return false
+		}
+		if itemInfo != nil {
+			itemInfo.openItem(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY)
+		}
+		return true
+	}
+	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
+		return false
+	}
+	item, row, ok := w.itemAt(ctx.Session, ctx.Input.MouseX, ctx.Input.MouseY)
+	if !ok {
+		return false
+	}
+	w.selectedRow = row
 	now := time.Now()
 	if w.lastClickItem == item.Index && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
 		w.withdraw(ctx, item)
 		w.lastClickItem = 0
-		w.refresh(ctx, w.itemInfo)
-		return
+		w.refresh(ctx, itemInfo)
+		return true
 	}
 	w.lastClickItem = item.Index
 	w.lastClickAt = now
+	w.refresh(ctx, itemInfo)
+	return true
 }
 
 func (w *StorageWindow) close(ctx Context) {
@@ -225,40 +278,42 @@ func (w *StorageWindow) withdraw(ctx Context, item session.InventoryItem) {
 	log.Printf("storage withdraw requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 }
 
-func (w *StorageWindow) scrollBy(wheelY float32, s *session.Session) {
-	if wheelY > 0 {
-		w.scroll--
-	} else if wheelY < 0 {
-		w.scroll++
-	}
-	w.ClampScroll(s)
-}
-
 func (w *StorageWindow) ClampScroll(s *session.Session) {
-	maxScroll := maxInt(0, len(sortedStorageItems(s))-storageRows)
-	w.scroll = clampWindowInt(w.scroll, 0, maxScroll)
-}
-
-func (w *StorageWindow) visibleItemIcons(ctx Context) []image.Image {
-	items := visibleStorageItems(sortedStorageItems(ctx.Session), w.scroll)
-	icons := make([]image.Image, len(items))
-	for i, item := range items {
-		icons[i] = w.itemIconImage(ctx.Resources, item)
+	items := sortedStorageItems(s)
+	if w.selectedRow >= len(items) {
+		w.selectedRow = -1
 	}
-	return icons
+	scroll := w.ensureScrollSignal()
+	maxScroll := float32(maxInt(0, len(items)-storageRows) * storageRowH)
+	switch value := scroll.Get(); {
+	case value < 0:
+		scroll.Set(0)
+	case value > maxScroll:
+		scroll.Set(maxScroll)
+	}
 }
 
-func (w *StorageWindow) visibleItemNames(ctx Context) []string {
-	items := visibleStorageItems(sortedStorageItems(ctx.Session), w.scroll)
-	names := make([]string, len(items))
+func (w *StorageWindow) storageRows(ctx Context, items []session.InventoryItem) []storageTableRow {
+	rows := make([]storageTableRow, len(items))
 	for i, item := range items {
 		name := inventoryItemDisplayName(ctx.Resources, item)
 		if item.Refine > 0 {
 			name = fmt.Sprintf("+%d %s", item.Refine, name)
 		}
-		names[i] = name
+		rows[i] = storageTableRow{
+			name:   name,
+			amount: fmt.Sprintf("x%d", maxInt(1, item.Amount)),
+		}
 	}
-	return names
+	return rows
+}
+
+func (w *StorageWindow) storageItemIcons(ctx Context, items []session.InventoryItem) []image.Image {
+	icons := make([]image.Image, len(items))
+	for i, item := range items {
+		icons[i] = w.itemIconImage(ctx.Resources, item)
+	}
+	return icons
 }
 
 func (w *StorageWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
@@ -312,168 +367,46 @@ func (w *StorageWindow) storageCountText(s *session.Session) string {
 	return fmt.Sprintf("Num: %d/%d", s.Storage.Amount, s.Storage.MaxAmount)
 }
 
+func (w *StorageWindow) ensureScrollSignal() state.Signal[float32] {
+	if w.scrollY == nil {
+		w.scrollY = state.NewSignal[float32](0)
+	}
+	return w.scrollY
+}
+
+func (w *StorageWindow) itemAt(s *session.Session, mx, my int) (session.InventoryItem, int, bool) {
+	tableX := w.window.x
+	tableY := w.window.y + storageWindowTitleH
+	row, ok := storageTableRowAt(mx, my, tableX, tableY, storageWindowWidth, int(storageTableHeight()), len(sortedStorageItems(s)), w.ensureScrollSignal().Get())
+	if !ok {
+		return session.InventoryItem{}, 0, false
+	}
+	items := sortedStorageItems(s)
+	if row < 0 || row >= len(items) {
+		return session.InventoryItem{}, 0, false
+	}
+	return items[row], row, true
+}
+
 func storageDefaultPosition(ctx Context) (int, int) {
 	width, _ := ctx.ScreenSize()
 	return maxInt(8, width-storageWindowWidth-24), 118
 }
 
-type storageListConfig struct {
-	items        []session.InventoryItem
-	icons        []image.Image
-	names        []string
-	total        int
-	scroll       int
-	onWheel      func(float32)
-	onPress      func(session.InventoryItem)
-	onRightClick func(session.InventoryItem, int, int)
+func storageTableHeight() float32 {
+	return storageTableHeaderH + storageRows*storageRowH
 }
 
-type storageListWidget struct {
-	widget.WidgetBase
-	cfg     storageListConfig
-	hovered int
-}
-
-func newStorageListWidget(cfg storageListConfig) *storageListWidget {
-	w := &storageListWidget{cfg: cfg, hovered: -1}
-	w.SetVisible(true)
-	w.SetEnabled(true)
-	return w
-}
-
-func (w *storageListWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	size := constraints.Constrain(geometry.Sz(storageWindowWidth, storageRows*storageRowH))
-	w.SetBounds(geometry.FromPointSize(w.Position(), size))
-	return size
-}
-
-func (w *storageListWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
-	bounds := w.Bounds()
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-	if len(w.cfg.items) == 0 {
-		rotheme.DrawText(canvas, "No items", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
-		w.drawScrollBar(canvas)
-		return
+func storageTableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount int, scrollY float32) (int, bool) {
+	if !pointInRect(mx, my, tableX, tableY+storageTableHeaderH, tableW, tableH-storageTableHeaderH) {
+		return 0, false
 	}
-	for row, item := range w.cfg.items {
-		if row >= storageRows {
-			break
-		}
-		rowBounds := w.rowBounds(row)
-		fill := widget.RGBA8(246, 249, 253, 255)
-		if row%2 == 1 {
-			fill = rotheme.Default.Colors.PanelBody
-		}
-		if row == w.hovered {
-			fill = rotheme.Default.Colors.ButtonHover
-		}
-		canvas.DrawRect(rowBounds, fill)
-		if row > 0 {
-			canvas.DrawRect(geometry.NewRect(rowBounds.Min.X, rowBounds.Min.Y, rowBounds.Width()-8, 1), widget.RGBA8(216, 224, 232, 160))
-		}
-		if row < len(w.cfg.icons) && w.cfg.icons[row] != nil {
-			icon := w.cfg.icons[row]
-			iconBounds := icon.Bounds()
-			canvas.DrawImage(icon, geometry.Pt(rowBounds.Min.X+6, rowBounds.Min.Y+(rowBounds.Height()-float32(iconBounds.Dy()))/2))
-		}
-		name := fmt.Sprintf("item %d", item.ItemID)
-		if row < len(w.cfg.names) && w.cfg.names[row] != "" {
-			name = w.cfg.names[row]
-		}
-		rotheme.DrawText(canvas, name, geometry.NewRect(rowBounds.Min.X+inventoryIconSize+12, rowBounds.Min.Y+4, rowBounds.Width()-inventoryIconSize-70, rowBounds.Height()-8), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignLeft)
-		if item.Amount > 1 {
-			rotheme.DrawText(canvas, fmt.Sprintf("x%d", item.Amount), geometry.NewRect(rowBounds.Max.X-58, rowBounds.Min.Y+4, 42, rowBounds.Height()-8), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignRight)
-		}
+	localY := float32(my-tableY) - storageTableHeaderH + scrollY
+	row := int(localY / float32(storageRowH))
+	if row < 0 || row >= rowCount {
+		return 0, false
 	}
-	w.drawScrollBar(canvas)
-}
-
-func (w *storageListWidget) Event(ctx widget.Context, e event.Event) bool {
-	switch ev := e.(type) {
-	case *event.WheelEvent:
-		if w.cfg.onWheel != nil {
-			w.cfg.onWheel(ev.DeltaY())
-		}
-		return true
-	case *event.MouseEvent:
-		row := w.indexAt(ev.Position)
-		switch ev.MouseType {
-		case event.MouseEnter, event.MouseMove:
-			w.hovered = row
-			if row >= 0 && row < len(w.cfg.items) {
-				ctx.SetCursor(widget.CursorPointer)
-			} else {
-				ctx.SetCursor(widget.CursorDefault)
-			}
-			w.SetNeedsRedraw(true)
-			return true
-		case event.MouseLeave:
-			w.hovered = -1
-			ctx.SetCursor(widget.CursorDefault)
-			w.SetNeedsRedraw(true)
-			return false
-		case event.MousePress:
-			if row < 0 || row >= len(w.cfg.items) {
-				return true
-			}
-			item := w.cfg.items[row]
-			switch ev.Button {
-			case event.ButtonLeft:
-				if w.cfg.onPress != nil {
-					w.cfg.onPress(item)
-				}
-			case event.ButtonRight:
-				if w.cfg.onRightClick != nil {
-					w.cfg.onRightClick(item, int(ev.GlobalPosition.X), int(ev.GlobalPosition.Y))
-				}
-			}
-			return true
-		}
-	}
-	return true
-}
-
-func (w *storageListWidget) rowBounds(row int) geometry.Rect {
-	bounds := w.Bounds()
-	return geometry.NewRect(bounds.Min.X, bounds.Min.Y+float32(row*storageRowH), bounds.Width(), storageRowH)
-}
-
-func (w *storageListWidget) indexAt(point geometry.Point) int {
-	local := point.Sub(w.Bounds().Min)
-	if local.X < 0 || local.Y < 0 || local.X >= w.Bounds().Width() || local.Y >= storageRows*storageRowH {
-		return -1
-	}
-	row := int(local.Y) / storageRowH
-	if row < 0 || row >= storageRows {
-		return -1
-	}
-	return row
-}
-
-func (w *storageListWidget) drawScrollBar(canvas widget.Canvas) {
-	if w.cfg.total <= storageRows {
-		return
-	}
-	bounds := w.Bounds()
-	trackX := bounds.Max.X - 7
-	trackH := storageRows*storageRowH - 4
-	canvas.DrawRect(geometry.NewRect(trackX, bounds.Min.Y+2, 4, float32(trackH)), rotheme.Default.Colors.Button)
-	maxScroll := maxInt(1, w.cfg.total-storageRows)
-	thumbH := maxInt(18, trackH*storageRows/w.cfg.total)
-	thumbTravel := trackH - thumbH
-	thumbY := bounds.Min.Y + 2 + float32(thumbTravel*w.cfg.scroll/maxScroll)
-	canvas.DrawRect(geometry.NewRect(trackX, thumbY, 4, float32(thumbH)), rotheme.Default.Colors.MutedText)
-}
-
-func visibleStorageItems(items []session.InventoryItem, scroll int) []session.InventoryItem {
-	if scroll < 0 {
-		scroll = 0
-	}
-	if scroll >= len(items) {
-		return nil
-	}
-	end := minInt(len(items), scroll+storageRows)
-	return items[scroll:end]
+	return row, true
 }
 
 func sortedStorageItems(s *session.Session) []session.InventoryItem {
@@ -485,4 +418,54 @@ func sortedStorageItems(s *session.Session) []session.InventoryItem {
 		return items[i].Index < items[j].Index
 	})
 	return items
+}
+
+type storageTablePainter struct {
+	datatable.DefaultPainter
+	icons []image.Image
+}
+
+func (p storageTablePainter) PaintHeader(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderPaintState) {
+	if bounds.IsEmpty() {
+		return
+	}
+	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
+}
+
+func (p storageTablePainter) PaintHeaderCell(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderCellPaintState) {
+}
+
+func (p storageTablePainter) PaintRow(canvas widget.Canvas, s datatable.RowPaintState) {
+	fill := widget.RGBA8(246, 249, 253, 255)
+	if s.RowIndex%2 == 1 {
+		fill = rotheme.Default.Colors.PanelBody
+	}
+	if s.Hovered {
+		fill = rotheme.Default.Colors.ButtonHover
+	}
+	if s.Selected {
+		fill = rotheme.Default.Colors.ButtonDown
+	}
+	canvas.DrawRect(s.Bounds, fill)
+}
+
+func (p storageTablePainter) PaintCell(canvas widget.Canvas, s datatable.CellPaintState) {
+	color := rotheme.Default.Colors.Text
+	if s.ColIndex == 1 {
+		color = rotheme.Default.Colors.MutedText
+	}
+	textBounds := geometry.NewRect(s.Bounds.Min.X+4, s.Bounds.Min.Y+4, s.Bounds.Width()-8, s.Bounds.Height()-8)
+	if s.ColIndex == 0 && s.RowIndex >= 0 && s.RowIndex < len(p.icons) && p.icons[s.RowIndex] != nil {
+		icon := p.icons[s.RowIndex]
+		iconBounds := icon.Bounds()
+		iconW := float32(iconBounds.Dx())
+		iconH := float32(iconBounds.Dy())
+		canvas.DrawImage(icon, geometry.Pt(s.Bounds.Min.X+6, s.Bounds.Min.Y+(s.Bounds.Height()-iconH)/2))
+		textBounds = geometry.NewRect(s.Bounds.Min.X+iconW+12, s.Bounds.Min.Y+4, s.Bounds.Width()-iconW-16, s.Bounds.Height()-8)
+	}
+	rotheme.DrawText(canvas, s.Value, textBounds, rotheme.Default.Typography.TextSize, color, false, s.Align)
+}
+
+func (p storageTablePainter) PaintEmptyState(canvas widget.Canvas, bounds geometry.Rect) {
+	rotheme.DrawText(canvas, "No items", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
 }
