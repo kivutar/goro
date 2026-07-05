@@ -21,15 +21,13 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Stats window
 - [x] Inventory bag window
 - [x] Shop windows
+- [x] Storage window
 
 ## High Priority
 
 - [x] NPC dialog and choice dialog
   - Important because it is a core gameplay dialog and still has custom dragging, scrolling, button hitboxes, and text rendering.
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
-
-- [ ] Storage window
-  - Similar enough to inventory/shop lists that it should reuse the same item-list primitives.
 
 ## Medium Priority
 

@@ -97,19 +97,13 @@ func TestInventoryItemDisplayNameAddsSlotCountForIdentifiedItems(t *testing.T) {
 }
 
 func TestStorageAcceptInventoryDropWithoutNetworkConsumesDrop(t *testing.T) {
-	window := StorageWindow{
-		open:       true,
-		positioned: true,
-		x:          100,
-		y:          100,
-	}
+	window := StorageWindow{}
 	sessionState := &session.Session{Storage: session.Storage{Open: true}}
-	ok := window.AcceptInventoryDrop(Context{Session: sessionState}, session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, 120, 150)
+	ctx := Context{Session: sessionState, ScreenW: 800, ScreenH: 600}
+	window.OpenWindow(ctx)
+	ok := window.AcceptInventoryDrop(Context{Session: sessionState}, session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, window.window.x+12, window.window.y+20)
 	if !ok {
 		t.Fatal("drop over storage was not consumed")
-	}
-	if window.status == "" || window.statusGood {
-		t.Fatalf("status = %q good=%v, want not connected error", window.status, window.statusGood)
 	}
 }
 
