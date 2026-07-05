@@ -87,7 +87,6 @@ type WorldMode struct {
 	teleportModal    gameui.TeleportModal
 	deathModal       gameui.DeathModal
 	basicMenu        gameui.BasicMenu
-	inventoryWindow  gameui.InventoryWindow
 	inventoryBag     gameui.InventoryBagWindow
 	equipmentWindow  gameui.EquipmentWindow
 	storageWindow    gameui.StorageWindow
@@ -510,7 +509,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			if useAck.Result != 0 && useAck.Amount == 0 && m.shortcutBar.ClearDepletedItem(ctx, useAck.Index, useAck.ItemID) {
 				log.Printf("shortcut item depleted index=%d item=%d", useAck.Index, useAck.ItemID)
 			}
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -527,7 +525,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			log.Printf("item identify ack index=%d success=%v", identifyAck.Index, identifyAck.Success)
 			applyItemIdentifyAck(ctx, identifyAck)
 			m.identifyWindow.ApplyAck(ctx, identifyAck)
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -535,7 +532,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			log.Printf("parse inventory item list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyInventoryItemList(ctx, items)
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -543,7 +539,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			log.Printf("parse inventory item delete 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyInventoryItemDelete(ctx, itemDelete)
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -551,7 +546,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			log.Printf("parse inventory equip ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyInventoryEquipAck(ctx, equipAck)
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -560,7 +554,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		} else if ok {
 			log.Printf("equipped arrow index=%d", arrow.Index)
 			applyEquippedArrow(ctx, arrow)
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -584,7 +577,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			applyStorageItemAdded(ctx, storageItem)
 			m.storageWindow.OpenWindow(ctx)
 			m.storageWindow.ClampScroll(ctx.Session)
-			m.inventoryWindow.ClampScroll(ctx.Session)
 			m.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
@@ -610,7 +602,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			log.Printf("parse shop sell list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.shopWindow.OpenSell(sellList, ctx)
-			m.inventoryWindow.OpenForShop(ctx, &m.shopWindow)
 			continue
 		}
 		if buyList, ok, err := network.ParseShopBuyList(pkt); err != nil {
@@ -862,9 +853,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if m.shortcutBar.Update(ctx, m) {
-		return nil, nil
-	}
-	if m.inventoryWindow.Update(ctx, &m.shopWindow, &m.itemInfoWindow) {
 		return nil, nil
 	}
 	if m.inventoryBag.Update(ctx, &m.shortcutBar, &m.storageWindow, &m.itemInfoWindow) {
@@ -2941,7 +2929,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.shortcutBar.Draw(screen, ctx, m)
 	m.minimap.Draw(screen, ctx)
 	m.drawStatusIcons(screen, ctx, now)
-	m.inventoryWindow.Draw(screen, ctx, m)
 	m.inventoryBag.Draw(screen, ctx, m)
 	m.storageWindow.Draw(screen, ctx, m)
 	m.shopWindow.Draw(screen, ctx, m)

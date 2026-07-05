@@ -11,61 +11,16 @@ import (
 	"github.com/kivutar/goro/session"
 )
 
-func TestShopAcceptInventoryDropAddsSellableItem(t *testing.T) {
+func TestShopAddSellCartItemTracksAmount(t *testing.T) {
 	window := ShopWindow{
 		open: true,
 		mode: shopModeSell,
-		x:    100,
-		y:    100,
-		sellable: map[uint16]network.ShopSellItem{
-			7: {Index: 7, Price: 10, OverchargePrice: 12},
-		},
 	}
 
-	ok := window.AcceptInventoryDrop(Context{}, session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, 120, 150)
-	if !ok {
-		t.Fatal("drop was not accepted")
-	}
-	if len(window.cart) != 1 || window.cart[0].amount != 1 || window.cart[0].max != 3 || window.cart[0].over != 12 {
+	window.addCartItem(session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, network.ShopSellItem{Index: 7, Price: 10, OverchargePrice: 12})
+	window.addCartItem(session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, network.ShopSellItem{Index: 7, Price: 10, OverchargePrice: 12})
+	if len(window.cart) != 1 || window.cart[0].amount != 2 || window.cart[0].max != 3 || window.cart[0].over != 12 {
 		t.Fatalf("cart = %+v", window.cart)
-	}
-}
-
-func TestInventoryDragReleaseOverShopAddsCartItem(t *testing.T) {
-	inputState := input.NewState()
-	inputState.SetMousePosition(120, 150)
-	sessionState := &session.Session{
-		Inventory: session.Inventory{
-			Items: []session.InventoryItem{{Index: 7, ItemID: 938, Amount: 3}},
-		},
-	}
-	ctx := Context{Input: inputState, Session: sessionState}
-	inventory := InventoryWindow{
-		open:       true,
-		positioned: true,
-		x:          500,
-		y:          100,
-		dragActive: true,
-		dragItem:   session.InventoryItem{Index: 7, ItemID: 938, Amount: 3},
-	}
-	shop := ShopWindow{
-		open: true,
-		mode: shopModeSell,
-		x:    100,
-		y:    100,
-		sellable: map[uint16]network.ShopSellItem{
-			7: {Index: 7, Price: 10, OverchargePrice: 12},
-		},
-	}
-
-	if !inventory.Update(ctx, &shop, nil) {
-		t.Fatal("inventory update did not consume drag release")
-	}
-	if inventory.dragActive {
-		t.Fatal("drag still active after release")
-	}
-	if len(shop.cart) != 1 || shop.cart[0].item.Index != 7 {
-		t.Fatalf("shop cart = %+v, want dropped item", shop.cart)
 	}
 }
 
