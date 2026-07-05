@@ -16,11 +16,8 @@ const (
 )
 
 var (
-	inventoryTitleColor  = TitleTextColor
-	inventoryTextColor   = TextColor
-	inventoryMutedColor  = MutedTextColor
-	inventoryButtonColor = ButtonColor
-	inventoryHoverColor  = ButtonHoverColor
+	inventoryTextColor  = TextColor
+	inventoryMutedColor = MutedTextColor
 )
 
 func sortedInventoryItems(s *session.Session) []session.InventoryItem {

@@ -2,199 +2,187 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"strings"
-	"time"
 
+	"github.com/gogpu/ui/core/scrollview"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
 	itemInfoWindowWidth       = 468
 	itemInfoWindowHeight      = 304
-	itemInfoWindowTitleH      = 28
 	itemInfoWindowPad         = 10
 	itemInfoIllustrationWidth = 132
 	itemInfoLineH             = 14
+	itemInfoDetailsH          = 72
+	itemInfoDescriptionW      = itemInfoWindowWidth - itemInfoWindowPad*2 - itemInfoIllustrationWidth - 12
+	itemInfoDescriptionH      = itemInfoWindowHeight - ROWindowTitleHeight - itemInfoWindowPad*2 - itemInfoDetailsH - 10
 )
 
 type ItemInfoWindow struct {
-	open     bool
-	x        int
-	y        int
-	dragging bool
-	dragDX   int
-	dragDY   int
-	item     session.InventoryItem
-	title    string
-	details  []string
-	lines    []string
-	scroll   int
-	openedAt time.Time
+	window       WindowState
+	item         session.InventoryItem
+	title        string
+	details      []string
+	lines        []string
+	illustration image.Image
 }
 
 func (w *ItemInfoWindow) openItem(ctx Context, item session.InventoryItem, mouseX, mouseY int) {
 	if item.ItemID == 0 {
 		return
 	}
-	w.open = true
-	w.dragging = false
+	w.ensureWindow()
 	w.item = item
 	w.title = "Item Information"
 	w.details = itemInfoDetailLines(item)
 	w.lines = itemInfoDescriptionLines(ctx, item)
-	w.scroll = 0
-	w.openedAt = time.Now()
+	w.illustration = nil
 
 	screenW, screenH := ctx.ScreenSize()
-	w.x = clampInventoryWindowInt(mouseX+14, 8, maxInt(8, screenW-itemInfoWindowWidth-8))
-	w.y = clampInventoryWindowInt(mouseY-22, 8, maxInt(8, screenH-itemInfoWindowHeight-8))
+	x := clampWindowInt(mouseX+14, 8, maxInt(8, screenW-itemInfoWindowWidth-8))
+	y := clampWindowInt(mouseY-22, 8, maxInt(8, screenH-itemInfoWindowHeight-8))
+	w.window.OpenAt(x, y, w.widgetTree(ctx))
+	w.Publish(ctx)
 }
 
-func (w *ItemInfoWindow) Update(ctx Context) bool {
-	if !w.open || ctx.Input == nil {
+func (w *ItemInfoWindow) Update(ctx Context, assets AssetRenderer) bool {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
 		return false
 	}
-	width, height := ctx.ScreenSize()
-	if w.dragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			w.x = clampInventoryWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, width-itemInfoWindowWidth-8))
-			w.y = clampInventoryWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, height-itemInfoWindowHeight-8))
-			return true
-		}
-		w.dragging = false
-		return true
+	if w.illustration == nil && assets != nil {
+		w.illustration = assets.ItemInfoIllustrationImage(ctx.Resources, w.item, itemInfoIllustrationWidth-14, itemInfoWindowHeight-ROWindowTitleHeight-itemInfoWindowPad*2-14)
+		w.window.SetContent(w.widgetTree(ctx))
 	}
-	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, itemInfoWindowWidth, itemInfoWindowHeight)
-	if inside && ctx.Input.WheelY != 0 {
-		w.scrollBy(ctx.Input.WheelY)
-		return true
+	consumed := w.window.Update(ctx)
+	if !w.window.IsOpen() {
+		w.Publish(ctx)
+		return consumed
 	}
-	if ctx.Input.JustPressed(render.KeyEscape) {
-		w.open = false
-		return true
-	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return inside
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if !inside {
-		return false
-	}
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		w.open = false
-		return true
-	}
-	if pointInRect(mx, my, w.x, w.y, itemInfoWindowWidth, itemInfoWindowTitleH) {
-		w.dragging = true
-		w.dragDX = mx - w.x
-		w.dragDY = my - w.y
-		return true
-	}
-	return true
+	w.Publish(ctx)
+	return consumed
 }
 
 func (w *ItemInfoWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	if !w.open || screen == nil {
+	w.Publish(ctx)
+}
+
+func (w *ItemInfoWindow) Publish(ctx Context) {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
+		w.window.Unpublish(ctx)
 		return
 	}
-	x, y := w.x, w.y
-	DrawTitledWindowFrame(screen, x, y, itemInfoWindowWidth, itemInfoWindowHeight, itemInfoWindowTitleH)
-	DrawWindowTitle(screen, x, y, itemInfoWindowTitleH, itemInfoWindowPad, w.title, inventoryTitleColor)
-	cx, cy, cw, ch := w.closeBounds()
-	DrawCloseButton(screen, cx, cy, cw, ch, inventoryButtonColor, inventoryTextColor)
+	w.window.Publish(ctx)
+}
 
-	leftX := x + itemInfoWindowPad
-	contentY := y + itemInfoWindowTitleH + itemInfoWindowPad
-	contentH := itemInfoWindowHeight - itemInfoWindowTitleH - itemInfoWindowPad*2
-	DrawSurface(screen, leftX, contentY, itemInfoIllustrationWidth, contentH, PanelBodyColor, WindowBorderColor)
-	if assets != nil {
-		assets.DrawItemInfoIllustration(screen, ctx.Resources, w.item, leftX+7, contentY+7, itemInfoIllustrationWidth-14, contentH-14)
+func (w *ItemInfoWindow) ensureWindow() {
+	if w.window.width == 0 {
+		w.window = NewWindowState(itemInfoWindowWidth, itemInfoWindowHeight)
 	}
+}
 
+func (w *ItemInfoWindow) widgetTree(ctx Context) widget.Widget {
+	return Window(
+		Title(w.title),
+		CloseButton(true),
+		OnClose(func() {
+			w.window.Close()
+			w.Publish(ctx)
+		}),
+		Size(itemInfoWindowWidth, itemInfoWindowHeight),
+		Content(
+			primitives.HBox(
+				w.illustrationPanel(),
+				w.infoPanel(ctx),
+			).
+				Padding(itemInfoWindowPad).
+				Gap(12),
+		),
+	)
+}
+
+func (w *ItemInfoWindow) illustrationPanel() widget.Widget {
+	return primitives.Box(
+		primitives.Box(
+			newStaticImageWidget(w.illustration, itemInfoIllustrationWidth-14, itemInfoWindowHeight-ROWindowTitleHeight-itemInfoWindowPad*2-14),
+		).
+			Padding(7),
+	).
+		Width(itemInfoIllustrationWidth).
+		Background(rotheme.Default.Colors.PanelBody).
+		BorderStyle(1, rotheme.Default.Colors.WindowBorder)
+}
+
+func (w *ItemInfoWindow) infoPanel(ctx Context) widget.Widget {
+	return primitives.Box(
+		w.detailPanel(ctx),
+		w.descriptionPanel(),
+	).
+		Width(itemInfoDescriptionW).
+		Gap(10)
+}
+
+func (w *ItemInfoWindow) detailPanel(ctx Context) widget.Widget {
 	name := inventoryItemDisplayName(ctx.Resources, w.item)
 	if w.item.Refine > 0 {
 		name = fmt.Sprintf("+%d %s", w.item.Refine, name)
 	}
-	rightX := leftX + itemInfoIllustrationWidth + 12
-	rightW := itemInfoWindowWidth - itemInfoWindowPad - rightX + x
-	render.DebugPrintAtColor(screen, trimRunes(name, maxInt(12, (rightW-8)/7)), rightX, contentY+2, inventoryTextColor)
-	for i, line := range w.details {
-		render.DebugPrintAtColor(screen, trimRunes(line, maxInt(12, (rightW-8)/7)), rightX, contentY+18+i*itemInfoLineH, inventoryMutedColor)
+	details := make([]widget.Widget, 0, len(w.details)+1)
+	details = append(details, rotheme.Text(name))
+	for _, line := range w.details {
+		details = append(details,
+			rotheme.Text(line).
+				Color(itemInfoWidgetColor(inventoryMutedColor)).
+				LineHeight(itemInfoLineH/rotheme.Default.Typography.TextSize),
+		)
 	}
+	return primitives.Box(details...).
+		Height(itemInfoDetailsH).
+		Gap(1)
+}
 
-	descX := rightX
-	descY := contentY + 82
-	descW := rightW
-	descH := itemInfoWindowHeight - (descY - y) - itemInfoWindowPad
-	DrawSurface(screen, descX, descY, descW, descH, PanelBodyColor, WindowBorderColor)
-	visible := w.visibleDescriptionLineCount(descH)
-	lines := w.wrappedLines(maxInt(10, (descW-18)/7))
+func (w *ItemInfoWindow) descriptionPanel() widget.Widget {
+	lines := w.wrappedLines(itemInfoDescriptionRunes())
 	if len(lines) == 0 {
-		render.DebugPrintAtColor(screen, "No description available.", descX+7, descY+7, inventoryMutedColor)
-		return
+		lines = []string{"No description available."}
 	}
-	w.ClampScroll()
-	end := minInt(len(lines), w.scroll+visible)
-	for i, line := range lines[w.scroll:end] {
-		render.DebugPrintAtColor(screen, line, descX+7, descY+7+i*itemInfoLineH, itemInfoDescriptionColor(line))
+	textLines := make([]widget.Widget, 0, len(lines))
+	for _, line := range lines {
+		textLines = append(textLines,
+			rotheme.Text(line).
+				Color(itemInfoWidgetColor(itemInfoDescriptionColor(line))).
+				LineHeight(itemInfoLineH/rotheme.Default.Typography.TextSize),
+		)
 	}
-	if len(lines) > visible {
-		drawItemInfoScrollBar(screen, descX+descW-8, descY+5, descH-10, w.scroll, visible, len(lines))
-	}
-}
-
-func (w *ItemInfoWindow) CursorAction(ctx Context) (int, bool) {
-	if !w.open || ctx.Input == nil {
-		return 0, false
-	}
-	if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, itemInfoWindowWidth, itemInfoWindowHeight) {
-		return CursorActionClick, true
-	}
-	return 0, false
-}
-
-func (w *ItemInfoWindow) closeBounds() (int, int, int, int) {
-	return w.x + itemInfoWindowWidth - 24, w.y + 7, IconButtonSize, IconButtonSize
-}
-
-func (w *ItemInfoWindow) scrollBy(wheelY float64) {
-	if wheelY > 0 {
-		w.scroll--
-	} else if wheelY < 0 {
-		w.scroll++
-	}
-	w.ClampScroll()
-}
-
-func (w *ItemInfoWindow) ClampScroll() {
-	maxScroll := maxInt(0, len(w.wrappedLines(itemInfoDescriptionRunes()))-w.visibleDescriptionLineCount(itemInfoDescriptionHeight()))
-	if w.scroll < 0 {
-		w.scroll = 0
-	}
-	if w.scroll > maxScroll {
-		w.scroll = maxScroll
-	}
-}
-
-func (w *ItemInfoWindow) visibleDescriptionLineCount(height int) int {
-	return maxInt(1, (height-12)/itemInfoLineH)
+	return primitives.Box(
+		scrollview.New(
+			primitives.Box(textLines...).
+				Padding(7).
+				Gap(0),
+			scrollview.DirectionOpt(scrollview.Vertical),
+			scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+			scrollview.ScrollStep(itemInfoLineH),
+		),
+	).
+		Height(itemInfoDescriptionH).
+		Background(rotheme.Default.Colors.PanelBody).
+		BorderStyle(1, rotheme.Default.Colors.WindowBorder)
 }
 
 func (w *ItemInfoWindow) wrappedLines(maxRunes int) []string {
 	return wrapItemInfoLines(w.lines, maxRunes)
 }
 
-func itemInfoDescriptionHeight() int {
-	descY := itemInfoWindowTitleH + itemInfoWindowPad + 82
-	return itemInfoWindowHeight - descY - itemInfoWindowPad
-}
-
 func itemInfoDescriptionRunes() int {
-	descW := itemInfoWindowWidth - itemInfoWindowPad*2 - itemInfoIllustrationWidth - 12
-	return maxInt(10, (descW-18)/7)
+	return maxInt(10, (itemInfoDescriptionW-18)/7)
 }
 
 func itemInfoDetailLines(item session.InventoryItem) []string {
@@ -339,14 +327,6 @@ func itemInfoDescriptionColor(line string) color.RGBA {
 	return inventoryTextColor
 }
 
-func drawItemInfoScrollBar(screen *render.Image, x, y, h, scroll, visible, total int) {
-	if screen == nil || total <= visible || h <= 0 {
-		return
-	}
-	render.DrawRect(screen, float64(x), float64(y), 4, float64(h), PanelAltColor)
-	maxScroll := maxInt(1, total-visible)
-	thumbH := maxInt(18, h*visible/total)
-	thumbTravel := h - thumbH
-	thumbY := y + thumbTravel*scroll/maxScroll
-	render.DrawRect(screen, float64(x), float64(thumbY), 4, float64(thumbH), inventoryMutedColor)
+func itemInfoWidgetColor(c color.RGBA) widget.Color {
+	return widget.RGBA8(c.R, c.G, c.B, c.A)
 }

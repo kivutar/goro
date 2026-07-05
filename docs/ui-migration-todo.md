@@ -22,6 +22,8 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Inventory bag window
 - [x] Shop windows
 - [x] Storage window
+- [x] Item info window
+- [x] Identify window
 
 ## High Priority
 
@@ -38,13 +40,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [ ] Shortcut bar
   - Not a normal window, but it is UI-heavy and still has custom hitboxes.
   - Needs drag/drop, function-key activation, skill level display, item counts, and target cursor integration.
-
-- [ ] Item info window
-  - Should be a compact `Window(...)` with two-column layout: illustration on the left, item data on the right.
-
-- [ ] Identify window
-  - Simple scrollable list of unidentified equipment.
-  - Good small migration after item-list primitives exist.
 
 - [ ] Teleport / Warp destination modal
   - Small modal, but it should share the same footer/button system and scrollable choice list.

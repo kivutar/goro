@@ -80,7 +80,8 @@ func (r *skillWindowTestRenderer) DrawInventoryItemIcon(*render.Image, *res.Mana
 func (r *skillWindowTestRenderer) DrawSkillIcon(*render.Image, *res.Manager, session.Skill, int, int, int) {
 }
 
-func (r *skillWindowTestRenderer) DrawItemInfoIllustration(*render.Image, *res.Manager, session.InventoryItem, int, int, int, int) {
+func (r *skillWindowTestRenderer) ItemInfoIllustrationImage(*res.Manager, session.InventoryItem, int, int) image.Image {
+	return nil
 }
 
 func (r *skillWindowTestRenderer) DrawEquipmentPreview(*render.Image, Context, int, int, int, int) {

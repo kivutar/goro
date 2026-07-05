@@ -36,6 +36,9 @@ type StorageWindow struct {
 	itemInfo      *ItemInfoWindow
 	lastClickItem uint16
 	lastClickAt   time.Time
+	dragItem      session.InventoryItem
+	dragActive    bool
+	dragFrom      time.Time
 	icons         map[storageItemIconKey]image.Image
 	iconMiss      map[storageItemIconKey]struct{}
 }
@@ -72,15 +75,29 @@ func (w *StorageWindow) OpenWindow(ctx Context) {
 	w.Publish(ctx)
 }
 
-func (w *StorageWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *StorageWindow) Update(ctx Context, inventory *InventoryBagWindow, itemInfo *ItemInfoWindow) bool {
 	w.ensureWindow()
 	if !w.window.IsOpen() || ctx.Input == nil {
 		return false
 	}
 	if ctx.Session == nil || !ctx.Session.Storage.Open {
 		w.window.Close()
+		w.dragActive = false
 		w.Publish(ctx)
 		return false
+	}
+	if w.dragActive {
+		if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
+			item := w.dragItem
+			w.dragActive = false
+			w.dragItem = session.InventoryItem{}
+			if inventory != nil && inventory.AcceptStorageDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
+				w.withdraw(ctx, item)
+				return true
+			}
+			return true
+		}
+		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
 		w.close(ctx)
@@ -107,6 +124,9 @@ func (w *StorageWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 }
 
 func (w *StorageWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
+	if w.dragActive && screen != nil && ctx.Input != nil && assets != nil && time.Since(w.dragFrom) > 80*time.Millisecond {
+		assets.DrawInventoryItemIcon(screen, ctx.Resources, w.dragItem, ctx.Input.MouseX-inventoryIconSize/2, ctx.Input.MouseY-inventoryIconSize/2)
+	}
 	w.Publish(ctx)
 }
 
@@ -245,6 +265,9 @@ func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) boo
 	}
 	w.lastClickItem = item.Index
 	w.lastClickAt = now
+	w.dragItem = item
+	w.dragActive = true
+	w.dragFrom = now
 	w.refresh(ctx, itemInfo)
 	return true
 }
@@ -257,6 +280,7 @@ func (w *StorageWindow) close(ctx Context) {
 		}
 	}
 	w.window.Close()
+	w.dragActive = false
 	if ctx.Session != nil {
 		ctx.Session.Storage.Open = false
 	}

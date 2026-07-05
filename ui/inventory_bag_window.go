@@ -226,6 +226,11 @@ func (w *InventoryBagWindow) pointInside(x, y int) bool {
 	return pointInRect(x, y, w.window.x, w.window.y, inventoryBagWidth, inventoryBagHeight)
 }
 
+func (w *InventoryBagWindow) AcceptStorageDrop(ctx Context, item session.InventoryItem, mx, my int) bool {
+	w.ensureWindow()
+	return w.window.IsOpen() && w.pointInside(mx, my)
+}
+
 func inventoryBagDefaultPosition(ctx Context) (int, int) {
 	width, height := ctx.ScreenSize()
 	menuX, menuY, _, menuH := basicMenuBounds()

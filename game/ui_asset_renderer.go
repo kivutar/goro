@@ -41,6 +41,15 @@ func (m *WorldMode) DrawItemInfoIllustration(screen *render.Image, manager *res.
 	render.DebugPrintAtColor(screen, "No image", x+width/2-24, y+height/2-7, color.RGBA{R: 98, G: 112, B: 126, A: 255})
 }
 
+func (m *WorldMode) ItemInfoIllustrationImage(manager *res.Manager, item session.InventoryItem, width, height int) image.Image {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	img := render.NewImage(width, height)
+	m.DrawItemInfoIllustration(img, manager, item, 0, 0, width, height)
+	return img.RGBA()
+}
+
 func (m *WorldMode) DrawEquipmentPreview(screen *render.Image, ctx client.Context, x, y, width, height int) {
 	if screen == nil || width <= 0 || height <= 0 {
 		return

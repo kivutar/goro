@@ -846,7 +846,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		return nil, nil
 	}
-	if m.itemInfoWindow.Update(ctx) {
+	if m.itemInfoWindow.Update(ctx, m) {
 		return nil, nil
 	}
 	if m.identifyWindow.Update(ctx) {
@@ -861,7 +861,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.equipmentWindow.Update(ctx, &m.itemInfoWindow, m) {
 		return nil, nil
 	}
-	if m.storageWindow.Update(ctx, &m.itemInfoWindow) {
+	if m.storageWindow.Update(ctx, &m.inventoryBag, &m.itemInfoWindow) {
 		return nil, nil
 	}
 	if m.shopWindow.Update(ctx, &m.itemInfoWindow) {
