@@ -117,7 +117,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 				primitives.HBox(
 					rotheme.Text("BGM Vol"),
 					primitives.Expanded(
-						slider.New(
+						rotheme.Slider(
 							slider.Min(0),
 							slider.Max(1),
 							slider.Value(float32(settingsVolumeBGM(ctx))),
@@ -135,7 +135,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 				primitives.HBox(
 					rotheme.Text("SFX Vol"),
 					primitives.Expanded(
-						slider.New(
+						rotheme.Slider(
 							slider.Min(0),
 							slider.Max(1),
 							slider.Value(float32(settingsVolumeSFX(ctx))),
