@@ -76,7 +76,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 			primitives.Box(
 				rotheme.SectionLabel("Display"),
 
-				checkbox.New(
+				rotheme.Checkbox(
 					checkbox.Checked(settingsRuntimeFullscreen(ctx)),
 					checkbox.LabelOpt("Fullscreen"),
 					checkbox.OnToggle(func(enabled bool) {
@@ -88,7 +88,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 					}),
 				),
 
-				checkbox.New(
+				rotheme.Checkbox(
 					checkbox.Checked(settingsRuntimeVSync(ctx)),
 					checkbox.LabelOpt("VSync (Restart)"),
 					checkbox.OnToggle(func(enabled bool) {
@@ -100,7 +100,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 					}),
 				),
 
-				checkbox.New(
+				rotheme.Checkbox(
 					checkbox.Checked(settingsRuntimeFPS(ctx)),
 					checkbox.LabelOpt("FPS meter"),
 					checkbox.OnToggle(func(enabled bool) {
