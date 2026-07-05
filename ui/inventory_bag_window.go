@@ -2,17 +2,23 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
+	"image"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
-	inventoryBagTitleH  = 28
 	inventoryBagTabW    = 64
 	inventoryBagTabH    = 32
 	inventoryBagCell    = 32
@@ -21,7 +27,7 @@ const (
 	inventoryBagRows    = 5
 	inventoryBagTabOver = 1
 	inventoryBagWidth   = inventoryBagTabW + inventoryBagCols*inventoryBagCell + 2
-	inventoryBagHeight  = inventoryBagTitleH + inventoryBagRows*inventoryBagCell + 2
+	inventoryBagHeight  = ROWindowTitleHeight + inventoryBagRows*inventoryBagCell + 2
 )
 
 const (
@@ -40,43 +46,45 @@ var inventoryBagTabs = []struct {
 }
 
 type InventoryBagWindow struct {
-	open          bool
-	x             int
-	y             int
-	positioned    bool
-	dragging      bool
-	dragDX        int
-	dragDY        int
+	window        WindowState
 	tab           int
 	scroll        int
-	status        string
-	statusGood    bool
-	statusAt      time.Time
+	snapshot      string
+	itemInfo      *ItemInfoWindow
 	lastClickItem uint16
 	lastClickAt   time.Time
 	dragItem      session.InventoryItem
 	dragActive    bool
 	dragFrom      time.Time
+	icons         map[inventoryBagIconKey]image.Image
+	iconMiss      map[inventoryBagIconKey]struct{}
+}
+
+type inventoryBagIconKey struct {
+	itemID     uint16
+	identified bool
 }
 
 func (w *InventoryBagWindow) Toggle(ctx Context) {
-	if w.open {
-		w.open = false
-		w.dragging = false
+	w.ensureWindow()
+	if w.window.IsOpen() {
+		w.window.Close()
+		w.Publish(ctx)
 		return
 	}
-	w.open = true
-	w.PlaceDefault(ctx)
 	w.selectFirstNonEmptyTab(ctx.Session)
 	w.ClampScroll(ctx.Session)
+	w.snapshot = w.inventorySnapshot(ctx.Session)
+	x, y := inventoryBagDefaultPosition(ctx)
+	w.window.OpenAt(x, y, w.widgetTree(ctx, nil))
+	w.Publish(ctx)
 }
 
 func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage *StorageWindow, itemInfo *ItemInfoWindow) bool {
-	if !w.open || ctx.Input == nil {
+	w.ensureWindow()
+	if !w.window.IsOpen() || ctx.Input == nil {
 		return false
 	}
-	w.EnsurePosition(ctx)
-	width, height := ctx.ScreenSize()
 	if w.dragActive {
 		if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
 			item := w.dragItem
@@ -88,273 +96,224 @@ func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage
 			if shortcuts != nil && shortcuts.AcceptItemDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
 				return true
 			}
-			if !pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, inventoryBagWidth, inventoryBagHeight) {
+			if !w.pointInside(ctx.Input.MouseX, ctx.Input.MouseY) {
 				if err := dropInventoryItem(ctx, item); err != nil {
-					w.setStatus(err.Error(), false)
+					log.Printf("inventory drop failed: %v", err)
 					return true
 				}
-				w.setStatus("Drop requested", true)
 				log.Printf("inventory drop requested index=%d item=%d amount=%d", item.Index, item.ItemID, inventoryDropAmount(item))
 				return true
 			}
 			return true
 		}
-	}
-	if w.dragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			w.x = clampInventoryWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, width-inventoryBagWidth-8))
-			w.y = clampInventoryWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, height-inventoryBagHeight-8))
-			return true
-		}
-		w.dragging = false
 		return true
 	}
+	w.ClampScroll(ctx.Session)
+	snapshot := w.inventorySnapshot(ctx.Session)
+	if snapshot != w.snapshot || itemInfo != w.itemInfo {
+		w.snapshot = snapshot
+		w.itemInfo = itemInfo
+		w.window.SetContent(w.widgetTree(ctx, itemInfo))
+	}
+	consumed := w.window.Update(ctx)
+	if !w.window.IsOpen() {
+		w.Publish(ctx)
+		return consumed
+	}
+	w.Publish(ctx)
+	return consumed
+}
 
-	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, inventoryBagWidth, inventoryBagHeight)
-	if inside && ctx.Input.WheelY != 0 {
-		w.scrollBy(ctx.Input.WheelY, ctx.Session)
-		return true
+// Draw currently only renders the dragged item ghost. The window itself is a
+// gogpu/ui overlay published by WindowState.
+func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
+	if !w.dragActive || screen == nil || ctx.Input == nil || assets == nil {
+		return
 	}
-	if ctx.Input.JustPressed(render.KeyEscape) {
-		w.open = false
-		return true
+	if time.Since(w.dragFrom) <= 80*time.Millisecond {
+		return
 	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonRight) {
-		mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-		if !inside {
-			return false
-		}
-		if item, ok := w.itemAt(ctx.Session, mx, my); ok {
-			w.dragActive = false
-			w.dragItem = session.InventoryItem{}
-			if itemInfo != nil {
-				itemInfo.openItem(ctx, item, mx, my)
-			}
-			return true
-		}
-		return true
-	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return inside
-	}
+	assets.DrawInventoryItemIcon(screen, ctx.Resources, w.dragItem, ctx.Input.MouseX-inventoryIconSize/2, ctx.Input.MouseY-inventoryIconSize/2)
+}
 
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if !inside {
-		return false
+func (w *InventoryBagWindow) ensureWindow() {
+	if w.window.width == 0 {
+		w.window = NewWindowState(inventoryBagWidth, inventoryBagHeight)
 	}
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		w.open = false
-		return true
-	}
+}
+
+func (w *InventoryBagWindow) Publish(ctx Context) {
+	w.ensureWindow()
+	w.window.Publish(ctx)
+}
+
+func (w *InventoryBagWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Widget {
+	return Window(
+		Title("Inventory"),
+		CloseButton(true),
+		OnClose(func() {
+			w.window.Close()
+			w.Publish(ctx)
+		}),
+		Size(inventoryBagWidth, inventoryBagHeight),
+		Content(
+			primitives.HBox(
+				w.tabColumn(ctx),
+				newInventoryGridWidget(inventoryGridConfig{
+					items:   w.visibleItems(ctx.Session),
+					icons:   w.visibleItemIcons(ctx),
+					total:   len(w.tabItems(ctx.Session)),
+					scroll:  w.scroll,
+					onWheel: func(delta float32) { w.scrollBy(delta, ctx.Session); w.refresh(ctx, itemInfo) },
+					onPress: func(item session.InventoryItem) { w.startItemDragOrActivate(ctx, item) },
+					onRightClick: func(item session.InventoryItem, mx, my int) {
+						w.dragActive = false
+						w.dragItem = session.InventoryItem{}
+						if itemInfo != nil {
+							itemInfo.openItem(ctx, item, mx, my)
+						}
+					},
+				}),
+			).
+				Gap(0),
+		),
+	)
+}
+
+func (w *InventoryBagWindow) tabColumn(ctx Context) widget.Widget {
+	tabs := make([]widget.Widget, 0, len(inventoryBagTabs))
 	for _, tab := range inventoryBagTabs {
-		tx, ty, tw, th := w.tabBounds(tab.tab)
-		if pointInRect(mx, my, tx, ty, tw, th) {
+		tab := tab
+		tabs = append(tabs, newInventoryTabWidget(tab.label, tab.tab == w.tab, func() {
 			w.tab = tab.tab
 			w.scroll = 0
 			w.lastClickItem = 0
-			return true
-		}
+			w.refresh(ctx, w.itemInfo)
+		}))
 	}
-	if pointInRect(mx, my, w.x, w.y, inventoryBagWidth, inventoryBagTitleH) {
-		w.dragging = true
-		w.dragDX = mx - w.x
-		w.dragDY = my - w.y
-		return true
-	}
-	if item, ok := w.itemAt(ctx.Session, mx, my); ok {
-		now := time.Now()
-		if w.lastClickItem == item.Index && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
-			w.dragActive = false
-			w.dragItem = session.InventoryItem{}
-			w.activateItem(ctx, item)
-			w.lastClickItem = 0
-			return true
-		}
-		w.dragItem = item
-		w.dragActive = true
-		w.dragFrom = now
-		w.lastClickItem = item.Index
-		w.lastClickAt = now
-		w.status = inventoryItemDisplayName(ctx.Resources, item)
-		w.statusGood = true
-		w.statusAt = now
-		return true
-	}
-	return true
+	return primitives.Box(tabs...).
+		Width(inventoryBagTabW + inventoryBagTabOver*2).
+		Height(inventoryBagRows * inventoryBagCell).
+		Gap(-inventoryBagTabOver)
 }
 
-func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	if !w.open || screen == nil {
-		return
-	}
-	w.EnsurePosition(ctx)
+func (w *InventoryBagWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
 	w.ClampScroll(ctx.Session)
-	x, y := w.x, w.y
-	DrawTitledWindowFrame(screen, x, y, inventoryBagWidth, inventoryBagHeight, inventoryBagTitleH)
-	DrawWindowTitle(screen, x, y, inventoryBagTitleH, inventoryWindowPad, "Inventory", inventoryTitleColor)
-	cx, cy, cw, ch := w.closeBounds()
-	DrawCloseButton(screen, cx, cy, cw, ch, inventoryButtonColor, inventoryTextColor)
-
-	gx, gy, gw, gh := w.gridBounds()
-	DrawSurface(screen, gx, gy, gw, gh, WindowBodyColor, WindowBorderColor)
-	for _, tab := range inventoryBagTabs {
-		tx, ty, tw, th := w.tabBounds(tab.tab)
-		drawInventoryBagTab(screen, tx, ty, tw, th, tab.label, tab.tab == w.tab)
-	}
-	for row := 0; row < inventoryBagRows; row++ {
-		for col := 0; col < inventoryBagCols; col++ {
-			cx := gx + col*inventoryBagCell
-			cy := gy + row*inventoryBagCell
-			fill := color.RGBA{R: 255, G: 255, B: 250, A: 64}
-			render.DrawRect(screen, float64(cx), float64(cy), inventoryBagCell-1, inventoryBagCell-1, fill)
-		}
-	}
-
-	items := w.visibleItems(ctx.Session)
-	mx, my := -1, -1
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-	}
-	for i, item := range items {
-		col := i % inventoryBagCols
-		row := i / inventoryBagCols
-		cx := gx + col*inventoryBagCell
-		cy := gy + row*inventoryBagCell
-		if pointInRect(mx, my, cx, cy, inventoryBagCell, inventoryBagCell) {
-			render.DrawRect(screen, float64(cx), float64(cy), inventoryBagCell-1, inventoryBagCell-1, color.RGBA{R: 118, G: 150, B: 204, A: 92})
-		}
-		if assets != nil {
-			assets.DrawInventoryItemIcon(screen, ctx.Resources, item, cx+4, cy+4)
-		}
-		if item.Amount > 1 {
-			render.DebugPrintAtColor(screen, fmt.Sprintf("%d", item.Amount), cx+inventoryBagCell-16, cy+inventoryBagCell-14, color.RGBA{R: 40, G: 36, B: 32, A: 255})
-		}
-		if item.Equipped {
-			render.DebugPrintAtColor(screen, "E", cx+2, cy+2, GoodTextColor)
-		}
-	}
-	w.drawScrollBar(screen, len(w.tabItems(ctx.Session)))
-	if w.dragActive && ctx.Input != nil && time.Since(w.dragFrom) > 80*time.Millisecond && assets != nil {
-		dx := ctx.Input.MouseX - inventoryIconSize/2
-		dy := ctx.Input.MouseY - inventoryIconSize/2
-		assets.DrawInventoryItemIcon(screen, ctx.Resources, w.dragItem, dx, dy)
-	}
+	w.snapshot = w.inventorySnapshot(ctx.Session)
+	w.itemInfo = itemInfo
+	w.window.SetContent(w.widgetTree(ctx, itemInfo))
+	w.Publish(ctx)
 }
 
-func (w *InventoryBagWindow) CursorAction(ctx Context) (int, bool) {
-	if !w.open || ctx.Input == nil {
-		return 0, false
-	}
-	if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, inventoryBagWidth, inventoryBagHeight) {
-		return CursorActionClick, true
-	}
-	return 0, false
-}
-
-func (w *InventoryBagWindow) EnsurePosition(ctx Context) {
-	if w.positioned {
+func (w *InventoryBagWindow) startItemDragOrActivate(ctx Context, item session.InventoryItem) {
+	now := time.Now()
+	if w.lastClickItem == item.Index && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
+		w.dragActive = false
+		w.dragItem = session.InventoryItem{}
+		w.activateItem(ctx, item)
+		w.lastClickItem = 0
+		w.refresh(ctx, w.itemInfo)
 		return
 	}
-	w.PlaceDefault(ctx)
+	w.dragItem = item
+	w.dragActive = true
+	w.dragFrom = now
+	w.lastClickItem = item.Index
+	w.lastClickAt = now
 }
 
-func (w *InventoryBagWindow) PlaceDefault(ctx Context) {
+func (w *InventoryBagWindow) pointInside(x, y int) bool {
+	return pointInRect(x, y, w.window.x, w.window.y, inventoryBagWidth, inventoryBagHeight)
+}
+
+func inventoryBagDefaultPosition(ctx Context) (int, int) {
 	width, height := ctx.ScreenSize()
 	menuX, menuY, _, menuH := basicMenuBounds()
-	w.x = clampInventoryWindowInt(menuX, 8, maxInt(8, width-inventoryBagWidth-8))
-	w.y = clampInventoryWindowInt(menuY+menuH+8, 8, maxInt(8, height-inventoryBagHeight-8))
-	w.positioned = true
+	x := clampWindowInt(menuX, 8, maxInt(8, width-inventoryBagWidth-8))
+	y := clampWindowInt(menuY+menuH+8, 8, maxInt(8, height-inventoryBagHeight-8))
+	return x, y
 }
 
-func (w *InventoryBagWindow) closeBounds() (int, int, int, int) {
-	return w.x + inventoryBagWidth - 24, w.y + 7, IconButtonSize, IconButtonSize
-}
-
-func (w *InventoryBagWindow) tabBounds(tab int) (int, int, int, int) {
-	return w.x, w.y + inventoryBagTitleH + 1 + tab*(inventoryBagTabH-inventoryBagTabOver), inventoryBagTabW + inventoryBagTabOver*2, inventoryBagTabH
-}
-
-func (w *InventoryBagWindow) gridBounds() (int, int, int, int) {
-	x := w.x + 1 + inventoryBagTabW
-	y := w.y + inventoryBagTitleH + 1
-	return x, y, inventoryBagCols * inventoryBagCell, inventoryBagRows * inventoryBagCell
-}
-
-func drawInventoryBagTab(screen *render.Image, x, y, w, h int, label string, active bool) {
-	if active {
-		DrawSurface(screen, x, y, w, h, WindowBodyColor, WindowBorderColor)
-		render.DrawRect(screen, float64(x+w-1), float64(y+1), 1, float64(h-2), WindowBodyColor)
-		DrawCenteredText(screen, x, y, w-1, h, label, inventoryTextColor)
-		return
+func (w *InventoryBagWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
+	if manager == nil || item.ItemID == 0 {
+		return nil
 	}
-	DrawSurface(screen, x, y, w, h, inventoryButtonColor, ButtonBorderColor)
-	DrawCenteredText(screen, x, y, w, h, label, inventoryTextColor)
+	key := inventoryBagIconKey{itemID: item.ItemID, identified: item.Identified}
+	if w.icons != nil {
+		if img := w.icons[key]; img != nil {
+			return img
+		}
+	}
+	if _, ok := w.iconMiss[key]; ok {
+		return nil
+	}
+	resourceName, ok := manager.ItemResourceName(int(item.ItemID), item.Identified)
+	if !ok {
+		w.markIconMiss(key)
+		return nil
+	}
+	img, _, err := res.LoadImage(manager, res.ItemIconTextureCandidates(resourceName))
+	if err != nil {
+		w.markIconMiss(key)
+		return nil
+	}
+	if w.icons == nil {
+		w.icons = make(map[inventoryBagIconKey]image.Image)
+	}
+	w.icons[key] = img
+	return img
 }
 
-func (w *InventoryBagWindow) itemAt(s *session.Session, mx, my int) (session.InventoryItem, bool) {
-	gx, gy, gw, gh := w.gridBounds()
-	if !pointInRect(mx, my, gx, gy, gw, gh) {
-		return session.InventoryItem{}, false
+func (w *InventoryBagWindow) visibleItemIcons(ctx Context) []image.Image {
+	items := w.visibleItems(ctx.Session)
+	icons := make([]image.Image, len(items))
+	for i, item := range items {
+		icons[i] = w.itemIconImage(ctx.Resources, item)
 	}
-	col := (mx - gx) / inventoryBagCell
-	row := (my - gy) / inventoryBagCell
-	if col < 0 || col >= inventoryBagCols || row < 0 || row >= inventoryBagRows {
-		return session.InventoryItem{}, false
+	return icons
+}
+
+func (w *InventoryBagWindow) markIconMiss(key inventoryBagIconKey) {
+	if w.iconMiss == nil {
+		w.iconMiss = make(map[inventoryBagIconKey]struct{})
 	}
-	index := row*inventoryBagCols + col
-	items := w.visibleItems(s)
-	if index < 0 || index >= len(items) {
-		return session.InventoryItem{}, false
-	}
-	return items[index], true
+	w.iconMiss[key] = struct{}{}
 }
 
 func (w *InventoryBagWindow) activateItem(ctx Context, item session.InventoryItem) {
 	if inventoryItemIsEquipment(item) {
 		if ctx.Network == nil {
-			w.setStatus("Not connected", false)
+			log.Printf("inventory equip failed: not connected")
 			return
 		}
 		if item.Equipped {
 			if err := ctx.Network.SendTakeoffEquip(item.Index); err != nil {
-				w.setStatus(err.Error(), false)
-				return
+				log.Printf("inventory unequip failed: %v", err)
 			}
-			w.setStatus("Unequip requested", true)
 			return
 		}
 		location := inventoryItemEquipLocation(item)
 		if location == 0 {
-			w.setStatus("Missing equip location", false)
+			log.Printf("inventory equip failed: missing equip location item=%d index=%d", item.ItemID, item.Index)
 			return
 		}
 		if err := ctx.Network.SendWearEquip(item.Index, location); err != nil {
-			w.setStatus(err.Error(), false)
-			return
+			log.Printf("inventory equip failed: %v", err)
 		}
-		w.setStatus("Equip requested", true)
 		return
 	}
 	if !inventoryItemIsUsable(item) {
-		w.setStatus("Item cannot be used", false)
+		log.Printf("inventory use skipped: item cannot be used index=%d item=%d type=%d", item.Index, item.ItemID, item.Type)
 		return
 	}
 	if err := useInventoryItem(ctx, item); err != nil {
-		w.setStatus(err.Error(), false)
+		log.Printf("inventory use failed: %v", err)
 		return
 	}
-	w.setStatus("Use requested", true)
 	log.Printf("inventory use requested index=%d item=%d type=%d", item.Index, item.ItemID, item.Type)
 }
 
-func (w *InventoryBagWindow) setStatus(text string, good bool) {
-	w.status = text
-	w.statusGood = good
-	w.statusAt = time.Now()
-}
-
-func (w *InventoryBagWindow) scrollBy(wheelY float64, s *session.Session) {
+func (w *InventoryBagWindow) scrollBy(wheelY float32, s *session.Session) {
 	if wheelY > 0 {
 		w.scroll--
 	} else if wheelY < 0 {
@@ -365,12 +324,7 @@ func (w *InventoryBagWindow) scrollBy(wheelY float64, s *session.Session) {
 
 func (w *InventoryBagWindow) ClampScroll(s *session.Session) {
 	maxScroll := maxInt(0, (len(w.tabItems(s))+inventoryBagCols-1)/inventoryBagCols-inventoryBagRows)
-	if w.scroll < 0 {
-		w.scroll = 0
-	}
-	if w.scroll > maxScroll {
-		w.scroll = maxScroll
-	}
+	w.scroll = clampWindowInt(w.scroll, 0, maxScroll)
 }
 
 func (w *InventoryBagWindow) selectFirstNonEmptyTab(s *session.Session) {
@@ -421,19 +375,225 @@ func (w *InventoryBagWindow) tabItems(s *session.Session) []session.InventoryIte
 	return filtered
 }
 
-func (w *InventoryBagWindow) drawScrollBar(screen *render.Image, total int) {
+func (w *InventoryBagWindow) inventorySnapshot(s *session.Session) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "tab=%d;scroll=%d;", w.tab, w.scroll)
+	for _, item := range sortedInventoryItems(s) {
+		fmt.Fprintf(&b, "%d:%d:%d:%d:%d:%t:%t;", item.Index, item.ItemID, item.Type, item.Amount, item.Location, item.Equip, item.Equipped)
+	}
+	return b.String()
+}
+
+type inventoryTabWidget struct {
+	widget.WidgetBase
+	label   string
+	active  bool
+	hovered bool
+	onClick func()
+}
+
+func newInventoryTabWidget(label string, active bool, onClick func()) *inventoryTabWidget {
+	w := &inventoryTabWidget{label: label, active: active, onClick: onClick}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *inventoryTabWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(inventoryBagTabW+inventoryBagTabOver*2, inventoryBagTabH))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *inventoryTabWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	bounds := w.Bounds()
+	fill := rotheme.Default.Colors.Button
+	if w.active {
+		fill = rotheme.Default.Colors.WindowBody
+	} else if w.hovered {
+		fill = rotheme.Default.Colors.ButtonHover
+	}
+	canvas.DrawRect(bounds, fill)
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
+	if w.active {
+		canvas.DrawRect(geometry.NewRect(bounds.Max.X-1, bounds.Min.Y+1, 1, bounds.Height()-2), rotheme.Default.Colors.WindowBody)
+	}
+	rotheme.DrawText(canvas, w.label, bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
+}
+
+func (w *inventoryTabWidget) Event(ctx widget.Context, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseEnter:
+		w.hovered = true
+		ctx.SetCursor(widget.CursorPointer)
+		w.SetNeedsRedraw(true)
+		return true
+	case event.MouseLeave:
+		w.hovered = false
+		ctx.SetCursor(widget.CursorDefault)
+		w.SetNeedsRedraw(true)
+		return false
+	case event.MousePress:
+		if mouse.Button == event.ButtonLeft && w.onClick != nil {
+			w.onClick()
+			return true
+		}
+	}
+	return true
+}
+
+type inventoryGridConfig struct {
+	items        []session.InventoryItem
+	icons        []image.Image
+	total        int
+	scroll       int
+	onWheel      func(float32)
+	onPress      func(session.InventoryItem)
+	onRightClick func(session.InventoryItem, int, int)
+}
+
+type inventoryGridWidget struct {
+	widget.WidgetBase
+	cfg     inventoryGridConfig
+	hovered int
+}
+
+func newInventoryGridWidget(cfg inventoryGridConfig) *inventoryGridWidget {
+	w := &inventoryGridWidget{cfg: cfg, hovered: -1}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *inventoryGridWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(inventoryBagCols*inventoryBagCell, inventoryBagRows*inventoryBagCell))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *inventoryGridWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	bounds := w.Bounds()
+	canvas.DrawRect(bounds, rotheme.Default.Colors.WindowBody)
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
+	for row := 0; row < inventoryBagRows; row++ {
+		for col := 0; col < inventoryBagCols; col++ {
+			index := row*inventoryBagCols + col
+			cell := w.cellBounds(index)
+			fill := widget.RGBA8(255, 255, 250, 64)
+			if index == w.hovered {
+				fill = widget.RGBA8(118, 150, 204, 92)
+			}
+			canvas.DrawRect(cell, fill)
+			canvas.StrokeRect(cell, widget.RGBA8(216, 224, 232, 160), 1)
+		}
+	}
+	for i, item := range w.cfg.items {
+		if i >= inventoryBagCols*inventoryBagRows {
+			break
+		}
+		cell := w.cellBounds(i)
+		if i < len(w.cfg.icons) && w.cfg.icons[i] != nil {
+			canvas.DrawImage(w.cfg.icons[i], geometry.Pt(cell.Min.X+4, cell.Min.Y+4))
+		}
+		if item.Amount > 1 {
+			rotheme.DrawText(canvas, fmt.Sprintf("%d", item.Amount), geometry.NewRect(cell.Max.X-18, cell.Max.Y-15, 16, 12), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignRight)
+		}
+		if item.Equipped {
+			rotheme.DrawText(canvas, "E", geometry.NewRect(cell.Min.X+2, cell.Min.Y+2, 12, 12), rotheme.Default.Typography.TextSize, widget.RGBA8(54, 128, 76, 255), false, widget.TextAlignLeft)
+		}
+	}
+	w.drawScrollBar(canvas)
+}
+
+func (w *inventoryGridWidget) Event(ctx widget.Context, e event.Event) bool {
+	switch ev := e.(type) {
+	case *event.WheelEvent:
+		if w.cfg.onWheel != nil {
+			w.cfg.onWheel(ev.DeltaY())
+		}
+		return true
+	case *event.MouseEvent:
+		index := w.indexAt(ev.Position)
+		switch ev.MouseType {
+		case event.MouseEnter, event.MouseMove:
+			w.hovered = index
+			if index >= 0 && index < len(w.cfg.items) {
+				ctx.SetCursor(widget.CursorPointer)
+			} else {
+				ctx.SetCursor(widget.CursorDefault)
+			}
+			w.SetNeedsRedraw(true)
+			return true
+		case event.MouseLeave:
+			w.hovered = -1
+			ctx.SetCursor(widget.CursorDefault)
+			w.SetNeedsRedraw(true)
+			return false
+		case event.MousePress:
+			if index < 0 || index >= len(w.cfg.items) {
+				return true
+			}
+			item := w.cfg.items[index]
+			switch ev.Button {
+			case event.ButtonLeft:
+				if w.cfg.onPress != nil {
+					w.cfg.onPress(item)
+				}
+			case event.ButtonRight:
+				if w.cfg.onRightClick != nil {
+					w.cfg.onRightClick(item, int(ev.GlobalPosition.X), int(ev.GlobalPosition.Y))
+				}
+			}
+			return true
+		}
+	}
+	return true
+}
+
+func (w *inventoryGridWidget) cellBounds(index int) geometry.Rect {
+	bounds := w.Bounds()
+	col := index % inventoryBagCols
+	row := index / inventoryBagCols
+	return geometry.NewRect(
+		bounds.Min.X+float32(col*inventoryBagCell),
+		bounds.Min.Y+float32(row*inventoryBagCell),
+		inventoryBagCell-1,
+		inventoryBagCell-1,
+	)
+}
+
+func (w *inventoryGridWidget) indexAt(point geometry.Point) int {
+	local := point.Sub(w.Bounds().Min)
+	if local.X < 0 || local.Y < 0 || local.X >= inventoryBagCols*inventoryBagCell || local.Y >= inventoryBagRows*inventoryBagCell {
+		return -1
+	}
+	col := int(local.X) / inventoryBagCell
+	row := int(local.Y) / inventoryBagCell
+	index := row*inventoryBagCols + col
+	if index < 0 || index >= inventoryBagCols*inventoryBagRows {
+		return -1
+	}
+	return index
+}
+
+func (w *inventoryGridWidget) drawScrollBar(canvas widget.Canvas) {
+	total := w.cfg.total
 	if total <= inventoryBagCols*inventoryBagRows {
 		return
 	}
-	gx, gy, gw, gh := w.gridBounds()
-	trackX := gx + gw - 5
-	render.DrawRect(screen, float64(trackX), float64(gy+1), 4, float64(gh-2), PanelAltColor)
+	bounds := w.Bounds()
+	trackX := bounds.Max.X - 5
+	canvas.DrawRect(geometry.NewRect(trackX, bounds.Min.Y+1, 4, bounds.Height()-2), rotheme.Default.Colors.Button)
 	totalRows := (total + inventoryBagCols - 1) / inventoryBagCols
 	maxScroll := maxInt(1, totalRows-inventoryBagRows)
-	thumbH := maxInt(18, gh*inventoryBagRows/totalRows)
-	thumbTravel := gh - 2 - thumbH
-	thumbY := gy + 1 + thumbTravel*w.scroll/maxScroll
-	render.DrawRect(screen, float64(trackX), float64(thumbY), 4, float64(thumbH), inventoryMutedColor)
+	thumbH := maxInt(18, int(bounds.Height())*inventoryBagRows/totalRows)
+	thumbTravel := int(bounds.Height()) - 2 - thumbH
+	thumbY := bounds.Min.Y + 1 + float32(thumbTravel*w.cfg.scroll/maxScroll)
+	canvas.DrawRect(geometry.NewRect(trackX, thumbY, 4, float32(thumbH)), rotheme.Default.Colors.MutedText)
 }
 
 func inventoryItemTab(item session.InventoryItem) int {

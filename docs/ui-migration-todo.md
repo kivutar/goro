@@ -19,20 +19,14 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Character creation window
 - [x] Equipment window
 - [x] Stats window
+- [x] Inventory bag window
+- [x] Shop windows
 
 ## High Priority
 
 - [x] NPC dialog and choice dialog
   - Important because it is a core gameplay dialog and still has custom dragging, scrolling, button hitboxes, and text rendering.
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
-
-- [ ] Inventory bag window
-  - Important because it has tabs, item grid, hover, double-click use/equip, drag to shortcut/storage/drop, and item info.
-  - This should become the reference implementation for grid-based item widgets.
-
-- [ ] Shop windows
-  - Includes buy/sell selection, buy list, sell cart, and sell inventory.
-  - Good migration target after inventory because it can reuse item row/grid pieces.
 
 - [ ] Storage window
   - Similar enough to inventory/shop lists that it should reuse the same item-list primitives.
@@ -90,6 +84,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [ ] Remove tests that only preserve deleted hitbox helpers.
 - [ ] Replace manual title/footer/button drawing with `Window(...)` and rotheme widgets.
 - [ ] Keep network/game actions in callbacks or game-side methods, not inside pure layout code.
+- [ ] Move drag ghosts to a shared gogpu/ui drag overlay so migrated windows do not need tiny legacy `Draw(...)` methods for cross-window drags.
 - [ ] Run:
   - `GOCACHE=/tmp/goro-go-build CGO_ENABLED=0 go test -tags nofakecgo ./...`
   - `XDG_CACHE_HOME=/tmp/goro-cache GOCACHE=/tmp/goro-go-build CGO_ENABLED=0 staticcheck -tags nofakecgo ./...`

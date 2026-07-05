@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -94,76 +93,6 @@ func TestInventoryItemDisplayNameAddsSlotCountForIdentifiedItems(t *testing.T) {
 	}
 	if got := inventoryItemDisplayName(manager, session.InventoryItem{ItemID: 2608, Identified: true}); got != "Ring [1]" {
 		t.Fatalf("pre-suffixed slotted name = %q, want Ring [1]", got)
-	}
-}
-
-func TestInventoryBagRightClickOpensItemInfo(t *testing.T) {
-	inputState := input.NewState()
-	inputState.SetMousePosition(165, 145)
-	inputState.SetMouseButton(input.MouseButtonRight, true)
-	sessionState := &session.Session{
-		Inventory: session.Inventory{
-			Items: []session.InventoryItem{{Index: 3, ItemID: 512, Type: 0, Amount: 2, Identified: true}},
-		},
-	}
-	ctx := Context{Input: inputState, Session: sessionState, ScreenW: 800, ScreenH: 600}
-	bag := InventoryBagWindow{
-		open:       true,
-		x:          100,
-		y:          100,
-		positioned: true,
-		tab:        inventoryBagTabItem,
-	}
-	info := ItemInfoWindow{}
-
-	if !bag.Update(ctx, nil, nil, &info) {
-		t.Fatal("right click did not consume inventory bag input")
-	}
-	if !info.open || info.item.ItemID != 512 {
-		t.Fatalf("item info = open:%v item:%+v, want item 512", info.open, info.item)
-	}
-	if bag.dragActive {
-		t.Fatal("right click should not start item drag")
-	}
-}
-
-func TestInventoryBagOpensUnderBasicMenu(t *testing.T) {
-	bag := InventoryBagWindow{x: 400, y: 200, positioned: true}
-	bag.Toggle(Context{ScreenW: 1280, ScreenH: 720})
-	menuX, menuY, _, menuH := basicMenuBounds()
-
-	if !bag.open {
-		t.Fatal("inventory bag did not open")
-	}
-	if bag.x != menuX || bag.y != menuY+menuH+8 {
-		t.Fatalf("inventory position = %d,%d, want %d,%d", bag.x, bag.y, menuX, menuY+menuH+8)
-	}
-}
-
-func TestInventoryBagUsesCompactTabGridLayout(t *testing.T) {
-	bag := InventoryBagWindow{x: 100, y: 100}
-	gridX, gridY, gridW, gridH := bag.gridBounds()
-	tabX, tabY, tabW, tabH := bag.tabBounds(inventoryBagTabItem)
-	_, secondTabY, _, _ := bag.tabBounds(inventoryBagTabEquip)
-	_, _, menuW, _ := basicMenuBounds()
-
-	if gridX != tabX+tabW-inventoryBagTabOver {
-		t.Fatalf("grid x = %d, want 1px overlapped tab right edge %d", gridX, tabX+tabW-inventoryBagTabOver)
-	}
-	if inventoryBagWidth != menuW {
-		t.Fatalf("inventory width = %d, want basic menu width %d", inventoryBagWidth, menuW)
-	}
-	if gridY != tabY {
-		t.Fatalf("grid y = %d, want first tab y %d", gridY, tabY)
-	}
-	if secondTabY != tabY+tabH-inventoryBagTabOver {
-		t.Fatalf("second tab y = %d, want 1px overlapped tab edge %d", secondTabY, tabY+tabH-inventoryBagTabOver)
-	}
-	if gridX+gridW != bag.x+inventoryBagWidth-1 {
-		t.Fatalf("grid right = %d, want window inner right %d", gridX+gridW, bag.x+inventoryBagWidth-1)
-	}
-	if gridY+gridH != bag.y+inventoryBagHeight-1 {
-		t.Fatalf("grid bottom = %d, want window inner bottom %d", gridY+gridH, bag.y+inventoryBagHeight-1)
 	}
 }
 
