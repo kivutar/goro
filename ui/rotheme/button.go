@@ -88,6 +88,10 @@ func drawButtonGradient(canvas widget.Canvas, bounds geometry.Rect, bottom widge
 		canvas.DrawRoundRect(bounds, bottom, radius)
 		return
 	}
+	if radius > 0 {
+		canvas.PushClipRoundRect(bounds, radius)
+		defer canvas.PopClip()
+	}
 	for i := 0; i < height; i++ {
 		t := float32(i) / float32(height-1)
 		y := bounds.Min.Y + float32(i)

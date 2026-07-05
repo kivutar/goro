@@ -40,7 +40,8 @@ func Window(options ...WindowOption) widget.Widget {
 		windowCloseButton(cfg.closeButton, cfg.onClose),
 	).
 		CrossAlign(primitives.CrossAxisCenter).
-		PaddingXY(14, 0).
+		PaddingLeft(12).
+		PaddingRight(7).
 		Height(ROWindowTitleHeight)
 
 	children := []widget.Widget{

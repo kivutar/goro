@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/gogpu/ui/widget"
-	gameaudio "github.com/kivutar/goro/audio"
+	"github.com/kivutar/goro/audio"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
@@ -20,7 +20,7 @@ type Context struct {
 	Session     *session.Session
 	World       *world.World
 	Network     *network.Client
-	Audio       *gameaudio.BGM
+	Audio       *audio.BGM
 	Started     time.Time
 	ScreenW     int
 	ScreenH     int
