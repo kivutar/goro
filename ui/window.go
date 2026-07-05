@@ -232,7 +232,13 @@ func (w *WindowState) Publish(ctx client.Context) {
 		return
 	}
 	root := w.Widget()
-	if root == nil || root == w.published {
+	if root == nil {
+		return
+	}
+	if root == w.published {
+		if redraw, ok := root.(interface{ SetNeedsRedraw(bool) }); ok {
+			redraw.SetNeedsRedraw(true)
+		}
 		return
 	}
 	w.Unpublish(ctx)
