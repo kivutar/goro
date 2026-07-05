@@ -4,25 +4,10 @@ import (
 	"image"
 	"testing"
 
-	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 )
-
-func TestVisibleSkillsUsesScrollWindow(t *testing.T) {
-	s := &session.Session{}
-	for i := 0; i < 12; i++ {
-		s.Skills.List = append(s.Skills.List, session.Skill{ID: uint16(i + 1)})
-	}
-	got := visibleSkills(s, 3, 4)
-	if len(got) != 4 {
-		t.Fatalf("len = %d", len(got))
-	}
-	if got[0].ID != 4 || got[3].ID != 7 {
-		t.Fatalf("visible = %+v", got)
-	}
-}
 
 func TestCanIncreaseSkillRequiresPointsAndFlag(t *testing.T) {
 	s := &session.Session{Skills: session.Skills{Points: 1}}
@@ -39,32 +24,17 @@ func TestCanIncreaseSkillRequiresPointsAndFlag(t *testing.T) {
 }
 
 func TestSkillWindowDoubleClickUsesSharedSkillController(t *testing.T) {
-	inputState := input.NewState()
-	s := &session.Session{
-		Skills: session.Skills{
-			List: []session.Skill{{ID: 6, Type: 1, Level: 2, Range: 9}},
-		},
-	}
-	ctx := Context{Input: inputState, Session: s, ScreenW: 800, ScreenH: 600}
+	ctx := Context{ScreenW: 800, ScreenH: 600}
 	mode := &skillWindowTestRenderer{}
-	window := &SkillWindow{open: true, x: 20, y: 30, positioned: true}
-	mx, my := window.x+skillWindowPad+6, window.skillRowY(0)+6
+	window := &SkillWindow{}
+	skill := session.Skill{ID: 6, Type: 1, Level: 2, Range: 9}
 
-	inputState.SetMousePosition(mx, my)
-	inputState.SetMouseButton(render.MouseButtonLeft, true)
-	if !window.Update(ctx, nil, mode) {
-		t.Fatal("first click was not handled")
-	}
+	window.pressSkill(ctx, mode, skill, 20, 30)
 	if mode.used.ID != 0 {
 		t.Fatalf("skill used after first click = %+v, want none", mode.used)
 	}
 
-	inputState.SetMouseButton(render.MouseButtonLeft, false)
-	inputState.EndFrame()
-	inputState.SetMouseButton(render.MouseButtonLeft, true)
-	if !window.Update(ctx, nil, mode) {
-		t.Fatal("second click was not handled")
-	}
+	window.pressSkill(ctx, mode, skill, 20, 30)
 	if mode.used.ID != 6 || mode.used.Level != 2 {
 		t.Fatalf("used skill = %+v, want provoke level 2", mode.used)
 	}
@@ -78,6 +48,10 @@ func (r *skillWindowTestRenderer) DrawInventoryItemIcon(*render.Image, *res.Mana
 }
 
 func (r *skillWindowTestRenderer) DrawSkillIcon(*render.Image, *res.Manager, session.Skill, int, int, int) {
+}
+
+func (r *skillWindowTestRenderer) SkillIconImage(*res.Manager, session.Skill, int) image.Image {
+	return nil
 }
 
 func (r *skillWindowTestRenderer) ItemInfoIllustrationImage(*res.Manager, session.InventoryItem, int, int) image.Image {

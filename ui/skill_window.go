@@ -2,389 +2,360 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
-	"math"
+	"image"
+	"log"
 	"strings"
 	"time"
 
+	"github.com/gogpu/ui/core/scrollview"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/state"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
 	skillWindowWidth   = 360
 	skillWindowHeight  = 382
-	skillWindowTitleH  = 28
 	skillWindowPad     = 12
 	skillRowH          = 32
-	skillListTop       = 80
-	skillListBottom    = 42
-	skillButtonSize    = IconButtonSize
+	skillIconSize      = 24
+	skillHeaderH       = 52
 	skillFooterH       = 36
 	skillFooterButtonW = 70
-	skillFooterButtonH = 23
+	skillListH         = skillWindowHeight - ROWindowTitleHeight - skillHeaderH - skillFooterH
 )
 
 var (
-	skillWindowTitleColor  = TitleTextColor
-	skillWindowTextColor   = TextColor
-	skillWindowMutedColor  = MutedTextColor
-	skillWindowGoodColor   = GoodTextColor
-	skillWindowErrorColor  = ErrorTextColor
-	skillWindowButtonColor = ButtonColor
-	skillWindowHoverColor  = ButtonHoverColor
-	skillWindowDownColor   = ButtonDownColor
-	skillWindowDisabled    = DisabledColor
-	skillWindowPassive     = color.RGBA{R: 34, G: 142, B: 158, A: 255}
-	skillWindowActive      = color.RGBA{R: 44, G: 92, B: 184, A: 255}
+	skillWindowTextColor  = TextColor
+	skillWindowMutedColor = MutedTextColor
+	skillWindowGoodColor  = GoodTextColor
+	skillWindowErrorColor = ErrorTextColor
 )
 
 type SkillWindow struct {
-	open         bool
-	x            int
-	y            int
-	positioned   bool
-	dragging     bool
-	dragDX       int
-	dragDY       int
-	scroll       int
-	status       string
-	statusGood   bool
-	statusAt     time.Time
-	lastClick    uint16
-	lastClickAt  time.Time
-	dragSkill    session.Skill
-	dragActive   bool
-	dragFrom     time.Time
-	pending      map[uint16]int
-	pendingOrder []uint16
+	window         WindowState
+	scrollY        state.Signal[float32]
+	snapshot       string
+	lastClick      uint16
+	lastClickAt    time.Time
+	dragSkill      session.Skill
+	dragActive     bool
+	dragFrom       time.Time
+	hoveredSkill   session.Skill
+	hasHover       bool
+	hoverX         int
+	hoverY         int
+	pending        map[uint16]int
+	pendingOrder   []uint16
+	icons          map[uint16]image.Image
+	iconMiss       map[uint16]struct{}
+	lastIconAssets bool
+	assets         AssetRenderer
+	actions        GameActions
+}
+
+type skillRowWidgetConfig struct {
+	skill       session.Skill
+	display     session.Skill
+	icon        image.Image
+	name        string
+	row         int
+	canStage    bool
+	onStage     func(session.Skill)
+	onPress     func(session.Skill, int, int)
+	onHover     func(session.Skill, int, int)
+	onHoverExit func()
+}
+
+type skillRowWidget struct {
+	widget.WidgetBase
+	cfg     skillRowWidgetConfig
+	hovered bool
 }
 
 func (w *SkillWindow) Toggle(ctx Context) {
-	if w.open {
-		w.open = false
-		w.dragging = false
+	w.ensureWindow()
+	if w.window.IsOpen() {
+		w.close(ctx)
 		return
 	}
-	w.open = true
-	w.EnsurePosition(ctx)
-	w.ClampScroll(ctx.Session)
+	w.openAtDefault(ctx)
 }
 
 func (w *SkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameActions) bool {
-	if !w.open || ctx.Input == nil {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
 		return false
 	}
-	w.EnsurePosition(ctx)
-	w.ClampScroll(ctx.Session)
-	width, height := ctx.ScreenSize()
+	w.actions = actions
+	if ctx.Input == nil {
+		w.Publish(ctx)
+		return true
+	}
 	if w.dragActive {
 		if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
 			skill := w.dragSkill
 			w.dragActive = false
 			w.dragSkill = session.Skill{}
 			if shortcuts != nil && shortcuts.AcceptSkillDrop(ctx, skill, ctx.Input.MouseX, ctx.Input.MouseY) {
+				w.Publish(ctx)
 				return true
 			}
-			return pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, skillWindowWidth, skillWindowHeight)
-		}
-	}
-	if w.dragging {
-		if ctx.Input.MousePressed(render.MouseButtonLeft) {
-			w.x = clampSkillWindowInt(ctx.Input.MouseX-w.dragDX, 8, maxInt(8, width-skillWindowWidth-8))
-			w.y = clampSkillWindowInt(ctx.Input.MouseY-w.dragDY, 8, maxInt(8, height-skillWindowHeight-8))
+			w.Publish(ctx)
 			return true
 		}
-		w.dragging = false
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
-		w.open = false
+		w.close(ctx)
+		w.Publish(ctx)
 		return true
 	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	inside := pointInRect(mx, my, w.x, w.y, skillWindowWidth, skillWindowHeight)
-	if inside && ctx.Input.WheelY != 0 {
-		w.scrollBy(ctx.Input.WheelY, ctx.Session)
-		return true
+	w.clampScroll(ctx.Session)
+	snapshot := w.skillSnapshot(ctx.Session)
+	if snapshot != w.snapshot {
+		w.snapshot = snapshot
+		w.window.SetContent(w.widgetTree(ctx, actions))
 	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return inside
+	consumed := w.window.Update(ctx)
+	if !w.window.IsOpen() {
+		w.Publish(ctx)
+		return consumed
 	}
-	if !inside {
-		return false
-	}
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		w.open = false
-		return true
-	}
-	if pointInRect(mx, my, w.x, w.y, skillWindowWidth, skillWindowTitleH) {
-		w.dragging = true
-		w.dragDX = mx - w.x
-		w.dragDY = my - w.y
-		return true
-	}
-	cancelX, cancelY, cancelW, cancelH := w.cancelButtonBounds()
-	if pointInRect(mx, my, cancelX, cancelY, cancelW, cancelH) {
-		w.clearPending()
-		return true
-	}
-	confirmX, confirmY, confirmW, confirmH := w.confirmButtonBounds()
-	if pointInRect(mx, my, confirmX, confirmY, confirmW, confirmH) {
-		w.confirmPending(ctx)
-		return true
-	}
-	for row, skill := range visibleSkills(ctx.Session, w.scroll, visibleSkillRows()) {
-		bx, by, bw, bh := w.levelButtonBounds(row)
-		if pointInRect(mx, my, bx, by, bw, bh) {
-			if !w.canStageSkill(ctx.Session, skill) {
-				w.setStatus("No skill points or skill is maxed", false)
-				return true
-			}
-			w.stageSkill(skill.ID)
-			return true
-		}
-		rx, ry, rw, rh := w.skillRowBounds(row)
-		if pointInRect(mx, my, rx, ry, rw, rh) {
-			if skill.Level <= 0 {
-				w.setStatus("Skill is not learned", false)
-				return true
-			}
-			now := time.Now()
-			if w.lastClick == skill.ID && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
-				w.lastClick = 0
-				w.lastClickAt = time.Time{}
-				if actions == nil {
-					w.setStatus("No game actions", false)
-					return true
-				}
-				if err := actions.UseShortcutSkill(ctx, skill); err != nil {
-					w.setStatus(err.Error(), false)
-					return true
-				}
-				w.setStatus(fmt.Sprintf("%s used", skillDisplayName(ctx.Resources, skill)), true)
-				return true
-			}
-			w.lastClick = skill.ID
-			w.lastClickAt = now
-			w.dragSkill = skill
-			w.dragActive = true
-			w.dragFrom = now
-			return true
-		}
-	}
-	return true
+	w.Publish(ctx)
+	return consumed
 }
 
 func (w *SkillWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	if !w.open || screen == nil {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
+		w.window.Unpublish(ctx)
 		return
 	}
-	w.EnsurePosition(ctx)
-	w.ClampScroll(ctx.Session)
-	x, y := w.x, w.y
-	DrawTitledWindowFrame(screen, x, y, skillWindowWidth, skillWindowHeight, skillWindowTitleH)
-	DrawWindowTitle(screen, x, y, skillWindowTitleH, skillWindowPad, "Skill Tree", skillWindowTitleColor)
-	cx, cy, cw, ch := w.closeBounds()
-	DrawCloseButton(screen, cx, cy, cw, ch, skillWindowButtonColor, skillWindowTextColor)
-
-	points := maxInt(0, sessionSkillPoints(ctx.Session)-w.pendingCount())
-	render.DebugPrintAtColor(screen, fmt.Sprintf("Skill Points : %d", points), x+skillWindowPad, y+skillWindowTitleH+10, skillWindowTextColor)
-	headerY := y + skillWindowTitleH + 32
-	render.DebugPrintAtColor(screen, "Name", x+skillWindowPad+34, headerY, skillWindowMutedColor)
-	render.DebugPrintAtColor(screen, "Lv", x+204, headerY, skillWindowMutedColor)
-	render.DebugPrintAtColor(screen, "SP", x+244, headerY, skillWindowMutedColor)
-	render.DebugPrintAtColor(screen, "Range", x+282, headerY, skillWindowMutedColor)
-
-	mx, my := -1, -1
-	mouseDown := false
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-		mouseDown = ctx.Input.MousePressed(render.MouseButtonLeft)
+	if assets != nil {
+		w.assets = assets
 	}
+	if w.assets != nil && !w.lastIconAssets {
+		w.lastIconAssets = true
+		w.snapshot = w.skillSnapshot(ctx.Session)
+		w.window.SetContent(w.widgetTreeWithAssets(ctx, w.assets, w.actions))
+	}
+	if w.dragActive && screen != nil && ctx.Input != nil && time.Since(w.dragFrom) > 80*time.Millisecond && assets != nil {
+		assets.DrawSkillIcon(screen, ctx.Resources, w.dragSkill, ctx.Input.MouseX-skillIconSize/2, ctx.Input.MouseY-skillIconSize/2, skillIconSize)
+	}
+	if !w.dragActive && w.hasHover {
+		drawSkillTooltip(screen, ctx, w.hoveredSkill, w.hoverX, w.hoverY)
+	}
+	w.Publish(ctx)
+}
+
+func (w *SkillWindow) Publish(ctx Context) {
+	w.ensureWindow()
+	if !w.window.IsOpen() {
+		w.window.Unpublish(ctx)
+		return
+	}
+	w.window.Publish(ctx)
+}
+
+func (w *SkillWindow) ensureWindow() {
+	if w.window.width == 0 {
+		w.window = NewWindowState(skillWindowWidth, skillWindowHeight)
+		w.window.SetCloseOnEscape(false)
+	}
+}
+
+func (w *SkillWindow) openAtDefault(ctx Context) {
+	x, y := skillDefaultPosition(ctx)
+	w.snapshot = w.skillSnapshot(ctx.Session)
+	w.window.OpenAt(x, y, w.widgetTree(ctx, w.actions))
+	w.Publish(ctx)
+}
+
+func (w *SkillWindow) close(ctx Context) {
+	w.dragActive = false
+	w.hasHover = false
+	w.window.Close()
+	w.Publish(ctx)
+}
+
+func (w *SkillWindow) widgetTree(ctx Context, actions GameActions) widget.Widget {
+	return w.widgetTreeWithAssets(ctx, nil, actions)
+}
+
+func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetRenderer, actions GameActions) widget.Widget {
+	if actions == nil {
+		actions = w.actions
+	}
+	if assets == nil {
+		assets = w.assets
+	}
+	return Window(
+		Title("Skill Tree"),
+		CloseButton(true),
+		OnClose(func() {
+			w.close(ctx)
+		}),
+		Size(skillWindowWidth, skillWindowHeight),
+		FooterHeight(skillFooterH),
+		FooterPadding(10),
+		Content(
+			primitives.Box(
+				rotheme.Text(fmt.Sprintf("Skill Points : %d", maxInt(0, sessionSkillPoints(ctx.Session)-w.pendingCount()))),
+				w.skillHeader(),
+				primitives.Box(
+					scrollview.New(
+						w.skillList(ctx, assets, actions),
+						scrollview.DirectionOpt(scrollview.Vertical),
+						scrollview.ScrollYSignal(w.ensureScrollSignal()),
+						scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+						scrollview.ScrollStep(skillRowH),
+					),
+				).
+					Height(skillListH),
+			).
+				Padding(skillWindowPad).
+				Gap(5),
+		),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("Cancel", func() {
+					w.clearPending()
+					w.refresh(ctx, actions)
+				}).Width(skillFooterButtonW),
+				rotheme.Button("Confirm", func() {
+					w.confirmPending(ctx)
+					w.refresh(ctx, actions)
+				}).Width(skillFooterButtonW),
+			).
+				Gap(8).
+				CrossAlign(primitives.CrossAxisCenter),
+		),
+	)
+}
+
+func (w *SkillWindow) skillHeader() widget.Widget {
+	return primitives.HBox(
+		primitives.Box().Width(38),
+		primitives.Box(rotheme.Text("Name").Color(rotheme.Default.Colors.MutedText)).Width(154),
+		primitives.Box(rotheme.Text("Lv").Color(rotheme.Default.Colors.MutedText)).Width(40),
+		primitives.Box(rotheme.Text("SP").Color(rotheme.Default.Colors.MutedText)).Width(38),
+		primitives.Box(rotheme.Text("Range").Color(rotheme.Default.Colors.MutedText)).Width(56),
+	).Height(14)
+}
+
+func (w *SkillWindow) skillList(ctx Context, assets AssetRenderer, actions GameActions) widget.Widget {
 	skills := sessionSkills(ctx.Session)
 	if len(skills) == 0 {
-		render.DebugPrintAtColor(screen, "No skills received from server yet.", x+skillWindowPad, y+skillListTop+18, skillWindowMutedColor)
-	} else {
-		for row, skill := range visibleSkills(ctx.Session, w.scroll, visibleSkillRows()) {
-			displaySkill := w.skillWithPending(skill)
-			ry := w.skillRowY(row)
-			rowColor := PanelAltColor
-			if row%2 == 1 {
-				rowColor = PanelBodyColor
-			}
-			DrawRowSurface(screen, x+skillWindowPad, ry, skillWindowWidth-2*skillWindowPad, skillRowH-2, rowColor)
-			if assets != nil {
-				assets.DrawSkillIcon(screen, ctx.Resources, skill, x+skillWindowPad+4, ry+4, 24)
-			}
-			typeColor := skillWindowPassive
-			typeLabel := "P"
-			if displaySkill.Type != 0 {
-				typeColor = skillWindowActive
-				typeLabel = "A"
-			}
-			nameColor := skillWindowTextColor
-			if displaySkill.Level <= 0 {
-				nameColor = skillWindowMutedColor
-			}
-			render.DebugPrintAtColor(screen, typeLabel, x+skillWindowPad+32, ry+9, typeColor)
-			render.DebugPrintAtColor(screen, trimRunes(skillDisplayName(ctx.Resources, displaySkill), 18), x+skillWindowPad+48, ry+9, nameColor)
-			render.DebugPrintAtColor(screen, fmt.Sprintf("%d", displaySkill.Level), x+204, ry+9, nameColor)
-			render.DebugPrintAtColor(screen, fmt.Sprintf("%d", displaySkill.SPCost), x+244, ry+9, skillWindowMutedColor)
-			render.DebugPrintAtColor(screen, fmt.Sprintf("%d", displaySkill.Range), x+292, ry+9, skillWindowMutedColor)
-			bx, by, bw, bh := w.levelButtonBounds(row)
-			fill := skillWindowButtonColor
-			textColor := skillWindowGoodColor
-			if !w.canStageSkill(ctx.Session, skill) {
-				fill = skillWindowDisabled
-				textColor = skillWindowMutedColor
-			} else if pointInRect(mx, my, bx, by, bw, bh) {
-				if mouseDown {
-					fill = skillWindowDownColor
-				} else {
-					fill = skillWindowHoverColor
+		return primitives.Box(
+			rotheme.Text("No skills received from server yet.").
+				Color(rotheme.Default.Colors.MutedText),
+		).Padding(8)
+	}
+	rows := make([]widget.Widget, 0, len(skills))
+	for row, skill := range skills {
+		display := w.skillWithPending(skill)
+		rows = append(rows, newSkillRowWidget(skillRowWidgetConfig{
+			skill:    skill,
+			display:  display,
+			icon:     w.skillIconImage(ctx, assets, skill),
+			name:     skillDisplayName(ctx.Resources, display),
+			row:      row,
+			canStage: w.canStageSkill(ctx.Session, skill),
+			onStage: func(skill session.Skill) {
+				if !w.canStageSkill(ctx.Session, skill) {
+					log.Printf("skill level up ignored id=%d: no points or maxed", skill.ID)
+					return
 				}
-			}
-			DrawPlusButton(screen, bx, by, fill, textColor)
-		}
-		w.drawScrollBar(screen, ctx.Session)
+				w.stageSkill(skill.ID)
+				w.refresh(ctx, actions)
+			},
+			onPress: func(skill session.Skill, mx, my int) {
+				w.pressSkill(ctx, actions, skill, mx, my)
+			},
+			onHover: func(skill session.Skill, mx, my int) {
+				w.hoveredSkill = skill
+				w.hasHover = true
+				w.hoverX = mx
+				w.hoverY = my
+			},
+			onHoverExit: func() {
+				w.hasHover = false
+			},
+		}))
 	}
-	w.drawFooter(screen, ctx)
-	if w.dragActive && ctx.Input != nil && time.Since(w.dragFrom) > 80*time.Millisecond && assets != nil {
-		assets.DrawSkillIcon(screen, ctx.Resources, w.dragSkill, ctx.Input.MouseX-12, ctx.Input.MouseY-12, 24)
-	}
-	if !w.dragActive && ctx.Input != nil {
-		if skill, ok := w.hoveredSkill(ctx); ok {
-			drawSkillTooltip(screen, ctx, skill)
-		}
-	}
+	return primitives.Box(rows...)
 }
 
-func (w *SkillWindow) CursorAction(ctx Context) (int, bool) {
-	if !w.open || ctx.Input == nil {
-		return 0, false
+func (w *SkillWindow) refresh(ctx Context, actions GameActions) {
+	if actions != nil {
+		w.actions = actions
 	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	cx, cy, cw, ch := w.closeBounds()
-	if pointInRect(mx, my, cx, cy, cw, ch) {
-		return CursorActionClick, true
-	}
-	if pointInRect(mx, my, w.x, w.y, skillWindowWidth, skillWindowTitleH) {
-		return CursorActionClick, true
-	}
-	cancelX, cancelY, cancelW, cancelH := w.cancelButtonBounds()
-	if pointInRect(mx, my, cancelX, cancelY, cancelW, cancelH) {
-		return CursorActionClick, true
-	}
-	confirmX, confirmY, confirmW, confirmH := w.confirmButtonBounds()
-	if pointInRect(mx, my, confirmX, confirmY, confirmW, confirmH) {
-		return CursorActionClick, true
-	}
-	for row, skill := range visibleSkills(ctx.Session, w.scroll, visibleSkillRows()) {
-		if !w.canStageSkill(ctx.Session, skill) {
-			continue
-		}
-		bx, by, bw, bh := w.levelButtonBounds(row)
-		if pointInRect(mx, my, bx, by, bw, bh) {
-			return CursorActionClick, true
-		}
-	}
-	if pointInRect(mx, my, w.x, w.y, skillWindowWidth, skillWindowHeight) {
-		return CursorActionDefault, true
-	}
-	return 0, false
+	w.clampScroll(ctx.Session)
+	w.snapshot = w.skillSnapshot(ctx.Session)
+	w.window.SetContent(w.widgetTreeWithAssets(ctx, w.assets, w.actions))
+	w.Publish(ctx)
 }
 
-func (w *SkillWindow) EnsurePosition(ctx Context) {
-	if w.positioned {
+func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session.Skill, mx, my int) {
+	if skill.Level <= 0 {
+		log.Printf("skill use ignored id=%d: not learned", skill.ID)
 		return
 	}
-	width, height := ctx.ScreenSize()
-	w.x = minInt(characterWindowX+characterWindowWidth+12, maxInt(8, width-skillWindowWidth-8))
-	w.y = minInt(characterWindowY, maxInt(8, height-skillWindowHeight-8))
-	if w.x < 8 {
-		w.x = 8
-	}
-	if w.y < 8 {
-		w.y = 8
-	}
-	w.positioned = true
-}
-
-func (w *SkillWindow) closeBounds() (int, int, int, int) {
-	return w.x + skillWindowWidth - 25, w.y + 6, IconButtonSize, IconButtonSize
-}
-
-func (w *SkillWindow) skillRowY(row int) int {
-	return w.y + skillListTop + row*skillRowH
-}
-
-func (w *SkillWindow) skillRowBounds(row int) (int, int, int, int) {
-	return w.x + skillWindowPad, w.skillRowY(row), skillWindowWidth - 2*skillWindowPad, skillRowH - 2
-}
-
-func (w *SkillWindow) levelButtonBounds(row int) (int, int, int, int) {
-	return w.x + skillWindowWidth - skillWindowPad - skillButtonSize, w.skillRowY(row) + 7, skillButtonSize, skillButtonSize
-}
-
-func (w *SkillWindow) cancelButtonBounds() (int, int, int, int) {
-	y := w.y + skillWindowHeight - skillFooterH + (skillFooterH-skillFooterButtonH)/2
-	return w.x + skillWindowWidth - skillWindowPad - skillFooterButtonW*2 - 8, y, skillFooterButtonW, skillFooterButtonH
-}
-
-func (w *SkillWindow) confirmButtonBounds() (int, int, int, int) {
-	y := w.y + skillWindowHeight - skillFooterH + (skillFooterH-skillFooterButtonH)/2
-	return w.x + skillWindowWidth - skillWindowPad - skillFooterButtonW, y, skillFooterButtonW, skillFooterButtonH
-}
-
-func (w *SkillWindow) drawFooter(screen *render.Image, ctx Context) {
-	DrawWindowFooter(screen, w.x, w.y, skillWindowWidth, skillWindowHeight, skillFooterH)
-	cancelX, cancelY, cancelW, cancelH := w.cancelButtonBounds()
-	confirmX, confirmY, confirmW, confirmH := w.confirmButtonBounds()
-	cancelFill := skillWindowButtonColor
-	confirmFill := skillWindowButtonColor
-	if ctx.Input != nil {
-		if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, cancelX, cancelY, cancelW, cancelH) {
-			cancelFill = skillWindowHoverColor
+	now := time.Now()
+	if w.lastClick == skill.ID && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
+		w.lastClick = 0
+		w.lastClickAt = time.Time{}
+		if actions == nil {
+			log.Printf("skill use failed id=%d: no game actions", skill.ID)
+			return
 		}
-		if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, confirmX, confirmY, confirmW, confirmH) {
-			confirmFill = skillWindowHoverColor
+		if err := actions.UseShortcutSkill(ctx, skill); err != nil {
+			log.Printf("skill use failed id=%d: %v", skill.ID, err)
+		}
+		return
+	}
+	w.lastClick = skill.ID
+	w.lastClickAt = now
+	w.dragSkill = skill
+	w.dragActive = true
+	w.dragFrom = now
+	w.hoverX = mx
+	w.hoverY = my
+}
+
+func (w *SkillWindow) skillIconImage(ctx Context, assets AssetRenderer, skill session.Skill) image.Image {
+	if assets == nil || skill.ID == 0 {
+		return nil
+	}
+	if w.icons != nil {
+		if img := w.icons[skill.ID]; img != nil {
+			return img
 		}
 	}
-	DrawButtonLabel(screen, cancelX, cancelY, cancelW, cancelH, "Cancel", cancelFill, skillWindowTextColor)
-	DrawButtonLabel(screen, confirmX, confirmY, confirmW, confirmH, "Confirm", confirmFill, skillWindowTextColor)
-}
-
-func (w *SkillWindow) hoveredSkill(ctx Context) (session.Skill, bool) {
-	if !w.open || ctx.Input == nil {
-		return session.Skill{}, false
+	if _, ok := w.iconMiss[skill.ID]; ok {
+		return nil
 	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	for row, skill := range visibleSkills(ctx.Session, w.scroll, visibleSkillRows()) {
-		x, y, width, height := w.skillRowBounds(row)
-		if pointInRect(mx, my, x, y, width, height) {
-			return skill, true
+	img := assets.SkillIconImage(ctx.Resources, skill, skillIconSize)
+	if img == nil {
+		if w.iconMiss == nil {
+			w.iconMiss = make(map[uint16]struct{})
 		}
+		w.iconMiss[skill.ID] = struct{}{}
+		return nil
 	}
-	return session.Skill{}, false
-}
-
-func (w *SkillWindow) setStatus(status string, good bool) {
-	w.status = status
-	w.statusGood = good
-	w.statusAt = time.Now()
-}
-
-func (w *SkillWindow) stageSkill(skillID uint16) {
-	if w.pending == nil {
-		w.pending = make(map[uint16]int)
+	if w.icons == nil {
+		w.icons = make(map[uint16]image.Image)
 	}
-	if w.pending[skillID] == 0 {
-		w.pendingOrder = append(w.pendingOrder, skillID)
-	}
-	w.pending[skillID]++
+	w.icons[skill.ID] = img
+	return img
 }
 
 func (w *SkillWindow) clearPending() {
@@ -412,6 +383,16 @@ func (w *SkillWindow) skillWithPending(skill session.Skill) session.Skill {
 	return skill
 }
 
+func (w *SkillWindow) stageSkill(skillID uint16) {
+	if w.pending == nil {
+		w.pending = make(map[uint16]int)
+	}
+	if w.pending[skillID] == 0 {
+		w.pendingOrder = append(w.pendingOrder, skillID)
+	}
+	w.pending[skillID]++
+}
+
 func (w *SkillWindow) canStageSkill(s *session.Session, skill session.Skill) bool {
 	if !canIncreaseSkill(s, skill) {
 		return false
@@ -424,13 +405,13 @@ func (w *SkillWindow) confirmPending(ctx Context) {
 		return
 	}
 	if ctx.Network == nil {
-		w.setStatus("Not connected", false)
+		log.Printf("skill level up failed: not connected")
 		return
 	}
 	for _, skillID := range w.pendingOrder {
 		for i := 0; i < w.pending[skillID]; i++ {
 			if err := ctx.Network.SendSkillLevelUp(skillID); err != nil {
-				w.setStatus(err.Error(), false)
+				log.Printf("skill level up failed id=%d: %v", skillID, err)
 				return
 			}
 		}
@@ -438,60 +419,142 @@ func (w *SkillWindow) confirmPending(ctx Context) {
 	w.clearPending()
 }
 
-func (w *SkillWindow) scrollBy(wheelY float64, s *session.Session) {
-	step := int(math.Ceil(math.Abs(wheelY))) * 3
-	if step < 1 {
-		step = 1
+func (w *SkillWindow) clampScroll(s *session.Session) {
+	maxScroll := float32(maxInt(0, len(sessionSkills(s))*skillRowH-skillListH))
+	scroll := w.ensureScrollSignal()
+	switch value := scroll.Get(); {
+	case value < 0:
+		scroll.Set(0)
+	case value > maxScroll:
+		scroll.Set(maxScroll)
 	}
-	if wheelY > 0 {
-		w.scroll += step
-	} else {
-		w.scroll -= step
-	}
-	w.ClampScroll(s)
 }
 
 func (w *SkillWindow) ClampScroll(s *session.Session) {
-	maxScroll := maxInt(0, len(sessionSkills(s))-visibleSkillRows())
-	if w.scroll < 0 {
-		w.scroll = 0
-	}
-	if w.scroll > maxScroll {
-		w.scroll = maxScroll
-	}
+	w.clampScroll(s)
 }
 
-func (w *SkillWindow) drawScrollBar(screen *render.Image, s *session.Session) {
-	total := len(sessionSkills(s))
-	visible := visibleSkillRows()
-	if total <= visible {
-		return
+func (w *SkillWindow) ensureScrollSignal() state.Signal[float32] {
+	if w.scrollY == nil {
+		w.scrollY = state.NewSignal[float32](0)
 	}
-	trackX := float64(w.x + skillWindowWidth - 7)
-	trackY := float64(w.y + skillListTop)
-	trackH := float64(visible*skillRowH - 2)
-	thumbH := math.Max(18, trackH*float64(visible)/float64(total))
-	maxScroll := maxInt(1, total-visible)
-	thumbTravel := math.Max(1, trackH-thumbH)
-	thumbY := trackY + thumbTravel*float64(w.scroll)/float64(maxScroll)
-	render.DrawRect(screen, trackX, trackY, 3, trackH, color.RGBA{R: 110, G: 124, B: 142, A: 90})
-	render.DrawRect(screen, trackX, thumbY, 3, thumbH, color.RGBA{R: 205, G: 218, B: 232, A: 150})
+	return w.scrollY
 }
 
-func visibleSkillRows() int {
-	return (skillWindowHeight - skillListTop - skillListBottom) / skillRowH
+func (w *SkillWindow) skillSnapshot(s *session.Session) string {
+	if s == nil {
+		return ""
+	}
+	return fmt.Sprintf("points=%d;pending=%v;skills=%v", s.Skills.Points, w.pending, s.Skills.List)
 }
 
-func visibleSkills(s *session.Session, scroll, count int) []session.Skill {
-	skills := sessionSkills(s)
-	if scroll > len(skills) {
-		scroll = len(skills)
+func skillDefaultPosition(ctx Context) (int, int) {
+	width, height := ctx.ScreenSize()
+	x := minInt(characterWindowX+characterWindowWidth+12, maxInt(8, width-skillWindowWidth-8))
+	y := minInt(characterWindowY, maxInt(8, height-skillWindowHeight-8))
+	return maxInt(8, x), maxInt(8, y)
+}
+
+func newSkillRowWidget(cfg skillRowWidgetConfig) *skillRowWidget {
+	w := &skillRowWidget{cfg: cfg}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *skillRowWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(skillWindowWidth-skillWindowPad*2, skillRowH))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *skillRowWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	bounds := w.Bounds()
+	fill := widget.RGBA8(246, 249, 253, 255)
+	if w.cfg.row%2 == 1 {
+		fill = rotheme.Default.Colors.PanelBody
 	}
-	end := scroll + count
-	if end > len(skills) {
-		end = len(skills)
+	if w.hovered {
+		fill = rotheme.Default.Colors.ButtonHover
 	}
-	return skills[scroll:end]
+	canvas.DrawRect(geometry.NewRect(bounds.Min.X, bounds.Min.Y, bounds.Width(), bounds.Height()-2), fill)
+	if w.cfg.icon != nil {
+		iconBounds := w.cfg.icon.Bounds()
+		iconW := float32(iconBounds.Dx())
+		iconH := float32(iconBounds.Dy())
+		canvas.DrawImage(w.cfg.icon, geometry.Pt(bounds.Min.X+4+(skillIconSize-iconW)/2, bounds.Min.Y+4+(skillIconSize-iconH)/2))
+	} else {
+		icon := geometry.NewRect(bounds.Min.X+4, bounds.Min.Y+4, skillIconSize, skillIconSize)
+		canvas.DrawRect(icon, widget.RGBA8(54, 62, 80, 235))
+		canvas.DrawRect(geometry.NewRect(icon.Min.X+2, icon.Min.Y+2, icon.Width()-4, icon.Height()-4), widget.RGBA8(92, 110, 150, 220))
+		rotheme.DrawText(canvas, "S", icon, rotheme.Default.Typography.TextSize, widget.RGBA8(238, 238, 245, 255), false, widget.TextAlignCenter)
+	}
+	typeColor := widget.RGBA8(34, 142, 158, 255)
+	typeLabel := "P"
+	if w.cfg.display.Type != 0 {
+		typeColor = widget.RGBA8(44, 92, 184, 255)
+		typeLabel = "A"
+	}
+	nameColor := rotheme.Default.Colors.Text
+	if w.cfg.display.Level <= 0 {
+		nameColor = rotheme.Default.Colors.MutedText
+	}
+	rotheme.DrawText(canvas, typeLabel, geometry.NewRect(bounds.Min.X+34, bounds.Min.Y+8, 12, 14), rotheme.Default.Typography.TextSize, typeColor, false, widget.TextAlignLeft)
+	rotheme.DrawText(canvas, trimRunes(w.cfg.name, 18), geometry.NewRect(bounds.Min.X+50, bounds.Min.Y+8, 142, 14), rotheme.Default.Typography.TextSize, nameColor, false, widget.TextAlignLeft)
+	rotheme.DrawText(canvas, fmt.Sprintf("%d", w.cfg.display.Level), geometry.NewRect(bounds.Min.X+192, bounds.Min.Y+8, 34, 14), rotheme.Default.Typography.TextSize, nameColor, false, widget.TextAlignLeft)
+	rotheme.DrawText(canvas, fmt.Sprintf("%d", w.cfg.display.SPCost), geometry.NewRect(bounds.Min.X+232, bounds.Min.Y+8, 36, 14), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignLeft)
+	rotheme.DrawText(canvas, fmt.Sprintf("%d", w.cfg.display.Range), geometry.NewRect(bounds.Min.X+282, bounds.Min.Y+8, 34, 14), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignLeft)
+	rotheme.DrawIconButton(canvas, w.plusBounds(), rotheme.IconButtonPlus, w.hovered, !w.cfg.canStage)
+}
+
+func (w *skillRowWidget) Event(ctx widget.Context, e event.Event) bool {
+	ev, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch ev.MouseType {
+	case event.MouseEnter, event.MouseMove, event.MouseDrag:
+		w.hovered = true
+		if w.cfg.display.Level > 0 || w.cfg.canStage {
+			ctx.SetCursor(widget.CursorPointer)
+		}
+		if w.cfg.onHover != nil {
+			w.cfg.onHover(w.cfg.skill, int(ev.GlobalPosition.X), int(ev.GlobalPosition.Y))
+		}
+		w.SetNeedsRedraw(true)
+		return false
+	case event.MouseLeave:
+		w.hovered = false
+		if w.cfg.onHoverExit != nil {
+			w.cfg.onHoverExit()
+		}
+		w.SetNeedsRedraw(true)
+		return false
+	case event.MousePress:
+		if ev.Button != event.ButtonLeft {
+			return false
+		}
+		if w.plusBounds().Contains(ev.Position) {
+			if w.cfg.onStage != nil && w.cfg.canStage {
+				w.cfg.onStage(w.cfg.skill)
+			}
+			return true
+		}
+		if w.cfg.onPress != nil {
+			w.cfg.onPress(w.cfg.skill, int(ev.GlobalPosition.X), int(ev.GlobalPosition.Y))
+		}
+		return true
+	}
+	return false
+}
+
+func (w *skillRowWidget) Children() []widget.Widget {
+	return nil
+}
+
+func (w *skillRowWidget) plusBounds() geometry.Rect {
+	bounds := w.Bounds()
+	return geometry.NewRect(bounds.Max.X-rotheme.IconButtonSize-7, bounds.Min.Y+7, rotheme.IconButtonSize, rotheme.IconButtonSize)
 }
 
 func sessionSkills(s *session.Session) []session.Skill {
@@ -524,8 +587,8 @@ func skillDisplayName(manager *res.Manager, skill session.Skill) string {
 	return skillLabel(skill)
 }
 
-func drawSkillTooltip(screen *render.Image, ctx Context, skill session.Skill) {
-	if screen == nil || ctx.Input == nil {
+func drawSkillTooltip(screen *render.Image, ctx Context, skill session.Skill, mouseX, mouseY int) {
+	if screen == nil {
 		return
 	}
 	const tooltipW = 292
@@ -559,8 +622,8 @@ func drawSkillTooltip(screen *render.Image, ctx Context, skill session.Skill) {
 	}
 	wrapped := wrapItemInfoLines(lines, 38)
 	tooltipH := 12 + itemInfoLineH*(len(wrapped)+1)
-	x := ctx.Input.MouseX + 16
-	y := ctx.Input.MouseY + 18
+	x := mouseX + 16
+	y := mouseY + 18
 	screenW, screenH := ctx.ScreenSize()
 	x = clampInventoryWindowInt(x, 8, maxInt(8, screenW-tooltipW-8))
 	y = clampInventoryWindowInt(y, 8, maxInt(8, screenH-tooltipH-8))
@@ -578,14 +641,4 @@ func drawSkillTooltip(screen *render.Image, ctx Context, skill session.Skill) {
 
 func canIncreaseSkill(s *session.Session, skill session.Skill) bool {
 	return s != nil && s.Skills.Points > 0 && skill.Upgradable
-}
-
-func clampSkillWindowInt(value, minValue, maxValue int) int {
-	if value < minValue {
-		return minValue
-	}
-	if value > maxValue {
-		return maxValue
-	}
-	return value
 }

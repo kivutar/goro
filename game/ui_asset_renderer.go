@@ -20,6 +20,15 @@ func (m *WorldMode) DrawSkillIcon(screen *render.Image, manager *res.Manager, sk
 	m.drawSkillIcon(screen, manager, skill, x, y, size)
 }
 
+func (m *WorldMode) SkillIconImage(manager *res.Manager, skill session.Skill, size int) image.Image {
+	if size <= 0 {
+		return nil
+	}
+	img := render.NewImage(size, size)
+	m.DrawSkillIcon(img, manager, skill, 0, 0, size)
+	return img.RGBA()
+}
+
 func (m *WorldMode) DrawItemInfoIllustration(screen *render.Image, manager *res.Manager, item session.InventoryItem, x, y, width, height int) {
 	if screen == nil || width <= 0 || height <= 0 {
 		return

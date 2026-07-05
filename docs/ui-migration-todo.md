@@ -24,6 +24,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Storage window
 - [x] Item info window
 - [x] Identify window
+- [x] Skills window
 
 ## High Priority
 
@@ -32,10 +33,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
 
 ## Medium Priority
-
-- [ ] Skills window
-  - Needs skill rows, icons, pending level changes, confirm/cancel footer, and skill tooltip behavior.
-  - Should reuse gogpu/ui list/table primitives if they are practical.
 
 - [ ] Shortcut bar
   - Not a normal window, but it is UI-heavy and still has custom hitboxes.
