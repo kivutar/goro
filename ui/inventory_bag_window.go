@@ -231,7 +231,7 @@ func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets Asse
 			render.DebugPrintAtColor(screen, fmt.Sprintf("%d", item.Amount), cx+inventoryBagCell-16, cy+inventoryBagCell-14, color.RGBA{R: 40, G: 36, B: 32, A: 255})
 		}
 		if item.Equipped {
-			render.DebugPrintAtColor(screen, "E", cx+2, cy+2, shopGoodColor)
+			render.DebugPrintAtColor(screen, "E", cx+2, cy+2, GoodTextColor)
 		}
 	}
 	w.drawScrollBar(screen, len(w.tabItems(ctx.Session)))

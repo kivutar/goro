@@ -167,7 +167,7 @@ func (w *StorageWindow) Draw(screen *render.Image, ctx Context, assets AssetRend
 	if w.status != "" && time.Since(w.statusAt) < 2200*time.Millisecond {
 		statusColor := inventoryMutedColor
 		if !w.statusGood {
-			statusColor = shopErrorColor
+			statusColor = ErrorTextColor
 		}
 		render.DebugPrintAtColor(screen, trimRunes(w.status, 34), x+storageWindowPad+92, y+storageWindowHeight-22, statusColor)
 	}

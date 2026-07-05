@@ -595,7 +595,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		if deal, ok, err := network.ParseShopDealSelection(pkt); err != nil {
 			log.Printf("parse shop deal selection 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			m.shopWindow.OpenDeal(deal, ctx)
+			m.shopWindow.OpenDeal(deal)
 			continue
 		}
 		if sellList, ok, err := network.ParseShopSellList(pkt); err != nil {
@@ -864,7 +864,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.storageWindow.Update(ctx, &m.itemInfoWindow) {
 		return nil, nil
 	}
-	if m.shopWindow.Update(ctx, &m.itemInfoWindow) {
+	if m.shopWindow.Update(ctx) {
 		return nil, nil
 	}
 	if m.skillWindow.Update(ctx, &m.shortcutBar, m) {

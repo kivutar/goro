@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"time"
 
 	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/geometry"
@@ -43,8 +42,6 @@ var (
 	shopTitleColor  = TitleTextColor
 	shopTextColor   = TextColor
 	shopMutedColor  = MutedTextColor
-	shopGoodColor   = GoodTextColor
-	shopErrorColor  = ErrorTextColor
 	shopButtonColor = ButtonColor
 )
 
@@ -55,7 +52,6 @@ type ShopWindow struct {
 	mode            int
 	x               int
 	y               int
-	positioned      bool
 	sellable        map[uint16]network.ShopSellItem
 	cart            []shopSellCartItem
 	buyItems        []network.ShopBuyItem
@@ -74,17 +70,14 @@ type ShopWindow struct {
 	buyIconMiss     map[shopItemIconKey]struct{}
 	status          string
 	statusGood      bool
-	statusAt        time.Time
 	closePacketSent bool
 }
 
 type shopSellCartItem struct {
-	item    session.InventoryItem
-	price   uint32
-	over    uint32
-	amount  uint16
-	max     uint16
-	addedAt time.Time
+	item   session.InventoryItem
+	over   uint32
+	amount uint16
+	max    uint16
 }
 
 type shopBuyCartItem struct {
@@ -92,15 +85,21 @@ type shopBuyCartItem struct {
 	amount uint16
 }
 
+type shopTableRow struct {
+	name   string
+	price  string
+	amount string
+	icon   image.Image
+}
+
 type shopItemIconKey struct {
 	itemID     uint16
 	identified bool
 }
 
-func (w *ShopWindow) OpenDeal(selection network.ShopDealSelection, ctx Context) {
+func (w *ShopWindow) OpenDeal(selection network.ShopDealSelection) {
 	w.dealOpen = true
 	w.dealNPCID = selection.NPCID
-	w.ensureSellPosition(ctx)
 }
 
 func (w *ShopWindow) OpenSell(list []network.ShopSellItem, ctx Context) {
@@ -123,7 +122,6 @@ func (w *ShopWindow) OpenSell(list []network.ShopSellItem, ctx Context) {
 	w.ensureBuyCartScrollSignal().Set(0)
 	w.status = "Drag items here to sell"
 	w.statusGood = true
-	w.statusAt = time.Now()
 	w.closePacketSent = false
 	w.openBuyWindow(ctx)
 }
@@ -145,7 +143,6 @@ func (w *ShopWindow) OpenBuy(list []network.ShopBuyItem, ctx Context) {
 	w.cart = nil
 	w.status = "Select items to buy"
 	w.statusGood = true
-	w.statusAt = time.Now()
 	w.closePacketSent = false
 	w.openBuyWindow(ctx)
 }
@@ -155,7 +152,6 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 		if result.Result == 0 {
 			w.status = "Deal completed"
 			w.statusGood = true
-			w.statusAt = time.Now()
 			w.open = false
 			w.mode = shopModeNone
 			w.buyCart = nil
@@ -166,14 +162,12 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 		}
 		w.status = fmt.Sprintf("Buy failed result=%d", result.Result)
 		w.statusGood = result.Result == 0
-		w.statusAt = time.Now()
 		w.refreshBuyWindow(ctx)
 		return
 	}
 	if result.Result == 0 {
 		w.status = "Deal completed"
 		w.statusGood = true
-		w.statusAt = time.Now()
 		w.open = false
 		w.mode = shopModeNone
 		w.cart = nil
@@ -184,10 +178,9 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 	}
 	w.status = "Sell failed"
 	w.statusGood = false
-	w.statusAt = time.Now()
 }
 
-func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *ShopWindow) Update(ctx Context) bool {
 	if ctx.Input == nil {
 		return false
 	}
@@ -198,7 +191,7 @@ func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 		return false
 	}
 	if w.mode == shopModeBuy || w.mode == shopModeSell {
-		return w.updateBuyWindow(ctx, itemInfo)
+		return w.updateBuyWindow(ctx)
 	}
 	return false
 }
@@ -274,9 +267,6 @@ func (w *ShopWindow) CursorAction(ctx Context) (int, bool) {
 	}
 	if (w.mode == shopModeBuy || w.mode == shopModeSell) && (pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyWindow.x, w.buyWindow.y, shopBuyListWindowW, shopBuyListWindowH) ||
 		pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyCartWindow.x, w.buyCartWindow.y, shopBuyCartWindowW, shopBuyCartWindowH)) {
-		return CursorActionClick, true
-	}
-	if w.dealOpen && pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, shopDealWidth, shopDealHeight) {
 		return CursorActionClick, true
 	}
 	return 0, false
@@ -392,174 +382,133 @@ func (w *ShopWindow) buyCartWidgetTree(ctx Context) widget.Widget {
 }
 
 func (w *ShopWindow) buyTableWidget(ctx Context) *datatable.Widget {
+	rows := w.buyTableRows(ctx)
 	if w.mode == shopModeSell {
-		return w.sellTableWidget(ctx)
+		rows = w.sellTableRows(ctx)
 	}
-	names := make([]string, len(w.buyItems))
-	icons := make([]image.Image, len(w.buyItems))
-	for i, item := range w.buyItems {
-		names[i] = inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.ItemID, Type: item.Type, Identified: true})
-		icons[i] = w.shopItemIconImage(ctx.Resources, item.ItemID)
-	}
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: 296},
-			{Key: "price", Title: "Price", Width: 124, Align: widget.TextAlignRight},
-		}),
-		datatable.RowCount(len(w.buyItems)),
-		datatable.RowHeight(shopBuyRowH-3),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.buySelectedRow),
-		datatable.ScrollYSignal(w.ensureBuyScrollSignal()),
-		datatable.PainterOpt(shopBuyTablePainter{
-			icons: icons,
-		}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(w.buyItems) {
-				return ""
-			}
-			item := w.buyItems[row]
-			switch col {
-			case "item":
-				return names[row]
-			case "price":
-				return formatHUDNumber(int64(shopBuyItemPrice(item))) + " z"
-			}
-			return ""
-		}),
-		datatable.OnRowSelect(func(row int) {
-			if row < 0 || row >= len(w.buyItems) {
-				return
-			}
-			w.buySelectedRow = row
-			w.refreshBuyWindow(ctx)
-		}),
-	)
+	return w.shopTableWidget(rows, false, w.ensureBuyScrollSignal(), true, func(row int) {
+		w.buySelectedRow = row
+		w.refreshBuyWindow(ctx)
+	})
 }
 
 func (w *ShopWindow) buyCartTableWidget(ctx Context) *datatable.Widget {
+	rows := w.buyCartTableRows(ctx)
 	if w.mode == shopModeSell {
-		return w.sellCartTableWidget(ctx)
+		rows = w.sellCartTableRows(ctx)
 	}
-	names := make([]string, len(w.buyCart))
-	icons := make([]image.Image, len(w.buyCart))
+	return w.shopTableWidget(rows, true, w.ensureBuyCartScrollSignal(), false, nil)
+}
+
+func (w *ShopWindow) shopTableWidget(rows []shopTableRow, amountColumn bool, scroll state.Signal[float32], selectable bool, onSelect func(int)) *datatable.Widget {
+	columns := []datatable.Column{
+		{Key: "item", Title: "Item", Width: 296},
+		{Key: "price", Title: "Price", Width: 124, Align: widget.TextAlignRight},
+	}
+	if amountColumn {
+		columns = []datatable.Column{
+			{Key: "item", Title: "Item", Width: 250},
+			{Key: "price", Title: "Price", Width: 104, Align: widget.TextAlignRight},
+			{Key: "amount", Title: "Qty", Width: 66, Align: widget.TextAlignCenter},
+		}
+	}
+	icons := make([]image.Image, len(rows))
+	for i, row := range rows {
+		icons[i] = row.icon
+	}
+	options := []datatable.Option{
+		datatable.Columns(columns),
+		datatable.RowCount(len(rows)),
+		datatable.RowHeight(shopBuyRowH - 3),
+		datatable.ScrollYSignal(scroll),
+		datatable.PainterOpt(shopBuyTablePainter{
+			icons: icons,
+		}),
+		datatable.CellValue(func(row int, col string) string {
+			if row < 0 || row >= len(rows) {
+				return ""
+			}
+			switch col {
+			case "item":
+				return rows[row].name
+			case "price":
+				return rows[row].price
+			case "amount":
+				return rows[row].amount
+			}
+			return ""
+		}),
+	}
+	if selectable {
+		options = append(options,
+			datatable.SelectionModeOpt(datatable.SelectionSingle),
+			datatable.SelectedRow(w.buySelectedRow),
+			datatable.OnRowSelect(func(row int) {
+				if row < 0 || row >= len(rows) {
+					return
+				}
+				if onSelect != nil {
+					onSelect(row)
+				}
+			}),
+		)
+	}
+	return datatable.New(options...)
+}
+
+func (w *ShopWindow) buyTableRows(ctx Context) []shopTableRow {
+	rows := make([]shopTableRow, len(w.buyItems))
+	for i, item := range w.buyItems {
+		rows[i] = shopTableRow{
+			name:  inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.ItemID, Type: item.Type, Identified: true}),
+			price: formatHUDNumber(int64(shopBuyItemPrice(item))) + " z",
+			icon:  w.shopItemIconImage(ctx.Resources, item.ItemID),
+		}
+	}
+	return rows
+}
+
+func (w *ShopWindow) buyCartTableRows(ctx Context) []shopTableRow {
+	rows := make([]shopTableRow, len(w.buyCart))
 	for i, item := range w.buyCart {
-		names[i] = inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.item.ItemID, Type: item.item.Type, Identified: true})
-		icons[i] = w.shopItemIconImage(ctx.Resources, item.item.ItemID)
+		rows[i] = shopTableRow{
+			name:   inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.item.ItemID, Type: item.item.Type, Identified: true}),
+			price:  formatHUDNumber(int64(shopBuyItemPrice(item.item)) * int64(item.amount)),
+			amount: fmt.Sprintf("x%d", item.amount),
+			icon:   w.shopItemIconImage(ctx.Resources, item.item.ItemID),
+		}
 	}
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: 250},
-			{Key: "price", Title: "Price", Width: 104, Align: widget.TextAlignRight},
-			{Key: "amount", Title: "Qty", Width: 66, Align: widget.TextAlignCenter},
-		}),
-		datatable.RowCount(len(w.buyCart)),
-		datatable.RowHeight(shopBuyRowH-3),
-		datatable.ScrollYSignal(w.ensureBuyCartScrollSignal()),
-		datatable.PainterOpt(shopBuyTablePainter{
-			icons: icons,
-		}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(w.buyCart) {
-				return ""
-			}
-			item := w.buyCart[row]
-			switch col {
-			case "item":
-				return names[row]
-			case "price":
-				return formatHUDNumber(int64(shopBuyItemPrice(item.item)) * int64(item.amount))
-			case "amount":
-				return fmt.Sprintf("x%d", item.amount)
-			}
-			return ""
-		}),
-	)
+	return rows
 }
 
-func (w *ShopWindow) sellTableWidget(ctx Context) *datatable.Widget {
+func (w *ShopWindow) sellTableRows(ctx Context) []shopTableRow {
 	items := w.sellAvailableItems(ctx)
-	names := make([]string, len(items))
-	icons := make([]image.Image, len(items))
+	rows := make([]shopTableRow, len(items))
 	for i, item := range items {
-		names[i] = inventoryItemDisplayName(ctx.Resources, item)
-		icons[i] = w.shopItemIconImage(ctx.Resources, item.ItemID)
+		sell, ok := w.sellable[item.Index]
+		if !ok {
+			continue
+		}
+		rows[i] = shopTableRow{
+			name:  inventoryItemDisplayName(ctx.Resources, item),
+			price: formatHUDNumber(int64(shopSellItemPrice(sell))) + " z",
+			icon:  w.shopItemIconImage(ctx.Resources, item.ItemID),
+		}
 	}
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: 296},
-			{Key: "price", Title: "Price", Width: 124, Align: widget.TextAlignRight},
-		}),
-		datatable.RowCount(len(items)),
-		datatable.RowHeight(shopBuyRowH-3),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.buySelectedRow),
-		datatable.ScrollYSignal(w.ensureBuyScrollSignal()),
-		datatable.PainterOpt(shopBuyTablePainter{
-			icons: icons,
-		}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(items) {
-				return ""
-			}
-			item := items[row]
-			sell, ok := w.sellable[item.Index]
-			if !ok {
-				return ""
-			}
-			switch col {
-			case "item":
-				return names[row]
-			case "price":
-				return formatHUDNumber(int64(shopSellItemPrice(sell))) + " z"
-			}
-			return ""
-		}),
-		datatable.OnRowSelect(func(row int) {
-			if row < 0 || row >= len(items) {
-				return
-			}
-			w.buySelectedRow = row
-			w.refreshBuyWindow(ctx)
-		}),
-	)
+	return rows
 }
 
-func (w *ShopWindow) sellCartTableWidget(ctx Context) *datatable.Widget {
-	names := make([]string, len(w.cart))
-	icons := make([]image.Image, len(w.cart))
+func (w *ShopWindow) sellCartTableRows(ctx Context) []shopTableRow {
+	rows := make([]shopTableRow, len(w.cart))
 	for i, item := range w.cart {
-		names[i] = inventoryItemDisplayName(ctx.Resources, item.item)
-		icons[i] = w.shopItemIconImage(ctx.Resources, item.item.ItemID)
+		rows[i] = shopTableRow{
+			name:   inventoryItemDisplayName(ctx.Resources, item.item),
+			price:  formatHUDNumber(int64(item.over) * int64(item.amount)),
+			amount: fmt.Sprintf("x%d", item.amount),
+			icon:   w.shopItemIconImage(ctx.Resources, item.item.ItemID),
+		}
 	}
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: 250},
-			{Key: "price", Title: "Price", Width: 104, Align: widget.TextAlignRight},
-			{Key: "amount", Title: "Qty", Width: 66, Align: widget.TextAlignCenter},
-		}),
-		datatable.RowCount(len(w.cart)),
-		datatable.RowHeight(shopBuyRowH-3),
-		datatable.ScrollYSignal(w.ensureBuyCartScrollSignal()),
-		datatable.PainterOpt(shopBuyTablePainter{
-			icons: icons,
-		}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(w.cart) {
-				return ""
-			}
-			item := w.cart[row]
-			switch col {
-			case "item":
-				return names[row]
-			case "price":
-				return formatHUDNumber(int64(item.over) * int64(item.amount))
-			case "amount":
-				return fmt.Sprintf("x%d", item.amount)
-			}
-			return ""
-		}),
-	)
+	return rows
 }
 
 func (w *ShopWindow) ensureBuyScrollSignal() state.Signal[float32] {
@@ -576,7 +525,7 @@ func (w *ShopWindow) ensureBuyCartScrollSignal() state.Signal[float32] {
 	return w.buyCartScrollY
 }
 
-func (w *ShopWindow) updateBuyWindow(ctx Context, _ *ItemInfoWindow) bool {
+func (w *ShopWindow) updateBuyWindow(ctx Context) bool {
 	w.ensureBuyWindow()
 	if !w.buyWindow.IsOpen() || !w.buyCartWindow.IsOpen() {
 		w.openBuyWindow(ctx)
@@ -862,12 +811,10 @@ func (w *ShopWindow) addCartItem(item session.InventoryItem, sell network.ShopSe
 		}
 	}
 	w.cart = append(w.cart, shopSellCartItem{
-		item:    item,
-		price:   sell.Price,
-		over:    sell.OverchargePrice,
-		amount:  1,
-		max:     maxAmount,
-		addedAt: time.Now(),
+		item:   item,
+		over:   sell.OverchargePrice,
+		amount: 1,
+		max:    maxAmount,
 	})
 }
 
@@ -889,13 +836,11 @@ func (w *ShopWindow) submit(ctx Context) {
 	if len(w.cart) == 0 {
 		w.status = "No items selected"
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	if ctx.Network == nil {
 		w.status = "Not connected"
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	items := make([]network.SellRequestItem, 0, len(w.cart))
@@ -905,32 +850,27 @@ func (w *ShopWindow) submit(ctx Context) {
 	if err := ctx.Network.SendShopSellItems(items); err != nil {
 		w.status = err.Error()
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	w.closePacketSent = true
 	w.status = "Sell requested"
 	w.statusGood = true
-	w.statusAt = time.Now()
 }
 
 func (w *ShopWindow) submitBuy(ctx Context) {
 	if len(w.buyCart) == 0 {
 		w.status = "No items selected"
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	if ctx.Session != nil && w.total() > ctx.Session.Inventory.Zeny {
 		w.status = "Not enough zeny"
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	if ctx.Network == nil {
 		w.status = "Not connected"
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	items := make([]network.BuyRequestItem, 0, len(w.buyCart))
@@ -940,13 +880,11 @@ func (w *ShopWindow) submitBuy(ctx Context) {
 	if err := ctx.Network.SendShopBuyItems(items); err != nil {
 		w.status = err.Error()
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	w.closePacketSent = true
 	w.status = "Buy requested"
 	w.statusGood = true
-	w.statusAt = time.Now()
 }
 
 func (w *ShopWindow) decrementBuyCartRow(row int) {
@@ -969,15 +907,6 @@ func (w *ShopWindow) decrementSellCartRow(row int) {
 		return
 	}
 	w.cart = append(w.cart[:row], w.cart[row+1:]...)
-}
-
-func (w *ShopWindow) decrementBuyItem(itemID uint16) {
-	for i := range w.buyCart {
-		if w.buyCart[i].item.ItemID == itemID {
-			w.decrementBuyCartRow(i)
-			return
-		}
-	}
 }
 
 func (w *ShopWindow) cancel(ctx Context) {
@@ -1007,13 +936,11 @@ func (w *ShopWindow) sendDealSelection(ctx Context, dealType uint8) {
 	if ctx.Network == nil {
 		w.status = "Not connected"
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	if err := ctx.Network.SendShopDealSelection(w.dealNPCID, dealType); err != nil {
 		w.status = err.Error()
 		w.statusGood = false
-		w.statusAt = time.Now()
 		return
 	}
 	w.dealOpen = false
@@ -1023,17 +950,6 @@ func (w *ShopWindow) sendDealSelection(ctx Context, dealType uint8) {
 		w.status = "Buy requested"
 	}
 	w.statusGood = true
-	w.statusAt = time.Now()
-}
-
-func (w *ShopWindow) ensureSellPosition(ctx Context) {
-	if w.positioned {
-		return
-	}
-	width, _ := ctx.ScreenSize()
-	w.x = maxInt(8, (width-shopDealWidth)/2)
-	w.y = 120
-	w.positioned = true
 }
 
 func (w *ShopWindow) ensureBuyPosition(ctx Context) {
@@ -1041,16 +957,6 @@ func (w *ShopWindow) ensureBuyPosition(ctx Context) {
 	totalWidth := shopBuyListWindowW + 20 + shopBuyCartWindowW
 	w.x = maxInt(8, (width-totalWidth)/2)
 	w.y = 120
-	w.positioned = true
-}
-
-func (w *ShopWindow) buyAmount(itemID uint16) uint16 {
-	for _, item := range w.buyCart {
-		if item.item.ItemID == itemID {
-			return item.amount
-		}
-	}
-	return 0
 }
 
 func (w *ShopWindow) drawButton(screen *render.Image, x, y, width, height int, label string, enabled bool) {

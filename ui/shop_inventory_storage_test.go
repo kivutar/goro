@@ -30,15 +30,15 @@ func TestShopBuyCartTracksQuantityAndTotal(t *testing.T) {
 
 	window.addBuyItem(item)
 	window.addBuyItem(item)
-	if got := window.buyAmount(501); got != 2 {
+	if got := window.buyCart[0].amount; got != 2 {
 		t.Fatalf("buy amount = %d, want 2", got)
 	}
 	if got := window.total(); got != 160 {
 		t.Fatalf("total = %d, want 160", got)
 	}
 
-	window.decrementBuyItem(501)
-	if got := window.buyAmount(501); got != 1 {
+	window.decrementBuyCartRow(0)
+	if got := window.buyCart[0].amount; got != 1 {
 		t.Fatalf("buy amount after decrement = %d, want 1", got)
 	}
 }
