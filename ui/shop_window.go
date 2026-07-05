@@ -2,12 +2,19 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"time"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
@@ -60,6 +67,10 @@ type ShopWindow struct {
 	buyItems        []network.ShopBuyItem
 	buyCart         []shopBuyCartItem
 	buyScroll       int
+	buyWindow       WindowState
+	buyItemInfo     *ItemInfoWindow
+	buyIcons        map[shopItemIconKey]image.Image
+	buyIconMiss     map[shopItemIconKey]struct{}
 	status          string
 	statusGood      bool
 	statusAt        time.Time
@@ -78,6 +89,11 @@ type shopSellCartItem struct {
 type shopBuyCartItem struct {
 	item   network.ShopBuyItem
 	amount uint16
+}
+
+type shopItemIconKey struct {
+	itemID     uint16
+	identified bool
 }
 
 func (w *ShopWindow) OpenDeal(selection network.ShopDealSelection, ctx Context) {
@@ -119,6 +135,7 @@ func (w *ShopWindow) OpenBuy(list []network.ShopBuyItem, ctx Context) {
 	w.statusGood = true
 	w.statusAt = time.Now()
 	w.closePacketSent = false
+	w.openBuyWindow(ctx)
 }
 
 func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
@@ -132,11 +149,13 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 			w.buyCart = nil
 			w.buyItems = nil
 			w.closePacketSent = true
+			w.closeBuyWindow(ctx)
 			return
 		}
 		w.status = fmt.Sprintf("Buy failed result=%d", result.Result)
 		w.statusGood = result.Result == 0
 		w.statusAt = time.Now()
+		w.refreshBuyWindow(ctx)
 		return
 	}
 	if result.Result == 0 {
@@ -166,6 +185,9 @@ func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 		return false
 	}
 	w.ensureSellPosition(ctx)
+	if w.mode == shopModeBuy {
+		return w.updateBuyWindow(ctx, itemInfo)
+	}
 	width, height := ctx.ScreenSize()
 	if w.dragging {
 		if ctx.Input.MousePressed(render.MouseButtonLeft) {
@@ -278,6 +300,10 @@ func (w *ShopWindow) Draw(screen *render.Image, ctx Context, assets AssetRendere
 		return
 	}
 	w.ensureSellPosition(ctx)
+	if w.mode == shopModeBuy && ctx.UIManager != nil {
+		w.buyWindow.Publish(ctx)
+		return
+	}
 	x, y := w.x, w.y
 	DrawTitledWindowFrame(screen, x, y, shopWindowWidth, shopWindowHeight, shopWindowTitleH)
 	title := "Sell Items"
@@ -350,6 +376,338 @@ func (w *ShopWindow) CursorAction(ctx Context) (int, bool) {
 		return CursorActionClick, true
 	}
 	return 0, false
+}
+
+func (w *ShopWindow) ensureBuyWindow() {
+	if w.buyWindow.width == 0 {
+		w.buyWindow = NewWindowState(shopWindowWidth, shopWindowHeight)
+		w.buyWindow.SetCloseOnEscape(false)
+	}
+}
+
+func (w *ShopWindow) openBuyWindow(ctx Context) {
+	w.ensureBuyWindow()
+	w.buyWindow.OpenAt(w.x, w.y, w.buyWidgetTree(ctx))
+	w.buyWindow.Publish(ctx)
+}
+
+func (w *ShopWindow) refreshBuyWindow(ctx Context) {
+	if w.mode != shopModeBuy || !w.open {
+		w.closeBuyWindow(ctx)
+		return
+	}
+	w.ensureBuyWindow()
+	if !w.buyWindow.IsOpen() {
+		w.openBuyWindow(ctx)
+		return
+	}
+	w.buyWindow.SetContent(w.buyWidgetTree(ctx))
+	w.buyWindow.Publish(ctx)
+}
+
+func (w *ShopWindow) closeBuyWindow(ctx Context) {
+	if w.buyWindow.width == 0 {
+		return
+	}
+	w.buyWindow.Close()
+	w.buyWindow.Unpublish(ctx)
+}
+
+func (w *ShopWindow) buyWidgetTree(ctx Context) widget.Widget {
+	rows := make([]widget.Widget, 0, visibleBuyRows())
+	for _, item := range w.visibleBuyItems() {
+		item := item
+		amount := w.buyAmount(item.ItemID)
+		rows = append(rows, newShopBuyRowWidget(shopBuyRowConfig{
+			item:   item,
+			name:   inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.ItemID, Type: item.Type, Identified: true}),
+			price:  shopBuyItemPrice(item),
+			amount: amount,
+			icon:   w.shopItemIconImage(ctx.Resources, item.ItemID),
+			onAdd: func() {
+				w.addBuyItem(item)
+				w.refreshBuyWindow(ctx)
+			},
+			onRemove: func() {
+				w.decrementBuyItem(item.ItemID)
+				w.refreshBuyWindow(ctx)
+			},
+			onInfo: func(mx, my int) {
+				if w.buyItemInfo != nil {
+					w.buyItemInfo.openItem(ctx, session.InventoryItem{ItemID: item.ItemID, Type: item.Type, Identified: true, Amount: 1}, mx, my)
+				}
+			},
+		}))
+	}
+	for len(rows) < visibleBuyRows() {
+		rows = append(rows, primitives.Box().Height(shopBuyRowH-3))
+	}
+	statusColor := rotheme.Default.Colors.MutedText
+	if w.status != "" && !w.statusGood {
+		statusColor = widget.RGBA8(176, 42, 42, 255)
+	}
+	return Window(
+		Title("Buy Items"),
+		CloseButton(true),
+		OnClose(func() {
+			w.cancel(ctx)
+		}),
+		Size(shopWindowWidth, shopWindowHeight),
+		FooterHeight(42),
+		FooterPadding(10),
+		Content(
+			primitives.Box(
+				primitives.Box(
+					primitives.HBox(
+						primitives.Box(rows...).
+							Width(shopWindowWidth-shopWindowPad*2-22).
+							Height(shopListH-10).
+							Gap(0),
+						primitives.Box(
+							rotheme.IconButtonDisabled(rotheme.IconButtonUp, !w.canScrollBuy(-1), func() {
+								w.scrollBuyBy(1)
+								w.refreshBuyWindow(ctx)
+							}),
+							primitives.Expanded(primitives.Box()),
+							rotheme.IconButtonDisabled(rotheme.IconButtonDown, !w.canScrollBuy(1), func() {
+								w.scrollBuyBy(-1)
+								w.refreshBuyWindow(ctx)
+							}),
+						).
+							Width(17).
+							Height(shopListH-10),
+					).
+						Gap(3),
+				).
+					Padding(5).
+					Height(shopListH).
+					Background(rotheme.Default.Colors.PanelBody).
+					BorderStyle(1, rotheme.Default.Colors.WindowBorder),
+				rotheme.Text(w.status).
+					Color(statusColor),
+			).Padding(shopWindowPad),
+		),
+		Footer(
+			primitives.HBox(
+				rotheme.Text(fmt.Sprintf("Total: %s z", formatHUDNumber(w.total()))),
+				primitives.Expanded(primitives.Box()),
+				rotheme.ButtonDisabled("Buy", len(w.buyCart) == 0, func() {
+					w.submitBuy(ctx)
+					w.refreshBuyWindow(ctx)
+				}).Width(58),
+				rotheme.Button("Cancel", func() {
+					w.cancel(ctx)
+				}).Width(62),
+			).
+				CrossAlign(primitives.CrossAxisCenter).
+				Gap(8),
+		),
+	)
+}
+
+func (w *ShopWindow) canScrollBuy(delta int) bool {
+	maxScroll := maxInt(0, len(w.buyItems)-visibleBuyRows())
+	next := w.buyScroll + delta
+	return next >= 0 && next <= maxScroll
+}
+
+func (w *ShopWindow) updateBuyWindow(ctx Context, itemInfo *ItemInfoWindow) bool {
+	w.ensureBuyWindow()
+	w.buyItemInfo = itemInfo
+	if !w.buyWindow.IsOpen() {
+		w.openBuyWindow(ctx)
+	}
+	w.x, w.y = w.buyWindow.x, w.buyWindow.y
+	if ctx.Input.JustPressed(render.KeyEscape) {
+		w.cancel(ctx)
+		return true
+	}
+	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.x, w.y, shopWindowWidth, shopWindowHeight)
+	if inside && ctx.Input.WheelY != 0 {
+		w.scrollBuyBy(ctx.Input.WheelY)
+		w.refreshBuyWindow(ctx)
+		return true
+	}
+	if inside && ctx.Input.MouseJustPressed(render.MouseButtonRight) {
+		if itemInfo != nil {
+			if item, ok := w.itemAt(ctx.Input.MouseX, ctx.Input.MouseY); ok {
+				itemInfo.openItem(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY)
+			}
+		}
+		return true
+	}
+	consumed := w.buyWindow.Update(ctx)
+	w.x, w.y = w.buyWindow.x, w.buyWindow.y
+	if !w.buyWindow.IsOpen() {
+		w.cancel(ctx)
+		return true
+	}
+	w.buyWindow.Publish(ctx)
+	return consumed || inside
+}
+
+func (w *ShopWindow) shopItemIconImage(manager *res.Manager, itemID uint16) image.Image {
+	if manager == nil || itemID == 0 {
+		return nil
+	}
+	key := shopItemIconKey{itemID: itemID, identified: true}
+	if w.buyIcons != nil {
+		if img := w.buyIcons[key]; img != nil {
+			return img
+		}
+	}
+	if _, ok := w.buyIconMiss[key]; ok {
+		return nil
+	}
+	resourceName, ok := manager.ItemResourceName(int(itemID), true)
+	if !ok {
+		w.markShopIconMiss(key)
+		return nil
+	}
+	img, _, err := res.LoadImage(manager, res.ItemIconTextureCandidates(resourceName))
+	if err != nil {
+		w.markShopIconMiss(key)
+		return nil
+	}
+	if w.buyIcons == nil {
+		w.buyIcons = make(map[shopItemIconKey]image.Image)
+	}
+	w.buyIcons[key] = img
+	return img
+}
+
+func (w *ShopWindow) markShopIconMiss(key shopItemIconKey) {
+	if w.buyIconMiss == nil {
+		w.buyIconMiss = make(map[shopItemIconKey]struct{})
+	}
+	w.buyIconMiss[key] = struct{}{}
+}
+
+func shopBuyItemPrice(item network.ShopBuyItem) uint32 {
+	if item.DiscountPrice != 0 {
+		return item.DiscountPrice
+	}
+	return item.Price
+}
+
+type shopBuyRowConfig struct {
+	item     network.ShopBuyItem
+	name     string
+	price    uint32
+	amount   uint16
+	icon     image.Image
+	onAdd    func()
+	onRemove func()
+	onInfo   func(mx, my int)
+}
+
+type shopBuyRowWidget struct {
+	widget.WidgetBase
+	cfg     shopBuyRowConfig
+	hovered bool
+}
+
+func newShopBuyRowWidget(cfg shopBuyRowConfig) *shopBuyRowWidget {
+	w := &shopBuyRowWidget{cfg: cfg}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *shopBuyRowWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(shopWindowWidth-shopWindowPad*2-22, shopBuyRowH-3))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *shopBuyRowWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() {
+		return
+	}
+	bounds := w.Bounds()
+	fill := widget.RGBA8(246, 249, 253, 255)
+	if w.hovered {
+		fill = rotheme.Default.Colors.ButtonHover
+	}
+	canvas.DrawRect(bounds, fill)
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
+	if w.cfg.icon != nil {
+		iconBounds := w.cfg.icon.Bounds()
+		iconH := float32(iconBounds.Dy())
+		canvas.DrawImage(w.cfg.icon, geometry.Pt(bounds.Min.X+4, bounds.Min.Y+(bounds.Height()-iconH)/2))
+	}
+	nameBounds := geometry.NewRect(bounds.Min.X+32, bounds.Min.Y+4, 128, bounds.Height()-8)
+	priceBounds := geometry.NewRect(bounds.Min.X+168, bounds.Min.Y+4, 58, bounds.Height()-8)
+	amountBounds := geometry.NewRect(bounds.Min.X+226, bounds.Min.Y+4, 40, bounds.Height()-8)
+	rotheme.DrawText(canvas, trimRunes(w.cfg.name, 20), nameBounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignLeft)
+	rotheme.DrawText(canvas, formatHUDNumber(int64(w.cfg.price)), priceBounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignRight)
+	if w.cfg.amount > 0 {
+		rotheme.DrawText(canvas, fmt.Sprintf("x%d", w.cfg.amount), amountBounds, rotheme.Default.Typography.TextSize, widget.RGBA8(54, 128, 76, 255), false, widget.TextAlignLeft)
+	}
+	minus := geometry.NewRect(bounds.Max.X-shopRowRightPad-IconButtonSize*2-shopRowButtonGap, bounds.Min.Y+6, IconButtonSize, IconButtonSize)
+	plus := geometry.NewRect(bounds.Max.X-shopRowRightPad-IconButtonSize, bounds.Min.Y+6, IconButtonSize, IconButtonSize)
+	rotheme.DrawIconButton(canvas, minus, rotheme.IconButtonMinus, false, w.cfg.amount == 0)
+	rotheme.DrawIconButton(canvas, plus, rotheme.IconButtonPlus, false, false)
+}
+
+func (w *shopBuyRowWidget) Event(ctx widget.Context, e event.Event) bool {
+	if !w.IsVisible() || !w.IsEnabled() {
+		return false
+	}
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseEnter:
+		w.hovered = true
+		ctx.SetCursor(widget.CursorPointer)
+		w.SetNeedsRedraw(true)
+		return true
+	case event.MouseLeave:
+		w.hovered = false
+		ctx.SetCursor(widget.CursorDefault)
+		w.SetNeedsRedraw(true)
+		return false
+	case event.MousePress:
+		switch mouse.Button {
+		case event.ButtonLeft:
+			if w.minusButtonBounds().Contains(mouse.Position) {
+				if w.cfg.amount > 0 && w.cfg.onRemove != nil {
+					w.cfg.onRemove()
+				}
+				return true
+			}
+			if w.plusButtonBounds().Contains(mouse.Position) || w.bodyBounds().Contains(mouse.Position) {
+				if w.cfg.onAdd != nil {
+					w.cfg.onAdd()
+				}
+				return true
+			}
+		case event.ButtonRight:
+			if w.bodyBounds().Contains(mouse.Position) && w.cfg.onInfo != nil {
+				w.cfg.onInfo(int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y))
+				return true
+			}
+		}
+	}
+	return true
+}
+
+func (w *shopBuyRowWidget) bodyBounds() geometry.Rect {
+	bounds := w.Bounds()
+	local := geometry.NewRect(0, 0, bounds.Width()-58, bounds.Height())
+	return local
+}
+
+func (w *shopBuyRowWidget) minusButtonBounds() geometry.Rect {
+	bounds := w.Bounds()
+	return geometry.NewRect(bounds.Width()-shopRowRightPad-IconButtonSize*2-shopRowButtonGap, 6, IconButtonSize, IconButtonSize)
+}
+
+func (w *shopBuyRowWidget) plusButtonBounds() geometry.Rect {
+	bounds := w.Bounds()
+	return geometry.NewRect(bounds.Width()-shopRowRightPad-IconButtonSize, 6, IconButtonSize, IconButtonSize)
 }
 
 func (w *ShopWindow) AcceptInventoryDrop(ctx Context, item session.InventoryItem, mouseX, mouseY int) bool {
@@ -558,6 +916,7 @@ func (w *ShopWindow) cancel(ctx Context) {
 	w.buyItems = nil
 	w.buyCart = nil
 	w.closePacketSent = true
+	w.closeBuyWindow(ctx)
 }
 
 func (w *ShopWindow) sendDealSelection(ctx Context, dealType uint8) {
