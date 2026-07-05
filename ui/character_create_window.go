@@ -404,12 +404,12 @@ func characterCreatePreviewButtonAt(bounds geometry.Rect, point geometry.Point) 
 
 func characterCreatePreviewButtonRect(bounds geometry.Rect, index int) geometry.Rect {
 	size := rotheme.IconButtonSize
-	y := bounds.Min.Y + 70
 	xs := [...]float32{bounds.Min.X + 16, bounds.Min.X + bounds.Width()/2 - size/2, bounds.Max.X - 16 - size}
+	ys := [...]float32{bounds.Min.Y + 70, bounds.Min.Y + 16, bounds.Min.Y + 70}
 	if index < 0 || index >= len(xs) {
 		index = 0
 	}
-	return geometry.NewRect(xs[index], y, size, size)
+	return geometry.NewRect(xs[index], ys[index], size, size)
 }
 
 func newCharacterCreateStatGraph(stats [CharacterCreateStatCount]uint8, onClick func(int)) *characterCreateStatGraph {
