@@ -30,7 +30,7 @@ const (
 	shopSellCartRows     = 10
 
 	shopDealWidth  = 244
-	shopDealHeight = 108
+	shopDealHeight = 124
 )
 
 const (
@@ -235,10 +235,10 @@ func (w *ShopWindow) dealWidgetTree(ctx Context) widget.Widget {
 		FooterPadding(10),
 		Content(
 			primitives.Box(
-				rotheme.Text("What do you want to do?"),
+				rotheme.Text("Select a transaction type"),
 			).
-				PaddingTop(14).
-				CrossAlign(primitives.CrossAxisCenter),
+				PaddingLeft(14).
+				PaddingTop(14),
 		),
 		Footer(
 			primitives.HBox(
