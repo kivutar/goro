@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"time"
 
 	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/geometry"
@@ -19,12 +20,14 @@ import (
 
 const (
 	shopBuyListWindowW   = 420
-	shopBuyListWindowH   = 416
 	shopBuyCartWindowW   = 420
-	shopBuyCartWindowH   = 184
+	shopBuyListFooterH   = 42
 	shopBuyCartFooterH   = 42
 	shopDataTableHeaderH = 36
-	shopBuyRowH          = 31
+	shopRowH             = 32
+	shopListRows         = 7
+	shopBuyCartRows      = 4
+	shopSellCartRows     = 10
 
 	shopDealWidth  = 244
 	shopDealHeight = 108
@@ -56,6 +59,9 @@ type ShopWindow struct {
 	buyPressX       int
 	buyPressY       int
 	buyDraggingItem bool
+	lastClickAt     time.Time
+	lastClickRow    int
+	lastClickCart   bool
 	buyIcons        map[shopItemIconKey]image.Image
 	buyIconMiss     map[shopItemIconKey]struct{}
 	closePacketSent bool
@@ -105,6 +111,7 @@ func (w *ShopWindow) OpenSell(list []network.ShopSellItem, ctx Context) {
 	w.buyPressRow = -1
 	w.buyPressCart = false
 	w.buyDraggingItem = false
+	w.lastClickRow = -1
 	w.ensureBuyScrollSignal().Set(0)
 	w.ensureBuyCartScrollSignal().Set(0)
 	w.closePacketSent = false
@@ -121,6 +128,7 @@ func (w *ShopWindow) OpenBuy(list []network.ShopBuyItem, ctx Context) {
 	w.buyPressRow = -1
 	w.buyPressCart = false
 	w.buyDraggingItem = false
+	w.lastClickRow = -1
 	w.ensureBuyScrollSignal().Set(0)
 	w.ensureBuyCartScrollSignal().Set(0)
 	w.sellable = nil
@@ -154,7 +162,7 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 	log.Printf("shop sell failed result=%d", result.Result)
 }
 
-func (w *ShopWindow) Update(ctx Context) bool {
+func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 	if ctx.Input == nil {
 		return false
 	}
@@ -172,7 +180,7 @@ func (w *ShopWindow) Update(ctx Context) bool {
 		return false
 	}
 	if w.mode == shopModeBuy || w.mode == shopModeSell {
-		return w.updateBuyWindow(ctx)
+		return w.updateBuyWindow(ctx, itemInfo)
 	}
 	return false
 }
@@ -253,12 +261,16 @@ func (w *ShopWindow) dealWidgetTree(ctx Context) widget.Widget {
 
 func (w *ShopWindow) ensureBuyWindow() {
 	if w.buyWindow.width == 0 {
-		w.buyWindow = NewWindowState(shopBuyListWindowW, shopBuyListWindowH)
+		w.buyWindow = NewWindowState(shopBuyListWindowW, shopListWindowHeight())
 		w.buyWindow.SetCloseOnEscape(false)
+	} else {
+		w.buyWindow.SetSize(shopBuyListWindowW, shopListWindowHeight())
 	}
 	if w.buyCartWindow.width == 0 {
-		w.buyCartWindow = NewWindowState(shopBuyCartWindowW, shopBuyCartWindowH)
+		w.buyCartWindow = NewWindowState(shopBuyCartWindowW, w.cartWindowHeight())
 		w.buyCartWindow.SetCloseOnEscape(false)
+	} else {
+		w.buyCartWindow.SetSize(shopBuyCartWindowW, w.cartWindowHeight())
 	}
 }
 
@@ -308,13 +320,18 @@ func (w *ShopWindow) buyListWidgetTree(ctx Context) widget.Widget {
 		OnClose(func() {
 			w.cancel(ctx)
 		}),
-		Size(shopBuyListWindowW, shopBuyListWindowH),
+		Size(shopBuyListWindowW, float32(shopListWindowHeight())),
+		FooterHeight(shopBuyListFooterH),
+		FooterPadding(10),
 		Content(
 			primitives.Box(
 				primitives.Box(w.buyTableWidget(ctx)).
-					Height(shopBuyListWindowH-ROWindowTitleHeight).
+					Height(float32(shopTableHeight(shopListRows))).
 					Background(rotheme.Default.Colors.PanelBody),
 			).Gap(0),
+		),
+		Footer(
+			primitives.Box(),
 		),
 	)
 }
@@ -334,17 +351,17 @@ func (w *ShopWindow) buyCartWidgetTree(ctx Context) widget.Widget {
 		OnClose(func() {
 			w.cancel(ctx)
 		}),
-		Size(shopBuyCartWindowW, shopBuyCartWindowH),
+		Size(shopBuyCartWindowW, float32(w.cartWindowHeight())),
 		FooterHeight(shopBuyCartFooterH),
 		FooterPadding(10),
 		Content(
 			primitives.Box(w.buyCartTableWidget(ctx)).
-				Height(shopBuyCartWindowH-ROWindowTitleHeight-shopBuyCartFooterH).
+				Height(float32(w.cartTableHeight())).
 				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
 			primitives.HBox(
-				rotheme.Text(fmt.Sprintf("Total: %s z", formatHUDNumber(w.total()))),
+				rotheme.Text(fmt.Sprintf("Total: %s Z", formatHUDNumber(w.total()))),
 				primitives.Expanded(primitives.Box()),
 				rotheme.ButtonDisabled(action, disabled, func() {
 					w.submit(ctx)
@@ -400,7 +417,7 @@ func (w *ShopWindow) shopTableWidget(rows []shopTableRow, amountColumn bool, scr
 	options := []datatable.Option{
 		datatable.Columns(columns),
 		datatable.RowCount(len(rows)),
-		datatable.RowHeight(shopBuyRowH - 3),
+		datatable.RowHeight(shopRowH),
 		datatable.ScrollYSignal(scroll),
 		datatable.PainterOpt(shopBuyTablePainter{
 			icons: icons,
@@ -442,7 +459,7 @@ func (w *ShopWindow) buyTableRows(ctx Context) []shopTableRow {
 	for i, item := range w.buyItems {
 		rows[i] = shopTableRow{
 			name:  inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.ItemID, Type: item.Type, Identified: true}),
-			price: formatHUDNumber(int64(shopBuyItemPrice(item))) + " z",
+			price: formatHUDNumber(int64(shopBuyItemPrice(item))) + " Z",
 			icon:  w.shopItemIconImage(ctx.Resources, item.ItemID),
 		}
 	}
@@ -454,7 +471,7 @@ func (w *ShopWindow) buyCartTableRows(ctx Context) []shopTableRow {
 	for i, item := range w.buyCart {
 		rows[i] = shopTableRow{
 			name:   inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: item.item.ItemID, Type: item.item.Type, Identified: true}),
-			price:  formatHUDNumber(int64(shopBuyItemPrice(item.item)) * int64(item.amount)),
+			price:  formatHUDNumber(int64(shopBuyItemPrice(item.item))*int64(item.amount)) + " Z",
 			amount: fmt.Sprintf("x%d", item.amount),
 			icon:   w.shopItemIconImage(ctx.Resources, item.item.ItemID),
 		}
@@ -472,7 +489,7 @@ func (w *ShopWindow) sellTableRows(ctx Context) []shopTableRow {
 		}
 		rows[i] = shopTableRow{
 			name:   inventoryItemDisplayName(ctx.Resources, item),
-			price:  formatHUDNumber(int64(shopSellItemPrice(sell))) + " z",
+			price:  formatHUDNumber(int64(shopSellItemPrice(sell))) + " Z",
 			amount: fmt.Sprintf("x%d", item.Amount),
 			icon:   w.shopItemIconImage(ctx.Resources, item.ItemID),
 		}
@@ -485,7 +502,7 @@ func (w *ShopWindow) sellCartTableRows(ctx Context) []shopTableRow {
 	for i, item := range w.cart {
 		rows[i] = shopTableRow{
 			name:   inventoryItemDisplayName(ctx.Resources, item.item),
-			price:  formatHUDNumber(int64(item.over) * int64(item.amount)),
+			price:  formatHUDNumber(int64(item.over)*int64(item.amount)) + " Z",
 			amount: fmt.Sprintf("x%d", item.amount),
 			icon:   w.shopItemIconImage(ctx.Resources, item.item.ItemID),
 		}
@@ -507,7 +524,7 @@ func (w *ShopWindow) ensureBuyCartScrollSignal() state.Signal[float32] {
 	return w.buyCartScrollY
 }
 
-func (w *ShopWindow) updateBuyWindow(ctx Context) bool {
+func (w *ShopWindow) updateBuyWindow(ctx Context, itemInfo *ItemInfoWindow) bool {
 	w.ensureBuyWindow()
 	if !w.buyWindow.IsOpen() || !w.buyCartWindow.IsOpen() {
 		w.openBuyWindow(ctx)
@@ -517,11 +534,11 @@ func (w *ShopWindow) updateBuyWindow(ctx Context) bool {
 		w.cancel(ctx)
 		return true
 	}
-	if w.handleBuyPointer(ctx) {
+	if w.handleBuyPointer(ctx, itemInfo) {
 		return true
 	}
-	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyWindow.x, w.buyWindow.y, shopBuyListWindowW, shopBuyListWindowH) ||
-		pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyCartWindow.x, w.buyCartWindow.y, shopBuyCartWindowW, shopBuyCartWindowH)
+	inside := pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyWindow.x, w.buyWindow.y, shopBuyListWindowW, shopListWindowHeight()) ||
+		pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyCartWindow.x, w.buyCartWindow.y, shopBuyCartWindowW, w.cartWindowHeight())
 	consumed := w.buyWindow.Update(ctx)
 	if w.buyCartWindow.Update(ctx) {
 		consumed = true
@@ -536,24 +553,49 @@ func (w *ShopWindow) updateBuyWindow(ctx Context) bool {
 	return consumed || inside
 }
 
-func (w *ShopWindow) handleBuyPointer(ctx Context) bool {
+func (w *ShopWindow) handleBuyPointer(ctx Context, itemInfo *ItemInfoWindow) bool {
+	if ctx.Input.MouseJustPressed(render.MouseButtonRight) {
+		if item, ok := w.shopItemAt(ctx, ctx.Input.MouseX, ctx.Input.MouseY); ok {
+			if itemInfo != nil {
+				itemInfo.openItem(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY)
+			}
+			w.buyPressRow = -1
+			w.buyPressCart = false
+			w.buyDraggingItem = false
+			return true
+		}
+	}
 	if ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
 		if row, ok := w.buyShopRowAt(ctx, ctx.Input.MouseX, ctx.Input.MouseY); ok {
+			if w.isDoubleClick(row, false) {
+				w.transferShopRowToCart(ctx, row)
+				w.lastClickRow = -1
+				w.refreshBuyWindow(ctx)
+				return true
+			}
 			w.buySelectedRow = row
 			w.buyPressRow = row
 			w.buyPressCart = false
 			w.buyPressX = ctx.Input.MouseX
 			w.buyPressY = ctx.Input.MouseY
 			w.buyDraggingItem = false
+			w.rememberShopClick(row, false)
 			w.refreshBuyWindow(ctx)
 			return true
 		}
 		if row, ok := w.buyCartRowAt(ctx.Input.MouseX, ctx.Input.MouseY); ok {
+			if w.isDoubleClick(row, true) {
+				w.transferCartRowToShop(row)
+				w.lastClickRow = -1
+				w.refreshBuyWindow(ctx)
+				return true
+			}
 			w.buyPressRow = row
 			w.buyPressCart = true
 			w.buyPressX = ctx.Input.MouseX
 			w.buyPressY = ctx.Input.MouseY
 			w.buyDraggingItem = false
+			w.rememberShopClick(row, true)
 			w.refreshBuyWindow(ctx)
 			return true
 		}
@@ -597,10 +639,8 @@ func (w *ShopWindow) handleBuyPointer(ctx Context) bool {
 				return true
 			}
 			if dragging && w.buyCartDropTarget(ctx.Input.MouseX, ctx.Input.MouseY) {
-				if sell, ok := w.sellable[items[row].Index]; ok {
-					w.addCartItem(items[row], sell)
-					w.refreshBuyWindow(ctx)
-				}
+				w.transferShopRowToCart(ctx, row)
+				w.refreshBuyWindow(ctx)
 			}
 			return true
 		}
@@ -608,7 +648,7 @@ func (w *ShopWindow) handleBuyPointer(ctx Context) bool {
 			return true
 		}
 		if dragging && w.buyCartDropTarget(ctx.Input.MouseX, ctx.Input.MouseY) {
-			w.addBuyItem(w.buyItems[row])
+			w.transferShopRowToCart(ctx, row)
 			w.refreshBuyWindow(ctx)
 			return true
 		}
@@ -623,7 +663,7 @@ func (w *ShopWindow) buyShopRowAt(ctx Context, mx, my int) (int, bool) {
 	if w.mode == shopModeSell {
 		rowCount = len(w.sellAvailableItems(ctx))
 	}
-	return tableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount, shopBuyRowH-3, w.ensureBuyScrollSignal().Get())
+	return tableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount, shopRowH, w.ensureBuyScrollSignal().Get())
 }
 
 func (w *ShopWindow) buyCartRowAt(mx, my int) (int, bool) {
@@ -632,23 +672,111 @@ func (w *ShopWindow) buyCartRowAt(mx, my int) (int, bool) {
 	if w.mode == shopModeSell {
 		rowCount = len(w.cart)
 	}
-	return tableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount, shopBuyRowH-3, w.ensureBuyCartScrollSignal().Get())
+	return tableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount, shopRowH, w.ensureBuyCartScrollSignal().Get())
 }
 
 func (w *ShopWindow) buyCartDropTarget(mx, my int) bool {
-	return pointInRect(mx, my, w.buyCartWindow.x, w.buyCartWindow.y, shopBuyCartWindowW, shopBuyCartWindowH)
+	return pointInRect(mx, my, w.buyCartWindow.x, w.buyCartWindow.y, shopBuyCartWindowW, w.cartWindowHeight())
 }
 
 func (w *ShopWindow) buyShopDropTarget(mx, my int) bool {
-	return pointInRect(mx, my, w.buyWindow.x, w.buyWindow.y, shopBuyListWindowW, shopBuyListWindowH)
+	return pointInRect(mx, my, w.buyWindow.x, w.buyWindow.y, shopBuyListWindowW, shopListWindowHeight())
 }
 
 func (w *ShopWindow) buyShopTableBounds() (int, int, int, int) {
-	return w.buyWindow.x, w.buyWindow.y + ROWindowTitleHeight, shopBuyListWindowW, shopBuyListWindowH - ROWindowTitleHeight
+	return w.buyWindow.x, w.buyWindow.y + ROWindowTitleHeight, shopBuyListWindowW, shopTableHeight(shopListRows)
 }
 
 func (w *ShopWindow) buyCartTableBounds() (int, int, int, int) {
-	return w.buyCartWindow.x, w.buyCartWindow.y + ROWindowTitleHeight, shopBuyCartWindowW, shopBuyCartWindowH - ROWindowTitleHeight - shopBuyCartFooterH
+	return w.buyCartWindow.x, w.buyCartWindow.y + ROWindowTitleHeight, shopBuyCartWindowW, w.cartTableHeight()
+}
+
+func (w *ShopWindow) shopItemAt(ctx Context, mx, my int) (session.InventoryItem, bool) {
+	if row, ok := w.buyShopRowAt(ctx, mx, my); ok {
+		if w.mode == shopModeSell {
+			items := w.sellAvailableItems(ctx)
+			if row < 0 || row >= len(items) {
+				return session.InventoryItem{}, false
+			}
+			return items[row], true
+		}
+		if row < 0 || row >= len(w.buyItems) {
+			return session.InventoryItem{}, false
+		}
+		item := w.buyItems[row]
+		return session.InventoryItem{ItemID: item.ItemID, Type: item.Type, Amount: 1, Identified: true}, true
+	}
+	if row, ok := w.buyCartRowAt(mx, my); ok {
+		if w.mode == shopModeSell {
+			if row < 0 || row >= len(w.cart) {
+				return session.InventoryItem{}, false
+			}
+			item := w.cart[row].item
+			item.Amount = int(w.cart[row].amount)
+			return item, true
+		}
+		if row < 0 || row >= len(w.buyCart) {
+			return session.InventoryItem{}, false
+		}
+		item := w.buyCart[row]
+		return session.InventoryItem{ItemID: item.item.ItemID, Type: item.item.Type, Amount: int(item.amount), Identified: true}, true
+	}
+	return session.InventoryItem{}, false
+}
+
+func (w *ShopWindow) transferShopRowToCart(ctx Context, row int) {
+	if w.mode == shopModeSell {
+		items := w.sellAvailableItems(ctx)
+		if row < 0 || row >= len(items) {
+			return
+		}
+		if sell, ok := w.sellable[items[row].Index]; ok {
+			w.addCartItem(items[row], sell)
+		}
+		return
+	}
+	if row < 0 || row >= len(w.buyItems) {
+		return
+	}
+	w.addBuyItem(w.buyItems[row])
+}
+
+func (w *ShopWindow) transferCartRowToShop(row int) {
+	if w.mode == shopModeSell {
+		w.decrementSellCartRow(row)
+		return
+	}
+	w.decrementBuyCartRow(row)
+}
+
+func (w *ShopWindow) rememberShopClick(row int, cart bool) {
+	w.lastClickRow = row
+	w.lastClickCart = cart
+	w.lastClickAt = time.Now()
+}
+
+func (w *ShopWindow) isDoubleClick(row int, cart bool) bool {
+	return w.lastClickRow == row && w.lastClickCart == cart && time.Since(w.lastClickAt) <= 360*time.Millisecond
+}
+
+func shopListWindowHeight() int {
+	return ROWindowTitleHeight + shopTableHeight(shopListRows) + shopBuyListFooterH
+}
+
+func (w *ShopWindow) cartWindowHeight() int {
+	return ROWindowTitleHeight + w.cartTableHeight() + shopBuyCartFooterH
+}
+
+func (w *ShopWindow) cartTableHeight() int {
+	rows := shopBuyCartRows
+	if w.mode == shopModeSell {
+		rows = shopSellCartRows
+	}
+	return shopTableHeight(rows)
+}
+
+func shopTableHeight(rows int) int {
+	return shopDataTableHeaderH + rows*shopRowH
 }
 
 func tableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount, rowHeight int, scrollY float32) (int, bool) {
@@ -786,16 +914,14 @@ func (w *ShopWindow) addCartItem(item session.InventoryItem, sell network.ShopSe
 	maxAmount := uint16(maxInt(1, item.Amount))
 	for i := range w.cart {
 		if w.cart[i].item.Index == item.Index {
-			if w.cart[i].amount < w.cart[i].max {
-				w.cart[i].amount++
-			}
+			w.cart[i].amount = w.cart[i].max
 			return
 		}
 	}
 	w.cart = append(w.cart, shopSellCartItem{
 		item:   item,
 		over:   sell.OverchargePrice,
-		amount: 1,
+		amount: maxAmount,
 		max:    maxAmount,
 	})
 }
@@ -869,10 +995,6 @@ func (w *ShopWindow) decrementBuyCartRow(row int) {
 
 func (w *ShopWindow) decrementSellCartRow(row int) {
 	if row < 0 || row >= len(w.cart) {
-		return
-	}
-	if w.cart[row].amount > 1 {
-		w.cart[row].amount--
 		return
 	}
 	w.cart = append(w.cart[:row], w.cart[row+1:]...)

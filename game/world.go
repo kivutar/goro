@@ -864,7 +864,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.storageWindow.Update(ctx, &m.itemInfoWindow) {
 		return nil, nil
 	}
-	if m.shopWindow.Update(ctx) {
+	if m.shopWindow.Update(ctx, &m.itemInfoWindow) {
 		return nil, nil
 	}
 	if m.skillWindow.Update(ctx, &m.shortcutBar, m) {

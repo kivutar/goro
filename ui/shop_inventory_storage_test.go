@@ -18,7 +18,7 @@ func TestShopAddSellCartItemTracksAmount(t *testing.T) {
 
 	window.addCartItem(session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, network.ShopSellItem{Index: 7, Price: 10, OverchargePrice: 12})
 	window.addCartItem(session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, network.ShopSellItem{Index: 7, Price: 10, OverchargePrice: 12})
-	if len(window.cart) != 1 || window.cart[0].amount != 2 || window.cart[0].max != 3 || window.cart[0].over != 12 {
+	if len(window.cart) != 1 || window.cart[0].amount != 3 || window.cart[0].max != 3 || window.cart[0].over != 12 {
 		t.Fatalf("cart = %+v", window.cart)
 	}
 }
