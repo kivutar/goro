@@ -13,7 +13,6 @@ import (
 
 func TestShopAddSellCartItemTracksAmount(t *testing.T) {
 	window := ShopWindow{
-		open: true,
 		mode: shopModeSell,
 	}
 

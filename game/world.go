@@ -595,7 +595,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		if deal, ok, err := network.ParseShopDealSelection(pkt); err != nil {
 			log.Printf("parse shop deal selection 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			m.shopWindow.OpenDeal(deal)
+			m.shopWindow.OpenDeal(deal, ctx)
 			continue
 		}
 		if sellList, ok, err := network.ParseShopSellList(pkt); err != nil {

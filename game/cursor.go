@@ -152,9 +152,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if action, ok := m.itemInfoWindow.CursorAction(ctx); ok {
 		return action
 	}
-	if action, ok := m.shopWindow.CursorAction(ctx); ok {
-		return action
-	}
 	if action, ok := m.inventoryBag.CursorAction(ctx); ok {
 		return action
 	}

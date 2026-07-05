@@ -24,8 +24,6 @@ const (
 	shopBuyCartWindowH   = 184
 	shopBuyCartFooterH   = 42
 	shopDataTableHeaderH = 36
-	shopWindowTitleH     = 28
-	shopWindowPad        = 10
 	shopBuyRowH          = 31
 
 	shopDealWidth  = 244
@@ -38,17 +36,9 @@ const (
 	shopModeSell
 )
 
-var (
-	shopTitleColor  = TitleTextColor
-	shopTextColor   = TextColor
-	shopMutedColor  = MutedTextColor
-	shopButtonColor = ButtonColor
-)
-
 type ShopWindow struct {
-	dealOpen        bool
 	dealNPCID       uint32
-	open            bool
+	dealWindow      WindowState
 	mode            int
 	x               int
 	y               int
@@ -68,8 +58,6 @@ type ShopWindow struct {
 	buyDraggingItem bool
 	buyIcons        map[shopItemIconKey]image.Image
 	buyIconMiss     map[shopItemIconKey]struct{}
-	status          string
-	statusGood      bool
 	closePacketSent bool
 }
 
@@ -97,14 +85,13 @@ type shopItemIconKey struct {
 	identified bool
 }
 
-func (w *ShopWindow) OpenDeal(selection network.ShopDealSelection) {
-	w.dealOpen = true
+func (w *ShopWindow) OpenDeal(selection network.ShopDealSelection, ctx Context) {
 	w.dealNPCID = selection.NPCID
+	w.openDealWindow(ctx)
 }
 
 func (w *ShopWindow) OpenSell(list []network.ShopSellItem, ctx Context) {
-	w.dealOpen = false
-	w.open = true
+	w.closeDealWindow(ctx)
 	w.mode = shopModeSell
 	w.ensureBuyPosition(ctx)
 	w.sellable = make(map[uint16]network.ShopSellItem, len(list))
@@ -120,15 +107,12 @@ func (w *ShopWindow) OpenSell(list []network.ShopSellItem, ctx Context) {
 	w.buyDraggingItem = false
 	w.ensureBuyScrollSignal().Set(0)
 	w.ensureBuyCartScrollSignal().Set(0)
-	w.status = "Drag items here to sell"
-	w.statusGood = true
 	w.closePacketSent = false
 	w.openBuyWindow(ctx)
 }
 
 func (w *ShopWindow) OpenBuy(list []network.ShopBuyItem, ctx Context) {
-	w.dealOpen = false
-	w.open = true
+	w.closeDealWindow(ctx)
 	w.mode = shopModeBuy
 	w.ensureBuyPosition(ctx)
 	w.buyItems = append(w.buyItems[:0], list...)
@@ -141,8 +125,6 @@ func (w *ShopWindow) OpenBuy(list []network.ShopBuyItem, ctx Context) {
 	w.ensureBuyCartScrollSignal().Set(0)
 	w.sellable = nil
 	w.cart = nil
-	w.status = "Select items to buy"
-	w.statusGood = true
 	w.closePacketSent = false
 	w.openBuyWindow(ctx)
 }
@@ -150,9 +132,6 @@ func (w *ShopWindow) OpenBuy(list []network.ShopBuyItem, ctx Context) {
 func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 	if !result.Sell {
 		if result.Result == 0 {
-			w.status = "Deal completed"
-			w.statusGood = true
-			w.open = false
 			w.mode = shopModeNone
 			w.buyCart = nil
 			w.buyItems = nil
@@ -160,15 +139,11 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 			w.closeBuyWindows(ctx)
 			return
 		}
-		w.status = fmt.Sprintf("Buy failed result=%d", result.Result)
-		w.statusGood = result.Result == 0
+		log.Printf("shop buy failed result=%d", result.Result)
 		w.refreshBuyWindow(ctx)
 		return
 	}
 	if result.Result == 0 {
-		w.status = "Deal completed"
-		w.statusGood = true
-		w.open = false
 		w.mode = shopModeNone
 		w.cart = nil
 		w.sellable = nil
@@ -176,18 +151,24 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 		w.closeBuyWindows(ctx)
 		return
 	}
-	w.status = "Sell failed"
-	w.statusGood = false
+	log.Printf("shop sell failed result=%d", result.Result)
 }
 
 func (w *ShopWindow) Update(ctx Context) bool {
 	if ctx.Input == nil {
 		return false
 	}
-	if w.dealOpen {
-		return w.updateDeal(ctx)
+	if w.dealWindow.IsOpen() {
+		if ctx.Input.JustPressed(render.KeyEscape) {
+			w.closeDealWindow(ctx)
+			return true
+		}
+		if w.dealWindow.Update(ctx) {
+			w.dealWindow.Publish(ctx)
+		}
+		return true
 	}
-	if !w.open {
+	if w.mode == shopModeNone {
 		return false
 	}
 	if w.mode == shopModeBuy || w.mode == shopModeSell {
@@ -196,40 +177,14 @@ func (w *ShopWindow) Update(ctx Context) bool {
 	return false
 }
 
-func (w *ShopWindow) updateDeal(ctx Context) bool {
-	width, height := ctx.ScreenSize()
-	x := (width - shopDealWidth) / 2
-	y := (height - shopDealHeight) * 2 / 3
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, x, y, shopDealWidth, shopDealHeight)
-	}
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	if !pointInRect(mx, my, x, y, shopDealWidth, shopDealHeight) {
-		return false
-	}
-	if pointInRect(mx, my, x+18, y+64, 60, 24) {
-		w.sendDealSelection(ctx, 0)
-		return true
-	}
-	if pointInRect(mx, my, x+92, y+64, 60, 24) {
-		w.sendDealSelection(ctx, 1)
-		return true
-	}
-	if pointInRect(mx, my, x+166, y+64, 60, 24) {
-		w.dealOpen = false
-		return true
-	}
-	return true
-}
-
 func (w *ShopWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
 	if screen == nil {
 		return
 	}
-	if w.dealOpen {
-		w.drawDeal(screen, ctx)
+	if w.dealWindow.IsOpen() {
+		w.dealWindow.Publish(ctx)
 	}
-	if !w.open {
+	if w.mode == shopModeNone {
 		return
 	}
 	if w.mode == shopModeBuy || w.mode == shopModeSell {
@@ -239,37 +194,61 @@ func (w *ShopWindow) Draw(screen *render.Image, ctx Context, assets AssetRendere
 	}
 }
 
-func (w *ShopWindow) drawDeal(screen *render.Image, ctx Context) {
+func (w *ShopWindow) ensureDealWindow() {
+	if w.dealWindow.width == 0 {
+		w.dealWindow = NewWindowState(shopDealWidth, shopDealHeight)
+		w.dealWindow.SetCloseOnEscape(false)
+	}
+}
+
+func (w *ShopWindow) openDealWindow(ctx Context) {
+	w.ensureDealWindow()
 	width, height := ctx.ScreenSize()
 	x := (width - shopDealWidth) / 2
 	y := (height - shopDealHeight) * 2 / 3
-	DrawTitledWindowFrame(screen, x, y, shopDealWidth, shopDealHeight, shopWindowTitleH)
-	DrawWindowTitle(screen, x, y, shopWindowTitleH, shopWindowPad, "Shop", shopTitleColor)
-	prompt := "What do you want to do?"
-	promptW, _ := render.DebugTextSize(prompt)
-	render.DebugPrintAtColor(screen, prompt, x+(shopDealWidth-promptW)/2, y+42, shopTextColor)
-	w.drawButton(screen, x+18, y+64, 60, 24, "Buy", true)
-	w.drawButton(screen, x+92, y+64, 60, 24, "Sell", true)
-	w.drawButton(screen, x+166, y+64, 60, 24, "Cancel", true)
+	w.dealWindow.OpenAt(x, y, w.dealWidgetTree(ctx))
+	w.dealWindow.Publish(ctx)
 }
 
-func (w *ShopWindow) CursorAction(ctx Context) (int, bool) {
-	if ctx.Input == nil {
-		return 0, false
+func (w *ShopWindow) closeDealWindow(ctx Context) {
+	if w.dealWindow.width == 0 {
+		return
 	}
-	if w.dealOpen {
-		width, height := ctx.ScreenSize()
-		x := (width - shopDealWidth) / 2
-		y := (height - shopDealHeight) * 2 / 3
-		if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, x, y, shopDealWidth, shopDealHeight) {
-			return CursorActionClick, true
-		}
-	}
-	if (w.mode == shopModeBuy || w.mode == shopModeSell) && (pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyWindow.x, w.buyWindow.y, shopBuyListWindowW, shopBuyListWindowH) ||
-		pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, w.buyCartWindow.x, w.buyCartWindow.y, shopBuyCartWindowW, shopBuyCartWindowH)) {
-		return CursorActionClick, true
-	}
-	return 0, false
+	w.dealWindow.Close()
+	w.dealWindow.Unpublish(ctx)
+}
+
+func (w *ShopWindow) dealWidgetTree(ctx Context) widget.Widget {
+	return Window(
+		Title("Shop"),
+		CloseButton(false),
+		Size(shopDealWidth, shopDealHeight),
+		FooterHeight(42),
+		FooterPadding(10),
+		Content(
+			primitives.Box(
+				rotheme.Text("What do you want to do?"),
+			).
+				PaddingTop(14).
+				CrossAlign(primitives.CrossAxisCenter),
+		),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("Buy", func() {
+					w.sendDealSelection(ctx, 0)
+				}).Width(60),
+				rotheme.Button("Sell", func() {
+					w.sendDealSelection(ctx, 1)
+				}).Width(60),
+				rotheme.Button("Cancel", func() {
+					w.closeDealWindow(ctx)
+				}).Width(62),
+			).
+				CrossAlign(primitives.CrossAxisCenter).
+				Gap(8),
+		),
+	)
 }
 
 func (w *ShopWindow) ensureBuyWindow() {
@@ -292,7 +271,7 @@ func (w *ShopWindow) openBuyWindow(ctx Context) {
 }
 
 func (w *ShopWindow) refreshBuyWindow(ctx Context) {
-	if (w.mode != shopModeBuy && w.mode != shopModeSell) || !w.open {
+	if w.mode != shopModeBuy && w.mode != shopModeSell {
 		w.closeBuyWindows(ctx)
 		return
 	}
@@ -383,10 +362,12 @@ func (w *ShopWindow) buyCartWidgetTree(ctx Context) widget.Widget {
 
 func (w *ShopWindow) buyTableWidget(ctx Context) *datatable.Widget {
 	rows := w.buyTableRows(ctx)
+	amountColumn := false
 	if w.mode == shopModeSell {
 		rows = w.sellTableRows(ctx)
+		amountColumn = true
 	}
-	return w.shopTableWidget(rows, false, w.ensureBuyScrollSignal(), true, func(row int) {
+	return w.shopTableWidget(rows, amountColumn, w.ensureBuyScrollSignal(), true, func(row int) {
 		w.buySelectedRow = row
 		w.refreshBuyWindow(ctx)
 	})
@@ -490,9 +471,10 @@ func (w *ShopWindow) sellTableRows(ctx Context) []shopTableRow {
 			continue
 		}
 		rows[i] = shopTableRow{
-			name:  inventoryItemDisplayName(ctx.Resources, item),
-			price: formatHUDNumber(int64(shopSellItemPrice(sell))) + " z",
-			icon:  w.shopItemIconImage(ctx.Resources, item.ItemID),
+			name:   inventoryItemDisplayName(ctx.Resources, item),
+			price:  formatHUDNumber(int64(shopSellItemPrice(sell))) + " z",
+			amount: fmt.Sprintf("x%d", item.Amount),
+			icon:   w.shopItemIconImage(ctx.Resources, item.ItemID),
 		}
 	}
 	return rows
@@ -834,13 +816,10 @@ func (w *ShopWindow) submit(ctx Context) {
 		return
 	}
 	if len(w.cart) == 0 {
-		w.status = "No items selected"
-		w.statusGood = false
 		return
 	}
 	if ctx.Network == nil {
-		w.status = "Not connected"
-		w.statusGood = false
+		log.Printf("shop sell failed: not connected")
 		return
 	}
 	items := make([]network.SellRequestItem, 0, len(w.cart))
@@ -848,29 +827,22 @@ func (w *ShopWindow) submit(ctx Context) {
 		items = append(items, network.SellRequestItem{Index: item.item.Index, Amount: item.amount})
 	}
 	if err := ctx.Network.SendShopSellItems(items); err != nil {
-		w.status = err.Error()
-		w.statusGood = false
+		log.Printf("shop sell failed: %v", err)
 		return
 	}
 	w.closePacketSent = true
-	w.status = "Sell requested"
-	w.statusGood = true
 }
 
 func (w *ShopWindow) submitBuy(ctx Context) {
 	if len(w.buyCart) == 0 {
-		w.status = "No items selected"
-		w.statusGood = false
 		return
 	}
 	if ctx.Session != nil && w.total() > ctx.Session.Inventory.Zeny {
-		w.status = "Not enough zeny"
-		w.statusGood = false
+		log.Printf("shop buy failed: not enough zeny")
 		return
 	}
 	if ctx.Network == nil {
-		w.status = "Not connected"
-		w.statusGood = false
+		log.Printf("shop buy failed: not connected")
 		return
 	}
 	items := make([]network.BuyRequestItem, 0, len(w.buyCart))
@@ -878,13 +850,10 @@ func (w *ShopWindow) submitBuy(ctx Context) {
 		items = append(items, network.BuyRequestItem{ItemID: item.item.ItemID, Amount: item.amount})
 	}
 	if err := ctx.Network.SendShopBuyItems(items); err != nil {
-		w.status = err.Error()
-		w.statusGood = false
+		log.Printf("shop buy failed: %v", err)
 		return
 	}
 	w.closePacketSent = true
-	w.status = "Buy requested"
-	w.statusGood = true
 }
 
 func (w *ShopWindow) decrementBuyCartRow(row int) {
@@ -910,7 +879,7 @@ func (w *ShopWindow) decrementSellCartRow(row int) {
 }
 
 func (w *ShopWindow) cancel(ctx Context) {
-	if w.open && !w.closePacketSent && ctx.Network != nil {
+	if w.mode != shopModeNone && !w.closePacketSent && ctx.Network != nil {
 		if w.mode == shopModeBuy {
 			if err := ctx.Network.SendShopBuyItems(nil); err != nil {
 				log.Printf("send empty buy list on shop close failed: %v", err)
@@ -921,8 +890,6 @@ func (w *ShopWindow) cancel(ctx Context) {
 			}
 		}
 	}
-	w.open = false
-	w.dealOpen = false
 	w.mode = shopModeNone
 	w.cart = nil
 	w.sellable = nil
@@ -934,22 +901,14 @@ func (w *ShopWindow) cancel(ctx Context) {
 
 func (w *ShopWindow) sendDealSelection(ctx Context, dealType uint8) {
 	if ctx.Network == nil {
-		w.status = "Not connected"
-		w.statusGood = false
+		log.Printf("shop deal selection failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendShopDealSelection(w.dealNPCID, dealType); err != nil {
-		w.status = err.Error()
-		w.statusGood = false
+		log.Printf("shop deal selection failed: %v", err)
 		return
 	}
-	w.dealOpen = false
-	if dealType == 1 {
-		w.status = "Waiting for sell list"
-	} else {
-		w.status = "Buy requested"
-	}
-	w.statusGood = true
+	w.closeDealWindow(ctx)
 }
 
 func (w *ShopWindow) ensureBuyPosition(ctx Context) {
@@ -957,16 +916,6 @@ func (w *ShopWindow) ensureBuyPosition(ctx Context) {
 	totalWidth := shopBuyListWindowW + 20 + shopBuyCartWindowW
 	w.x = maxInt(8, (width-totalWidth)/2)
 	w.y = 120
-}
-
-func (w *ShopWindow) drawButton(screen *render.Image, x, y, width, height int, label string, enabled bool) {
-	fill := shopButtonColor
-	text := shopTextColor
-	if !enabled {
-		fill = DisabledColor
-		text = shopMutedColor
-	}
-	DrawButtonLabel(screen, x, y, width, height, label, fill, text)
 }
 
 func (w *ShopWindow) total() int64 {
