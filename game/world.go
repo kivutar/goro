@@ -2941,8 +2941,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.storageWindow.Draw(screen, ctx, m)
 	m.shopWindow.Draw(screen, ctx, m)
 	m.skillWindow.Draw(screen, ctx, m)
-	m.itemInfoWindow.Draw(screen, ctx, m)
-	m.identifyWindow.Draw(screen, ctx, m)
 	m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 	m.deathModal.Draw(screen, ctx, width, height)
 }

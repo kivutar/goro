@@ -115,10 +115,6 @@ func (w *IdentifyWindow) Update(ctx Context) bool {
 	return consumed
 }
 
-func (w *IdentifyWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	w.Publish(ctx)
-}
-
 func (w *IdentifyWindow) Publish(ctx Context) {
 	w.ensureWindow()
 	if !w.window.IsOpen() {

@@ -9,7 +9,6 @@ import (
 	"github.com/gogpu/ui/core/scrollview"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
-	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
 	"github.com/kivutar/goro/ui/rotheme"
 )
@@ -68,10 +67,6 @@ func (w *ItemInfoWindow) Update(ctx Context, assets AssetRenderer) bool {
 	}
 	w.Publish(ctx)
 	return consumed
-}
-
-func (w *ItemInfoWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	w.Publish(ctx)
 }
 
 func (w *ItemInfoWindow) Publish(ctx Context) {
