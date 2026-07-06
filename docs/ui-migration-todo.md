@@ -29,6 +29,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Shortcut bar
   - Published as a gogpu/ui HUD overlay with native mouse events.
   - Keeps coordinate acceptance helpers for cross-window item/skill drops until drag ghosts move to a shared gogpu/ui drag overlay.
+- [x] Basic character window
 
 ## High Priority
 
@@ -37,10 +38,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
 
 ## Lower Priority
-
-- [ ] Basic character window
-  - Currently drawn as HUD, not a floating gogpu/ui window.
-  - Migrate only if we decide HUD elements should also be gogpu/ui trees.
 
 - [ ] Basic menu button grid
   - Small HUD control, but it should eventually use shared button styling and callbacks.

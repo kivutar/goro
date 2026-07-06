@@ -86,6 +86,7 @@ type WorldMode struct {
 	escapeMenu       gameui.EscapeMenu
 	teleportModal    gameui.TeleportModal
 	deathModal       gameui.DeathModal
+	characterWindow  gameui.CharacterWindow
 	basicMenu        gameui.BasicMenu
 	inventoryBag     gameui.InventoryBagWindow
 	equipmentWindow  gameui.EquipmentWindow
@@ -846,6 +847,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		return nil, nil
 	}
+	if m.characterWindow.Update(ctx) {
+		return nil, nil
+	}
 	if m.itemInfoWindow.Update(ctx, m) {
 		return nil, nil
 	}
@@ -1010,6 +1014,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next := NewWorldMode()
 	next.camera.zoom = m.camera.zoom
 	next.console = m.console
+	next.characterWindow = m.characterWindow
 	next.shortcutBar = m.shortcutBar
 	next.startMapFadeIn(time.Now())
 	return next
@@ -2924,7 +2929,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawWorldEffects(screen, ctx, projection, now)
 	m.drawDamageFloaters(screen, ctx, projection, now)
 
-	gameui.DrawCharacterWindow(screen, ctx)
 	m.basicMenu.Draw(screen, ctx)
 	m.minimap.Draw(screen, ctx)
 	m.drawStatusIcons(screen, ctx, now)

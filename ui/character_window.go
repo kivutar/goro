@@ -7,8 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kivutar/goro/render"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
@@ -19,62 +23,201 @@ const (
 )
 
 var (
-	characterWindowTextColor   = TextColor
-	characterWindowMutedColor  = MutedTextColor
-	characterWindowTitleColor  = TitleTextColor
 	characterWindowBarBack     = color.RGBA{R: 224, G: 232, B: 242, A: 255}
 	characterWindowHPColor     = PlayerHPBarColor
 	characterWindowSPColor     = PlayerSPBarColor
 	characterWindowEXPColor    = WindowBorderColor
 	characterWindowJobEXPColor = WindowBorderColor
-	characterWindowWeightWarn  = ErrorTextColor
 )
 
-func DrawCharacterWindow(screen *render.Image, ctx Context) {
-	if ctx.Session == nil {
-		return
-	}
-	x, y, w, h := characterWindowX, characterWindowY, characterWindowWidth, characterWindowHeight
-	DrawTitledWindowFrame(screen, x, y, w, h, 29)
+type CharacterWindow struct {
+	window   WindowState
+	snapshot string
+}
 
-	character := selectedCharacter(ctx.Session)
+func (w *CharacterWindow) Update(ctx Context) bool {
+	w.ensureWindow()
+	if ctx.Session == nil {
+		w.window.Close()
+		w.Publish(ctx)
+		return false
+	}
+	if !w.window.IsOpen() {
+		w.snapshot = characterWindowSnapshot(ctx.Session)
+		w.window.OpenAt(characterWindowX, characterWindowY, w.widgetTree(ctx))
+	}
+	nextSnapshot := characterWindowSnapshot(ctx.Session)
+	if nextSnapshot != w.snapshot {
+		w.snapshot = nextSnapshot
+		w.window.SetContent(w.widgetTree(ctx))
+	}
+	consumed := w.window.Update(ctx)
+	w.Publish(ctx)
+	return consumed
+}
+
+func (w *CharacterWindow) Publish(ctx Context) {
+	w.ensureWindow()
+	w.window.Publish(ctx)
+}
+
+func (w *CharacterWindow) ensureWindow() {
+	if w.window.width == 0 {
+		w.window = NewWindowState(characterWindowWidth, characterWindowHeight)
+	}
+}
+
+func (w *CharacterWindow) widgetTree(ctx Context) widget.Widget {
+	character, vitals, progress, inventory := characterWindowData(ctx.Session)
 	name := strings.TrimSpace(character.Name)
 	if name == "" {
 		name = "Player"
 	}
-	DrawTitleTextAt(screen, x+12, y, 29, trimRunes(name, 20), characterWindowTitleColor)
-	DrawTitleTextAt(screen, x+166, y, 29, trimRunes(CharacterJobName(character), 20), characterWindowMutedColor)
 
-	vitals := ctx.Session.Vitals
+	weightColor := rotheme.Default.Colors.Text
+	if inventory.MaxWeight > 0 && inventory.Weight*100 >= inventory.MaxWeight*50 {
+		weightColor = Color(ErrorTextColor)
+	}
+
+	return Window(
+		Title(trimRunes(name, 20)),
+		CloseButton(false),
+		Size(float32(characterWindowWidth), float32(characterWindowHeight)),
+		Content(
+			primitives.Box(
+				rotheme.Text(trimRunes(CharacterJobName(character), 28)).
+					Color(rotheme.Default.Colors.MutedText),
+				primitives.HBox(
+					characterTextCell(fmt.Sprintf("Base Lv. %d", progress.BaseLevel), 146, rotheme.Default.Colors.Text),
+					characterTextCell(fmt.Sprintf("Job Lv. %d", progress.JobLevel), 146, rotheme.Default.Colors.Text),
+				),
+				primitives.HBox(
+					characterRatioRow("HP", vitals.HP, vitals.MaxHP, Color(characterWindowHPColor), 146),
+					characterRatioRow("SP", vitals.SP, vitals.MaxSP, Color(characterWindowSPColor), 146),
+				).Gap(8),
+				characterProgressRow("Base EXP", progress.BaseExp, progress.NextBaseExp, Color(characterWindowEXPColor), characterWindowWidth-24),
+				characterProgressRow("Job EXP", progress.JobExp, progress.NextJobExp, Color(characterWindowJobEXPColor), characterWindowWidth-24),
+				primitives.HBox(
+					characterTextCell(fmt.Sprintf("Zeny : %s", formatHUDNumber(inventory.Zeny)), 146, rotheme.Default.Colors.Text),
+					characterTextCell(fmt.Sprintf("Weight : %d / %d", displayWeight(inventory.Weight), displayWeight(inventory.MaxWeight)), 146, weightColor),
+				),
+			).
+				PaddingXY(12, 9).
+				Gap(8),
+		),
+	)
+}
+
+func characterTextCell(text string, width float32, color widget.Color) widget.Widget {
+	return primitives.Box(
+		rotheme.Text(text).Color(color),
+	).Width(width)
+}
+
+func characterWindowData(s *session.Session) (session.Character, session.Vitals, session.Progress, session.Inventory) {
+	character := selectedCharacter(s)
+	if s == nil {
+		return character, session.Vitals{}, session.Progress{}, session.Inventory{}
+	}
+	vitals := s.Vitals
 	if vitals.HP == 0 && vitals.MaxHP == 0 && vitals.SP == 0 && vitals.MaxSP == 0 {
 		vitals = sessionVitalsFromCharacter(character)
 	}
-	progress := ctx.Session.Progress
+	progress := s.Progress
 	if progress.BaseLevel == 0 {
 		progress = sessionProgressFromCharacter(character)
-		progress.BaseExp = ctx.Session.Progress.BaseExp
-		progress.NextBaseExp = ctx.Session.Progress.NextBaseExp
-		progress.JobExp = ctx.Session.Progress.JobExp
-		progress.NextJobExp = ctx.Session.Progress.NextJobExp
+		progress.BaseExp = s.Progress.BaseExp
+		progress.NextBaseExp = s.Progress.NextBaseExp
+		progress.JobExp = s.Progress.JobExp
+		progress.NextJobExp = s.Progress.NextJobExp
 	}
 	if progress.JobLevel == 0 && character.JobLevel > 0 {
 		progress.JobLevel = int(character.JobLevel)
 	}
+	return character, vitals, progress, s.Inventory
+}
 
-	render.DebugPrintAtColor(screen, fmt.Sprintf("Base Lv. %d", progress.BaseLevel), x+12, y+38, characterWindowTextColor)
-	render.DebugPrintAtColor(screen, fmt.Sprintf("Job Lv. %d", progress.JobLevel), x+166, y+38, characterWindowTextColor)
-	drawCharacterWindowBar(screen, x+12, y+58, 146, "HP", vitals.HP, vitals.MaxHP, characterWindowHPColor)
-	drawCharacterWindowBar(screen, x+166, y+58, 146, "SP", vitals.SP, vitals.MaxSP, characterWindowSPColor)
-	drawCharacterProgressBar(screen, x+12, y+88, w-24, "Base EXP", progress.BaseExp, progress.NextBaseExp, characterWindowEXPColor)
-	drawCharacterProgressBar(screen, x+12, y+110, w-24, "Job EXP", progress.JobExp, progress.NextJobExp, characterWindowJobEXPColor)
+func characterWindowSnapshot(s *session.Session) string {
+	character, vitals, progress, inventory := characterWindowData(s)
+	return fmt.Sprintf(
+		"name=%s;job=%d;%s;hp=%d/%d;sp=%d/%d;bl=%d;jl=%d;bexp=%d/%d;jexp=%d/%d;zeny=%d;weight=%d/%d",
+		character.Name,
+		character.Job,
+		CharacterJobName(character),
+		vitals.HP,
+		vitals.MaxHP,
+		vitals.SP,
+		vitals.MaxSP,
+		progress.BaseLevel,
+		progress.JobLevel,
+		progress.BaseExp,
+		progress.NextBaseExp,
+		progress.JobExp,
+		progress.NextJobExp,
+		inventory.Zeny,
+		inventory.Weight,
+		inventory.MaxWeight,
+	)
+}
 
-	inventory := ctx.Session.Inventory
-	render.DebugPrintAtColor(screen, fmt.Sprintf("Zeny : %s", formatHUDNumber(inventory.Zeny)), x+12, y+136, characterWindowTextColor)
-	weightColor := characterWindowTextColor
-	if inventory.MaxWeight > 0 && inventory.Weight*100 >= inventory.MaxWeight*50 {
-		weightColor = characterWindowWeightWarn
+func characterRatioRow(label string, current, maxValue int, fill widget.Color, width float32) widget.Widget {
+	return primitives.Box(
+		rotheme.Text(fmt.Sprintf("%s %d / %d", label, current, maxValue)).
+			Color(rotheme.Default.Colors.MutedText),
+		newCharacterBarWidget(ratioInt(current, maxValue), fill, width, 7),
+	).Width(width).Gap(2)
+}
+
+func characterProgressRow(label string, current, next int64, fill widget.Color, width float32) widget.Widget {
+	return primitives.Box(
+		rotheme.Text(fmt.Sprintf("%s %s", label, formatEXPPercent(current, next))).
+			Color(rotheme.Default.Colors.MutedText),
+		newCharacterBarWidget(ratioInt64(current, next), fill, width, 6),
+	).Width(width).Gap(2)
+}
+
+type characterBarWidget struct {
+	widget.WidgetBase
+	ratio  float64
+	fill   widget.Color
+	width  float32
+	height float32
+}
+
+func newCharacterBarWidget(ratio float64, fill widget.Color, width, height float32) *characterBarWidget {
+	w := &characterBarWidget{ratio: ratio, fill: fill, width: width, height: height}
+	w.SetVisible(true)
+	w.SetEnabled(false)
+	return w
+}
+
+func (w *characterBarWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(w.width, w.height))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *characterBarWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() {
+		return
 	}
-	render.DebugPrintAtColor(screen, fmt.Sprintf("Weight : %d / %d", displayWeight(inventory.Weight), displayWeight(inventory.MaxWeight)), x+166, y+136, weightColor)
+	bounds := w.Bounds()
+	canvas.DrawRect(bounds, Color(characterWindowBarBack))
+	if w.ratio > 0 {
+		fillW := float32(math.Round(float64(bounds.Width()) * w.ratio))
+		if fillW < 1 {
+			fillW = 1
+		}
+		if fillW > bounds.Width() {
+			fillW = bounds.Width()
+		}
+		canvas.DrawRect(geometry.NewRect(bounds.Min.X, bounds.Min.Y, fillW, bounds.Height()), w.fill)
+	}
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
+}
+
+func (w *characterBarWidget) Event(ctx widget.Context, e event.Event) bool {
+	return false
 }
 
 func displayWeight(raw int) int {
@@ -83,34 +226,6 @@ func displayWeight(raw int) int {
 
 func DisplayWeight(raw int) int {
 	return displayWeight(raw)
-}
-
-func drawCharacterWindowBar(screen *render.Image, x, y, w int, label string, current, maxValue int, fill color.RGBA) {
-	render.DebugPrintAtColor(screen, fmt.Sprintf("%s %d / %d", label, current, maxValue), x, y, characterWindowMutedColor)
-	drawRatioBar(screen, x, y+14, w, 7, ratioInt(current, maxValue), fill)
-}
-
-func drawCharacterProgressBar(screen *render.Image, x, y, w int, label string, current, next int64, fill color.RGBA) {
-	render.DebugPrintAtColor(screen, fmt.Sprintf("%s %s", label, formatEXPPercent(current, next)), x, y, characterWindowMutedColor)
-	drawRatioBar(screen, x, y+13, w, 6, ratioInt64(current, next), fill)
-}
-
-func drawRatioBar(screen *render.Image, x, y, w, h int, ratio float64, fill color.RGBA) {
-	render.DrawRect(screen, float64(x), float64(y), float64(w), float64(h), characterWindowBarBack)
-	if ratio > 0 {
-		fillW := int(math.Round(float64(w) * ratio))
-		if fillW < 1 {
-			fillW = 1
-		}
-		if fillW > w {
-			fillW = w
-		}
-		render.DrawRect(screen, float64(x), float64(y), float64(fillW), float64(h), fill)
-	}
-	render.DrawRect(screen, float64(x), float64(y), float64(w), 1, WindowBorderColor)
-	render.DrawRect(screen, float64(x), float64(y+h-1), float64(w), 1, WindowBorderColor)
-	render.DrawRect(screen, float64(x), float64(y), 1, float64(h), WindowBorderColor)
-	render.DrawRect(screen, float64(x+w-1), float64(y), 1, float64(h), WindowBorderColor)
 }
 
 func ratioInt(current, maxValue int) float64 {
