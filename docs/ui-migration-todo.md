@@ -14,6 +14,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Login window
 - [x] Settings window
 - [x] Escape menu
+- [x] Exit confirmation modal
 - [x] Death modal
 - [x] Character selection window
 - [x] Character creation window
@@ -21,10 +22,12 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Stats window
 - [x] Inventory bag window
 - [x] Shop windows
+  - Includes transaction choice, buy list/cart, sell inventory/cart, native datatables, and item-info right click.
 - [x] Storage window
 - [x] Item info window
 - [x] Identify window
 - [x] Skills window
+  - Includes staged skill increases, footer buttons, native scrolling, and skill info tooltip.
 - [x] Teleport / Warp destination modal
 - [x] Shortcut bar
   - Published as a gogpu/ui HUD overlay with native mouse events.
@@ -38,18 +41,18 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Minimap
   - Published as a gogpu/ui overlay with a common RO title window.
   - Uses a small custom canvas widget for the map bitmap and live actor markers.
-
-## High Priority
-
 - [x] NPC dialog and choice dialog
-  - Important because it is a core gameplay dialog and still has custom dragging, scrolling, button hitboxes, and text rendering.
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
-
-## Lower Priority
-
-- [ ] Status/buff icons
+- [x] Status/buff icons
   - HUD elements rather than dialogs.
-  - Migrate later only if gogpu/ui image/grid widgets are cheap enough for always-visible HUD.
+  - Published as a small gogpu/ui overlay under the minimap.
+
+## Remaining
+
+- [x] Shared drag ghost overlay
+  - Inventory, storage, shop, and skill drag ghosts render in the top-level game overlay, above gogpu/ui windows and below the RO cursor.
+- [ ] Final UI sharpness pass
+  - Revisit text/image crispness after the migration work settles.
 
 ## Cleanup After Each Migration
 

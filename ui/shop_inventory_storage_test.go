@@ -4,8 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 )
@@ -104,6 +107,30 @@ func TestStorageAcceptInventoryDropWithoutNetworkConsumesDrop(t *testing.T) {
 	ok := window.AcceptInventoryDrop(Context{Session: sessionState}, session.InventoryItem{Index: 7, ItemID: 938, Amount: 3}, window.window.x+12, window.window.y+20)
 	if !ok {
 		t.Fatal("drop over storage was not consumed")
+	}
+}
+
+func TestStorageDragReleaseOverInventoryWithdraws(t *testing.T) {
+	inputState := input.NewState()
+	inputState.SetMousePosition(40, 40)
+	inputState.SetMouseButton(render.MouseButtonLeft, true)
+	inputState.EndFrame()
+	inputState.SetMouseButton(render.MouseButtonLeft, false)
+
+	inventory := InventoryBagWindow{}
+	inventory.ensureWindow()
+	inventory.window.OpenAt(24, 24, nil)
+	storage := StorageWindow{
+		dragItem:   session.InventoryItem{Index: 9, ItemID: 938, Amount: 2},
+		dragActive: true,
+		dragFrom:   time.Now().Add(-time.Second),
+	}
+	consumed := storage.UpdateDrag(Context{Input: inputState}, &inventory)
+	if !consumed {
+		t.Fatal("storage drag release was not consumed")
+	}
+	if storage.dragActive {
+		t.Fatal("storage drag stayed active after release")
 	}
 }
 

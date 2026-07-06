@@ -85,27 +85,7 @@ func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage
 	if !w.window.IsOpen() || ctx.Input == nil {
 		return false
 	}
-	if w.dragActive {
-		if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
-			item := w.dragItem
-			w.dragActive = false
-			w.dragItem = session.InventoryItem{}
-			if storage != nil && storage.AcceptInventoryDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
-				return true
-			}
-			if shortcuts != nil && shortcuts.AcceptItemDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
-				return true
-			}
-			if !w.pointInside(ctx.Input.MouseX, ctx.Input.MouseY) {
-				if err := dropInventoryItem(ctx, item); err != nil {
-					log.Printf("inventory drop failed: %v", err)
-					return true
-				}
-				log.Printf("inventory drop requested index=%d item=%d amount=%d", item.Index, item.ItemID, inventoryDropAmount(item))
-				return true
-			}
-			return true
-		}
+	if w.UpdateDrag(ctx, shortcuts, storage) {
 		return true
 	}
 	w.ClampScroll(ctx.Session)
@@ -124,9 +104,38 @@ func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage
 	return consumed
 }
 
-// Draw currently only renders the dragged item ghost. The window itself is a
-// gogpu/ui overlay published by WindowState.
+func (w *InventoryBagWindow) UpdateDrag(ctx Context, shortcuts *ShortcutBar, storage *StorageWindow) bool {
+	if !w.dragActive || ctx.Input == nil {
+		return false
+	}
+	if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
+		item := w.dragItem
+		w.dragActive = false
+		w.dragItem = session.InventoryItem{}
+		if storage != nil && storage.AcceptInventoryDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
+			return true
+		}
+		if shortcuts != nil && shortcuts.AcceptItemDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
+			return true
+		}
+		if !w.pointInside(ctx.Input.MouseX, ctx.Input.MouseY) {
+			if err := dropInventoryItem(ctx, item); err != nil {
+				log.Printf("inventory drop failed: %v", err)
+				return true
+			}
+			log.Printf("inventory drop requested index=%d item=%d amount=%d", item.Index, item.ItemID, inventoryDropAmount(item))
+			return true
+		}
+		return true
+	}
+	return true
+}
+
 func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets AssetProvider) {
+	w.Publish(ctx)
+}
+
+func (w *InventoryBagWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
 	if !w.dragActive || screen == nil || ctx.Input == nil || assets == nil {
 		return
 	}

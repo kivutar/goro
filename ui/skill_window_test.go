@@ -2,8 +2,11 @@ package ui
 
 import (
 	"image"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -66,6 +69,31 @@ func TestSkillWindowDoubleClickUsesSharedSkillController(t *testing.T) {
 	window.pressSkill(ctx, mode, skill, 20, 30)
 	if mode.used.ID != 6 || mode.used.Level != 2 {
 		t.Fatalf("used skill = %+v, want provoke level 2", mode.used)
+	}
+}
+
+func TestSkillDragReleaseOverShortcutStoresSkill(t *testing.T) {
+	inputState := input.NewState()
+	bar := &ShortcutBar{
+		loaded: true,
+		path:   filepath.Join(t.TempDir(), "shortcuts.json"),
+	}
+	x, y := bar.slotBounds(Context{ScreenW: 800, ScreenH: 600}, 0)
+	inputState.SetMousePosition(x+shortcutSlot/2, y+shortcutSlot/2)
+	inputState.SetMouseButton(render.MouseButtonLeft, true)
+	inputState.EndFrame()
+	inputState.SetMouseButton(render.MouseButtonLeft, false)
+
+	window := &SkillWindow{
+		dragSkill:  session.Skill{ID: 46, Level: 10},
+		dragActive: true,
+		dragFrom:   time.Now().Add(-time.Second),
+	}
+	if !window.UpdateDrag(Context{Input: inputState, ScreenW: 800, ScreenH: 600}, bar) {
+		t.Fatal("skill drag release was not consumed")
+	}
+	if got := bar.slots[0]; got.kind != shortcutSkill || got.skillID != 46 || got.skillLevel != 10 {
+		t.Fatalf("shortcut slot = %+v, want double strafe level 10", got)
 	}
 }
 

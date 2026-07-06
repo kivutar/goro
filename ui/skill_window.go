@@ -95,18 +95,7 @@ func (w *SkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameAc
 		return true
 	}
 	w.updateTooltipHover(ctx)
-	if w.dragActive {
-		if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
-			skill := w.dragSkill
-			w.dragActive = false
-			w.dragSkill = session.Skill{}
-			if shortcuts != nil && shortcuts.AcceptSkillDrop(ctx, skill, ctx.Input.MouseX, ctx.Input.MouseY) {
-				w.Publish(ctx)
-				return true
-			}
-			w.Publish(ctx)
-			return true
-		}
+	if w.UpdateDrag(ctx, shortcuts) {
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
@@ -129,6 +118,24 @@ func (w *SkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameAc
 	return consumed
 }
 
+func (w *SkillWindow) UpdateDrag(ctx Context, shortcuts *ShortcutBar) bool {
+	if !w.dragActive || ctx.Input == nil {
+		return false
+	}
+	if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
+		skill := w.dragSkill
+		w.dragActive = false
+		w.dragSkill = session.Skill{}
+		if shortcuts != nil && shortcuts.AcceptSkillDrop(ctx, skill, ctx.Input.MouseX, ctx.Input.MouseY) {
+			w.Publish(ctx)
+			return true
+		}
+		w.Publish(ctx)
+		return true
+	}
+	return true
+}
+
 func (w *SkillWindow) Draw(screen *render.Image, ctx Context, assets AssetProvider) {
 	w.ensureWindow()
 	if !w.window.IsOpen() {
@@ -144,11 +151,14 @@ func (w *SkillWindow) Draw(screen *render.Image, ctx Context, assets AssetProvid
 		w.snapshot = w.skillSnapshot(ctx.Session)
 		w.window.SetContent(w.widgetTreeWithAssets(ctx, w.assets, w.actions))
 	}
+	w.Publish(ctx)
+	w.publishTooltip(ctx)
+}
+
+func (w *SkillWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
 	if w.dragActive && screen != nil && ctx.Input != nil && time.Since(w.dragFrom) > 80*time.Millisecond && assets != nil {
 		assets.DrawSkillIcon(screen, ctx.Resources, w.dragSkill, ctx.Input.MouseX-skillIconSize/2, ctx.Input.MouseY-skillIconSize/2, skillIconSize)
 	}
-	w.Publish(ctx)
-	w.publishTooltip(ctx)
 }
 
 func (w *SkillWindow) Publish(ctx Context) {

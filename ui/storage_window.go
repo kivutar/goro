@@ -86,17 +86,7 @@ func (w *StorageWindow) Update(ctx Context, inventory *InventoryBagWindow, itemI
 		w.Publish(ctx)
 		return false
 	}
-	if w.dragActive {
-		if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
-			item := w.dragItem
-			w.dragActive = false
-			w.dragItem = session.InventoryItem{}
-			if inventory != nil && inventory.AcceptStorageDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
-				w.withdraw(ctx, item)
-				return true
-			}
-			return true
-		}
+	if w.UpdateDrag(ctx, inventory) {
 		return true
 	}
 	if ctx.Input.JustPressed(render.KeyEscape) {
@@ -123,11 +113,31 @@ func (w *StorageWindow) Update(ctx Context, inventory *InventoryBagWindow, itemI
 	return consumed
 }
 
+func (w *StorageWindow) UpdateDrag(ctx Context, inventory *InventoryBagWindow) bool {
+	if !w.dragActive || ctx.Input == nil {
+		return false
+	}
+	if ctx.Input.MouseJustReleased(render.MouseButtonLeft) || !ctx.Input.MousePressed(render.MouseButtonLeft) {
+		item := w.dragItem
+		w.dragActive = false
+		w.dragItem = session.InventoryItem{}
+		if inventory != nil && inventory.AcceptStorageDrop(ctx, item, ctx.Input.MouseX, ctx.Input.MouseY) {
+			w.withdraw(ctx, item)
+			return true
+		}
+		return true
+	}
+	return true
+}
+
 func (w *StorageWindow) Draw(screen *render.Image, ctx Context, assets AssetProvider) {
+	w.Publish(ctx)
+}
+
+func (w *StorageWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
 	if w.dragActive && screen != nil && ctx.Input != nil && assets != nil && time.Since(w.dragFrom) > 80*time.Millisecond {
 		assets.DrawInventoryItemIcon(screen, ctx.Resources, w.dragItem, ctx.Input.MouseX-inventoryIconSize/2, ctx.Input.MouseY-inventoryIconSize/2)
 	}
-	w.Publish(ctx)
 }
 
 func (w *StorageWindow) Publish(ctx Context) {

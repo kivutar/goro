@@ -202,6 +202,17 @@ func (w *ShopWindow) Draw(screen *render.Image, ctx Context, assets AssetProvide
 	}
 }
 
+func (w *ShopWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
+	if !w.buyDraggingItem || screen == nil || ctx.Input == nil || assets == nil {
+		return
+	}
+	item, ok := w.shopItemAt(ctx, w.buyPressX, w.buyPressY)
+	if !ok {
+		return
+	}
+	assets.DrawInventoryItemIcon(screen, ctx.Resources, item, ctx.Input.MouseX-inventoryIconSize/2, ctx.Input.MouseY-inventoryIconSize/2)
+}
+
 func (w *ShopWindow) ensureDealWindow() {
 	if w.dealWindow.width == 0 {
 		w.dealWindow = NewWindowState(shopDealWidth, shopDealHeight)

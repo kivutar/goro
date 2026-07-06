@@ -857,6 +857,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.identifyWindow.Update(ctx) {
 		return nil, nil
 	}
+	if m.inventoryBag.UpdateDrag(ctx, &m.shortcutBar, &m.storageWindow) {
+		return nil, nil
+	}
+	if m.storageWindow.UpdateDrag(ctx, &m.inventoryBag) {
+		return nil, nil
+	}
+	if m.skillWindow.UpdateDrag(ctx, &m.shortcutBar) {
+		return nil, nil
+	}
 	if m.shortcutBar.Update(ctx, m) {
 		return nil, nil
 	}
@@ -2952,7 +2961,15 @@ func (m *WorldMode) DrawOverlay(ctx client.Context, screen *render.Image) {
 	now := time.Now()
 	projection := m.sceneProjection(ctx, width, height, now)
 	m.drawMapFade(screen, now)
+	m.drawUIDragGhosts(screen, ctx)
 	m.drawROCursor(screen, ctx, projection, now)
+}
+
+func (m *WorldMode) drawUIDragGhosts(screen *render.Image, ctx client.Context) {
+	m.inventoryBag.DrawDragGhost(screen, ctx, m)
+	m.storageWindow.DrawDragGhost(screen, ctx, m)
+	m.shopWindow.DrawDragGhost(screen, ctx, m)
+	m.skillWindow.DrawDragGhost(screen, ctx, m)
 }
 
 type followCamera struct {
