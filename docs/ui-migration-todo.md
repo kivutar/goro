@@ -30,6 +30,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Published as a gogpu/ui HUD overlay with native mouse events.
   - Keeps coordinate acceptance helpers for cross-window item/skill drops until drag ghosts move to a shared gogpu/ui drag overlay.
 - [x] Basic character window
+- [x] Basic menu button grid
 
 ## High Priority
 
@@ -38,9 +39,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
 
 ## Lower Priority
-
-- [ ] Basic menu button grid
-  - Small HUD control, but it should eventually use shared button styling and callbacks.
 
 - [ ] Console
   - Keep its dark translucent style.

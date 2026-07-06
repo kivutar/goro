@@ -3181,9 +3181,8 @@ func TestPendingSkillTargetCancelWithEscape(t *testing.T) {
 
 func TestBasicMenuOptionOpensEscapeMenu(t *testing.T) {
 	mode := &WorldMode{}
-	mode.basicMenu.SetLastAction("option")
 
-	mode.handleBasicMenuAction(client.Context{})
+	mode.handleBasicMenuAction(client.Context{}, "option")
 
 	if !mode.escapeMenu.IsOpen() {
 		t.Fatal("escape menu did not open")

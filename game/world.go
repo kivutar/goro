@@ -878,7 +878,13 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if m.basicMenu.Update(ctx) {
-		m.handleBasicMenuAction(ctx)
+		if action := m.basicMenu.PopAction(); action != "" {
+			m.handleBasicMenuAction(ctx, action)
+		}
+		return nil, nil
+	}
+	if action := m.basicMenu.PopAction(); action != "" {
+		m.handleBasicMenuAction(ctx, action)
 		return nil, nil
 	}
 	m.updateCameraZoom(ctx)
@@ -941,8 +947,8 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	return nil, nil
 }
 
-func (m *WorldMode) handleBasicMenuAction(ctx client.Context) {
-	switch m.basicMenu.LastAction() {
+func (m *WorldMode) handleBasicMenuAction(ctx client.Context, action string) {
+	switch action {
 	case "status":
 		m.statsWindow.Toggle(ctx)
 	case "option":
@@ -2929,7 +2935,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawWorldEffects(screen, ctx, projection, now)
 	m.drawDamageFloaters(screen, ctx, projection, now)
 
-	m.basicMenu.Draw(screen, ctx)
 	m.minimap.Draw(screen, ctx)
 	m.drawStatusIcons(screen, ctx, now)
 	m.inventoryBag.Draw(screen, ctx, m)

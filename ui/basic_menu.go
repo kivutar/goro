@@ -1,12 +1,10 @@
 package ui
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
-	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
@@ -21,18 +19,10 @@ const (
 	basicMenuPad     = 8
 )
 
-var (
-	basicMenuTextColor   = TextColor
-	basicMenuMutedColor  = MutedTextColor
-	basicMenuButtonColor = ButtonColor
-	basicMenuHoverColor  = ButtonHoverColor
-	basicMenuDownColor   = ButtonDownColor
-	basicMenuPanelColor  = WindowBodyColor
-)
-
 type BasicMenu struct {
+	window     WindowState
+	content    widget.Widget
 	lastAction string
-	lastClick  time.Time
 }
 
 type basicMenuButton struct {
@@ -52,58 +42,13 @@ var basicMenuButtons = []basicMenuButton{
 }
 
 func (m *BasicMenu) Update(ctx client.Context) bool {
-	if ctx.Input == nil || !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		return false
+	m.ensureWindow()
+	if !m.window.IsOpen() {
+		m.window.OpenAt(basicMenuX, basicMenuY, m.widgetTree())
 	}
-	index, ok := basicMenuButtonAt(ctx.Input.MouseX, ctx.Input.MouseY)
-	if !ok {
-		return false
-	}
-	m.lastAction = basicMenuButtons[index].key
-	m.lastClick = time.Now()
-	return true
-}
-
-func (m *BasicMenu) Draw(screen *render.Image, ctx client.Context) {
-	if screen == nil {
-		return
-	}
-	x, y, w, h := basicMenuBounds()
-	DrawPanelSurface(screen, x, y, w, h, basicMenuPanelColor)
-
-	mouseX, mouseY := -1, -1
-	mouseDown := false
-	if ctx.Input != nil {
-		mouseX, mouseY = ctx.Input.MouseX, ctx.Input.MouseY
-		mouseDown = ctx.Input.MousePressed(render.MouseButtonLeft)
-	}
-	hoverIndex, hoverOK := basicMenuButtonAt(mouseX, mouseY)
-	for i, button := range basicMenuButtons {
-		bx, by, bw, bh := basicMenuButtonBounds(i)
-		fill := basicMenuButtonColor
-		if hoverOK && hoverIndex == i {
-			if mouseDown {
-				fill = basicMenuDownColor
-			} else {
-				fill = basicMenuHoverColor
-			}
-		}
-		DrawButtonLabel(screen, bx, by, bw, bh, button.label, fill, basicMenuTextColor)
-	}
-	if m.lastAction != "" && !basicMenuActionImplemented(m.lastAction) && time.Since(m.lastClick) < 1500*time.Millisecond {
-		label := strings.ToUpper(m.lastAction[:1]) + m.lastAction[1:]
-		render.DebugPrintAtColor(screen, fmt.Sprintf("%s: not implemented", label), x+basicMenuPad, y+h+6, basicMenuMutedColor)
-	}
-}
-
-func (m *BasicMenu) CursorAction(ctx client.Context) (int, bool) {
-	if ctx.Input == nil {
-		return 0, false
-	}
-	if _, ok := basicMenuButtonAt(ctx.Input.MouseX, ctx.Input.MouseY); ok {
-		return CursorActionClick, true
-	}
-	return 0, false
+	consumed := m.window.Update(ctx)
+	m.window.Publish(ctx)
+	return consumed
 }
 
 func basicMenuBounds() (int, int, int, int) {
@@ -112,41 +57,55 @@ func basicMenuBounds() (int, int, int, int) {
 	return basicMenuX, basicMenuY, w, h
 }
 
-func basicMenuButtonBounds(index int) (int, int, int, int) {
-	col := index % basicMenuCols
-	row := index / basicMenuCols
-	x := basicMenuX + basicMenuPad + col*(basicMenuButtonW+basicMenuGapX)
-	y := basicMenuY + basicMenuPad + row*(basicMenuButtonH+basicMenuGapY)
-	return x, y, basicMenuButtonW, basicMenuButtonH
+func (m *BasicMenu) ensureWindow() {
+	if m.window.width != 0 {
+		return
+	}
+	_, _, width, height := basicMenuBounds()
+	m.window = NewWindowState(width, height)
+	m.window.titleHeight = 0
+	m.window.SetCloseOnEscape(false)
 }
 
-func basicMenuButtonAt(mouseX, mouseY int) (int, bool) {
-	x, y, w, h := basicMenuBounds()
-	if !pointInRect(mouseX, mouseY, x, y, w, h) {
-		return 0, false
+func (m *BasicMenu) widgetTree() widget.Widget {
+	if m.content != nil {
+		return m.content
 	}
-	for i := range basicMenuButtons {
-		bx, by, bw, bh := basicMenuButtonBounds(i)
-		if pointInRect(mouseX, mouseY, bx, by, bw, bh) {
-			return i, true
+	rows := make([]widget.Widget, 0, basicMenuRows)
+	for row := 0; row < basicMenuRows; row++ {
+		buttons := make([]widget.Widget, 0, basicMenuCols)
+		for col := 0; col < basicMenuCols; col++ {
+			button := basicMenuButtons[row*basicMenuCols+col]
+			buttons = append(buttons,
+				rotheme.Button(button.label, func() {
+					m.lastAction = button.key
+				}).
+					Width(basicMenuButtonW).
+					Height(basicMenuButtonH),
+			)
 		}
+		rows = append(rows,
+			primitives.HBox(buttons...).
+				Gap(basicMenuGapX).
+				CrossAlign(primitives.CrossAxisStretch),
+		)
 	}
-	return 0, false
+	_, _, width, height := basicMenuBounds()
+	m.content = Window(
+		TitleBar(false),
+		Size(float32(width), float32(height)),
+		Content(
+			primitives.Box(rows...).
+				Padding(basicMenuPad).
+				Gap(basicMenuGapY).
+				CrossAlign(primitives.CrossAxisStretch),
+		),
+	)
+	return m.content
 }
 
-func basicMenuActionImplemented(action string) bool {
-	switch action {
-	case "status", "option", "items", "equip", "skill":
-		return true
-	default:
-		return false
-	}
-}
-
-func (m *BasicMenu) LastAction() string {
-	return m.lastAction
-}
-
-func (m *BasicMenu) SetLastAction(action string) {
-	m.lastAction = action
+func (m *BasicMenu) PopAction() string {
+	action := m.lastAction
+	m.lastAction = ""
+	return action
 }

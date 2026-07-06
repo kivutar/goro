@@ -146,9 +146,6 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 	if ctx.Input.MousePressed(render.MouseButtonRight) {
 		return cursorActionRotate
 	}
-	if action, ok := m.basicMenu.CursorAction(ctx); ok {
-		return action
-	}
 	if m.pendingSkill.skill.ID != 0 {
 		if _, ok := clickedSkillTarget(ctx, projection, m.pendingSkill.skill, mouseX, mouseY, now, m.actorDeaths); ok {
 			return cursorActionTarget2
