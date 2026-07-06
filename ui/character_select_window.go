@@ -85,6 +85,13 @@ func (w *CharacterSelectWindow) Update(ctx client.Context) bool {
 	return w.window.Update(ctx)
 }
 
+func (w *CharacterSelectWindow) Publish(ctx client.Context) {
+	if w == nil || ctx.UIManager == nil {
+		return
+	}
+	w.window.Publish(ctx)
+}
+
 func characterSelectWindowTreeEqual(a, b CharacterSelectWindowOptions) bool {
 	if a.SelectedSlot != b.SelectedSlot ||
 		a.MaxSlots != b.MaxSlots ||

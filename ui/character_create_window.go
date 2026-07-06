@@ -108,6 +108,13 @@ func (w *CharacterCreateWindow) Update(ctx client.Context) bool {
 	return w.window.Update(ctx)
 }
 
+func (w *CharacterCreateWindow) Publish(ctx client.Context) {
+	if w == nil || ctx.UIManager == nil {
+		return
+	}
+	w.window.Publish(ctx)
+}
+
 func characterCreateWindowTreeEqual(a, b CharacterCreateWindowOptions) bool {
 	return a.Preview == b.Preview &&
 		a.Stats == b.Stats

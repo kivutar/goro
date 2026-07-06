@@ -401,8 +401,8 @@ func TestLoginWindowPublishesOnlyWhenWidgetChanges(t *testing.T) {
 	if manager.adds != 1 {
 		t.Fatalf("login window AddOverlay calls = %d, want 1", manager.adds)
 	}
-	if manager.clears != 1 {
-		t.Fatalf("login window Clear calls = %d, want 1", manager.clears)
+	if manager.clears != 0 {
+		t.Fatalf("login window Clear calls = %d, want 0", manager.clears)
 	}
 }
 
@@ -421,15 +421,15 @@ func TestCharacterSelectPublishesOnlyWhenWidgetChanges(t *testing.T) {
 		ScreenH:   720,
 	}
 
-	mode.publishCharacterSelectWindow(ctx)
-	mode.publishCharacterSelectWindow(ctx)
+	mode.showCharacterSelectWindow(ctx)
+	mode.showCharacterSelectWindow(ctx)
 	mode.updateCharacterSelectInput(ctx)
 
 	if manager.adds != 1 {
 		t.Fatalf("character select AddOverlay calls = %d, want 1", manager.adds)
 	}
-	if manager.clears != 1 {
-		t.Fatalf("character select Clear calls = %d, want 1", manager.clears)
+	if manager.clears != 0 {
+		t.Fatalf("character select Clear calls = %d, want 0", manager.clears)
 	}
 }
 

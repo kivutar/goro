@@ -78,6 +78,13 @@ func (w *LoginWindow) Update(ctx client.Context) bool {
 	return w.window.Update(ctx)
 }
 
+func (w *LoginWindow) Publish(ctx client.Context) {
+	if w == nil || ctx.UIManager == nil {
+		return
+	}
+	w.window.Publish(ctx)
+}
+
 func (w *LoginWindow) rebuild() {
 	userFocused, passwordFocused := w.fieldFocus()
 	w.window.SetContent(w.widgetTree())

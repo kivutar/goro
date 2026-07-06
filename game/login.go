@@ -3,7 +3,6 @@ package game
 import (
 	"context"
 	"fmt"
-	uiwidget "github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"image"
 	"image/color"
@@ -43,7 +42,6 @@ type LoginMode struct {
 	loginWindow       *gameui.LoginWindow
 	charSelectWindow  *gameui.CharacterSelectWindow
 	charCreateWindow  *gameui.CharacterCreateWindow
-	publishedUI       uiwidget.Widget
 	create            charCreateState
 	cursor            roCursorState
 	quitConfirm       gameui.ConfirmModal
@@ -133,6 +131,7 @@ func (m *LoginMode) Name() string {
 }
 
 func (m *LoginMode) Enter(ctx client.Context) {
+	m.clearLoginWindows(ctx)
 	if m.username == "" {
 		m.username = ctx.Config.Login.Username
 	}
@@ -146,7 +145,7 @@ func (m *LoginMode) Enter(ctx client.Context) {
 	m.playLoginBGM(ctx)
 	if m.phase == loginPhaseCharacter {
 		m.prepareCharacterSelectFromSession(ctx)
-		m.publishCharacterSelectWindow(ctx)
+		m.showCharacterSelectWindow(ctx)
 		m.reconnectCharacterServer(ctx)
 	}
 	if m.phase == loginPhaseAccount && len(ctx.Resources.ClientInfo.Connections) == 0 {
@@ -177,7 +176,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 
 	}
 	if fading && m.phase == loginPhaseCharacter {
-		m.publishCharacterSelectWindow(ctx)
+		m.showCharacterSelectWindow(ctx)
 	}
 
 	if len(conns) == 0 {
@@ -347,14 +346,10 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 func (m *LoginMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawBackground(ctx, screen)
 	if m.phase == loginPhaseCreate {
-		m.charSelectWindow = nil
 		m.drawCharacterCreate(ctx)
 	} else if m.phase == loginPhaseCharacter {
-		m.charCreateWindow = nil
 		m.drawCharacterSelect(ctx)
 	} else {
-		m.charSelectWindow = nil
-		m.charCreateWindow = nil
 		m.drawLoginWindow(ctx)
 	}
 }
@@ -422,7 +417,7 @@ func (m *LoginMode) updateFormInput(ctx client.Context) {
 	m.updateLoginWindow(ctx)
 	if m.loginWindow != nil {
 		m.loginWindow.Update(ctx)
-		m.publishUI(ctx, m.loginWindow.Widget())
+		m.loginWindow.Publish(ctx)
 	}
 }
 
@@ -442,10 +437,10 @@ func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
 			m.submitSelectedCharacter(ctx)
 		}
 	}
-	m.publishCharacterSelectWindow(ctx)
+	m.showCharacterSelectWindow(ctx)
 	if m.charSelectWindow != nil {
 		m.charSelectWindow.Update(ctx)
-		m.publishUI(ctx, m.charSelectWindow.Widget())
+		m.charSelectWindow.Publish(ctx)
 	}
 }
 
@@ -517,10 +512,10 @@ func (m *LoginMode) characterSelectPreviewImages(ctx client.Context, opts gameui
 	return images
 }
 
-func (m *LoginMode) publishCharacterSelectWindow(ctx client.Context) {
+func (m *LoginMode) showCharacterSelectWindow(ctx client.Context) {
 	m.updateCharacterSelectWindow(ctx)
 	if m.charSelectWindow != nil {
-		m.publishUI(ctx, m.charSelectWindow.Widget())
+		m.charSelectWindow.Publish(ctx)
 	}
 }
 
@@ -561,10 +556,10 @@ func (m *LoginMode) reconnectCharacterServer(ctx client.Context) {
 }
 
 func (m *LoginMode) updateCharacterCreateInput(ctx client.Context) {
-	m.publishCharacterCreateWindow(ctx)
+	m.showCharacterCreateWindow(ctx)
 	if m.charCreateWindow != nil {
 		m.charCreateWindow.Update(ctx)
-		m.publishUI(ctx, m.charCreateWindow.Widget())
+		m.charCreateWindow.Publish(ctx)
 	}
 }
 
@@ -701,19 +696,23 @@ func (m *LoginMode) updateFade(ctx client.Context, now time.Time) bool {
 }
 
 func (m *LoginMode) publishPhaseWindow(ctx client.Context) {
+	m.clearLoginWindows(ctx)
 	switch m.phase {
 	case loginPhaseCharacter:
-		m.loginWindow = nil
-		m.charCreateWindow = nil
-		m.publishCharacterSelectWindow(ctx)
+		m.showCharacterSelectWindow(ctx)
 	case loginPhaseAccount:
-		m.charSelectWindow = nil
-		m.charCreateWindow = nil
 		m.updateLoginWindow(ctx)
 	case loginPhaseCreate:
-		m.loginWindow = nil
-		m.charSelectWindow = nil
-		m.publishCharacterCreateWindow(ctx)
+		m.showCharacterCreateWindow(ctx)
+	}
+}
+
+func (m *LoginMode) clearLoginWindows(ctx client.Context) {
+	m.loginWindow = nil
+	m.charSelectWindow = nil
+	m.charCreateWindow = nil
+	if ctx.UIManager != nil {
+		ctx.UIManager.Clear()
 	}
 }
 
@@ -741,13 +740,7 @@ func (m *LoginMode) drawFade(ctx client.Context, screen *render.Image, now time.
 }
 
 func (m *LoginMode) nextWorldMode(ctx client.Context, now time.Time) *WorldMode {
-	if ctx.UIManager != nil {
-		ctx.UIManager.Clear()
-	}
-	m.publishedUI = nil
-	m.loginWindow = nil
-	m.charSelectWindow = nil
-	m.charCreateWindow = nil
+	m.clearLoginWindows(ctx)
 	m.quitConfirm = gameui.ConfirmModal{}
 	next := NewWorldMode()
 	next.console = m.console
@@ -818,8 +811,8 @@ func (m *LoginMode) drawLoginWindow(ctx client.Context) {
 	if m.loginWindow == nil {
 		m.updateLoginWindow(ctx)
 	}
-	if m.loginWindow != nil && ctx.UIManager != nil {
-		m.publishUI(ctx, m.loginWindow.Widget())
+	if m.loginWindow != nil {
+		m.loginWindow.Publish(ctx)
 	}
 }
 
@@ -834,40 +827,27 @@ func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 				}
 			},
 		})
-		m.publishUI(ctx, m.loginWindow.Widget())
+		m.loginWindow.Publish(ctx)
 		return
 	}
 	m.loginWindow.SetContext(ctx)
 	m.username = m.loginWindow.Username
 	m.password = m.loginWindow.Password
-	m.publishUI(ctx, m.loginWindow.Widget())
-}
-
-func (m *LoginMode) publishUI(ctx client.Context, root uiwidget.Widget) {
-	if ctx.UIManager == nil || root == nil || root == m.publishedUI {
-		return
-	}
-	if m.publishedUI != nil {
-		ctx.UIManager.RemoveOverlay(m.publishedUI)
-	} else {
-		ctx.UIManager.Clear()
-	}
-	ctx.UIManager.AddOverlay(root)
-	m.publishedUI = root
+	m.loginWindow.Publish(ctx)
 }
 
 func (m *LoginMode) drawCharacterSelect(ctx client.Context) {
-	m.publishCharacterSelectWindow(ctx)
+	m.showCharacterSelectWindow(ctx)
 }
 
 func (m *LoginMode) drawCharacterCreate(ctx client.Context) {
-	m.publishCharacterCreateWindow(ctx)
+	m.showCharacterCreateWindow(ctx)
 }
 
-func (m *LoginMode) publishCharacterCreateWindow(ctx client.Context) {
+func (m *LoginMode) showCharacterCreateWindow(ctx client.Context) {
 	m.updateCharacterCreateWindow(ctx)
 	if m.charCreateWindow != nil {
-		m.publishUI(ctx, m.charCreateWindow.Widget())
+		m.charCreateWindow.Publish(ctx)
 	}
 }
 
