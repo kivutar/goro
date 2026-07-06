@@ -33,6 +33,8 @@ type WorldMode struct {
 	tileCursor       *render.Image
 	textures         map[string]*render.Image
 	textureMiss      map[string]struct{}
+	imageCache       map[string]image.Image
+	imageMiss        map[string]struct{}
 	strEffects       map[string]*res.STR
 	strEffectMiss    map[string]struct{}
 	playerView       *humanoidSpriteView

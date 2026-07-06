@@ -1,12 +1,14 @@
 package game
 
 import (
-	"github.com/kivutar/goro/client"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"strings"
 	"time"
 
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -21,12 +23,33 @@ func (m *WorldMode) DrawSkillIcon(screen *render.Image, manager *res.Manager, sk
 }
 
 func (m *WorldMode) SkillIconImage(manager *res.Manager, skill session.Skill, size int) image.Image {
-	if size <= 0 {
+	if manager == nil || skill.ID == 0 {
 		return nil
 	}
-	img := render.NewImage(size, size)
-	m.DrawSkillIcon(img, manager, skill, 0, 0, size)
-	return img.RGBA()
+	resourceName, ok := manager.SkillResourceName(int(skill.ID))
+	if !ok {
+		resourceName = strings.ToUpper(strings.ReplaceAll(skillLabel(skill), " ", "_"))
+	}
+	key := fmt.Sprintf("__skill_icon_image_%d_%s", skill.ID, resourceName)
+	if m.imageCache == nil {
+		m.imageCache = make(map[string]image.Image)
+	}
+	if m.imageMiss == nil {
+		m.imageMiss = make(map[string]struct{})
+	}
+	if img := m.imageCache[key]; img != nil {
+		return img
+	}
+	if _, ok := m.imageMiss[key]; ok {
+		return nil
+	}
+	img, _, err := res.LoadImage(manager, res.SkillIconTextureCandidates(resourceName, int(skill.ID)))
+	if err != nil {
+		m.imageMiss[key] = struct{}{}
+		return nil
+	}
+	m.imageCache[key] = img
+	return img
 }
 
 func (m *WorldMode) drawItemInfoIllustration(screen *render.Image, manager *res.Manager, item session.InventoryItem, x, y, width, height int) {
