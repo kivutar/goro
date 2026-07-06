@@ -503,7 +503,7 @@ func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
 
 func (m *LoginMode) characterSelectPreviewImages(ctx client.Context, opts gameui.CharacterSelectWindowOptions) map[int]image.Image {
 	images := make(map[int]image.Image, 3)
-	pageStart := charSelectPage(opts.SelectedSlot) * 3
+	pageStart := gameui.CharacterSelectPage(opts.SelectedSlot) * 3
 	for localSlot := 0; localSlot < 3; localSlot++ {
 		slot := pageStart + localSlot
 		character, ok := characterBySlot(opts.Characters, slot)
@@ -976,14 +976,6 @@ func (m *LoginMode) characterCreatePreviewView(ctx client.Context) *humanoidSpri
 	return view
 }
 
-func charCreateGraphDrawOrder() [createStatCount]int {
-	return gameui.CharacterCreateGraphDrawOrder()
-}
-
-func charCreateGraphPoints(cx, cy int, radius float64) [createStatCount][2]float64 {
-	return gameui.CharacterCreateGraphPoints(cx, cy, radius)
-}
-
 func (m *LoginMode) drawCharacterPreview(screen *render.Image, ctx client.Context, character session.Character, centerX, feetY int) {
 	view := m.characterPreviewView(ctx, character)
 	if view == nil {
@@ -1154,10 +1146,6 @@ func loadLoginBackgroundImage(manager *res.Manager, name string) (*render.Image,
 		}
 	}
 	return nil, "", false
-}
-
-func charSelectPage(slot int) int {
-	return gameui.CharacterSelectPage(slot)
 }
 
 func charSelectMaxSlots(characters []session.Character) int {

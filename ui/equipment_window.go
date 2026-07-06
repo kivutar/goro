@@ -110,7 +110,7 @@ func (w *EquipmentWindow) Toggle(ctx Context) {
 	w.Publish(ctx)
 }
 
-func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, assets AssetRenderer) bool {
+func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, assets AssetProvider) bool {
 	w.ensureWindow()
 	if !w.window.IsOpen() {
 		return false

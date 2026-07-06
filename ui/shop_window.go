@@ -185,7 +185,7 @@ func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 	return false
 }
 
-func (w *ShopWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
+func (w *ShopWindow) Draw(screen *render.Image, ctx Context, assets AssetProvider) {
 	if screen == nil {
 		return
 	}

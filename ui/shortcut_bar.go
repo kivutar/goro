@@ -55,7 +55,7 @@ type ShortcutBar struct {
 	rootX     int
 	ctx       Context
 	actions   GameActions
-	assets    AssetRenderer
+	assets    AssetProvider
 	icons     map[shortcutItemIconKey]image.Image
 	iconMiss  map[shortcutItemIconKey]struct{}
 }
@@ -83,7 +83,7 @@ func (b *ShortcutBar) Update(ctx Context, actions GameActions) bool {
 	if ctx.Input == nil {
 		return false
 	}
-	assets, _ := actions.(AssetRenderer)
+	assets, _ := actions.(AssetProvider)
 	b.Publish(ctx, actions, assets)
 	for i := 0; i < shortcutSlots; i++ {
 		if ctx.Input.JustPressed(shortcutKey(i)) {
@@ -95,7 +95,7 @@ func (b *ShortcutBar) Update(ctx Context, actions GameActions) bool {
 	return b.pointInside(ctx, ctx.Input.MouseX, ctx.Input.MouseY)
 }
 
-func (b *ShortcutBar) Publish(ctx Context, actions GameActions, assets AssetRenderer) {
+func (b *ShortcutBar) Publish(ctx Context, actions GameActions, assets AssetProvider) {
 	if ctx.UIManager == nil {
 		return
 	}

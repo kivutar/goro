@@ -2833,7 +2833,7 @@ func (m *WorldMode) drawDamageFloaters(screen *render.Image, ctx client.Context,
 			continue
 		}
 		point := projection.Project(worldX, worldY, terrainZ+zLift)
-		debugTextColor(screen, withAlpha(floaterColor, alpha), int(point.x)-8, int(point.y)-40, "%s", floater.text)
+		render.DebugPrintAtColor(screen, floater.text, int(point.x)-8, int(point.y)-40, withAlpha(floaterColor, alpha))
 	}
 	m.damageFloaters = active
 }
@@ -2927,10 +2927,10 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	} else {
 		const tile = 32
 		for x := 0; x < width; x += tile {
-			drawLine(screen, float64(x), 0, float64(x), float64(height), render.ColorGrid)
+			render.DrawLine(screen, float64(x), 0, float64(x), float64(height), render.ColorGrid)
 		}
 		for y := 0; y < height; y += tile {
-			drawLine(screen, 0, float64(y), float64(width), float64(y), render.ColorGrid)
+			render.DrawLine(screen, 0, float64(y), float64(width), float64(y), render.ColorGrid)
 		}
 	}
 
@@ -4269,7 +4269,8 @@ func (m *WorldMode) drawSceneActorEntry(screen *render.Image, ctx client.Context
 		if m.drawPlayerSprite3D(ctx, screen, projection, entry, entry.actor.Dir, cameraYaw, entry.shadow, alpha) {
 			return
 		}
-		drawPanel(screen, entry.screenX-6, entry.screenY-6, 24, 24)
+		render.DrawRect(screen, entry.screenX-6, entry.screenY-6, 24, 24, render.ColorPanel)
+		render.DrawRect(screen, entry.screenX-6, entry.screenY-6, 24, 2, render.ColorAccent)
 		return
 	}
 	if visual := specialNPCVisualForActor(ctx, entry.actor); visual != specialNPCVisualNone {
@@ -5082,7 +5083,7 @@ func drawActorMarker(screen *render.Image, x, y float64, actor worldstate.Actor,
 	}
 	render.DrawRect(screen, x, y, 12, 18, col)
 	render.DrawRect(screen, x+3, y-4, 6, 6, col)
-	debugText(screen, int(x-12), int(y-16), "%d", actor.Job)
+	render.DebugPrintAt(screen, fmt.Sprintf("%d", actor.Job), int(x-12), int(y-16))
 }
 
 func loadGAT(manager *res.Manager, mapName string) (*res.GAT, string, error) {

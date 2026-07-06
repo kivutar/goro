@@ -29,7 +29,7 @@ func (m *WorldMode) SkillIconImage(manager *res.Manager, skill session.Skill, si
 	return img.RGBA()
 }
 
-func (m *WorldMode) DrawItemInfoIllustration(screen *render.Image, manager *res.Manager, item session.InventoryItem, x, y, width, height int) {
+func (m *WorldMode) drawItemInfoIllustration(screen *render.Image, manager *res.Manager, item session.InventoryItem, x, y, width, height int) {
 	if screen == nil || width <= 0 || height <= 0 {
 		return
 	}
@@ -55,11 +55,11 @@ func (m *WorldMode) ItemInfoIllustrationImage(manager *res.Manager, item session
 		return nil
 	}
 	img := render.NewImage(width, height)
-	m.DrawItemInfoIllustration(img, manager, item, 0, 0, width, height)
+	m.drawItemInfoIllustration(img, manager, item, 0, 0, width, height)
 	return img.RGBA()
 }
 
-func (m *WorldMode) DrawEquipmentPreview(screen *render.Image, ctx client.Context, x, y, width, height int) {
+func (m *WorldMode) drawEquipmentPreview(screen *render.Image, ctx client.Context, x, y, width, height int) {
 	if screen == nil || width <= 0 || height <= 0 {
 		return
 	}
@@ -77,7 +77,8 @@ func (m *WorldMode) DrawEquipmentPreview(screen *render.Image, ctx client.Contex
 	}
 	billboard, ok := humanoidBillboardForState(view, state, time.Now())
 	if !ok || billboard == nil || billboard.image == nil {
-		drawPanel(screen, float64(x+width/2-14), float64(y+height/2-24), 28, 48)
+		render.DrawRect(screen, float64(x+width/2-14), float64(y+height/2-24), 28, 48, render.ColorPanel)
+		render.DrawRect(screen, float64(x+width/2-14), float64(y+height/2-24), 28, 2, render.ColorAccent)
 		return
 	}
 	bounds := visibleImageBounds(billboard.image)
@@ -110,6 +111,6 @@ func (m *WorldMode) EquipmentPreviewImage(ctx client.Context, width, height int)
 		return nil
 	}
 	img := render.NewImage(width, height)
-	m.DrawEquipmentPreview(img, ctx, 0, 0, width, height)
+	m.drawEquipmentPreview(img, ctx, 0, 0, width, height)
 	return img.RGBA()
 }

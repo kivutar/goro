@@ -126,7 +126,7 @@ func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage
 
 // Draw currently only renders the dragged item ghost. The window itself is a
 // gogpu/ui overlay published by WindowState.
-func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
+func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets AssetProvider) {
 	if !w.dragActive || screen == nil || ctx.Input == nil || assets == nil {
 		return
 	}

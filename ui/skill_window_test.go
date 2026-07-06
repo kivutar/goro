@@ -87,9 +87,6 @@ func (r *skillWindowTestRenderer) ItemInfoIllustrationImage(*res.Manager, sessio
 	return nil
 }
 
-func (r *skillWindowTestRenderer) DrawEquipmentPreview(*render.Image, Context, int, int, int, int) {
-}
-
 func (r *skillWindowTestRenderer) EquipmentPreviewImage(Context, int, int) image.Image {
 	return nil
 }

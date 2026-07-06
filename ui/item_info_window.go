@@ -51,7 +51,7 @@ func (w *ItemInfoWindow) openItem(ctx Context, item session.InventoryItem, mouse
 	w.Publish(ctx)
 }
 
-func (w *ItemInfoWindow) Update(ctx Context, assets AssetRenderer) bool {
+func (w *ItemInfoWindow) Update(ctx Context, assets AssetProvider) bool {
 	w.ensureWindow()
 	if !w.window.IsOpen() {
 		return false

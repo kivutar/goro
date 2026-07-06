@@ -51,7 +51,7 @@ type SkillWindow struct {
 	icons          map[uint16]image.Image
 	iconMiss       map[uint16]struct{}
 	lastIconAssets bool
-	assets         AssetRenderer
+	assets         AssetProvider
 	actions        GameActions
 }
 
@@ -129,7 +129,7 @@ func (w *SkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameAc
 	return consumed
 }
 
-func (w *SkillWindow) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
+func (w *SkillWindow) Draw(screen *render.Image, ctx Context, assets AssetProvider) {
 	w.ensureWindow()
 	if !w.window.IsOpen() {
 		w.window.Unpublish(ctx)
@@ -187,7 +187,7 @@ func (w *SkillWindow) widgetTree(ctx Context, actions GameActions) widget.Widget
 	return w.widgetTreeWithAssets(ctx, nil, actions)
 }
 
-func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetRenderer, actions GameActions) widget.Widget {
+func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, actions GameActions) widget.Widget {
 	if actions == nil {
 		actions = w.actions
 	}
@@ -249,7 +249,7 @@ func (w *SkillWindow) skillHeader() widget.Widget {
 	).Height(14)
 }
 
-func (w *SkillWindow) skillList(ctx Context, assets AssetRenderer, actions GameActions) widget.Widget {
+func (w *SkillWindow) skillList(ctx Context, assets AssetProvider, actions GameActions) widget.Widget {
 	skills := sessionSkills(ctx.Session)
 	if len(skills) == 0 {
 		return primitives.Box(
@@ -395,7 +395,7 @@ func (w *SkillWindow) unpublishTooltip(ctx Context) {
 	w.tooltipRoot = nil
 }
 
-func (w *SkillWindow) skillIconImage(ctx Context, assets AssetRenderer, skill session.Skill) image.Image {
+func (w *SkillWindow) skillIconImage(ctx Context, assets AssetProvider, skill session.Skill) image.Image {
 	if assets == nil || skill.ID == 0 {
 		return nil
 	}
