@@ -3,21 +3,29 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
-	shortcutSlots = 9
-	shortcutSlot  = 34
-	shortcutGap   = 2
-	shortcutPad   = 3
+	shortcutSlots    = 9
+	shortcutSlot     = 34
+	shortcutGap      = 2
+	shortcutPad      = 3
+	shortcutLabelH   = 12
+	shortcutLabelGap = 1
 )
 
 type shortcutKind int
@@ -38,12 +46,23 @@ type shortcutSlotState struct {
 }
 
 type ShortcutBar struct {
-	slots      [shortcutSlots]shortcutSlotState
-	status     string
-	statusGood bool
-	statusAt   time.Time
-	loaded     bool
-	path       string
+	slots     [shortcutSlots]shortcutSlotState
+	loaded    bool
+	path      string
+	content   widget.Widget
+	root      widget.Widget
+	published bool
+	rootX     int
+	ctx       Context
+	actions   GameActions
+	assets    AssetRenderer
+	icons     map[shortcutItemIconKey]image.Image
+	iconMiss  map[shortcutItemIconKey]struct{}
+}
+
+type shortcutItemIconKey struct {
+	itemID     uint16
+	identified bool
 }
 
 type shortcutPersistFile struct {
@@ -64,27 +83,54 @@ func (b *ShortcutBar) Update(ctx Context, actions GameActions) bool {
 	if ctx.Input == nil {
 		return false
 	}
+	assets, _ := actions.(AssetRenderer)
+	b.Publish(ctx, actions, assets)
 	for i := 0; i < shortcutSlots; i++ {
 		if ctx.Input.JustPressed(shortcutKey(i)) {
 			b.activate(ctx, actions, i)
+			b.redraw()
 			return true
 		}
 	}
-	slot, ok := b.slotAt(ctx, ctx.Input.MouseX, ctx.Input.MouseY)
-	if !ok {
-		return false
+	return b.pointInside(ctx, ctx.Input.MouseX, ctx.Input.MouseY)
+}
+
+func (b *ShortcutBar) Publish(ctx Context, actions GameActions, assets AssetRenderer) {
+	if ctx.UIManager == nil {
+		return
 	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonRight) {
-		b.slots[slot] = shortcutSlotState{}
-		b.setStatus(fmt.Sprintf("F%d cleared", slot+1), true)
-		b.save(ctx)
-		return true
+	b.ctx = ctx
+	b.actions = actions
+	b.assets = assets
+	b.ensureContent()
+	x, _ := b.bounds(ctx)
+	if b.root == nil || b.rootX != x {
+		old := b.root
+		b.rootX = x
+		b.root = primitives.Box(b.content).
+			PaddingLeft(float32(x)).
+			PaddingTop(8).
+			Width(float32(x + shortcutBarWidth())).
+			Height(float32(8 + shortcutBarHeight()))
+		if b.published && old != nil {
+			ctx.UIManager.RemoveOverlay(old)
+			ctx.UIManager.AddOverlay(b.root)
+		}
 	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
-		b.activate(ctx, actions, slot)
-		return true
+	if !b.published {
+		ctx.UIManager.AddOverlay(b.root)
+		b.published = true
 	}
-	return false
+	b.redraw()
+}
+
+func (b *ShortcutBar) ResetOverlay(ctx Context) {
+	if b.published && ctx.UIManager != nil && b.root != nil {
+		ctx.UIManager.RemoveOverlay(b.root)
+	}
+	b.published = false
+	b.root = nil
+	b.content = nil
 }
 
 func (b *ShortcutBar) AcceptItemDrop(ctx Context, item session.InventoryItem, mx, my int) bool {
@@ -98,8 +144,8 @@ func (b *ShortcutBar) AcceptItemDrop(ctx Context, item session.InventoryItem, mx
 		itemID:     item.ItemID,
 		identified: item.Identified,
 	}
-	b.setStatus(fmt.Sprintf("%s assigned to F%d", trimRunes(inventoryItemDisplayName(ctx.Resources, item), 24), slot+1), true)
 	b.save(ctx)
+	b.redraw()
 	return true
 }
 
@@ -109,7 +155,6 @@ func (b *ShortcutBar) AcceptSkillDrop(ctx Context, skill session.Skill, mx, my i
 		return false
 	}
 	if skill.ID == 0 || skill.Level <= 0 {
-		b.setStatus("Skill is not learned", false)
 		return true
 	}
 	b.slots[slot] = shortcutSlotState{
@@ -117,8 +162,8 @@ func (b *ShortcutBar) AcceptSkillDrop(ctx Context, skill session.Skill, mx, my i
 		skillID:    skill.ID,
 		skillLevel: skill.Level,
 	}
-	b.setStatus(fmt.Sprintf("%s assigned to F%d", trimRunes(skillDisplayName(ctx.Resources, skill), 24), slot+1), true)
 	b.save(ctx)
+	b.redraw()
 	return true
 }
 
@@ -145,6 +190,9 @@ func (b *ShortcutBar) clearDepletedItemSlots(index, itemID uint16) bool {
 		b.slots[slot] = shortcutSlotState{}
 		changed = true
 	}
+	if changed {
+		b.redraw()
+	}
 	return changed
 }
 
@@ -157,98 +205,26 @@ func (b *ShortcutBar) activate(ctx Context, actions GameActions, slot int) {
 	case shortcutItem:
 		item, ok := inventoryItemForShortcut(ctx.Session, entry.itemIndex, entry.itemID)
 		if !ok {
-			b.setStatus(fmt.Sprintf("F%d item unavailable", slot+1), false)
 			return
 		}
 		if err := useInventoryItem(ctx, item); err != nil {
-			b.setStatus(err.Error(), false)
 			return
 		}
-		b.setStatus(fmt.Sprintf("F%d item used", slot+1), true)
 		log.Printf("shortcut item use slot=%d index=%d item=%d", slot+1, item.Index, item.ItemID)
 	case shortcutSkill:
 		skill, ok := skillForShortcut(ctx.Session, entry)
 		if !ok {
-			b.setStatus(fmt.Sprintf("F%d skill unavailable", slot+1), false)
 			return
 		}
 		if actions == nil {
-			b.setStatus("No game actions", false)
 			return
 		}
 		if err := actions.UseShortcutSkill(ctx, skill); err != nil {
-			b.setStatus(err.Error(), false)
 			return
 		}
-		b.setStatus(fmt.Sprintf("F%d skill used", slot+1), true)
 	default:
-		b.setStatus(fmt.Sprintf("F%d is empty", slot+1), false)
 	}
-}
-
-func (b *ShortcutBar) Draw(screen *render.Image, ctx Context, assets AssetRenderer) {
-	if screen == nil {
-		return
-	}
-	x, y := b.bounds(ctx)
-	width := shortcutSlots*shortcutSlot + (shortcutSlots-1)*shortcutGap + shortcutPad*2
-	height := shortcutSlot + shortcutPad*2 + 12
-	DrawSurface(screen, x, y, width, height, WindowBodyColor, WindowBorderColor)
-	mx, my := -1, -1
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-	}
-	for i := 0; i < shortcutSlots; i++ {
-		sx, sy := b.slotBounds(ctx, i)
-		fill := ButtonColor
-		if pointInRect(mx, my, sx, sy, shortcutSlot, shortcutSlot) {
-			fill = ButtonHoverColor
-		}
-		DrawSurface(screen, sx, sy, shortcutSlot, shortcutSlot, fill, ButtonBorderColor)
-		entry := b.slots[i]
-		switch entry.kind {
-		case shortcutItem:
-			if assets != nil {
-				item := session.InventoryItem{ItemID: entry.itemID, Index: entry.itemIndex, Identified: entry.identified, Amount: 1}
-				if live, ok := inventoryItemForShortcut(ctx.Session, entry.itemIndex, entry.itemID); ok {
-					item = live
-				}
-				assets.DrawInventoryItemIcon(screen, ctx.Resources, item, sx+5, sy+5)
-				if item.Amount > 1 {
-					render.DebugPrintAtColor(screen, fmt.Sprintf("%d", item.Amount), sx+shortcutSlot-17, sy+shortcutSlot-14, TextColor)
-				}
-			}
-		case shortcutSkill:
-			if assets != nil {
-				skill, _ := skillForShortcut(ctx.Session, entry)
-				if skill.ID == 0 {
-					skill = session.Skill{ID: entry.skillID, Level: entry.skillLevel}
-				}
-				assets.DrawSkillIcon(screen, ctx.Resources, skill, sx+5, sy+5, 24)
-				if skill.Level > 0 {
-					drawShortcutSkillLevel(screen, sx, sy, skill.Level)
-				}
-			}
-		}
-		render.DebugPrintAtColor(screen, fmt.Sprintf("F%d", i+1), sx+7, sy+shortcutSlot+1, MutedTextColor)
-	}
-	if b.status != "" && time.Since(b.statusAt) < 1400*time.Millisecond {
-		statusColor := skillWindowErrorColor
-		if b.statusGood {
-			statusColor = skillWindowGoodColor
-		}
-		render.DebugPrintAtColor(screen, trimRunes(b.status, 42), x+6, y+height+3, statusColor)
-	}
-}
-
-func (b *ShortcutBar) CursorAction(ctx Context) (int, bool) {
-	if ctx.Input == nil {
-		return 0, false
-	}
-	if _, ok := b.slotAt(ctx, ctx.Input.MouseX, ctx.Input.MouseY); ok {
-		return CursorActionClick, true
-	}
-	return 0, false
+	b.redraw()
 }
 
 func (b *ShortcutBar) slotAt(ctx Context, mx, my int) (int, bool) {
@@ -261,10 +237,14 @@ func (b *ShortcutBar) slotAt(ctx Context, mx, my int) (int, bool) {
 	return 0, false
 }
 
+func (b *ShortcutBar) pointInside(ctx Context, mx, my int) bool {
+	x, y := b.bounds(ctx)
+	return pointInRect(mx, my, x, y, shortcutBarWidth(), shortcutBarHeight())
+}
+
 func (b *ShortcutBar) bounds(ctx Context) (int, int) {
 	width, _ := ctx.ScreenSize()
-	barW := shortcutSlots*shortcutSlot + (shortcutSlots-1)*shortcutGap + shortcutPad*2
-	return maxInt(8, (width-barW)/2), 8
+	return maxInt(8, (width-shortcutBarWidth())/2), 8
 }
 
 func (b *ShortcutBar) slotBounds(ctx Context, slot int) (int, int) {
@@ -272,10 +252,215 @@ func (b *ShortcutBar) slotBounds(ctx Context, slot int) (int, int) {
 	return x + shortcutPad + slot*(shortcutSlot+shortcutGap), y + shortcutPad
 }
 
-func (b *ShortcutBar) setStatus(text string, good bool) {
-	b.status = text
-	b.statusGood = good
-	b.statusAt = time.Now()
+func shortcutBarWidth() int {
+	return shortcutSlots*shortcutSlot + (shortcutSlots-1)*shortcutGap + shortcutPad*2
+}
+
+func shortcutBarHeight() int {
+	return shortcutPad*2 + shortcutSlot + shortcutLabelGap + shortcutLabelH
+}
+
+func (b *ShortcutBar) ensureContent() {
+	if b.content != nil {
+		return
+	}
+	columns := make([]widget.Widget, 0, shortcutSlots)
+	for i := 0; i < shortcutSlots; i++ {
+		columns = append(columns, b.slotColumn(i))
+	}
+	b.content = Window(
+		TitleBar(false),
+		Radius(0),
+		Size(float32(shortcutBarWidth()), float32(shortcutBarHeight())),
+		Content(
+			primitives.Box(
+				primitives.HBox(columns...).
+					Gap(shortcutGap).
+					CrossAlign(primitives.CrossAxisStart),
+			).
+				Padding(shortcutPad).
+				CrossAlign(primitives.CrossAxisStretch),
+		),
+	)
+}
+
+func (b *ShortcutBar) slotColumn(slot int) widget.Widget {
+	return primitives.Box(
+		newShortcutSlotButton(b, slot),
+		shortcutKeyLabel(slot),
+	).
+		Width(shortcutSlot).
+		Gap(shortcutLabelGap).
+		CrossAlign(primitives.CrossAxisStretch)
+}
+
+func shortcutKeyLabel(slot int) widget.Widget {
+	return primitives.Box(
+		primitives.Expanded(primitives.Box()),
+		rotheme.Text(fmt.Sprintf("F%d", slot+1)).
+			Color(rotheme.Default.Colors.MutedText).
+			Align(widget.TextAlignCenter).
+			LineHeight(shortcutLabelH),
+		primitives.Expanded(primitives.Box()),
+	).
+		Height(shortcutLabelH).
+		CrossAlign(primitives.CrossAxisStretch)
+}
+
+type shortcutSlotButton struct {
+	widget.WidgetBase
+	bar     *ShortcutBar
+	slot    int
+	hovered bool
+}
+
+func newShortcutSlotButton(bar *ShortcutBar, slot int) *shortcutSlotButton {
+	w := &shortcutSlotButton{bar: bar, slot: slot}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+func (w *shortcutSlotButton) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(shortcutSlot, shortcutSlot))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *shortcutSlotButton) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() || w.bar == nil {
+		return
+	}
+	bounds := w.Bounds()
+	fill := rotheme.Default.Colors.Button
+	if w.hovered {
+		fill = rotheme.Default.Colors.ButtonHover
+	}
+	canvas.DrawRect(bounds, fill)
+	canvas.StrokeRect(bounds, rotheme.Default.Colors.ButtonBorder, 1)
+	w.drawContent(canvas, bounds)
+}
+
+func (w *shortcutSlotButton) drawContent(canvas widget.Canvas, bounds geometry.Rect) {
+	entry := w.bar.slots[w.slot]
+	switch entry.kind {
+	case shortcutItem:
+		item := session.InventoryItem{ItemID: entry.itemID, Index: entry.itemIndex, Identified: entry.identified, Amount: 1}
+		if live, ok := inventoryItemForShortcut(w.bar.ctx.Session, entry.itemIndex, entry.itemID); ok {
+			item = live
+		}
+		if icon := w.bar.itemIconImage(w.bar.ctx.Resources, item); icon != nil {
+			canvas.DrawImage(icon, geometry.Pt(bounds.Min.X+5, bounds.Min.Y+5))
+		}
+		if item.Amount > 1 {
+			rotheme.DrawText(
+				canvas,
+				fmt.Sprintf("%d", item.Amount),
+				geometry.NewRect(bounds.Min.X+1, bounds.Max.Y-15, shortcutSlot-3, 12),
+				rotheme.Default.Typography.TextSize,
+				rotheme.Default.Colors.Text,
+				false,
+				widget.TextAlignRight,
+			)
+		}
+	case shortcutSkill:
+		skill, _ := skillForShortcut(w.bar.ctx.Session, entry)
+		if skill.ID == 0 {
+			skill = session.Skill{ID: entry.skillID, Level: entry.skillLevel}
+		}
+		if w.bar.assets != nil {
+			if icon := w.bar.assets.SkillIconImage(w.bar.ctx.Resources, skill, 24); icon != nil {
+				canvas.DrawImage(icon, geometry.Pt(bounds.Min.X+5, bounds.Min.Y+5))
+			}
+		}
+		if skill.Level > 0 {
+			rotheme.DrawText(
+				canvas,
+				fmt.Sprintf("Lv%d", maxInt(1, skill.Level)),
+				geometry.NewRect(bounds.Min.X+3, bounds.Min.Y+1, shortcutSlot-6, 12),
+				rotheme.Default.Typography.TextSize,
+				Color(TitleTextColor),
+				false,
+				widget.TextAlignLeft,
+			)
+		}
+	}
+}
+
+func (w *shortcutSlotButton) Event(ctx widget.Context, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok || w.bar == nil {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseMove:
+		w.hovered = true
+		ctx.SetCursor(widget.CursorPointer)
+		w.SetNeedsRedraw(true)
+		return true
+	case event.MouseLeave:
+		w.hovered = false
+		ctx.SetCursor(widget.CursorDefault)
+		w.SetNeedsRedraw(true)
+	case event.MousePress:
+		switch mouse.Button {
+		case event.ButtonLeft:
+			w.bar.activate(w.bar.ctx, w.bar.actions, w.slot)
+			return true
+		case event.ButtonRight:
+			w.bar.slots[w.slot] = shortcutSlotState{}
+			w.bar.save(w.bar.ctx)
+			w.bar.redraw()
+			return true
+		}
+	}
+	return true
+}
+
+func (b *ShortcutBar) redraw() {
+	if redraw, ok := b.content.(interface{ SetNeedsRedraw(bool) }); ok {
+		redraw.SetNeedsRedraw(true)
+	}
+	if redraw, ok := b.root.(interface{ SetNeedsRedraw(bool) }); ok {
+		redraw.SetNeedsRedraw(true)
+	}
+}
+
+func (b *ShortcutBar) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
+	if manager == nil || item.ItemID == 0 {
+		return nil
+	}
+	key := shortcutItemIconKey{itemID: item.ItemID, identified: item.Identified}
+	if b.icons != nil {
+		if img := b.icons[key]; img != nil {
+			return img
+		}
+	}
+	if _, ok := b.iconMiss[key]; ok {
+		return nil
+	}
+	resourceName, ok := manager.ItemResourceName(int(item.ItemID), item.Identified)
+	if !ok {
+		b.markIconMiss(key)
+		return nil
+	}
+	img, _, err := res.LoadImage(manager, res.ItemIconTextureCandidates(resourceName))
+	if err != nil {
+		b.markIconMiss(key)
+		return nil
+	}
+	if b.icons == nil {
+		b.icons = make(map[shortcutItemIconKey]image.Image)
+	}
+	b.icons[key] = img
+	return img
+}
+
+func (b *ShortcutBar) markIconMiss(key shortcutItemIconKey) {
+	if b.iconMiss == nil {
+		b.iconMiss = make(map[shortcutItemIconKey]struct{})
+	}
+	b.iconMiss[key] = struct{}{}
 }
 
 func (b *ShortcutBar) Load(ctx Context) {
@@ -515,9 +700,4 @@ func skillForShortcut(s *session.Session, entry shortcutSlotState) (session.Skil
 	}
 	skill.Level = level
 	return skill, true
-}
-
-func drawShortcutSkillLevel(screen *render.Image, x, y int, level int) {
-	label := fmt.Sprintf("Lv%d", maxInt(1, level))
-	render.DebugPrintAtColor(screen, label, x+3, y+1, TitleTextColor)
 }

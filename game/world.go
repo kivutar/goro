@@ -2926,7 +2926,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 
 	gameui.DrawCharacterWindow(screen, ctx)
 	m.basicMenu.Draw(screen, ctx)
-	m.shortcutBar.Draw(screen, ctx, m)
 	m.minimap.Draw(screen, ctx)
 	m.drawStatusIcons(screen, ctx, now)
 	m.inventoryBag.Draw(screen, ctx, m)

@@ -20,6 +20,8 @@ type windowConfig struct {
 	height        float32
 	footerPadding float32
 	footerHeight  float32
+	titleBar      bool
+	radius        float32
 }
 
 const ROWindowTitleHeight = 28
@@ -29,23 +31,25 @@ func Window(options ...WindowOption) widget.Widget {
 		width:         300,
 		height:        240,
 		footerPadding: 8,
+		titleBar:      true,
+		radius:        WindowRadius,
 	}
 	for _, option := range options {
 		option(&cfg)
 	}
 
-	titleContent := primitives.HBox(
-		rotheme.Title(cfg.title),
-		primitives.Expanded(primitives.Box()),
-		windowCloseButton(cfg.closeButton, cfg.onClose),
-	).
-		CrossAlign(primitives.CrossAxisCenter).
-		PaddingLeft(12).
-		PaddingRight(7).
-		Height(ROWindowTitleHeight)
-
-	children := []widget.Widget{
-		roTitleBar(titleContent),
+	children := make([]widget.Widget, 0, 3)
+	if cfg.titleBar {
+		titleContent := primitives.HBox(
+			rotheme.Title(cfg.title),
+			primitives.Expanded(primitives.Box()),
+			windowCloseButton(cfg.closeButton, cfg.onClose),
+		).
+			CrossAlign(primitives.CrossAxisCenter).
+			PaddingLeft(12).
+			PaddingRight(7).
+			Height(ROWindowTitleHeight)
+		children = append(children, roTitleBar(titleContent))
 	}
 	if cfg.content != nil {
 		children = append(children, primitives.Expanded(cfg.content))
@@ -85,7 +89,7 @@ func Window(options ...WindowOption) widget.Widget {
 		Height(cfg.height).
 		Background(rotheme.Default.Colors.WindowBody).
 		BorderStyle(1, rotheme.Default.Colors.WindowBorder).
-		Rounded(WindowRadius)
+		Rounded(cfg.radius)
 }
 
 func windowBodyColor(opacity float32) widget.Color {
@@ -140,6 +144,18 @@ func Size(width, height float32) WindowOption {
 	return func(cfg *windowConfig) {
 		cfg.width = width
 		cfg.height = height
+	}
+}
+
+func TitleBar(enabled bool) WindowOption {
+	return func(cfg *windowConfig) {
+		cfg.titleBar = enabled
+	}
+}
+
+func Radius(radius float32) WindowOption {
+	return func(cfg *windowConfig) {
+		cfg.radius = radius
 	}
 }
 

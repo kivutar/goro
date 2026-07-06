@@ -26,18 +26,15 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Identify window
 - [x] Skills window
 - [x] Teleport / Warp destination modal
+- [x] Shortcut bar
+  - Published as a gogpu/ui HUD overlay with native mouse events.
+  - Keeps coordinate acceptance helpers for cross-window item/skill drops until drag ghosts move to a shared gogpu/ui drag overlay.
 
 ## High Priority
 
 - [x] NPC dialog and choice dialog
   - Important because it is a core gameplay dialog and still has custom dragging, scrolling, button hitboxes, and text rendering.
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
-
-## Medium Priority
-
-- [ ] Shortcut bar
-  - Not a normal window, but it is UI-heavy and still has custom hitboxes.
-  - Needs drag/drop, function-key activation, skill level display, item counts, and target cursor integration.
 
 ## Lower Priority
 

@@ -31,11 +31,6 @@ const (
 	skillListH         = skillWindowHeight - ROWindowTitleHeight - skillHeaderH - skillFooterH
 )
 
-var (
-	skillWindowGoodColor  = GoodTextColor
-	skillWindowErrorColor = ErrorTextColor
-)
-
 type SkillWindow struct {
 	window         WindowState
 	scrollY        state.Signal[float32]
