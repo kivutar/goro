@@ -2,7 +2,6 @@ package render
 
 import (
 	"fmt"
-	"image/color"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -75,6 +74,10 @@ type runtimeSettingsProvider interface {
 	RuntimeFullscreen() bool
 	RuntimeVSync() bool
 	RuntimeFPS() bool
+}
+
+type fpsCounterReceiver interface {
+	SetFPSCounter(string)
 }
 
 type runner struct {
@@ -550,8 +553,8 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 		log.Printf("render backend=%s surface_format=%s", ctx.Backend(), r.gpu.format)
 	}
 	r.screen.BeginFrame()
+	r.publishFPSCounter()
 	r.game.Draw(r.screen)
-	r.drawFPSCounter()
 	if err := r.drawUI(r.screen, width, height); err != nil {
 		return err
 	}
@@ -668,15 +671,18 @@ func (r *runner) updateFPSCounter(now time.Time) {
 	r.fpsStarted = now
 }
 
-func (r *runner) drawFPSCounter() {
-	if !r.renderCfg.FPS || r.screen == nil {
+func (r *runner) publishFPSCounter() {
+	receiver, ok := r.game.(fpsCounterReceiver)
+	if !ok {
+		return
+	}
+	if !r.renderCfg.FPS {
+		receiver.SetFPSCounter("")
 		return
 	}
 	text := "FPS --"
 	if r.fpsDisplay > 0 {
 		text = fmt.Sprintf("FPS %.1f  %.2f ms", r.fpsDisplay, r.frameMSDisplay)
 	}
-	textW, textH := DebugTextSize(text)
-	DrawRect(r.screen, 6, 6, float64(textW+8), float64(textH+6), color.RGBA{R: 0, G: 0, B: 0, A: 170})
-	DebugPrintAtColor(r.screen, text, 10, 9, color.RGBA{R: 224, G: 255, B: 190, A: 255})
+	receiver.SetFPSCounter(text)
 }

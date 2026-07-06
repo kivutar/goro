@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"image/color"
 	"log"
 	"time"
 
@@ -33,6 +34,7 @@ type Game struct {
 	started  time.Time
 	screenW  int
 	screenH  int
+	fpsText  string
 	quit     func()
 	quitting bool
 }
@@ -77,6 +79,7 @@ func (g *Game) Draw(screen *render.Image) {
 
 func (g *Game) DrawOverlay(screen *render.Image) {
 	g.modes.DrawOverlay(screen)
+	g.drawFPSCounter(screen)
 }
 
 func (g *Game) Resize(width, height int) {
@@ -91,6 +94,19 @@ func (g *Game) Resize(width, height int) {
 
 func (g *Game) InputState() *input.State {
 	return g.input
+}
+
+func (g *Game) SetFPSCounter(text string) {
+	g.fpsText = text
+}
+
+func (g *Game) drawFPSCounter(screen *render.Image) {
+	if screen == nil || g.fpsText == "" {
+		return
+	}
+	textW, textH := render.DebugTextSize(g.fpsText)
+	render.DrawRect(screen, 6, 6, float64(textW+8), float64(textH+6), color.RGBA{R: 0, G: 0, B: 0, A: 170})
+	render.DebugPrintAtColor(screen, g.fpsText, 10, 9, color.RGBA{R: 224, G: 255, B: 190, A: 255})
 }
 
 func (g *Game) SetQuitFunc(quit func()) {
