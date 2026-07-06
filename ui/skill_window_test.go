@@ -23,6 +23,35 @@ func TestCanIncreaseSkillRequiresPointsAndFlag(t *testing.T) {
 	}
 }
 
+func TestSkillWindowCanStageSkillHonorsMaxLevel(t *testing.T) {
+	s := &session.Session{Skills: session.Skills{Points: 3}}
+	window := &SkillWindow{}
+	skill := session.Skill{ID: 5, Level: 9, MaxLevel: 10, Upgradable: true}
+	if !window.canStageSkill(s, skill) {
+		t.Fatal("expected level 9/10 skill to allow one staged level")
+	}
+	window.stageSkill(skill.ID)
+	if window.canStageSkill(s, skill) {
+		t.Fatal("level 9/10 skill should not allow staging past level 10")
+	}
+	if canIncreaseSkill(s, session.Skill{ID: 5, Level: 10, MaxLevel: 10, Upgradable: true}) {
+		t.Fatal("max-level skill should not increase")
+	}
+}
+
+func TestSkillWindowCanStageSkillWithoutKnownMaxAllowsOnePendingLevel(t *testing.T) {
+	s := &session.Session{Skills: session.Skills{Points: 3}}
+	window := &SkillWindow{}
+	skill := session.Skill{ID: 999, Level: 1, Upgradable: true}
+	if !window.canStageSkill(s, skill) {
+		t.Fatal("expected unknown max skill to allow one staged level")
+	}
+	window.stageSkill(skill.ID)
+	if window.canStageSkill(s, skill) {
+		t.Fatal("unknown max skill should wait for server update before another staged level")
+	}
+}
+
 func TestSkillWindowDoubleClickUsesSharedSkillController(t *testing.T) {
 	ctx := Context{ScreenW: 800, ScreenH: 600}
 	mode := &skillWindowTestRenderer{}

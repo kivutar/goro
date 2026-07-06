@@ -14,6 +14,12 @@ var skillIDLuaCandidates = []string{
 	"lua files\\skillinfo\\skillid.lub",
 }
 
+var skillSPAmountCandidates = []string{
+	"leveluseskillspamount.txt",
+	"data\\leveluseskillspamount.txt",
+	"data/leveluseskillspamount.txt",
+}
+
 var fallbackSkillResourceNames = map[int]string{
 	1:  "NV_BASIC",
 	2:  "SM_SWORD",
@@ -82,6 +88,15 @@ func (m *Manager) SkillDescription(skillID int) ([]string, bool) {
 	return append([]string(nil), lines...), true
 }
 
+func (m *Manager) SkillMaxLevel(skillID int) (int, bool) {
+	if skillID <= 0 {
+		return 0, false
+	}
+	m.loadSkillMaxLevels()
+	level, ok := m.skillMaxLevels[skillID]
+	return level, ok && level > 0
+}
+
 func (m *Manager) loadSkillResourceNames() {
 	if m.skillResourceNamesLoaded {
 		return
@@ -138,6 +153,21 @@ func (m *Manager) loadSkillMetadata() {
 		}
 		for id, lines := range descriptions {
 			m.skillDescriptions[id] = lines
+		}
+	}
+}
+
+func (m *Manager) loadSkillMaxLevels() {
+	if m.skillMaxLevelsLoaded {
+		return
+	}
+	m.skillMaxLevelsLoaded = true
+	m.loadSkillResourceNames()
+	m.skillMaxLevels = make(map[int]int)
+	nameToID := m.skillNameToID()
+	if _, data, ok := m.ReadFirst(skillSPAmountCandidates); ok {
+		for id, level := range parseSkillSPAmountMaxLevels(data, nameToID) {
+			m.skillMaxLevels[id] = level
 		}
 	}
 }
@@ -232,6 +262,42 @@ func parseSkillDescriptionTable(data []byte, nameToID map[string]int) (map[int]s
 		descriptions[currentID] = append(descriptions[currentID], line)
 	}
 	return names, descriptions
+}
+
+func parseSkillSPAmountMaxLevels(data []byte, nameToID map[string]int) map[int]int {
+	out := make(map[int]int)
+	currentID := 0
+	levelCount := 0
+	flush := func() {
+		if currentID > 0 && levelCount > 0 {
+			out[currentID] = levelCount
+		}
+		currentID = 0
+		levelCount = 0
+	}
+	for _, rawLine := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(strings.TrimRight(rawLine, "\r\n"))
+		if line == "" || strings.HasPrefix(line, "/") {
+			continue
+		}
+		if line == "@" {
+			flush()
+			continue
+		}
+		if strings.HasSuffix(line, "#") {
+			token := strings.TrimSpace(strings.TrimSuffix(line, "#"))
+			if id, ok := nameToID[strings.ToLower(token)]; ok && id > 0 {
+				flush()
+				currentID = id
+				continue
+			}
+			if currentID > 0 {
+				levelCount++
+			}
+		}
+	}
+	flush()
+	return out
 }
 
 func normalizeSkillDisplayToken(value string) string {

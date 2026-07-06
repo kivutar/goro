@@ -25,6 +25,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Item info window
 - [x] Identify window
 - [x] Skills window
+- [x] Teleport / Warp destination modal
 
 ## High Priority
 
@@ -37,9 +38,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [ ] Shortcut bar
   - Not a normal window, but it is UI-heavy and still has custom hitboxes.
   - Needs drag/drop, function-key activation, skill level display, item counts, and target cursor integration.
-
-- [ ] Teleport / Warp destination modal
-  - Small modal, but it should share the same footer/button system and scrollable choice list.
 
 ## Lower Priority
 

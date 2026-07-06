@@ -47,3 +47,20 @@ func TestSkillMetadataLookupCopiesDescription(t *testing.T) {
 		t.Fatalf("description was not copied: %#v", lines)
 	}
 }
+
+func TestParseSkillSPAmountMaxLevels(t *testing.T) {
+	nameToID := map[string]int{
+		"sm_bash":    5,
+		"pr_angelus": 33,
+	}
+	got := parseSkillSPAmountMaxLevels([]byte("SM_BASH#\n8#\n8#\n@\nUNKNOWN#\n1#\n@\nPR_ANGELUS#\n23#\n26#\n29#\n@\n"), nameToID)
+	if got[5] != 2 {
+		t.Fatalf("SM_BASH max level = %d, want 2", got[5])
+	}
+	if got[33] != 3 {
+		t.Fatalf("PR_ANGELUS max level = %d, want 3", got[33])
+	}
+	if _, ok := got[0]; ok {
+		t.Fatal("zero skill id should not be populated")
+	}
+}

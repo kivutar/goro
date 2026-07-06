@@ -2937,7 +2937,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.identifyWindow.Draw(screen, ctx, m)
 	m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 	m.console.Draw(screen, width, height)
-	m.teleportModal.Draw(screen, ctx, width, height)
 	m.deathModal.Draw(screen, ctx, width, height)
 }
 

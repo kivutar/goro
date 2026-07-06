@@ -466,6 +466,13 @@ func (w *SkillWindow) canStageSkill(s *session.Session, skill session.Skill) boo
 	if !canIncreaseSkill(s, skill) {
 		return false
 	}
+	pending := w.pendingFor(skill.ID)
+	if skill.MaxLevel > 0 {
+		return skill.Level+pending < skill.MaxLevel && w.pendingCount() < sessionSkillPoints(s)
+	}
+	if pending > 0 {
+		return false
+	}
 	return w.pendingCount() < sessionSkillPoints(s)
 }
 
@@ -766,5 +773,5 @@ func (p *skillInfoPopover) Children() []widget.Widget {
 }
 
 func canIncreaseSkill(s *session.Session, skill session.Skill) bool {
-	return s != nil && s.Skills.Points > 0 && skill.Upgradable
+	return s != nil && s.Skills.Points > 0 && skill.Upgradable && (skill.MaxLevel <= 0 || skill.Level < skill.MaxLevel)
 }

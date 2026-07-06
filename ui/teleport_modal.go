@@ -2,11 +2,15 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 
+	"github.com/gogpu/ui/core/scrollview"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/state"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
@@ -17,10 +21,11 @@ const (
 	warpPointCancelMap   = "cancel"
 
 	teleportModalWidth   = 260
-	teleportModalMinH    = 160
-	teleportModalPad     = 16
-	teleportModalTitleH  = 32
-	teleportModalButtonH = 28
+	teleportModalMinH    = 168
+	teleportModalMaxRows = 6
+	teleportModalListPad = 1
+	teleportModalFooterH = 42
+	teleportModalPad     = 14
 	teleportModalGap     = 8
 )
 
@@ -37,21 +42,9 @@ type TeleportModal struct {
 	skill    session.Skill
 	mapNames []string
 	status   string
-}
-
-type teleportModalAction int
-
-const (
-	teleportModalActionCancel    teleportModalAction = -1
-	teleportModalActionRandom    teleportModalAction = 0
-	teleportModalActionSavePoint teleportModalAction = 1
-)
-
-type teleportModalButton struct {
-	label   string
-	action  teleportModalAction
-	mapName string
-	enabled bool
+	window   WindowState
+	scrollY  state.Signal[float32]
+	ctx      Context
 }
 
 func (m *TeleportModal) OpenWarpPointList(list network.WarpPointList, skill session.Skill) {
@@ -59,9 +52,11 @@ func (m *TeleportModal) OpenWarpPointList(list network.WarpPointList, skill sess
 	m.skill = skill
 	m.mapNames = append(m.mapNames[:0], list.MapNames...)
 	m.status = ""
+	m.closeWindow()
 }
 
 func (m *TeleportModal) Reset() {
+	m.closeWindow()
 	*m = TeleportModal{}
 }
 
@@ -81,61 +76,40 @@ func TeleportWarpListBypassesModal(skill session.Skill, list network.WarpPointLi
 }
 
 func (m *TeleportModal) Update(ctx Context, actions GameActions) bool {
-	if !m.open || ctx.Input == nil {
-		return m.open
+	m.ctx = ctx
+	if !m.open {
+		m.closeWindow()
+		return false
 	}
-	if ctx.Input.JustPressed(render.KeyEscape) || ctx.Input.MouseJustPressed(render.MouseButtonRight) {
+	if ctx.Input != nil && (ctx.Input.JustPressed(render.KeyEscape) || ctx.Input.MouseJustPressed(render.MouseButtonRight)) {
 		m.cancel(ctx)
 		return true
 	}
-	if !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
+	m.openWindow(ctx, actions)
+	if m.window.Update(ctx) {
+		m.Publish(ctx)
 		return true
 	}
-	width, height := ctx.ScreenSize()
-	x, y, w, _ := teleportModalBounds(width, height)
-	mx, my := ctx.Input.MouseX, ctx.Input.MouseY
-	buttons := m.buttons()
-	for i, button := range buttons {
-		if !button.enabled {
-			continue
-		}
-		bx, by, bw, bh := teleportModalButtonBounds(x, y, w, i)
-		if !pointInRect(mx, my, bx, by, bw, bh) {
-			continue
-		}
-		m.activate(ctx, actions, button.action)
-		return true
-	}
+	m.Publish(ctx)
 	return true
-}
-
-func (m *TeleportModal) activate(ctx Context, actions GameActions, action teleportModalAction) {
-	for _, button := range m.buttons() {
-		if button.action != action || !button.enabled {
-			continue
-		}
-		if button.action == teleportModalActionCancel {
-			m.cancel(ctx)
-			return
-		}
-		m.selectWarpPoint(ctx, actions, button.mapName)
-		return
-	}
 }
 
 func (m *TeleportModal) cancel(ctx Context) {
 	if m.skill.ID == warpPortalSkillID && ctx.Network != nil {
 		if err := ctx.Network.SendSelectWarpPoint(uint16(warpPortalSkillID), warpPointCancelMap); err != nil {
 			m.status = fmt.Sprintf("Cancel failed: %v", err)
+			m.refresh(ctx)
 			return
 		}
 	}
 	m.open = false
+	m.closeWindow()
 }
 
 func (m *TeleportModal) selectWarpPoint(ctx Context, actions GameActions, mapName string) {
 	if ctx.Network == nil {
 		m.status = "Teleport failed: not connected"
+		m.refresh(ctx)
 		return
 	}
 	skillID := uint16(teleportSkillID)
@@ -144,12 +118,14 @@ func (m *TeleportModal) selectWarpPoint(ctx Context, actions GameActions, mapNam
 	}
 	if err := ctx.Network.SendSelectWarpPoint(skillID, mapName); err != nil {
 		m.status = fmt.Sprintf("Teleport failed: %v", err)
+		m.refresh(ctx)
 		return
 	}
 	if actions != nil && skillID == teleportSkillID {
 		actions.AddTeleportEffect(ctx)
 	}
 	m.open = false
+	m.closeWindow()
 }
 
 func (m TeleportModal) savePointEnabled() bool {
@@ -191,66 +167,11 @@ func IsLevelOneTeleportSkill(skill session.Skill) bool {
 	return skill.ID == teleportSkillID && skill.Level <= 1
 }
 
-func (m TeleportModal) buttons() []teleportModalButton {
-	if m.skill.ID == warpPortalSkillID {
-		buttons := make([]teleportModalButton, 0, len(m.mapNames)+1)
-		for i, name := range m.mapNames {
-			if name == "" {
-				continue
-			}
-			buttons = append(buttons, teleportModalButton{
-				label:   warpPortalDestinationLabel(name, i),
-				action:  teleportModalAction(i),
-				mapName: name,
-				enabled: true,
-			})
-		}
-		buttons = append(buttons, teleportModalButton{label: "Cancel", action: teleportModalActionCancel, enabled: true})
-		return buttons
-	}
-	return []teleportModalButton{
-		{label: "Random", action: teleportModalActionRandom, mapName: m.randomMapName(), enabled: true},
-		{label: "Save Point", action: teleportModalActionSavePoint, mapName: m.savePointMapName(), enabled: m.savePointEnabled()},
-		{label: "Cancel", action: teleportModalActionCancel, enabled: true},
-	}
-}
-
 func warpPortalDestinationLabel(mapName string, index int) string {
 	if index == 0 {
 		return fmt.Sprintf("Save Point: %s", mapName)
 	}
 	return mapName
-}
-
-func (m *TeleportModal) Draw(screen *render.Image, ctx Context, width, height int) {
-	if !m.open || screen == nil {
-		return
-	}
-	DrawSurface(screen, 0, 0, width, height, color.RGBA{A: 72}, color.RGBA{})
-	x, y, w, h := teleportModalBounds(width, height)
-	DrawTitledWindowFrame(screen, x, y, w, h, teleportModalTitleH)
-	DrawWindowTitle(screen, x, y, teleportModalTitleH, teleportModalPad, m.Title(), TitleTextColor)
-	render.DebugPrintAtColor(screen, "Choose destination.", x+teleportModalPad, y+teleportModalTitleH+12, TextColor)
-
-	mx, my := -1, -1
-	if ctx.Input != nil {
-		mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-	}
-	for i, button := range m.buttons() {
-		bx, by, bw, bh := teleportModalButtonBounds(x, y, w, i)
-		fill := ButtonColor
-		textColor := TextColor
-		if !button.enabled {
-			fill = DisabledColor
-			textColor = MutedTextColor
-		} else if pointInRect(mx, my, bx, by, bw, bh) {
-			fill = ButtonHoverColor
-		}
-		DrawButtonLabel(screen, bx, by, bw, bh, button.label, fill, textColor)
-	}
-	if m.status != "" {
-		render.DebugPrintAtColor(screen, trimRunes(m.status, 30), x+teleportModalPad, y+h-16, ErrorTextColor)
-	}
 }
 
 func (m TeleportModal) Title() string {
@@ -260,49 +181,162 @@ func (m TeleportModal) Title() string {
 	return "Teleport"
 }
 
-func (m *TeleportModal) CursorAction(ctx Context) (int, bool) {
-	if !m.open || ctx.Input == nil {
-		return 0, false
-	}
-	width, height := ctx.ScreenSize()
-	x, y, w, _ := teleportModalBounds(width, height)
-	for i, button := range m.buttons() {
-		if !button.enabled {
-			continue
-		}
-		bx, by, bw, bh := teleportModalButtonBounds(x, y, w, i)
-		if pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, bx, by, bw, bh) {
-			return CursorActionClick, true
-		}
-	}
-	return CursorActionDefault, true
-}
-
 func (m TeleportModal) IsOpen() bool {
 	return m.open
 }
 
-func teleportModalBounds(width, height int) (int, int, int, int) {
-	w := minInt(teleportModalWidth, maxInt(220, width-40))
-	h := minInt(teleportModalHeightForButtons(5), maxInt(teleportModalMinH, height-40))
-	x := (width - w) / 2
-	y := (height - h) / 2
-	if y < 16 {
-		y = 16
+func (m *TeleportModal) Publish(ctx Context) {
+	if ctx.UIManager == nil {
+		return
 	}
-	return x, y, w, h
+	m.window.Publish(ctx)
 }
 
-func teleportModalHeightForButtons(count int) int {
-	if count < 3 {
-		count = 3
+func (m *TeleportModal) ensureWindow() {
+	height := m.windowHeight()
+	if m.window.width == 0 {
+		m.window = NewWindowState(teleportModalWidth, height)
+		m.window.SetCloseOnEscape(false)
+		return
 	}
-	return teleportModalTitleH + 34 + count*(teleportModalButtonH+teleportModalGap) + 18
+	m.window.SetSize(teleportModalWidth, height)
 }
 
-func teleportModalButtonBounds(x, y, w, index int) (int, int, int, int) {
-	bx := x + teleportModalPad
-	by := y + teleportModalTitleH + 34 + index*(teleportModalButtonH+teleportModalGap)
-	bw := w - 2*teleportModalPad
-	return bx, by, bw, teleportModalButtonH
+func (m *TeleportModal) openWindow(ctx Context, actions GameActions) {
+	m.ensureWindow()
+	if !m.window.IsOpen() {
+		m.window.Open(ctx, m.widgetTree(ctx, actions))
+	}
+}
+
+func (m *TeleportModal) refresh(ctx Context) {
+	m.ensureWindow()
+	if !m.window.IsOpen() {
+		return
+	}
+	m.window.SetContent(m.widgetTree(ctx, nil))
+	m.Publish(ctx)
+}
+
+func (m *TeleportModal) closeWindow() {
+	if m.window.IsOpen() {
+		m.window.Close()
+		m.Publish(m.ctx)
+	}
+}
+
+func (m *TeleportModal) widgetTree(ctx Context, actions GameActions) widget.Widget {
+	return Window(
+		Title(m.Title()),
+		CloseButton(false),
+		Size(teleportModalWidth, float32(m.windowHeight())),
+		FooterHeight(teleportModalFooterH),
+		Content(
+			primitives.Box(
+				rotheme.Text("Choose destination."),
+				m.destinationList(ctx, actions),
+				m.statusText(),
+			).
+				Padding(teleportModalPad).
+				Gap(teleportModalGap),
+		),
+		Footer(
+			primitives.HBox(
+				primitives.Expanded(primitives.Box()),
+				rotheme.Button("Cancel", func() {
+					m.cancel(m.ctx)
+				}).Width(float32(ButtonLabelWidth("Cancel"))),
+			),
+		),
+	)
+}
+
+func (m *TeleportModal) destinationList(ctx Context, actions GameActions) widget.Widget {
+	rows := m.destinationRows(ctx, actions)
+	if len(rows) == 0 {
+		return primitives.Box().Height(float32(teleportModalRowHeight()))
+	}
+	rowH := teleportModalRowHeight()
+	return primitives.Box(
+		scrollview.New(
+			primitives.Box(rows...).
+				Gap(teleportModalGap).
+				Padding(teleportModalListPad).
+				CrossAlign(primitives.CrossAxisStretch),
+			scrollview.DirectionOpt(scrollview.Vertical),
+			scrollview.ScrollYSignal(m.ensureScrollSignal()),
+			scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+			scrollview.ScrollStep(float32(rowH)),
+		),
+	).
+		Height(float32(m.destinationListHeight())).
+		CrossAlign(primitives.CrossAxisStretch)
+}
+
+func (m *TeleportModal) destinationRows(ctx Context, actions GameActions) []widget.Widget {
+	if m.skill.ID == warpPortalSkillID {
+		rows := make([]widget.Widget, 0, len(m.mapNames))
+		for i, name := range m.mapNames {
+			if name == "" {
+				continue
+			}
+			rows = append(rows, m.destinationButton(ctx, actions, warpPortalDestinationLabel(name, i), name, true))
+		}
+		return rows
+	}
+	return []widget.Widget{
+		m.destinationButton(ctx, actions, "Random", m.randomMapName(), true),
+		m.destinationButton(ctx, actions, "Save Point", m.savePointMapName(), m.savePointEnabled()),
+	}
+}
+
+func (m *TeleportModal) destinationButton(ctx Context, actions GameActions, label, mapName string, enabled bool) widget.Widget {
+	return rotheme.LargeButtonDisabled(label, !enabled, func() {
+		m.selectWarpPoint(ctx, actions, mapName)
+	})
+}
+
+func (m *TeleportModal) statusText() widget.Widget {
+	if m.status == "" {
+		return primitives.Box().Height(0)
+	}
+	return rotheme.Text(trimRunes(m.status, 34)).Color(widget.RGBA8(204, 48, 48, 255))
+}
+
+func (m *TeleportModal) destinationListHeight() int {
+	count := 2
+	if m.skill.ID == warpPortalSkillID {
+		count = 0
+		for _, name := range m.mapNames {
+			if name != "" {
+				count++
+			}
+		}
+	}
+	if count < 1 {
+		count = 1
+	}
+	if count > teleportModalMaxRows {
+		count = teleportModalMaxRows
+	}
+	return count*teleportModalRowHeight() + (count-1)*teleportModalGap + teleportModalListPad*2
+}
+
+func teleportModalRowHeight() int {
+	return int(rotheme.Default.Typography.TextSize + rotheme.LargeButtonPaddingY*2)
+}
+
+func (m *TeleportModal) windowHeight() int {
+	height := ROWindowTitleHeight + teleportModalPad*2 + int(rotheme.Default.Typography.TextSize) + teleportModalGap + m.destinationListHeight() + teleportModalFooterH
+	if m.status != "" {
+		height += teleportModalGap + int(rotheme.Default.Typography.TextSize)
+	}
+	return maxInt(teleportModalMinH, height)
+}
+
+func (m *TeleportModal) ensureScrollSignal() state.Signal[float32] {
+	if m.scrollY == nil {
+		m.scrollY = state.NewSignal[float32](0)
+	}
+	return m.scrollY
 }

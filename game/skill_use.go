@@ -63,6 +63,16 @@ func sessionSkillFromNetwork(skill network.SkillInfo) session.Skill {
 	}
 }
 
+func sessionSkillFromNetworkWithResources(manager *res.Manager, skill network.SkillInfo) session.Skill {
+	out := sessionSkillFromNetwork(skill)
+	if manager != nil {
+		if maxLevel, ok := manager.SkillMaxLevel(int(skill.ID)); ok {
+			out.MaxLevel = maxLevel
+		}
+	}
+	return out
+}
+
 func localSkillTarget(ctx client.Context) uint32 {
 	if ctx.Session == nil {
 		return 0

@@ -160,6 +160,7 @@ type Skill struct {
 	ID         uint16
 	Type       uint32
 	Level      int
+	MaxLevel   int
 	SPCost     int
 	Range      int
 	Name       string

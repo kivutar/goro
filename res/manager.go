@@ -33,6 +33,8 @@ type Manager struct {
 	fogParametersLoaded      bool
 	skillResourceNames       map[int]string
 	skillResourceNamesLoaded bool
+	skillMaxLevels           map[int]int
+	skillMaxLevelsLoaded     bool
 	skillDisplayNames        map[int]string
 	skillDescriptions        map[int][]string
 	skillMetadataLoaded      bool
