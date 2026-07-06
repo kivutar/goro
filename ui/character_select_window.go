@@ -43,6 +43,8 @@ const (
 	characterSelectFooterH   = 42
 	characterSelectFooterPad = 12
 	characterSelectFooterGap = 8
+	characterSelectSlotW     = 139
+	characterSelectSlotH     = 144
 )
 
 func NewCharacterSelectWindow(ctx client.Context, opts CharacterSelectWindowOptions, callbacks CharacterSelectWindowCallbacks) *CharacterSelectWindow {
@@ -131,22 +133,14 @@ func (w *CharacterSelectWindow) widgetTree() widget.Widget {
 		Content(
 			primitives.Box(
 				primitives.HBox(
-					rotheme.IconButton(rotheme.IconButtonLeft, func() {
-						if w.callbacks.OnPreviousPage != nil {
-							w.callbacks.OnPreviousPage()
-						}
-					}),
+					characterSelectArrowButton(rotheme.IconButtonLeft, w.callbacks.OnPreviousPage),
 					primitives.HBox(
 						w.slotWidget(pageStart),
 						w.slotWidget(pageStart+1),
 						w.slotWidget(pageStart+2),
 					).
 						Gap(25),
-					rotheme.IconButton(rotheme.IconButtonRight, func() {
-						if w.callbacks.OnNextPage != nil {
-							w.callbacks.OnNextPage()
-						}
-					}),
+					characterSelectArrowButton(rotheme.IconButtonRight, w.callbacks.OnNextPage),
 				).
 					CrossAlign(primitives.CrossAxisCenter).
 					Gap(18),
@@ -196,6 +190,20 @@ func (w *CharacterSelectWindow) widgetTree() widget.Widget {
 	)
 }
 
+func characterSelectArrowButton(kind rotheme.IconButtonKind, onClick func()) widget.Widget {
+	return primitives.Box(
+		primitives.Expanded(primitives.Box()),
+		rotheme.IconButton(kind, func() {
+			if onClick != nil {
+				onClick()
+			}
+		}),
+		primitives.Expanded(primitives.Box()),
+	).
+		Height(characterSelectSlotH).
+		CrossAlign(primitives.CrossAxisCenter)
+}
+
 func (w *CharacterSelectWindow) slotWidget(slot int) widget.Widget {
 	_, hasCharacter := characterBySlot(w.opts.Characters, slot)
 	var preview image.Image
@@ -225,8 +233,8 @@ func (w *CharacterSelectWindow) slotWidget(slot int) widget.Widget {
 			),
 		),
 	).
-		Width(139).
-		Height(144).
+		Width(characterSelectSlotW).
+		Height(characterSelectSlotH).
 		CrossAlign(primitives.CrossAxisStretch)
 }
 
