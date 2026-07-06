@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogpu/ui/offscreen"
 	"github.com/gogpu/ui/primitives"
-	uiwidget "github.com/gogpu/ui/widget"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 const (
@@ -50,11 +50,15 @@ type ChatConsole struct {
 	lastMessage   string
 	lastMessageAt time.Time
 
-	cacheKey string
-	image    *render.Image
+	cacheKey  string
+	root      widget.Widget
+	rootX     int
+	rootY     int
+	published bool
 }
 
 func (c *ChatConsole) Update(ctx client.Context) bool {
+	defer c.Publish(ctx)
 	if ctx.Input == nil {
 		return false
 	}
@@ -102,6 +106,34 @@ func (c *ChatConsole) Update(ctx client.Context) bool {
 		c.backspace()
 	}
 	return true
+}
+
+func (c *ChatConsole) Publish(ctx client.Context) {
+	if ctx.UIManager == nil {
+		return
+	}
+	screenW, screenH := ctx.ScreenSize()
+	x, y, width, height := consoleBounds(screenW, screenH)
+	key := c.renderKey(width, height)
+	if c.root != nil && c.cacheKey == key && c.rootX == x && c.rootY == y {
+		if redraw, ok := c.root.(interface{ SetNeedsRedraw(bool) }); ok {
+			redraw.SetNeedsRedraw(true)
+		}
+		return
+	}
+	if c.published && c.root != nil {
+		ctx.UIManager.RemoveOverlay(c.root)
+	}
+	c.cacheKey = key
+	c.rootX = x
+	c.rootY = y
+	c.root = primitives.Box(c.widgetTree(width, height)).
+		PaddingLeft(float32(x)).
+		PaddingTop(float32(y)).
+		Width(float32(x + width)).
+		Height(float32(y + height))
+	ctx.UIManager.AddOverlay(c.root)
+	c.published = true
 }
 
 func (c *ChatConsole) AddMessage(format string, args ...any) {
@@ -341,88 +373,51 @@ func (c *ChatConsole) nextInput() {
 	c.invalidate()
 }
 
-func (c *ChatConsole) Draw(screen *render.Image, width, height int) {
-	if screen == nil {
-		return
-	}
-	x, y, cw, ch := consoleBounds(width, height)
-	key := c.renderKey(cw, ch)
-	if c.image == nil || c.cacheKey != key {
-		c.cacheKey = key
-		c.image = c.renderImage(cw, ch)
-	}
-	if c.image == nil {
-		return
-	}
-	var opts render.DrawImageOptions
-	opts.GeoM.Translate(float64(x), float64(y))
-	opts.Filter = render.FilterNearest
-	screen.DrawImage(c.image, &opts)
-}
-
-func (c *ChatConsole) renderImage(width, height int) *render.Image {
-	out := render.NewImage(width, height)
-	DrawRoundedSurface(out, 0, 0, width, height, color.RGBA{R: 14, G: 18, B: 24, A: 188}, color.RGBA{R: 180, G: 198, B: 218, A: 95}, WindowRadius)
-	root := c.widgetTree(width, height)
-	r := offscreen.NewRenderer(width, height, offscreen.WithBackground(uiwidget.ColorTransparent))
-	r.Render(root)
-	img := r.Image()
-	if img == nil {
-		return out
-	}
-	var opts render.DrawImageOptions
-	out.DrawImage(render.NewImageFromImage(img), &opts)
-	c.drawCrispText(out, width, height)
-	return out
-}
-
-func (c *ChatConsole) widgetTree(width, height int) uiwidget.Widget {
+func (c *ChatConsole) widgetTree(width, height int) widget.Widget {
 	contentWidth := maxInt(1, width-16)
-	field := primitives.Box().
+	messageWidgets := make([]widget.Widget, 0, consoleMaxLines)
+	for _, line := range c.visibleLines() {
+		messageWidgets = append(messageWidgets,
+			rotheme.Text(line.Text).
+				Color(Color(line.Color)).
+				MaxLines(1).
+				Ellipsis(),
+		)
+	}
+	fieldText := c.inputText()
+	if c.active && time.Now().UnixMilli()/500%2 == 0 {
+		fieldText += "|"
+	}
+	field := primitives.Box(
+		rotheme.Text(fieldText).
+			Color(Color(consoleColorInput)).
+			MaxLines(1).
+			Ellipsis(),
+	).
 		Width(float32(contentWidth)).
 		Height(consoleFieldH).
 		PaddingXY(6, 3).
-		Background(uiwidget.RGBA8(5, 8, 13, 205)).
-		BorderStyle(1, uiwidget.RGBA8(190, 208, 230, 120))
+		Background(widget.RGBA8(5, 8, 13, 205)).
+		BorderStyle(1, widget.RGBA8(190, 208, 230, 120)).
+		CrossAlign(primitives.CrossAxisStretch)
 	messageHeight := maxInt(20, height-16-consoleFieldH-4)
-	messages := primitives.Box().
+	messages := primitives.Box(messageWidgets...).
 		Width(float32(contentWidth)).
 		Height(float32(messageHeight)).
-		Gap(1)
+		Gap(1).
+		CrossAlign(primitives.CrossAxisStretch)
 	return primitives.Box(messages, field).
 		Width(float32(width)).
 		Height(float32(height)).
 		PaddingXY(8, 6).
-		Gap(4)
+		Gap(4).
+		Background(widget.RGBA8(14, 18, 24, 188)).
+		BorderStyle(1, widget.RGBA8(180, 198, 218, 95)).
+		Rounded(WindowRadius).
+		CrossAlign(primitives.CrossAxisStretch)
 }
 
-func (c *ChatConsole) drawCrispText(img *render.Image, width, height int) {
-	if img == nil {
-		return
-	}
-	contentWidth := maxInt(1, width-16)
-	textWidth := maxInt(1, contentWidth-12)
-	lineHeight := consoleTextLineHeight()
-	for i, line := range c.visibleLines(width) {
-		render.DebugPrintAtColor(img, trimTextToWidth(line.Text, textWidth), 14, 10+i*lineHeight, line.Color)
-	}
-	c.drawScrollbar(img, width, height)
-	prompt := c.input
-	if !c.active && prompt == "" {
-		prompt = "Press Enter to chat"
-	}
-	fieldY := c.inputFieldTop(height)
-	_, textHeight := render.DebugTextSize("Ag")
-	textY := fieldY + (consoleFieldH-textHeight)/2
-	visiblePrompt := trimTextToWidth(prompt, textWidth)
-	render.DebugPrintAtColor(img, visiblePrompt, 15, textY, consoleColorInput)
-	if c.active {
-		promptW, _ := render.DebugTextSize(visiblePrompt)
-		DrawBlinkingCaret(img, minInt(14+contentWidth, 15+promptW), fieldY, consoleFieldH, consoleColorInput)
-	}
-}
-
-func (c *ChatConsole) visibleLines(width int) []ConsoleMessage {
+func (c *ChatConsole) visibleLines() []ConsoleMessage {
 	if len(c.messages) == 0 {
 		return []ConsoleMessage{{Text: "Server messages will appear here.", Color: consoleColorPlaceholder}}
 	}
@@ -433,37 +428,8 @@ func (c *ChatConsole) visibleLines(width int) []ConsoleMessage {
 	}
 	end := minInt(len(c.messages), start+consoleMaxLines)
 	out := make([]ConsoleMessage, 0, end-start)
-	textWidth := maxInt(1, width-24)
-	for _, msg := range c.messages[start:end] {
-		msg.Text = trimTextToWidth(msg.Text, textWidth)
-		out = append(out, msg)
-	}
+	out = append(out, c.messages[start:end]...)
 	return out
-}
-
-func consoleTextLineHeight() int {
-	_, height := render.DebugTextSize("Ag")
-	return maxInt(1, height+1)
-}
-
-func trimTextToWidth(text string, width int) string {
-	if text == "" || width <= 0 {
-		return ""
-	}
-	if textWidth, _ := render.DebugTextSize(text); textWidth <= width {
-		return text
-	}
-	runes := []rune(text)
-	lo, hi := 0, len(runes)
-	for lo < hi {
-		mid := (lo + hi + 1) / 2
-		if textWidth, _ := render.DebugTextSize(string(runes[:mid])); textWidth <= width {
-			lo = mid
-		} else {
-			hi = mid - 1
-		}
-	}
-	return string(runes[:lo])
 }
 
 func (c *ChatConsole) renderKey(width, height int) string {
@@ -506,32 +472,19 @@ func (c *ChatConsole) ClampScroll() {
 	}
 }
 
-func (c *ChatConsole) inputFieldTop(height int) int {
-	messageHeight := maxInt(20, height-16-consoleFieldH-4)
-	return 6 + messageHeight + 4
-}
-
-func (c *ChatConsole) drawScrollbar(img *render.Image, width, height int) {
-	if len(c.messages) <= consoleMaxLines {
-		return
-	}
-	trackX := float64(width - 10)
-	trackY := 10.0
-	trackH := float64(maxInt(1, c.inputFieldTop(height)-14))
-	maxScroll := maxInt(1, len(c.messages)-consoleMaxLines)
-	thumbH := math.Max(18, trackH*float64(consoleMaxLines)/float64(len(c.messages)))
-	thumbTravel := math.Max(1, trackH-thumbH)
-	thumbY := trackY + thumbTravel*(1-float64(c.scroll)/float64(maxScroll))
-	render.DrawRect(img, trackX, trackY, 3, trackH, color.RGBA{R: 110, G: 124, B: 142, A: 90})
-	render.DrawRect(img, trackX, thumbY, 3, thumbH, color.RGBA{R: 205, G: 218, B: 232, A: 150})
-}
-
 func (c *ChatConsole) messagesKey() string {
 	var b strings.Builder
 	for _, msg := range c.messages {
 		fmt.Fprintf(&b, "%02x%02x%02x%02x:%s\n", msg.Color.R, msg.Color.G, msg.Color.B, msg.Color.A, msg.Text)
 	}
 	return b.String()
+}
+
+func (c *ChatConsole) inputText() string {
+	if c.active || c.input != "" {
+		return c.input
+	}
+	return "Press Enter to chat"
 }
 
 func (c *ChatConsole) Messages() []ConsoleMessage {

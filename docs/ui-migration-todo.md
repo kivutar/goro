@@ -31,6 +31,9 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Keeps coordinate acceptance helpers for cross-window item/skill drops until drag ghosts move to a shared gogpu/ui drag overlay.
 - [x] Basic character window
 - [x] Basic menu button grid
+- [x] Console
+  - Published as a dark translucent gogpu/ui overlay.
+  - Keeps manual command/history input for now because chat commands are game-side behavior.
 
 ## High Priority
 
@@ -39,10 +42,6 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Keep color-code parsing, choice scrolling, and the subdialog layout.
 
 ## Lower Priority
-
-- [ ] Console
-  - Keep its dark translucent style.
-  - Migration is lower priority because it already behaves differently from RO windows and has specialized text history/input behavior.
 
 - [ ] Minimap and status/buff icons
   - HUD elements rather than dialogs.
