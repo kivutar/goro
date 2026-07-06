@@ -34,13 +34,9 @@ const (
 )
 
 type CharacterCreateWindowOptions struct {
-	X, Y, W, H int
-	FooterH    int
-	FooterPadX int
-	FooterGap  int
-	Name       string
-	Stats      [CharacterCreateStatCount]uint8
-	Preview    image.Image
+	Name    string
+	Stats   [CharacterCreateStatCount]uint8
+	Preview image.Image
 }
 
 type CharacterCreateWindowCallbacks struct {
@@ -60,24 +56,34 @@ type CharacterCreateWindow struct {
 	name      *textfield.Widget
 }
 
-func NewCharacterCreateWindow(opts CharacterCreateWindowOptions, callbacks CharacterCreateWindowCallbacks) *CharacterCreateWindow {
+const (
+	characterCreateWindowW   = 576
+	characterCreateWindowH   = 342
+	characterCreateFooterH   = 42
+	characterCreateFooterPad = 12
+	characterCreateFooterGap = 8
+)
+
+func NewCharacterCreateWindow(ctx client.Context, opts CharacterCreateWindowOptions, callbacks CharacterCreateWindowCallbacks) *CharacterCreateWindow {
+	x, y, width, height := characterCreateWindowRect(ctx)
 	w := &CharacterCreateWindow{
 		opts:      opts,
 		callbacks: callbacks,
-		window:    NewWindowState(opts.W, opts.H),
+		window:    NewWindowState(width, height),
 	}
-	w.window.OpenAt(opts.X, opts.Y, w.widgetTree())
+	w.window.OpenAt(x, y, w.widgetTree())
 	return w
 }
 
-func (w *CharacterCreateWindow) SetOptions(opts CharacterCreateWindowOptions) {
+func (w *CharacterCreateWindow) SetOptions(ctx client.Context, opts CharacterCreateWindowOptions) {
 	if w == nil {
 		return
 	}
 	sameTree := characterCreateWindowTreeEqual(w.opts, opts)
+	x, y, width, height := characterCreateWindowRect(ctx)
 	w.opts = opts
-	w.window.SetAutoPosition(opts.X, opts.Y)
-	w.window.SetSize(opts.W, opts.H)
+	w.window.SetAutoPosition(x, y)
+	w.window.SetSize(width, height)
 	if sameTree {
 		return
 	}
@@ -103,12 +109,7 @@ func (w *CharacterCreateWindow) Update(ctx client.Context) bool {
 }
 
 func characterCreateWindowTreeEqual(a, b CharacterCreateWindowOptions) bool {
-	return a.W == b.W &&
-		a.H == b.H &&
-		a.FooterH == b.FooterH &&
-		a.FooterPadX == b.FooterPadX &&
-		a.FooterGap == b.FooterGap &&
-		a.Preview == b.Preview &&
+	return a.Preview == b.Preview &&
 		a.Stats == b.Stats
 }
 
@@ -145,9 +146,9 @@ func (w *CharacterCreateWindow) widgetTree() widget.Widget {
 	return Window(
 		Title("Make Character"),
 		CloseButton(false),
-		Size(float32(w.opts.W), float32(w.opts.H)),
-		FooterHeight(float32(w.opts.FooterH)),
-		FooterPadding(float32(w.opts.FooterPadX)),
+		Size(characterCreateWindowW, characterCreateWindowH),
+		FooterHeight(characterCreateFooterH),
+		FooterPadding(characterCreateFooterPad),
 		Content(
 			primitives.Box(
 				primitives.HBox(
@@ -215,7 +216,7 @@ func (w *CharacterCreateWindow) widgetTree() widget.Widget {
 					Width(buttonW("Cancel")),
 			).
 				CrossAlign(primitives.CrossAxisCenter).
-				Gap(float32(w.opts.FooterGap)),
+				Gap(characterCreateFooterGap),
 		),
 	)
 }
@@ -267,6 +268,10 @@ func CharacterCreateGraphPoints(cx, cy int, radius float64) [CharacterCreateStat
 
 func CharacterCreateStatLabels() [CharacterCreateStatCount]string {
 	return [CharacterCreateStatCount]string{"STR", "AGI", "VIT", "INT", "DEX", "LUK"}
+}
+
+func characterCreateWindowRect(ctx client.Context) (int, int, int, int) {
+	return centeredWindowRect(ctx, characterCreateWindowW, characterCreateWindowH)
 }
 
 type characterCreateStatGraph struct {

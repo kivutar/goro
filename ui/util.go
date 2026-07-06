@@ -45,8 +45,12 @@ type GameActions interface {
 	AddTeleportEffect(ctx client.Context)
 }
 
-func pointInRect(px, py, x, y, w, h int) bool {
+func PointInRect(px, py, x, y, w, h int) bool {
 	return px >= x && py >= y && px < x+w && py < y+h
+}
+
+func pointInRect(px, py, x, y, w, h int) bool {
+	return PointInRect(px, py, x, y, w, h)
 }
 
 func maxInt(a, b int) int {

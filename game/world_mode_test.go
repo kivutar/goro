@@ -159,7 +159,7 @@ func TestVisibleStatusIconIDsAreKnownAndSorted(t *testing.T) {
 		12: {ID: 12},
 		10: {ID: 10},
 	}
-	ids := visibleStatusIconIDs(active)
+	ids := gameui.VisibleStatusIconIDs(active)
 	if !reflect.DeepEqual(ids, []uint16{10, 12}) {
 		t.Fatalf("ids = %+v", ids)
 	}

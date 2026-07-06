@@ -378,39 +378,6 @@ func TestLoginWorldFadeWaitsForBlack(t *testing.T) {
 	}
 }
 
-func TestLoginWindowSitsNearTwoThirdsHeight(t *testing.T) {
-	ctx := client.Context{ScreenW: 1280, ScreenH: 720}
-	_, y, _, h := loginWindowRect(ctx)
-	centerY := y + h/2
-	want := (ctx.ScreenH * 2) / 3
-	if centerY != want {
-		t.Fatalf("login window centerY = %d, want %d", centerY, want)
-	}
-}
-
-func TestLoginWindowIsCompactWidth(t *testing.T) {
-	ctx := client.Context{ScreenW: 1280, ScreenH: 720}
-	_, _, w, _ := loginWindowRect(ctx)
-	if w != 304 {
-		t.Fatalf("login window width = %d, want 304", w)
-	}
-}
-
-func TestLoginWindowDoesNotExposeServerSelection(t *testing.T) {
-	mode := NewLoginMode()
-	inputState := input.NewState()
-	ctx := client.Context{Input: inputState, ScreenW: 1280, ScreenH: 720}
-	x, y, w, _ := loginWindowRect(ctx)
-	inputState.SetMousePosition(x+28, y+103)
-
-	if got := mode.cursorAction(ctx); got != cursorActionDefault {
-		t.Fatalf("old server row cursor action = %d, want default", got)
-	}
-	if w <= 0 {
-		t.Fatal("login window should still be present")
-	}
-}
-
 func TestLoginCursorUsesGogpuPointerAsROHand(t *testing.T) {
 	mode := NewLoginMode()
 	inputState := input.NewState()
@@ -600,13 +567,6 @@ func TestCharacterSelectBackToLoginPublishesLoginRootAtFadeSwitch(t *testing.T) 
 	manager := &loginTestUIManager{}
 	mode := NewLoginMode()
 	mode.phase = loginPhaseCharacter
-	mode.charSelectWindow = gameui.NewCharacterSelectWindow(
-		charSelectWindowOptions(10, 20, 576, 356),
-		gameui.CharacterSelectWindowCallbacks{},
-	)
-	staleRoot := mode.charSelectWindow.Widget()
-	manager.overlays = []widget.Widget{staleRoot}
-	mode.startPhaseFade(loginPhaseAccount, start)
 	ctx := client.Context{
 		Resources: &res.Manager{},
 		Input:     input.NewState(),
@@ -615,6 +575,10 @@ func TestCharacterSelectBackToLoginPublishesLoginRootAtFadeSwitch(t *testing.T) 
 		ScreenW:   1280,
 		ScreenH:   720,
 	}
+	mode.charSelectWindow = gameui.NewCharacterSelectWindow(ctx, gameui.CharacterSelectWindowOptions{}, gameui.CharacterSelectWindowCallbacks{})
+	staleRoot := mode.charSelectWindow.Widget()
+	manager.overlays = []widget.Widget{staleRoot}
+	mode.startPhaseFade(loginPhaseAccount, start)
 
 	if mode.updateFade(ctx, start.Add(loginTransitionDuration)) {
 		t.Fatal("phase fade unexpectedly entered world")

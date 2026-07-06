@@ -8,16 +8,8 @@ import (
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
-type LoginWindowDrawOptions struct {
-	X, Y, W, H    int
-	FooterH       int
-	FormTopPad    int
-	FieldGap      int
-	FieldLeft     int
-	FieldRightPad int
-	FieldH        int
-	Username      string
-	Password      string
+type loginWindowLayout struct {
+	X, Y, W, H int
 }
 
 type LoginWindowCallbacks struct {
@@ -28,33 +20,44 @@ type LoginWindow struct {
 	Username string
 	Password string
 
-	opts      LoginWindowDrawOptions
+	layout    loginWindowLayout
 	callbacks LoginWindowCallbacks
 	window    WindowState
 	user      *textfield.Widget
 	password  *textfield.Widget
 }
 
-func NewLoginWindow(opts LoginWindowDrawOptions, callbacks LoginWindowCallbacks) *LoginWindow {
+const (
+	loginWindowFooterH       = 42
+	loginWindowFormTopPad    = 18
+	loginWindowFieldGap      = 11
+	loginWindowFieldLeft     = 92
+	loginWindowFieldRightPad = 20
+	loginWindowFieldH        = 22
+)
+
+func NewLoginWindow(ctx client.Context, username, password string, callbacks LoginWindowCallbacks) *LoginWindow {
+	layout := loginWindowLayoutForContext(ctx)
 	w := &LoginWindow{
-		Username:  opts.Username,
-		Password:  opts.Password,
-		opts:      opts,
+		Username:  username,
+		Password:  password,
+		layout:    layout,
 		callbacks: callbacks,
-		window:    NewWindowState(opts.W, opts.H),
+		window:    NewWindowState(layout.W, layout.H),
 	}
-	w.window.OpenAt(opts.X, opts.Y, w.widgetTree())
+	w.window.OpenAt(layout.X, layout.Y, w.widgetTree())
 	return w
 }
 
-func (w *LoginWindow) SetOptions(opts LoginWindowDrawOptions) {
+func (w *LoginWindow) SetContext(ctx client.Context) {
 	if w == nil {
 		return
 	}
-	sameLayout := loginWindowLayoutEqual(w.opts, opts)
-	w.opts = opts
-	w.window.SetAutoPosition(opts.X, opts.Y)
-	w.window.SetSize(opts.W, opts.H)
+	layout := loginWindowLayoutForContext(ctx)
+	sameLayout := loginWindowLayoutEqual(w.layout, layout)
+	w.layout = layout
+	w.window.SetAutoPosition(layout.X, layout.Y)
+	w.window.SetSize(layout.W, layout.H)
 	if sameLayout {
 		return
 	}
@@ -114,16 +117,16 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 	password.SetFocused(passwordFocused)
 	w.user = user
 	w.password = password
-	labelW := float32(w.opts.FieldLeft - 36)
-	fieldW := float32(w.opts.W - w.opts.FieldLeft - w.opts.FieldRightPad)
-	fieldH := float32(w.opts.FieldH)
+	labelW := float32(loginWindowFieldLeft - 36)
+	fieldW := float32(w.layout.W - loginWindowFieldLeft - loginWindowFieldRightPad)
+	fieldH := float32(loginWindowFieldH)
 	buttonW := float32(ButtonLabelWidth("Login"))
 	return Window(
 		Title("Login"),
 		CloseButton(false),
-		Size(float32(w.opts.W), float32(w.opts.H)),
-		FooterHeight(float32(w.opts.FooterH)),
-		FooterPadding(float32(w.opts.FieldRightPad)),
+		Size(float32(w.layout.W), float32(w.layout.H)),
+		FooterHeight(loginWindowFooterH),
+		FooterPadding(loginWindowFieldRightPad),
 		Content(
 			primitives.Box(
 				primitives.HBox(
@@ -153,10 +156,10 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 					CrossAlign(primitives.CrossAxisCenter).
 					Gap(12),
 			).
-				PaddingTop(float32(w.opts.FormTopPad)).
+				PaddingTop(loginWindowFormTopPad).
 				PaddingLeft(24).
-				PaddingRight(float32(w.opts.FieldRightPad)).
-				Gap(float32(w.opts.FieldGap)),
+				PaddingRight(loginWindowFieldRightPad).
+				Gap(loginWindowFieldGap),
 		),
 		Footer(
 			primitives.HBox(
@@ -191,13 +194,30 @@ func (w *LoginWindow) fieldValues() (string, string) {
 	return username, password
 }
 
-func loginWindowLayoutEqual(a, b LoginWindowDrawOptions) bool {
+func loginWindowLayoutEqual(a, b loginWindowLayout) bool {
 	return a.W == b.W &&
 		a.H == b.H &&
-		a.FooterH == b.FooterH &&
-		a.FormTopPad == b.FormTopPad &&
-		a.FieldGap == b.FieldGap &&
-		a.FieldLeft == b.FieldLeft &&
-		a.FieldRightPad == b.FieldRightPad &&
-		a.FieldH == b.FieldH
+		a.X == b.X &&
+		a.Y == b.Y
+}
+
+func loginWindowLayoutForContext(ctx client.Context) loginWindowLayout {
+	width, height := ctx.ScreenSize()
+	w, h := loginWindowSize()
+	x := (width - w) / 2
+	y := (height*2)/3 - h/2
+	if y < 48 {
+		y = (height - h) / 2
+	}
+	if x < 8 {
+		x = 8
+	}
+	if y < 8 {
+		y = 8
+	}
+	return loginWindowLayout{X: x, Y: y, W: w, H: h}
+}
+
+func loginWindowSize() (int, int) {
+	return 304, ROWindowTitleHeight + loginWindowFormTopPad + loginWindowFieldH*2 + loginWindowFieldGap + 16 + loginWindowFooterH
 }

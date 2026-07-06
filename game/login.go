@@ -75,23 +75,9 @@ type loginFadeState struct {
 
 const (
 	loginTransitionDuration    = 500 * time.Millisecond
-	loginWindowTitleH          = gameui.ROWindowTitleHeight
-	loginWindowFooterH         = 42
-	loginWindowFormTopPad      = 18
-	loginWindowFormBottomPad   = 16
-	loginWindowFieldGap        = 11
-	loginWindowFieldLeft       = 92
-	loginWindowFieldRightPad   = 20
-	loginWindowFieldH          = 22
-	charSelectFooterH          = 42
-	charSelectFooterPadX       = 12
-	charSelectFooterGap        = 8
 	charSelectPreviewDirection = 4
 	charSelectPreviewScale     = 0.92
 	charSelectPreviewFeetLift  = 10
-	charCreateFooterH          = 42
-	charCreateFooterPadX       = 12
-	charCreateFooterGap        = 8
 	charCreateNameMinBytes     = 4
 	charCreateNameMaxBytes     = 23
 	charCreateMinHairStyle     = 2
@@ -464,10 +450,10 @@ func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
 }
 
 func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
-	x, y, w, h := charSelectWindowRect(ctx)
-	opts := charSelectWindowOptions(x, y, w, h)
-	opts.SelectedSlot = m.selectedSlot
-	opts.MaxSlots = m.maxSlots
+	opts := gameui.CharacterSelectWindowOptions{
+		SelectedSlot: m.selectedSlot,
+		MaxSlots:     m.maxSlots,
+	}
 	if ctx.Session != nil {
 		opts.Characters = ctx.Session.Characters
 	}
@@ -509,10 +495,10 @@ func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
 		},
 	}
 	if m.charSelectWindow == nil {
-		m.charSelectWindow = gameui.NewCharacterSelectWindow(opts, callbacks)
+		m.charSelectWindow = gameui.NewCharacterSelectWindow(ctx, opts, callbacks)
 		return
 	}
-	m.charSelectWindow.SetOptions(opts)
+	m.charSelectWindow.SetOptions(ctx, opts)
 }
 
 func (m *LoginMode) characterSelectPreviewImages(ctx client.Context, opts gameui.CharacterSelectWindowOptions) map[int]image.Image {
@@ -838,12 +824,8 @@ func (m *LoginMode) drawLoginWindow(ctx client.Context) {
 }
 
 func (m *LoginMode) updateLoginWindow(ctx client.Context) {
-	x, y, w, h := loginWindowRect(ctx)
-	opts := loginWindowDrawOptions(x, y, w, h)
 	if m.loginWindow == nil {
-		opts.Username = m.username
-		opts.Password = m.password
-		m.loginWindow = gameui.NewLoginWindow(opts, gameui.LoginWindowCallbacks{
+		m.loginWindow = gameui.NewLoginWindow(ctx, m.username, m.password, gameui.LoginWindowCallbacks{
 			OnSubmit: func() {
 				m.username = m.loginWindow.Username
 				m.password = m.loginWindow.Password
@@ -855,7 +837,7 @@ func (m *LoginMode) updateLoginWindow(ctx client.Context) {
 		m.publishUI(ctx, m.loginWindow.Widget())
 		return
 	}
-	m.loginWindow.SetOptions(opts)
+	m.loginWindow.SetContext(ctx)
 	m.username = m.loginWindow.Username
 	m.password = m.loginWindow.Password
 	m.publishUI(ctx, m.loginWindow.Widget())
@@ -890,11 +872,11 @@ func (m *LoginMode) publishCharacterCreateWindow(ctx client.Context) {
 }
 
 func (m *LoginMode) updateCharacterCreateWindow(ctx client.Context) {
-	x, y, w, h := charCreateWindowRect(ctx)
-	opts := charCreateWindowOptions(x, y, w, h)
-	opts.Name = m.create.name
-	opts.Stats = m.create.stats
-	opts.Preview = m.characterCreatePreviewImage(ctx)
+	opts := gameui.CharacterCreateWindowOptions{
+		Name:    m.create.name,
+		Stats:   m.create.stats,
+		Preview: m.characterCreatePreviewImage(ctx),
+	}
 	callbacks := gameui.CharacterCreateWindowCallbacks{
 		OnNameChange: func(value string) {
 			m.create.name = appendCharacterNameInput("", value, charCreateNameMaxBytes)
@@ -921,10 +903,10 @@ func (m *LoginMode) updateCharacterCreateWindow(ctx client.Context) {
 		},
 	}
 	if m.charCreateWindow == nil {
-		m.charCreateWindow = gameui.NewCharacterCreateWindow(opts, callbacks)
+		m.charCreateWindow = gameui.NewCharacterCreateWindow(ctx, opts, callbacks)
 		return
 	}
-	m.charCreateWindow.SetOptions(opts)
+	m.charCreateWindow.SetOptions(ctx, opts)
 }
 
 func (m *LoginMode) characterCreatePreviewImage(ctx client.Context) image.Image {
@@ -1172,91 +1154,6 @@ func loadLoginBackgroundImage(manager *res.Manager, name string) (*render.Image,
 		}
 	}
 	return nil, "", false
-}
-
-func loginWindowRect(ctx client.Context) (int, int, int, int) {
-	width, height := ctx.ScreenSize()
-	w, h := loginWindowWidth(), loginWindowHeight()
-	x := (width - w) / 2
-	y := (height*2)/3 - h/2
-	if y < 48 {
-		y = (height - h) / 2
-	}
-	if x < 8 {
-		x = 8
-	}
-	if y < 8 {
-		y = 8
-	}
-	return x, y, w, h
-}
-
-func loginWindowHeight() int {
-	return loginWindowTitleH + loginWindowFormTopPad + loginWindowFieldH*2 + loginWindowFieldGap + loginWindowFormBottomPad + loginWindowFooterH
-}
-
-func loginWindowWidth() int {
-	return 304
-}
-
-func loginWindowDrawOptions(x, y, w, h int) gameui.LoginWindowDrawOptions {
-	return gameui.LoginWindowDrawOptions{
-		X:             x,
-		Y:             y,
-		W:             w,
-		H:             h,
-		FooterH:       loginWindowFooterH,
-		FormTopPad:    loginWindowFormTopPad,
-		FieldGap:      loginWindowFieldGap,
-		FieldLeft:     loginWindowFieldLeft,
-		FieldRightPad: loginWindowFieldRightPad,
-		FieldH:        loginWindowFieldH,
-	}
-}
-
-func charSelectWindowOptions(x, y, w, h int) gameui.CharacterSelectWindowOptions {
-	return gameui.CharacterSelectWindowOptions{
-		X:          x,
-		Y:          y,
-		W:          w,
-		H:          h,
-		FooterH:    charSelectFooterH,
-		FooterPadX: charSelectFooterPadX,
-		FooterGap:  charSelectFooterGap,
-	}
-}
-
-func charCreateWindowOptions(x, y, w, h int) gameui.CharacterCreateWindowOptions {
-	return gameui.CharacterCreateWindowOptions{
-		X:          x,
-		Y:          y,
-		W:          w,
-		H:          h,
-		FooterH:    charCreateFooterH,
-		FooterPadX: charCreateFooterPadX,
-		FooterGap:  charCreateFooterGap,
-	}
-}
-
-func charSelectWindowRect(ctx client.Context) (int, int, int, int) {
-	return centeredLoginRect(ctx, 576, 356)
-}
-
-func charCreateWindowRect(ctx client.Context) (int, int, int, int) {
-	return centeredLoginRect(ctx, 576, 342)
-}
-
-func centeredLoginRect(ctx client.Context, w, h int) (int, int, int, int) {
-	width, height := ctx.ScreenSize()
-	x := (width - w) / 2
-	y := (height - h) / 2
-	if x < 8 {
-		x = 8
-	}
-	if y < 8 {
-		y = 8
-	}
-	return x, y, w, h
 }
 
 func charSelectPage(slot int) int {

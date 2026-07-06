@@ -369,13 +369,30 @@ func (w *WindowState) Widget() widget.Widget {
 		return nil
 	}
 	if w.placed == nil {
-		w.placed = primitives.Box(w.content).
-			PaddingLeft(float32(w.x)).
-			PaddingTop(float32(w.y)).
-			Width(float32(w.x + w.width)).
-			Height(float32(w.y + w.height))
+		w.placed = positionedWidget(w.content, w.x, w.y, w.width, w.height)
 	}
 	return w.placed
+}
+
+func positionedWidget(content widget.Widget, x, y, width, height int) widget.Widget {
+	return primitives.Box(content).
+		PaddingLeft(float32(x)).
+		PaddingTop(float32(y)).
+		Width(float32(x + width)).
+		Height(float32(y + height))
+}
+
+func centeredWindowRect(ctx client.Context, width, height int) (int, int, int, int) {
+	screenW, screenH := ctx.ScreenSize()
+	x := (screenW - width) / 2
+	y := (screenH - height) / 2
+	if x < 8 {
+		x = 8
+	}
+	if y < 8 {
+		y = 8
+	}
+	return x, y, width, height
 }
 
 func clampWindowInt(value, low, high int) int {

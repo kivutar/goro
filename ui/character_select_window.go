@@ -14,10 +14,6 @@ import (
 )
 
 type CharacterSelectWindowOptions struct {
-	X, Y, W, H    int
-	FooterH       int
-	FooterPadX    int
-	FooterGap     int
 	SelectedSlot  int
 	MaxSlots      int
 	Characters    []session.Character
@@ -41,24 +37,34 @@ type CharacterSelectWindow struct {
 	window    WindowState
 }
 
-func NewCharacterSelectWindow(opts CharacterSelectWindowOptions, callbacks CharacterSelectWindowCallbacks) *CharacterSelectWindow {
+const (
+	characterSelectWindowW   = 576
+	characterSelectWindowH   = 356
+	characterSelectFooterH   = 42
+	characterSelectFooterPad = 12
+	characterSelectFooterGap = 8
+)
+
+func NewCharacterSelectWindow(ctx client.Context, opts CharacterSelectWindowOptions, callbacks CharacterSelectWindowCallbacks) *CharacterSelectWindow {
+	x, y, width, height := characterSelectWindowRect(ctx)
 	w := &CharacterSelectWindow{
 		opts:      opts,
 		callbacks: callbacks,
-		window:    NewWindowState(opts.W, opts.H),
+		window:    NewWindowState(width, height),
 	}
-	w.window.OpenAt(opts.X, opts.Y, w.widgetTree())
+	w.window.OpenAt(x, y, w.widgetTree())
 	return w
 }
 
-func (w *CharacterSelectWindow) SetOptions(opts CharacterSelectWindowOptions) {
+func (w *CharacterSelectWindow) SetOptions(ctx client.Context, opts CharacterSelectWindowOptions) {
 	if w == nil {
 		return
 	}
 	sameTree := characterSelectWindowTreeEqual(w.opts, opts)
+	x, y, width, height := characterSelectWindowRect(ctx)
 	w.opts = opts
-	w.window.SetAutoPosition(opts.X, opts.Y)
-	w.window.SetSize(opts.W, opts.H)
+	w.window.SetAutoPosition(x, y)
+	w.window.SetSize(width, height)
 	if sameTree {
 		return
 	}
@@ -80,12 +86,7 @@ func (w *CharacterSelectWindow) Update(ctx client.Context) bool {
 }
 
 func characterSelectWindowTreeEqual(a, b CharacterSelectWindowOptions) bool {
-	if a.W != b.W ||
-		a.H != b.H ||
-		a.FooterH != b.FooterH ||
-		a.FooterPadX != b.FooterPadX ||
-		a.FooterGap != b.FooterGap ||
-		a.SelectedSlot != b.SelectedSlot ||
+	if a.SelectedSlot != b.SelectedSlot ||
 		a.MaxSlots != b.MaxSlots ||
 		len(a.Characters) != len(b.Characters) {
 		return false
@@ -117,9 +118,9 @@ func (w *CharacterSelectWindow) widgetTree() widget.Widget {
 	return Window(
 		Title("Select Character"),
 		CloseButton(false),
-		Size(float32(w.opts.W), float32(w.opts.H)),
-		FooterHeight(float32(w.opts.FooterH)),
-		FooterPadding(float32(w.opts.FooterPadX)),
+		Size(characterSelectWindowW, characterSelectWindowH),
+		FooterHeight(characterSelectFooterH),
+		FooterPadding(characterSelectFooterPad),
 		Content(
 			primitives.Box(
 				primitives.HBox(
@@ -183,7 +184,7 @@ func (w *CharacterSelectWindow) widgetTree() widget.Widget {
 					Width(buttonW("Cancel")),
 			).
 				CrossAlign(primitives.CrossAxisCenter).
-				Gap(float32(w.opts.FooterGap)),
+				Gap(characterSelectFooterGap),
 		),
 	)
 }
@@ -309,6 +310,10 @@ func CharacterSelectPage(slot int) int {
 		return 0
 	}
 	return slot / 3
+}
+
+func characterSelectWindowRect(ctx client.Context) (int, int, int, int) {
+	return centeredWindowRect(ctx, characterSelectWindowW, characterSelectWindowH)
 }
 
 func characterBySlot(characters []session.Character, slot int) (session.Character, bool) {

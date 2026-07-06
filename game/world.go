@@ -81,6 +81,7 @@ type WorldMode struct {
 	gndNormalSource  *res.GND
 	gndTopNormals    [][4]modelPoint3
 	minimap          gameui.Minimap
+	statusIcons      gameui.StatusIcons
 	console          gameui.ChatConsole
 	npcDialog        gameui.NPCDialog
 	escapeMenu       gameui.EscapeMenu
@@ -884,6 +885,8 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	m.minimap.Update(ctx)
+	removeExpiredStatusEffects(ctx.Session, now)
+	m.statusIcons.Update(ctx, now)
 	if action := m.basicMenu.PopAction(); action != "" {
 		m.handleBasicMenuAction(ctx, action)
 		return nil, nil
@@ -2936,7 +2939,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawWorldEffects(screen, ctx, projection, now)
 	m.drawDamageFloaters(screen, ctx, projection, now)
 
-	m.drawStatusIcons(screen, ctx, now)
 	m.inventoryBag.Draw(screen, ctx, m)
 	m.storageWindow.Draw(screen, ctx, m)
 	m.shopWindow.Draw(screen, ctx, m)
