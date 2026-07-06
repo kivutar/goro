@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 )
@@ -47,6 +48,10 @@ func (m *Manager) Clear() {
 	}
 	m.root.Clear()
 	m.apply()
+}
+
+func (m *Manager) PointerBlocked(x, y int) bool {
+	return m != nil && m.root != nil && m.root.PointerBlocked(geometry.Pt(float32(x), float32(y)))
 }
 
 func (m *Manager) apply() {
@@ -153,12 +158,42 @@ func (r *overlayRoot) Event(ctx widget.Context, e event.Event) bool {
 func (r *overlayRoot) dispatchPositionedEvent(ctx widget.Context, e event.Event, position geometry.Point) bool {
 	for i := len(r.children) - 1; i >= 0; i-- {
 		child := r.children[i]
-		if bounds, ok := child.(interface{ Bounds() geometry.Rect }); ok && !bounds.Bounds().Contains(position) {
+		if !widgetCoversPoint(child, position) {
 			continue
 		}
-		if child.Event(ctx, e) {
+		child.Event(ctx, e)
+		return true
+	}
+	return false
+}
+
+func (r *overlayRoot) PointerBlocked(position geometry.Point) bool {
+	if r == nil || !r.IsVisible() || !r.IsEnabled() {
+		return false
+	}
+	for i := len(r.children) - 1; i >= 0; i-- {
+		if widgetCoversPoint(r.children[i], position) {
 			return true
 		}
+	}
+	return false
+}
+
+func widgetCoversPoint(child widget.Widget, position geometry.Point) bool {
+	if child == nil {
+		return false
+	}
+	if visible, ok := child.(interface{ IsVisible() bool }); ok && !visible.IsVisible() {
+		return false
+	}
+	if enabled, ok := child.(interface{ IsEnabled() bool }); ok && !enabled.IsEnabled() {
+		return false
+	}
+	if bounds, ok := child.(interface{ Bounds() geometry.Rect }); ok {
+		return bounds.Bounds().Contains(position)
+	}
+	if box, ok := child.(*primitives.BoxWidget); ok {
+		return box.Bounds().Contains(position)
 	}
 	return false
 }

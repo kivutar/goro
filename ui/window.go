@@ -429,14 +429,16 @@ func (w *positionedOverlay) Event(ctx widget.Context, e event.Event) bool {
 		}
 		local := *ev
 		local.Position = ev.Position.Sub(w.Bounds().Min)
-		return w.child.Event(ctx, &local)
+		w.child.Event(ctx, &local)
+		return true
 	case *event.WheelEvent:
 		if !w.Bounds().Contains(ev.Position) {
 			return false
 		}
 		local := *ev
 		local.Position = ev.Position.Sub(w.Bounds().Min)
-		return w.child.Event(ctx, &local)
+		w.child.Event(ctx, &local)
+		return true
 	default:
 		return w.child.Event(ctx, e)
 	}

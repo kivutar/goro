@@ -903,7 +903,10 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		m.handleBasicMenuAction(ctx, action)
 		return nil, nil
 	}
-	m.updateCameraZoom(ctx)
+	pointerBlocked := uiPointerBlocked(ctx)
+	if !pointerBlocked {
+		m.updateCameraZoom(ctx)
+	}
 
 	dx, dy := 0, 0
 	if ctx.Input.Pressed(render.KeyArrowLeft) {
@@ -921,7 +924,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.walkCooldown > 0 {
 		m.walkCooldown--
 	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonLeft) && m.walkCooldown == 0 {
+	if !pointerBlocked && ctx.Input.MouseJustPressed(render.MouseButtonLeft) && m.walkCooldown == 0 {
 		screenW, screenH := ctx.ScreenSize()
 		projection := m.sceneProjection(ctx, screenW, screenH, now)
 		if m.pendingSkill.skill.ID != 0 {
@@ -3692,6 +3695,9 @@ func clickedWalkCellByProjectedPolygon(ctx client.Context, projection sceneProje
 
 func (m *WorldMode) drawTileCursor(screen *render.Image, ctx client.Context, projection sceneProjection, now time.Time) {
 	if ctx.Input == nil || ctx.World == nil || ctx.World.GAT == nil {
+		return
+	}
+	if uiPointerBlocked(ctx) {
 		return
 	}
 	x, y, ok := hoveredWalkCell(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY)

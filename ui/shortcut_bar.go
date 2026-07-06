@@ -107,11 +107,7 @@ func (b *ShortcutBar) Publish(ctx Context, actions GameActions, assets AssetProv
 	if b.root == nil || b.rootX != x {
 		old := b.root
 		b.rootX = x
-		b.root = primitives.Box(b.content).
-			PaddingLeft(float32(x)).
-			PaddingTop(8).
-			Width(float32(x + shortcutBarWidth())).
-			Height(float32(8 + shortcutBarHeight()))
+		b.root = positionedWidget(b.content, x, 8, shortcutBarWidth(), shortcutBarHeight())
 		if b.published && old != nil {
 			ctx.UIManager.RemoveOverlay(old)
 			ctx.UIManager.AddOverlay(b.root)

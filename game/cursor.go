@@ -175,13 +175,23 @@ func (m *WorldMode) cursorDesiredAction(ctx client.Context, projection sceneProj
 }
 
 func uiCursorAction(ctx client.Context) (int, bool) {
-	if ctx.UIApp == nil {
-		return 0, false
-	}
-	if ctx.UIApp.Cursor() == uiwidget.CursorPointer {
+	if ctx.UIApp != nil && ctx.UIApp.Cursor() == uiwidget.CursorPointer {
 		return cursorActionClick, true
 	}
+	if uiPointerBlocked(ctx) {
+		return cursorActionDefault, true
+	}
 	return 0, false
+}
+
+func uiPointerBlocked(ctx client.Context) bool {
+	if ctx.Input == nil || ctx.UIManager == nil {
+		return false
+	}
+	blocker, ok := ctx.UIManager.(interface {
+		PointerBlocked(x, y int) bool
+	})
+	return ok && blocker.PointerBlocked(ctx.Input.MouseX, ctx.Input.MouseY)
 }
 
 func hoveredCursorActor(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {
