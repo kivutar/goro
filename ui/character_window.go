@@ -73,6 +73,11 @@ func (w *CharacterWindow) widgetTree(ctx Context) widget.Widget {
 	if name == "" {
 		name = "Player"
 	}
+	jobName := strings.TrimSpace(CharacterJobName(character))
+	title := trimRunes(name, 20)
+	if jobName != "" {
+		title = trimRunes(fmt.Sprintf("%s (%s)", name, jobName), 32)
+	}
 
 	weightColor := rotheme.Default.Colors.Text
 	if inventory.MaxWeight > 0 && inventory.Weight*100 >= inventory.MaxWeight*50 {
@@ -80,13 +85,11 @@ func (w *CharacterWindow) widgetTree(ctx Context) widget.Widget {
 	}
 
 	return Window(
-		Title(trimRunes(name, 20)),
+		Title(title),
 		CloseButton(false),
 		Size(float32(characterWindowWidth), float32(characterWindowHeight)),
 		Content(
 			primitives.Box(
-				rotheme.Text(trimRunes(CharacterJobName(character), 28)).
-					Color(rotheme.Default.Colors.MutedText),
 				primitives.HBox(
 					characterTextCell(fmt.Sprintf("Base Lv. %d", progress.BaseLevel), 146, rotheme.Default.Colors.Text),
 					characterTextCell(fmt.Sprintf("Job Lv. %d", progress.JobLevel), 146, rotheme.Default.Colors.Text),
@@ -98,8 +101,8 @@ func (w *CharacterWindow) widgetTree(ctx Context) widget.Widget {
 				characterProgressRow("Base EXP", progress.BaseExp, progress.NextBaseExp, Color(characterWindowEXPColor), characterWindowWidth-24),
 				characterProgressRow("Job EXP", progress.JobExp, progress.NextJobExp, Color(characterWindowJobEXPColor), characterWindowWidth-24),
 				primitives.HBox(
-					characterTextCell(fmt.Sprintf("Zeny : %s", formatHUDNumber(inventory.Zeny)), 146, rotheme.Default.Colors.Text),
-					characterTextCell(fmt.Sprintf("Weight : %d / %d", displayWeight(inventory.Weight), displayWeight(inventory.MaxWeight)), 146, weightColor),
+					characterAlignedTextCell(fmt.Sprintf("Weight : %d / %d", displayWeight(inventory.Weight), displayWeight(inventory.MaxWeight)), 146, weightColor, primitives.TextAlignStart),
+					characterAlignedTextCell(fmt.Sprintf("Zeny : %s", formatHUDNumber(inventory.Zeny)), 146, rotheme.Default.Colors.Text, primitives.TextAlignEnd),
 				),
 			).
 				PaddingXY(12, 9).
@@ -109,9 +112,15 @@ func (w *CharacterWindow) widgetTree(ctx Context) widget.Widget {
 }
 
 func characterTextCell(text string, width float32, color widget.Color) widget.Widget {
+	return characterAlignedTextCell(text, width, color, primitives.TextAlignStart)
+}
+
+func characterAlignedTextCell(text string, width float32, color widget.Color, align primitives.TextAlign) widget.Widget {
 	return primitives.Box(
-		rotheme.Text(text).Color(color),
-	).Width(width)
+		rotheme.Text(text).
+			Color(color).
+			Align(align),
+	).Width(width).CrossAlign(primitives.CrossAxisStretch)
 }
 
 func characterWindowData(s *session.Session) (session.Character, session.Vitals, session.Progress, session.Inventory) {
