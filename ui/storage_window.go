@@ -247,6 +247,10 @@ func (w *StorageWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
 	w.Publish(ctx)
 }
 
+func (w *StorageWindow) Refresh(ctx Context, itemInfo *ItemInfoWindow) {
+	w.refresh(ctx, itemInfo)
+}
+
 func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) bool {
 	if ctx.Input.MouseJustPressed(render.MouseButtonRight) {
 		item, _, ok := w.itemAt(ctx.Session, ctx.Input.MouseX, ctx.Input.MouseY)

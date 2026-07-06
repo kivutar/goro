@@ -587,6 +587,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		} else if ok {
 			applyStorageItemRemoved(ctx, storageItem)
 			m.storageWindow.ClampScroll(ctx.Session)
+			m.storageWindow.Refresh(ctx, &m.itemInfoWindow)
 			continue
 		}
 		if network.ParseStorageClosed(pkt) {
