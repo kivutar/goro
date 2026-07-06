@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -11,7 +10,6 @@ import (
 	uiwidget "github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
-	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
 )
@@ -64,7 +62,7 @@ func (m *WorldMode) drawROCursor(screen *render.Image, ctx client.Context, proje
 	state := m.cursorState()
 	state.draw(screen, ctx, action, now)
 	m.storeCursorState(state)
-	drawPendingSkillCursorLevel(screen, ctx, m.pendingSkill.skill)
+	gameui.DrawPendingSkillCursorLevel(screen, ctx, m.pendingSkill.skill)
 }
 
 func (m *WorldMode) cursorState() *roCursorState {
@@ -283,19 +281,4 @@ func drawFallbackROCursor(screen, img *render.Image, mouseX, mouseY int) {
 	opts.GeoM.Translate(float64(mouseX), float64(mouseY))
 	opts.Filter = spriteDrawFilter()
 	screen.DrawImage(img, &opts)
-}
-
-func drawPendingSkillCursorLevel(screen *render.Image, ctx client.Context, skill session.Skill) {
-	if screen == nil || ctx.Input == nil {
-		return
-	}
-	if skill.ID == 0 || skill.Level <= 0 {
-		return
-	}
-	label := fmt.Sprintf("Lv%d", skill.Level)
-	x := ctx.Input.MouseX + 18
-	y := ctx.Input.MouseY + 16
-	width := len([]rune(label))*7 + 8
-	gameui.DrawSurface(screen, x, y, width, 15, gameui.PanelBodyColor, gameui.WindowBorderColor)
-	render.DebugPrintAtColor(screen, label, x+4, y+1, gameui.TitleTextColor)
 }
