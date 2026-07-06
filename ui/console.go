@@ -3,10 +3,11 @@ package ui
 import (
 	"fmt"
 	"image/color"
-	"math"
 	"strings"
 	"time"
 
+	"github.com/gogpu/ui/core/scrollview"
+	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
@@ -31,7 +32,6 @@ var (
 	consoleColorBlue        = color.RGBA{R: 0, G: 255, B: 255, A: 255}
 	consoleColorError       = color.RGBA{R: 255, G: 132, B: 132, A: 255}
 	consoleColorPlaceholder = color.RGBA{R: 150, G: 165, B: 182, A: 255}
-	consoleColorInput       = color.RGBA{R: 235, G: 242, B: 250, A: 255}
 )
 
 type ConsoleMessage struct {
@@ -43,97 +43,72 @@ type ChatConsole struct {
 	active        bool
 	input         string
 	messages      []ConsoleMessage
-	scroll        int
 	history       []string
 	historyIndex  int
 	historyDraft  string
 	lastMessage   string
 	lastMessageAt time.Time
 
-	cacheKey  string
-	root      widget.Widget
-	rootX     int
-	rootY     int
-	published bool
+	ctx        client.Context
+	window     WindowState
+	inputField *textfield.Widget
+	cacheKey   string
 }
 
 func (c *ChatConsole) Update(ctx client.Context) bool {
+	c.ctx = ctx
+	c.ensureWindow(ctx)
+	c.syncActiveFromField()
 	defer c.Publish(ctx)
 	if ctx.Input == nil {
 		return false
 	}
-	w, h := ctx.ScreenSize()
-	x, y, cw, ch := consoleBounds(w, h)
-	inside := ctx.Input.MouseX >= x && ctx.Input.MouseX < x+cw && ctx.Input.MouseY >= y && ctx.Input.MouseY < y+ch
-	if inside && ctx.Input.WheelY != 0 {
-		c.scrollBy(ctx.Input.WheelY)
-		return true
-	}
-	if ctx.Input.MouseJustPressed(render.MouseButtonLeft) && inside {
-		c.active = true
-		c.invalidate()
-		return true
-	}
 	if ctx.Input.JustPressed(render.KeyEscape) && c.active {
-		c.active = false
-		c.invalidate()
+		c.setActive(false)
 		return true
 	}
-	if ctx.Input.JustPressed(render.KeyEnter) {
-		if c.active {
-			c.submit(ctx)
-		} else {
-			c.active = true
-			c.invalidate()
-		}
+	if ctx.Input.JustPressed(render.KeyEnter) && !c.active {
+		c.setActive(true)
 		return true
 	}
-	if !c.active {
-		return false
-	}
-	if ctx.Input.JustPressed(render.KeyArrowUp) {
+	if c.active && ctx.Input.JustPressed(render.KeyArrowUp) {
 		c.previousInput()
 		return true
 	}
-	if ctx.Input.JustPressed(render.KeyArrowDown) {
+	if c.active && ctx.Input.JustPressed(render.KeyArrowDown) {
 		c.nextInput()
 		return true
 	}
-	if text := ctx.Input.TextInput(); text != "" {
-		c.appendInput(text)
-	}
-	if ctx.Input.JustPressed(render.KeyBackspace) {
-		c.backspace()
-	}
-	return true
+	consumed := c.window.Update(ctx)
+	c.syncActiveFromField()
+	return consumed || c.active
 }
 
 func (c *ChatConsole) Publish(ctx client.Context) {
-	if ctx.UIManager == nil {
-		return
-	}
+	c.ensureWindow(ctx)
+	c.window.Publish(ctx)
+}
+
+func (c *ChatConsole) ensureWindow(ctx client.Context) {
 	screenW, screenH := ctx.ScreenSize()
 	x, y, width, height := consoleBounds(screenW, screenH)
 	key := c.renderKey(width, height)
-	if c.root != nil && c.cacheKey == key && c.rootX == x && c.rootY == y {
-		if redraw, ok := c.root.(interface{ SetNeedsRedraw(bool) }); ok {
-			redraw.SetNeedsRedraw(true)
-		}
+	if c.window.width == 0 {
+		c.window = NewWindowState(width, height)
+		c.window.titleHeight = 0
+		c.window.SetCloseOnEscape(false)
+	}
+	c.window.SetAutoPosition(x, y)
+	c.window.SetSize(width, height)
+	if !c.window.IsOpen() {
+		c.cacheKey = key
+		c.window.OpenAt(x, y, c.widgetTree(width, height))
 		return
 	}
-	if c.published && c.root != nil {
-		ctx.UIManager.RemoveOverlay(c.root)
+	if c.cacheKey != key {
+		c.cacheKey = key
+		c.window.SetContent(c.widgetTree(width, height))
 	}
-	c.cacheKey = key
-	c.rootX = x
-	c.rootY = y
-	c.root = primitives.Box(c.widgetTree(width, height)).
-		PaddingLeft(float32(x)).
-		PaddingTop(float32(y)).
-		Width(float32(x + width)).
-		Height(float32(y + height))
-	ctx.UIManager.AddOverlay(c.root)
-	c.published = true
 }
 
 func (c *ChatConsole) AddMessage(format string, args ...any) {
@@ -168,16 +143,13 @@ func (c *ChatConsole) addMessageColor(messageColor color.RGBA, format string, ar
 		copy(c.messages, c.messages[len(c.messages)-80:])
 		c.messages = c.messages[:80]
 	}
-	c.scroll = 0
-	c.ClampScroll()
 	c.invalidate()
 }
 
 func (c *ChatConsole) submit(ctx client.Context) {
 	text := strings.TrimSpace(c.input)
 	if text == "" {
-		c.active = false
-		c.invalidate()
+		c.setActive(false)
 		return
 	}
 	c.rememberInput(text)
@@ -196,9 +168,8 @@ func (c *ChatConsole) submit(ctx client.Context) {
 		c.AddErrorMessage("send failed: %s", err)
 		return
 	}
-	c.input = ""
-	c.active = false
-	c.invalidate()
+	c.setInput("")
+	c.setActive(false)
 }
 
 func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
@@ -216,9 +187,8 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 	case "/noshift", "/ns":
 		if ctx.Session == nil {
 			c.AddErrorMessage("noshift failed: no session")
-			c.input = ""
-			c.active = false
-			c.invalidate()
+			c.setInput("")
+			c.setActive(false)
 			return true
 		}
 		ctx.Session.NoShift = !ctx.Session.NoShift
@@ -227,9 +197,8 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 		} else {
 			c.AddSystemMessage("No Shift: Off")
 		}
-		c.input = ""
-		c.active = false
-		c.invalidate()
+		c.setInput("")
+		c.setActive(false)
 		return true
 	case "/memo":
 		c.submitMemo(ctx)
@@ -242,18 +211,16 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 func (c *ChatConsole) submitMemo(ctx client.Context) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.input = ""
-		c.active = false
-		c.invalidate()
+		c.setInput("")
+		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendRememberWarpPoint(); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
 		return
 	}
-	c.input = ""
-	c.active = false
-	c.invalidate()
+	c.setInput("")
+	c.setActive(false)
 }
 
 func (c *ChatConsole) submitSitStand(ctx client.Context, sit bool) {
@@ -280,9 +247,8 @@ func (c *ChatConsole) submitSitStand(ctx client.Context, sit bool) {
 			ctx.World.Player.Moving = false
 		}
 	}
-	c.input = ""
-	c.active = false
-	c.invalidate()
+	c.setInput("")
+	c.setActive(false)
 }
 
 func consolePlayerSitting(ctx client.Context) bool {
@@ -302,31 +268,6 @@ func consoleLocalActorID(ctx client.Context) uint32 {
 		return ctx.World.Player.ID
 	}
 	return 0
-}
-
-func (c *ChatConsole) appendInput(text string) {
-	if text == "" {
-		return
-	}
-	c.historyIndex = 0
-	c.historyDraft = ""
-	runes := []rune(c.input + text)
-	if len(runes) > consoleMaxInput {
-		runes = runes[:consoleMaxInput]
-	}
-	c.input = string(runes)
-	c.invalidate()
-}
-
-func (c *ChatConsole) backspace() {
-	runes := []rune(c.input)
-	if len(runes) == 0 {
-		return
-	}
-	c.historyIndex = 0
-	c.historyDraft = ""
-	c.input = string(runes[:len(runes)-1])
-	c.invalidate()
 }
 
 func (c *ChatConsole) rememberInput(text string) {
@@ -354,8 +295,7 @@ func (c *ChatConsole) previousInput() {
 	} else if c.historyIndex > 1 {
 		c.historyIndex--
 	}
-	c.input = c.history[c.historyIndex-1]
-	c.invalidate()
+	c.setInput(c.history[c.historyIndex-1])
 }
 
 func (c *ChatConsole) nextInput() {
@@ -364,13 +304,12 @@ func (c *ChatConsole) nextInput() {
 	}
 	if c.historyIndex < len(c.history) {
 		c.historyIndex++
-		c.input = c.history[c.historyIndex-1]
+		c.setInput(c.history[c.historyIndex-1])
 	} else {
 		c.historyIndex = 0
-		c.input = c.historyDraft
+		c.setInput(c.historyDraft)
 		c.historyDraft = ""
 	}
-	c.invalidate()
 }
 
 func (c *ChatConsole) widgetTree(width, height int) widget.Widget {
@@ -384,27 +323,25 @@ func (c *ChatConsole) widgetTree(width, height int) widget.Widget {
 				Ellipsis(),
 		)
 	}
-	fieldText := c.inputText()
-	if c.active && time.Now().UnixMilli()/500%2 == 0 {
-		fieldText += "|"
-	}
-	field := primitives.Box(
-		rotheme.Text(fieldText).
-			Color(Color(consoleColorInput)).
-			MaxLines(1).
-			Ellipsis(),
-	).
+	field := primitives.Box(c.inputWidget()).
 		Width(float32(contentWidth)).
 		Height(consoleFieldH).
-		PaddingXY(6, 3).
-		Background(widget.RGBA8(5, 8, 13, 205)).
-		BorderStyle(1, widget.RGBA8(190, 208, 230, 120)).
 		CrossAlign(primitives.CrossAxisStretch)
 	messageHeight := maxInt(20, height-16-consoleFieldH-4)
-	messages := primitives.Box(messageWidgets...).
+	messageList := primitives.Box(messageWidgets...).
+		Width(float32(contentWidth)).
+		Gap(1).
+		CrossAlign(primitives.CrossAxisStretch)
+	messages := primitives.Box(
+		scrollview.New(
+			messageList,
+			scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+			scrollview.ScrollY(1_000_000),
+			scrollview.ScrollStep(float32(rotheme.Default.Typography.TextSize*3)),
+		),
+	).
 		Width(float32(contentWidth)).
 		Height(float32(messageHeight)).
-		Gap(1).
 		CrossAlign(primitives.CrossAxisStretch)
 	return primitives.Box(messages, field).
 		Width(float32(width)).
@@ -421,55 +358,17 @@ func (c *ChatConsole) visibleLines() []ConsoleMessage {
 	if len(c.messages) == 0 {
 		return []ConsoleMessage{{Text: "Server messages will appear here.", Color: consoleColorPlaceholder}}
 	}
-	c.ClampScroll()
-	start := len(c.messages) - consoleMaxLines - c.scroll
-	if start < 0 {
-		start = 0
-	}
-	end := minInt(len(c.messages), start+consoleMaxLines)
-	out := make([]ConsoleMessage, 0, end-start)
-	out = append(out, c.messages[start:end]...)
+	out := make([]ConsoleMessage, 0, len(c.messages))
+	out = append(out, c.messages...)
 	return out
 }
 
 func (c *ChatConsole) renderKey(width, height int) string {
-	blink := int64(0)
-	if c.active {
-		blink = time.Now().UnixMilli() / 500
-	}
-	return fmt.Sprintf("%dx%d:%t:%s:%s:%d:%d", width, height, c.active, c.input, c.messagesKey(), blink, c.scroll)
+	return fmt.Sprintf("%dx%d:%s", width, height, c.messagesKey())
 }
 
 func (c *ChatConsole) invalidate() {
 	c.cacheKey = ""
-}
-
-func (c *ChatConsole) scrollBy(wheelY float64) {
-	step := int(math.Ceil(math.Abs(wheelY))) * 3
-	if step < 1 {
-		step = 1
-	}
-	if wheelY > 0 {
-		c.scrollLines(step)
-	} else {
-		c.scrollLines(-step)
-	}
-}
-
-func (c *ChatConsole) scrollLines(lines int) {
-	c.scroll += lines
-	c.ClampScroll()
-	c.invalidate()
-}
-
-func (c *ChatConsole) ClampScroll() {
-	maxScroll := maxInt(0, len(c.messages)-consoleMaxLines)
-	if c.scroll < 0 {
-		c.scroll = 0
-	}
-	if c.scroll > maxScroll {
-		c.scroll = maxScroll
-	}
 }
 
 func (c *ChatConsole) messagesKey() string {
@@ -480,11 +379,48 @@ func (c *ChatConsole) messagesKey() string {
 	return b.String()
 }
 
-func (c *ChatConsole) inputText() string {
-	if c.active || c.input != "" {
-		return c.input
+func (c *ChatConsole) inputWidget() *textfield.Widget {
+	if c.inputField != nil {
+		return c.inputField
 	}
-	return "Press Enter to chat"
+	c.inputField = rotheme.TextField(
+		c.input,
+		textfield.TypeText,
+		func(value string) {
+			c.input = value
+			c.historyIndex = 0
+			c.historyDraft = ""
+		},
+		func(string) {
+			c.submit(c.ctx)
+		},
+		textfield.MaxLength(consoleMaxInput),
+		textfield.Placeholder("Press Enter to chat"),
+	)
+	c.inputField.SetFocused(c.active)
+	return c.inputField
+}
+
+func (c *ChatConsole) setInput(text string) {
+	c.input = text
+	if c.inputField != nil && c.inputField.Text() != text {
+		c.inputField.SetText(text)
+	}
+	c.invalidate()
+}
+
+func (c *ChatConsole) setActive(active bool) {
+	c.active = active
+	if c.inputField != nil {
+		c.inputField.SetFocused(active)
+	}
+	c.invalidate()
+}
+
+func (c *ChatConsole) syncActiveFromField() {
+	if c.inputField != nil {
+		c.active = c.inputField.IsFocused()
+	}
 }
 
 func (c *ChatConsole) Messages() []ConsoleMessage {

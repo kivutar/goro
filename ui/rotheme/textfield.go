@@ -36,7 +36,12 @@ func (TextFieldPainter) PaintTextField(canvas widget.Canvas, state textfield.Pai
 	if state.InputType == textfield.TypePassword {
 		text = strings.Repeat("*", len([]rune(text)))
 	}
-	DrawText(canvas, text, content, Default.Typography.TextSize, Default.Colors.Text, false, widget.TextAlignLeft)
+	textColor := Default.Colors.Text
+	if text == "" && !state.Focused {
+		text = state.Placeholder
+		textColor = Default.Colors.MutedText
+	}
+	DrawText(canvas, text, content, Default.Typography.TextSize, textColor, false, widget.TextAlignLeft)
 	if state.Focused && state.SelectStart == state.SelectEnd {
 		runes := []rune(text)
 		cursor := state.CursorPos

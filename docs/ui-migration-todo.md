@@ -33,7 +33,8 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Basic menu button grid
 - [x] Console
   - Published as a dark translucent gogpu/ui overlay.
-  - Keeps manual command/history input for now because chat commands are game-side behavior.
+  - Uses native gogpu/ui textfield and scrollview widgets.
+  - Keeps only game-side chat command dispatch and Up/Down history handling.
 
 ## High Priority
 
