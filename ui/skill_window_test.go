@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -97,6 +98,29 @@ func TestSkillDragReleaseOverShortcutStoresSkill(t *testing.T) {
 	}
 }
 
+func TestSkillTooltipPublishDoesNotRepublishSameOverlay(t *testing.T) {
+	manager := &skillWindowTestUIManager{}
+	window := &SkillWindow{
+		hasHover:     true,
+		hoveredSkill: session.Skill{ID: 6, Name: "Provoke", Level: 2},
+		hoverX:       100,
+		hoverY:       120,
+	}
+	ctx := Context{UIManager: manager, ScreenW: 800, ScreenH: 600}
+
+	window.publishTooltip(ctx)
+	window.publishTooltip(ctx)
+	if manager.adds != 1 {
+		t.Fatalf("tooltip add count = %d, want 1", manager.adds)
+	}
+	if manager.removes != 0 {
+		t.Fatalf("tooltip remove count = %d, want 0", manager.removes)
+	}
+	if len(manager.overlays) != 1 {
+		t.Fatalf("tooltip overlays = %d, want 1", len(manager.overlays))
+	}
+}
+
 type skillWindowTestRenderer struct {
 	used session.Skill
 }
@@ -125,3 +149,28 @@ func (r *skillWindowTestRenderer) UseShortcutSkill(_ Context, skill session.Skil
 }
 
 func (r *skillWindowTestRenderer) AddTeleportEffect(Context) {}
+
+type skillWindowTestUIManager struct {
+	adds     int
+	removes  int
+	overlays []widget.Widget
+}
+
+func (m *skillWindowTestUIManager) AddOverlay(root widget.Widget) {
+	m.adds++
+	m.overlays = append(m.overlays, root)
+}
+
+func (m *skillWindowTestUIManager) RemoveOverlay(root widget.Widget) {
+	m.removes++
+	for i, overlay := range m.overlays {
+		if overlay == root {
+			m.overlays = append(m.overlays[:i], m.overlays[i+1:]...)
+			return
+		}
+	}
+}
+
+func (m *skillWindowTestUIManager) Clear() {
+	m.overlays = nil
+}

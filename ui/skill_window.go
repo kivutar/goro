@@ -362,11 +362,7 @@ func (w *SkillWindow) publishTooltip(ctx Context) {
 		w.unpublishTooltip(ctx)
 		w.tooltipRoot = w.tooltip
 		ctx.UIManager.AddOverlay(w.tooltipRoot)
-		return
 	}
-	w.tooltip.SetNeedsRedraw(true)
-	ctx.UIManager.RemoveOverlay(w.tooltipRoot)
-	ctx.UIManager.AddOverlay(w.tooltipRoot)
 }
 
 func (w *SkillWindow) updateTooltipHover(ctx Context) {
@@ -732,6 +728,9 @@ func newSkillInfoPopover(x, y, width, height int, name string, lines []string) *
 }
 
 func (p *skillInfoPopover) Set(x, y, width, height int, name string, lines []string) {
+	if p.x == x && p.y == y && p.width == width && p.height == height && p.name == name && sameStringSlice(p.lines, lines) {
+		return
+	}
 	p.x = x
 	p.y = y
 	p.width = width
@@ -739,6 +738,18 @@ func (p *skillInfoPopover) Set(x, y, width, height int, name string, lines []str
 	p.name = name
 	p.lines = append(p.lines[:0], lines...)
 	p.SetNeedsRedraw(true)
+}
+
+func sameStringSlice(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *skillInfoPopover) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
