@@ -883,6 +883,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		return nil, nil
 	}
+	m.minimap.Update(ctx)
 	if action := m.basicMenu.PopAction(); action != "" {
 		m.handleBasicMenuAction(ctx, action)
 		return nil, nil
@@ -2935,7 +2936,6 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Image) {
 	m.drawWorldEffects(screen, ctx, projection, now)
 	m.drawDamageFloaters(screen, ctx, projection, now)
 
-	m.minimap.Draw(screen, ctx)
 	m.drawStatusIcons(screen, ctx, now)
 	m.inventoryBag.Draw(screen, ctx, m)
 	m.storageWindow.Draw(screen, ctx, m)

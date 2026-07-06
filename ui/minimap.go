@@ -2,13 +2,18 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"path/filepath"
 	"strings"
 
-	"github.com/kivutar/goro/render"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/res"
+	"github.com/kivutar/goro/ui/rotheme"
 	worldstate "github.com/kivutar/goro/world"
+	xdraw "golang.org/x/image/draw"
 )
 
 const (
@@ -16,22 +21,24 @@ const (
 	minimapHeight  = 206
 	minimapMargin  = 16
 	minimapPad     = 10
-	minimapTitleH  = 24
 	minimapFooterH = 22
 )
 
 var (
 	minimapTextColor   = TextColor
 	minimapMutedColor  = MutedTextColor
-	minimapTitleColor  = TitleTextColor
 	minimapPlayerColor = color.RGBA{R: 255, G: 232, B: 96, A: 255}
 	minimapMobColor    = color.RGBA{R: 255, G: 96, B: 96, A: 230}
 	minimapNPCColor    = color.RGBA{R: 120, G: 190, B: 255, A: 220}
 )
 
 type Minimap struct {
-	mapName string
-	img     *render.Image
+	mapName   string
+	img       image.Image
+	scaled    image.Image
+	scaledKey string
+	window    WindowState
+	widget    *minimapWidget
 }
 
 type minimapRect struct {
@@ -41,37 +48,46 @@ type minimapRect struct {
 	h int
 }
 
-func (m *Minimap) Draw(screen *render.Image, ctx Context) {
-	if screen == nil || ctx.World == nil {
-		return
-	}
+func (m *Minimap) Update(ctx Context) bool {
 	width, height := ctx.ScreenSize()
 	x, y, w, h := minimapBounds(width, height)
-	DrawPanelSurface(screen, x, y, w, h, WindowBodyColor)
-	DrawTitleTextAt(screen, x+minimapPad, y, minimapTitleH, "Mini Map", minimapTitleColor)
-
-	mapRect := minimapMapRect(x, y, w, h)
+	m.ensureWindow(w, h)
+	if ctx.World == nil {
+		m.window.Close()
+		m.window.Unpublish(ctx)
+		return false
+	}
 	m.ensureImage(ctx.Resources, ctx.World.MapName)
-	if m.img != nil {
-		drawMinimapImage(screen, m.img, mapRect)
+	if m.widget == nil {
+		m.widget = newMinimapWidget()
+	}
+	m.widget.ctx = ctx
+	m.widget.image = m.scaledImage(minimapContentMapSize(w, h))
+	m.widget.SetNeedsRedraw(true)
+	if !m.window.IsOpen() {
+		m.window.OpenAt(x, y, m.widgetTree())
 	} else {
-		drawMinimapFallback(screen, mapRect)
+		m.window.SetAutoPosition(x, y)
 	}
-	render.DrawRect(screen, float64(mapRect.x), float64(mapRect.y), float64(mapRect.w), 1, WindowBorderColor)
-	render.DrawRect(screen, float64(mapRect.x), float64(mapRect.y+mapRect.h-1), float64(mapRect.w), 1, WindowBorderColor)
-	render.DrawRect(screen, float64(mapRect.x), float64(mapRect.y), 1, float64(mapRect.h), WindowBorderColor)
-	render.DrawRect(screen, float64(mapRect.x+mapRect.w-1), float64(mapRect.y), 1, float64(mapRect.h), WindowBorderColor)
+	m.window.Publish(ctx)
+	return false
+}
 
-	mapW, mapH := minimapWorldSize(ctx.World)
-	if mapW > 0 && mapH > 0 {
-		m.drawActorMarkers(screen, ctx.World, mapRect, mapW, mapH)
-		drawMinimapMarker(screen, mapRect, mapW, mapH, ctx.World.Player.X, ctx.World.Player.Y, minimapPlayerColor, 4)
+func (m *Minimap) ensureWindow(width, height int) {
+	if m.window.width != 0 {
+		return
 	}
+	m.window = NewWindowState(width, height)
+	m.window.SetCloseOnEscape(false)
+}
 
-	label := minimapDisplayName(ctx.World.MapName)
-	render.DebugPrintAtColor(screen, trimRunes(label, 13), x+minimapPad, y+h-18, minimapTextColor)
-	coords := fmt.Sprintf("X:%d Y:%d", ctx.World.Player.X, ctx.World.Player.Y)
-	render.DebugPrintAtColor(screen, coords, x+w-minimapPad-len(coords)*7, y+h-18, minimapMutedColor)
+func (m *Minimap) widgetTree() widget.Widget {
+	return Window(
+		Title("Mini Map"),
+		CloseButton(false),
+		Size(minimapWidth, minimapHeight),
+		Content(m.widget),
+	)
 }
 
 func (m *Minimap) ensureImage(manager *res.Manager, mapName string) {
@@ -84,11 +100,13 @@ func (m *Minimap) ensureImage(manager *res.Manager, mapName string) {
 	}
 	m.mapName = normalized
 	m.img = nil
+	m.scaled = nil
+	m.scaledKey = ""
 	img, _, err := res.LoadImage(manager, minimapImageCandidates(normalized))
 	if err != nil {
 		return
 	}
-	m.img = render.NewImageFromImage(img)
+	m.img = img
 }
 
 func minimapBounds(width, _ int) (int, int, int, int) {
@@ -101,71 +119,148 @@ func MinimapBounds(width, height int) (int, int, int, int) {
 }
 
 func minimapMapRect(x, y, w, h int) minimapRect {
-	available := h - minimapTitleH - minimapFooterH - minimapPad
+	available := h - ROWindowTitleHeight - minimapFooterH - minimapPad
 	size := minInt(w-2*minimapPad, available)
 	if size < 32 {
 		size = 32
 	}
 	return minimapRect{
 		x: x + (w-size)/2,
-		y: y + minimapTitleH + 4,
+		y: y + ROWindowTitleHeight + 4,
 		w: size,
 		h: size,
 	}
 }
 
-func drawMinimapImage(screen, img *render.Image, dst minimapRect) {
-	bounds := img.Bounds()
-	if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
-		return
+func minimapContentMapSize(w, h int) int {
+	return minimapMapRect(0, 0, w, h).w
+}
+
+func (m *Minimap) scaledImage(size int) image.Image {
+	if m.img == nil || size <= 0 {
+		return nil
 	}
+	key := fmt.Sprintf("%s:%d", m.mapName, size)
+	if m.scaled != nil && m.scaledKey == key {
+		return m.scaled
+	}
+	bounds := m.img.Bounds()
+	if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
+		return nil
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, size, size))
 	srcAspect := float64(bounds.Dx()) / float64(bounds.Dy())
-	drawW, drawH := dst.w, dst.h
+	drawW, drawH := size, size
 	if srcAspect > 1 {
 		drawH = int(float64(drawW)/srcAspect + 0.5)
 	} else if srcAspect < 1 {
 		drawW = int(float64(drawH)*srcAspect + 0.5)
 	}
-	drawX := dst.x + (dst.w-drawW)/2
-	drawY := dst.y + (dst.h-drawH)/2
-	var opts render.DrawImageOptions
-	opts.GeoM.Scale(float64(drawW)/float64(bounds.Dx()), float64(drawH)/float64(bounds.Dy()))
-	opts.GeoM.Translate(float64(drawX), float64(drawY))
-	opts.Filter = render.FilterLinear
-	screen.DrawImage(img, &opts)
+	drawX := (size - drawW) / 2
+	drawY := (size - drawH) / 2
+	xdraw.ApproxBiLinear.Scale(dst, image.Rect(drawX, drawY, drawX+drawW, drawY+drawH), m.img, bounds, xdraw.Over, nil)
+	m.scaled = dst
+	m.scaledKey = key
+	return m.scaled
 }
 
-func drawMinimapFallback(screen *render.Image, rect minimapRect) {
-	render.DrawRect(screen, float64(rect.x), float64(rect.y), float64(rect.w), float64(rect.h), color.RGBA{R: 212, G: 228, B: 202, A: 255})
-	for i := 1; i < 8; i++ {
-		x := rect.x + rect.w*i/8
-		y := rect.y + rect.h*i/8
-		render.DrawRect(screen, float64(x), float64(rect.y), 1, float64(rect.h), color.RGBA{R: 132, G: 164, B: 118, A: 105})
-		render.DrawRect(screen, float64(rect.x), float64(y), float64(rect.w), 1, color.RGBA{R: 132, G: 164, B: 118, A: 105})
+type minimapWidget struct {
+	widget.WidgetBase
+	ctx   Context
+	image image.Image
+}
+
+func newMinimapWidget() *minimapWidget {
+	w := &minimapWidget{}
+	w.SetVisible(true)
+	w.SetEnabled(false)
+	return w
+}
+
+func (w *minimapWidget) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Size{Width: minimapWidth, Height: minimapHeight - ROWindowTitleHeight})
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *minimapWidget) Draw(_ widget.Context, canvas widget.Canvas) {
+	bounds := w.Bounds()
+	if bounds.IsEmpty() {
+		return
+	}
+	rect := minimapContentMapRect(bounds)
+	drawMinimapFallback(canvas, rect)
+	if w.image != nil {
+		canvas.DrawImage(w.image, geometry.Pt(float32(rect.x), float32(rect.y)))
+	}
+	strokeMinimapRect(canvas, rect)
+	if w.ctx.World != nil {
+		mapW, mapH := minimapWorldSize(w.ctx.World)
+		if mapW > 0 && mapH > 0 {
+			w.drawActorMarkers(canvas, w.ctx.World, rect, mapW, mapH)
+			drawMinimapMarker(canvas, rect, mapW, mapH, w.ctx.World.Player.X, w.ctx.World.Player.Y, minimapPlayerColor, 4)
+		}
+		label := minimapDisplayName(w.ctx.World.MapName)
+		footerY := bounds.Min.Y + bounds.Height() - 19
+		canvas.DrawText(trimRunes(label, 13), geometry.NewRect(bounds.Min.X+minimapPad, footerY, bounds.Width()/2, 16), float32(rotheme.Default.Typography.TextSize), Color(minimapTextColor), false, widget.TextAlignLeft)
+		coords := fmt.Sprintf("X:%d Y:%d", w.ctx.World.Player.X, w.ctx.World.Player.Y)
+		canvas.DrawText(coords, geometry.NewRect(bounds.Min.X+bounds.Width()/2, footerY, bounds.Width()/2-minimapPad, 16), float32(rotheme.Default.Typography.TextSize), Color(minimapMutedColor), false, widget.TextAlignRight)
 	}
 }
 
-func (m *Minimap) drawActorMarkers(screen *render.Image, world *worldstate.World, rect minimapRect, mapW, mapH int) {
+func (w *minimapWidget) Event(_ widget.Context, _ event.Event) bool {
+	return false
+}
+
+func minimapContentMapRect(bounds geometry.Rect) minimapRect {
+	available := int(bounds.Height()) - minimapFooterH - minimapPad
+	size := minInt(int(bounds.Width())-2*minimapPad, available)
+	if size < 32 {
+		size = 32
+	}
+	return minimapRect{
+		x: int(bounds.Min.X) + (int(bounds.Width())-size)/2,
+		y: int(bounds.Min.Y) + 4,
+		w: size,
+		h: size,
+	}
+}
+
+func drawMinimapFallback(canvas widget.Canvas, rect minimapRect) {
+	canvas.DrawRect(geometry.NewRect(float32(rect.x), float32(rect.y), float32(rect.w), float32(rect.h)), Color(color.RGBA{R: 212, G: 228, B: 202, A: 255}))
+	for i := 1; i < 8; i++ {
+		x := rect.x + rect.w*i/8
+		y := rect.y + rect.h*i/8
+		canvas.DrawRect(geometry.NewRect(float32(x), float32(rect.y), 1, float32(rect.h)), Color(color.RGBA{R: 132, G: 164, B: 118, A: 105}))
+		canvas.DrawRect(geometry.NewRect(float32(rect.x), float32(y), float32(rect.w), 1), Color(color.RGBA{R: 132, G: 164, B: 118, A: 105}))
+	}
+}
+
+func strokeMinimapRect(canvas widget.Canvas, rect minimapRect) {
+	canvas.StrokeRect(geometry.NewRect(float32(rect.x), float32(rect.y), float32(rect.w), float32(rect.h)), Color(WindowBorderColor), 1)
+}
+
+func (w *minimapWidget) drawActorMarkers(canvas widget.Canvas, world *worldstate.World, rect minimapRect, mapW, mapH int) {
 	for _, actor := range world.Actors {
 		if actor.ID == 0 || actor.X < 0 || actor.Y < 0 || actor.X >= mapW || actor.Y >= mapH {
 			continue
 		}
 		switch {
 		case actor.HasObjectType && actor.ObjectType == actorObjectTypeNPC:
-			drawMinimapMarker(screen, rect, mapW, mapH, actor.X, actor.Y, minimapNPCColor, 2)
+			drawMinimapMarker(canvas, rect, mapW, mapH, actor.X, actor.Y, minimapNPCColor, 2)
 		case actor.HasObjectType && (actor.ObjectType == actorObjectTypeMob || actor.ObjectType == actorObjectTypeNPCABR || actor.ObjectType == actorObjectTypeNPCBionic):
-			drawMinimapMarker(screen, rect, mapW, mapH, actor.X, actor.Y, minimapMobColor, 2)
+			drawMinimapMarker(canvas, rect, mapW, mapH, actor.X, actor.Y, minimapMobColor, 2)
 		}
 	}
 }
 
-func drawMinimapMarker(screen *render.Image, rect minimapRect, mapW, mapH, cellX, cellY int, fill color.RGBA, radius int) {
+func drawMinimapMarker(canvas widget.Canvas, rect minimapRect, mapW, mapH, cellX, cellY int, fill color.RGBA, radius int) {
 	x, y, ok := minimapCellToScreen(rect, mapW, mapH, cellX, cellY)
 	if !ok {
 		return
 	}
-	render.DrawRect(screen, float64(x-radius-1), float64(y-radius-1), float64(radius*2+3), float64(radius*2+3), color.RGBA{A: 190})
-	render.DrawRect(screen, float64(x-radius), float64(y-radius), float64(radius*2+1), float64(radius*2+1), fill)
+	canvas.DrawRect(geometry.NewRect(float32(x-radius-1), float32(y-radius-1), float32(radius*2+3), float32(radius*2+3)), Color(color.RGBA{A: 190}))
+	canvas.DrawRect(geometry.NewRect(float32(x-radius), float32(y-radius), float32(radius*2+1), float32(radius*2+1)), Color(fill))
 }
 
 func minimapCellToScreen(rect minimapRect, mapW, mapH, cellX, cellY int) (int, int, bool) {

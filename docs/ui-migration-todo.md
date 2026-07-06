@@ -35,6 +35,9 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
   - Published as a dark translucent gogpu/ui overlay.
   - Uses native gogpu/ui textfield and scrollview widgets.
   - Keeps only game-side chat command dispatch and Up/Down history handling.
+- [x] Minimap
+  - Published as a gogpu/ui overlay with a common RO title window.
+  - Uses a small custom canvas widget for the map bitmap and live actor markers.
 
 ## High Priority
 
@@ -44,7 +47,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 
 ## Lower Priority
 
-- [ ] Minimap and status/buff icons
+- [ ] Status/buff icons
   - HUD elements rather than dialogs.
   - Migrate later only if gogpu/ui image/grid widgets are cheap enough for always-visible HUD.
 
