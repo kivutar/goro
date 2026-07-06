@@ -350,6 +350,9 @@ func (w *WindowState) ensurePosition(ctx client.Context) {
 func (w *WindowState) setOpacity(opacity float32) {
 	changed := w.opacity != opacity
 	w.opacity = opacity
+	if w.titleHeight <= 0 {
+		return
+	}
 	if box, ok := w.content.(*primitives.BoxWidget); ok {
 		box.Background(windowBodyColor(opacity))
 		box.SetNeedsRedraw(true)

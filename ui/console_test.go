@@ -88,3 +88,43 @@ func TestConsoleInputHistoryUsesArrowKeys(t *testing.T) {
 		t.Fatalf("restored draft input = %q, want draft", console.input)
 	}
 }
+
+func TestConsoleOutsideClickBlursAndPassesThrough(t *testing.T) {
+	console := &ChatConsole{input: "hello", active: true}
+	inputState := input.NewState()
+	inputState.MouseX = 700
+	inputState.MouseY = 100
+	inputState.SetMouseButton(render.MouseButtonLeft, true)
+
+	if console.Update(client.Context{Input: inputState, ScreenW: 800, ScreenH: 600}) {
+		t.Fatal("outside click was consumed")
+	}
+	if console.active {
+		t.Fatal("console stayed active after outside click")
+	}
+	if console.input != "hello" {
+		t.Fatalf("input = %q, want preserved draft", console.input)
+	}
+}
+
+func TestConsoleTypingAndRefocusScrollToBottom(t *testing.T) {
+	console := &ChatConsole{}
+	for i := 0; i < 20; i++ {
+		console.AddMessage("line %d", i)
+	}
+	console.widgetTree(480, 176)
+	bottom := console.ensureScrollSignal().Get()
+	if bottom <= 0 {
+		t.Fatalf("bottom scroll = %f, want positive", bottom)
+	}
+	console.ensureScrollSignal().Set(0)
+	console.setInput("hello")
+	if got := console.ensureScrollSignal().Get(); got != bottom {
+		t.Fatalf("typing scroll = %f, want %f", got, bottom)
+	}
+	console.ensureScrollSignal().Set(0)
+	console.setActive(true)
+	if got := console.ensureScrollSignal().Get(); got != bottom {
+		t.Fatalf("refocus scroll = %f, want %f", got, bottom)
+	}
+}

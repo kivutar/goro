@@ -9,6 +9,7 @@ import (
 	"github.com/gogpu/ui/core/scrollview"
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/network"
@@ -52,7 +53,9 @@ type ChatConsole struct {
 	ctx        client.Context
 	window     WindowState
 	inputField *textfield.Widget
+	scrollY    state.Signal[float32]
 	cacheKey   string
+	messageH   int
 }
 
 func (c *ChatConsole) Update(ctx client.Context) bool {
@@ -71,6 +74,10 @@ func (c *ChatConsole) Update(ctx client.Context) bool {
 		c.setActive(true)
 		return true
 	}
+	if c.active && c.clickedOutside(ctx) {
+		c.setActive(false)
+		return false
+	}
 	if c.active && ctx.Input.JustPressed(render.KeyArrowUp) {
 		c.previousInput()
 		return true
@@ -87,6 +94,14 @@ func (c *ChatConsole) Update(ctx client.Context) bool {
 func (c *ChatConsole) Publish(ctx client.Context) {
 	c.ensureWindow(ctx)
 	c.window.Publish(ctx)
+}
+
+func (c *ChatConsole) clickedOutside(ctx client.Context) bool {
+	if ctx.Input == nil || !ctx.Input.MouseJustPressed(render.MouseButtonLeft) {
+		return false
+	}
+	x, y, width, height := consoleBounds(ctx.ScreenSize())
+	return !pointInRect(ctx.Input.MouseX, ctx.Input.MouseY, x, y, width, height)
 }
 
 func (c *ChatConsole) ensureWindow(ctx client.Context) {
@@ -144,6 +159,7 @@ func (c *ChatConsole) addMessageColor(messageColor color.RGBA, format string, ar
 		c.messages = c.messages[:80]
 	}
 	c.invalidate()
+	c.scrollToBottom()
 }
 
 func (c *ChatConsole) submit(ctx client.Context) {
@@ -328,15 +344,18 @@ func (c *ChatConsole) widgetTree(width, height int) widget.Widget {
 		Height(consoleFieldH).
 		CrossAlign(primitives.CrossAxisStretch)
 	messageHeight := maxInt(20, height-16-consoleFieldH-4)
+	c.messageH = messageHeight
 	messageList := primitives.Box(messageWidgets...).
 		Width(float32(contentWidth)).
 		Gap(1).
 		CrossAlign(primitives.CrossAxisStretch)
+	scrollY := consoleBottomScrollY(len(messageWidgets), messageHeight)
+	c.ensureScrollSignal().Set(scrollY)
 	messages := primitives.Box(
 		scrollview.New(
 			messageList,
 			scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
-			scrollview.ScrollY(1_000_000),
+			scrollview.ScrollYSignal(c.ensureScrollSignal()),
 			scrollview.ScrollStep(float32(rotheme.Default.Typography.TextSize*3)),
 		),
 	).
@@ -361,6 +380,18 @@ func (c *ChatConsole) visibleLines() []ConsoleMessage {
 	out := make([]ConsoleMessage, 0, len(c.messages))
 	out = append(out, c.messages...)
 	return out
+}
+
+func consoleBottomScrollY(lines int, viewportHeight int) float32 {
+	if lines <= 0 {
+		return 0
+	}
+	contentHeight := float32(lines)*rotheme.Default.Typography.TextSize + float32(maxInt(0, lines-1))
+	scrollY := contentHeight - float32(viewportHeight)
+	if scrollY < 0 {
+		return 0
+	}
+	return scrollY
 }
 
 func (c *ChatConsole) renderKey(width, height int) string {
@@ -390,6 +421,7 @@ func (c *ChatConsole) inputWidget() *textfield.Widget {
 			c.input = value
 			c.historyIndex = 0
 			c.historyDraft = ""
+			c.scrollToBottom()
 		},
 		func(string) {
 			c.submit(c.ctx)
@@ -406,6 +438,7 @@ func (c *ChatConsole) setInput(text string) {
 	if c.inputField != nil && c.inputField.Text() != text {
 		c.inputField.SetText(text)
 	}
+	c.scrollToBottom()
 	c.invalidate()
 }
 
@@ -414,6 +447,9 @@ func (c *ChatConsole) setActive(active bool) {
 	if c.inputField != nil {
 		c.inputField.SetFocused(active)
 	}
+	if active {
+		c.scrollToBottom()
+	}
 	c.invalidate()
 }
 
@@ -421,6 +457,20 @@ func (c *ChatConsole) syncActiveFromField() {
 	if c.inputField != nil {
 		c.active = c.inputField.IsFocused()
 	}
+}
+
+func (c *ChatConsole) ensureScrollSignal() state.Signal[float32] {
+	if c.scrollY == nil {
+		c.scrollY = state.NewSignal[float32](0)
+	}
+	return c.scrollY
+}
+
+func (c *ChatConsole) scrollToBottom() {
+	if c.messageH <= 0 {
+		return
+	}
+	c.ensureScrollSignal().Set(consoleBottomScrollY(len(c.visibleLines()), c.messageH))
 }
 
 func (c *ChatConsole) Messages() []ConsoleMessage {
