@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	npcDialogWidth       = 560
-	npcDialogHeight      = 178
+	npcDialogWidth       = 360
+	npcDialogHeight      = 260
 	npcDialogPad         = 12
 	npcDialogButtonW     = 78
 	npcDialogLineH       = 14

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
@@ -375,11 +377,76 @@ func (w *WindowState) Widget() widget.Widget {
 }
 
 func positionedWidget(content widget.Widget, x, y, width, height int) widget.Widget {
-	return primitives.Box(content).
-		PaddingLeft(float32(x)).
-		PaddingTop(float32(y)).
-		Width(float32(x + width)).
-		Height(float32(y + height))
+	w := &positionedOverlay{
+		child:  content,
+		x:      x,
+		y:      y,
+		width:  width,
+		height: height,
+	}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	return w
+}
+
+type positionedOverlay struct {
+	widget.WidgetBase
+	child         widget.Widget
+	x, y          int
+	width, height int
+}
+
+func (w *positionedOverlay) Layout(ctx widget.Context, _ geometry.Constraints) geometry.Size {
+	size := geometry.Sz(float32(w.width), float32(w.height))
+	w.SetBounds(geometry.NewRect(float32(w.x), float32(w.y), size.Width, size.Height))
+	if w.child != nil {
+		w.child.Layout(ctx, geometry.Tight(size))
+		if setter, ok := w.child.(interface{ SetBounds(geometry.Rect) }); ok {
+			setter.SetBounds(geometry.FromPointSize(geometry.Point{}, size))
+		}
+	}
+	return size
+}
+
+func (w *positionedOverlay) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if !w.IsVisible() || w.child == nil {
+		return
+	}
+	canvas.PushTransform(w.Bounds().Min)
+	widget.StampScreenOrigin(w.child, canvas)
+	widget.DrawChild(w.child, ctx, canvas)
+	canvas.PopTransform()
+}
+
+func (w *positionedOverlay) Event(ctx widget.Context, e event.Event) bool {
+	if !w.IsVisible() || !w.IsEnabled() || w.child == nil {
+		return false
+	}
+	switch ev := e.(type) {
+	case *event.MouseEvent:
+		if !w.Bounds().Contains(ev.Position) {
+			return false
+		}
+		local := *ev
+		local.Position = ev.Position.Sub(w.Bounds().Min)
+		return w.child.Event(ctx, &local)
+	case *event.WheelEvent:
+		if !w.Bounds().Contains(ev.Position) {
+			return false
+		}
+		local := *ev
+		local.Position = ev.Position.Sub(w.Bounds().Min)
+		return w.child.Event(ctx, &local)
+	default:
+		return w.child.Event(ctx, e)
+	}
+}
+
+func (w *positionedOverlay) Children() []widget.Widget {
+	if w.child == nil {
+		return nil
+	}
+	return []widget.Widget{w.child}
 }
 
 func centeredWindowRect(ctx client.Context, width, height int) (int, int, int, int) {
