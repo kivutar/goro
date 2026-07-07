@@ -121,6 +121,43 @@ func TestWorldBillboardCommandsKeepSeparateInstanceData(t *testing.T) {
 	}
 }
 
+func TestBuildFrameAppliesScreenScaleTo2DVertices(t *testing.T) {
+	screen := NewScreenImage(320, 240)
+	screen.BeginFrame()
+	screen.SetScreenScale(2, 3)
+	var opts DrawImageOptions
+	opts.GeoM.Scale(10, 5)
+	screen.DrawImage(WhiteImage(), &opts)
+
+	frame := (&gpuRenderer{}).buildFrame(screen)
+	if len(frame.floats) < screenVertexFloatCount*4 {
+		t.Fatalf("frame floats = %d, want at least one quad", len(frame.floats))
+	}
+	got := [][2]float32{
+		{frame.floats[0], frame.floats[1]},
+		{frame.floats[screenVertexFloatCount], frame.floats[screenVertexFloatCount+1]},
+		{frame.floats[screenVertexFloatCount*2], frame.floats[screenVertexFloatCount*2+1]},
+		{frame.floats[screenVertexFloatCount*3], frame.floats[screenVertexFloatCount*3+1]},
+	}
+	want := [][2]float32{{0, 0}, {20, 0}, {0, 15}, {20, 15}}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("vertex %d = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestFramebufferScaleFallsBackToOneForInvalidFramebuffer(t *testing.T) {
+	scaleX, scaleY := framebufferScale(800, 600, 0, 0)
+	if scaleX != 1 || scaleY != 1 {
+		t.Fatalf("invalid framebuffer scale = %v,%v, want 1,1", scaleX, scaleY)
+	}
+	scaleX, scaleY = framebufferScale(800, 600, 1200, 900)
+	if scaleX != 1.5 || scaleY != 1.5 {
+		t.Fatalf("framebuffer scale = %v,%v, want 1.5,1.5", scaleX, scaleY)
+	}
+}
+
 func TestBlendLighterWeightsSourceByAlpha(t *testing.T) {
 	dst := NewImage(1, 1)
 	dst.Fill(color.RGBA{R: 10, G: 20, B: 30, A: 40})

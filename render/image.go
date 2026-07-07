@@ -182,6 +182,8 @@ func (c ColorScale) rgba() (float32, float32, float32, float32) {
 type Image struct {
 	pix             *image.RGBA
 	screen          bool
+	screenScaleX    float32
+	screenScaleY    float32
 	version         uint64
 	commands        []DrawCommand
 	worldCommands   []WorldCommand
@@ -252,6 +254,8 @@ type WorldBillboardCommand struct {
 func NewScreenImage(width, height int) *Image {
 	img := NewImage(width, height)
 	img.screen = true
+	img.screenScaleX = 1
+	img.screenScaleY = 1
 	return img
 }
 
@@ -264,6 +268,20 @@ func (i *Image) BeginFrame() {
 	i.worldMeshes = i.worldMeshes[:0]
 	i.worldBillboards = i.worldBillboards[:0]
 	i.camera = Camera3D{}
+}
+
+func (i *Image) SetScreenScale(x, y float32) {
+	if i == nil || !i.screen {
+		return
+	}
+	if x <= 0 || math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
+		x = 1
+	}
+	if y <= 0 || math.IsNaN(float64(y)) || math.IsInf(float64(y), 0) {
+		y = 1
+	}
+	i.screenScaleX = x
+	i.screenScaleY = y
 }
 
 func (i *Image) SetCamera3D(camera Camera3D) {

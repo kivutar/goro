@@ -110,6 +110,7 @@ type runner struct {
 	fps            bool
 	vsyncWarned    bool
 	uiDrawnOnce    bool
+	uiScale        float64
 }
 
 func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) error {
@@ -544,6 +545,12 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 		r.width, r.height = width, height
 		r.game.Resize(width, height)
 	}
+	framebufferW, framebufferH := ctx.FramebufferSize()
+	scaleX, scaleY := framebufferScale(width, height, framebufferW, framebufferH)
+	deviceScale := ctx.ScaleFactor()
+	if deviceScale <= 0 {
+		deviceScale = float64(scaleX)
+	}
 	if r.gpu == nil {
 		gpu, err := newGPURenderer(ctx, r.app, r.renderCfg)
 		if err != nil {
@@ -553,9 +560,10 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 		log.Printf("render backend=%s surface_format=%s", ctx.Backend(), r.gpu.format)
 	}
 	r.screen.BeginFrame()
+	r.screen.SetScreenScale(scaleX, scaleY)
 	r.publishFPSCounter()
 	r.game.Draw(r.screen)
-	if err := r.drawUI(r.screen, width, height); err != nil {
+	if err := r.drawUI(r.screen, width, height, deviceScale); err != nil {
 		return err
 	}
 	if drawer, ok := r.game.(overlayDrawer); ok {
@@ -572,7 +580,18 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	return nil
 }
 
-func (r *runner) drawUI(screen *Image, width, height int) error {
+func framebufferScale(width, height, framebufferW, framebufferH int) (float32, float32) {
+	scaleX, scaleY := float32(1), float32(1)
+	if width > 0 && framebufferW > 0 {
+		scaleX = float32(framebufferW) / float32(width)
+	}
+	if height > 0 && framebufferH > 0 {
+		scaleY = float32(framebufferH) / float32(height)
+	}
+	return scaleX, scaleY
+}
+
+func (r *runner) drawUI(screen *Image, width, height int, deviceScale float64) error {
 	if r.ui == nil || screen == nil || width <= 0 || height <= 0 {
 		return nil
 	}
@@ -580,18 +599,28 @@ func (r *runner) drawUI(screen *Image, width, height int) error {
 	if provider == nil {
 		return nil
 	}
+	if deviceScale <= 0 {
+		deviceScale = 1
+	}
 	if r.uiCanvas == nil {
-		canvas, err := ggcanvas.New(provider, width, height)
+		canvas, err := ggcanvas.NewWithScale(provider, width, height, deviceScale)
 		if err != nil {
 			return fmt.Errorf("create ui canvas: %w", err)
 		}
 		r.uiCanvas = canvas
+		r.uiScale = deviceScale
 	}
 	canvasW, canvasH := r.uiCanvas.Size()
 	if canvasW != width || canvasH != height {
 		if err := r.uiCanvas.Resize(width, height); err != nil {
 			return fmt.Errorf("resize ui canvas: %w", err)
 		}
+		r.uiDrawnOnce = false
+		r.uiImage = nil
+	}
+	if r.uiScale != deviceScale {
+		r.uiCanvas.SetDeviceScale(deviceScale)
+		r.uiScale = deviceScale
 		r.uiDrawnOnce = false
 		r.uiImage = nil
 	}
@@ -623,6 +652,9 @@ func (r *runner) drawUI(screen *Image, width, height int) error {
 		return nil
 	}
 	var opts DrawImageOptions
+	if b := r.uiImage.Bounds(); b.Dx() > 0 && b.Dy() > 0 {
+		opts.GeoM.Scale(float64(width)/float64(b.Dx()), float64(height)/float64(b.Dy()))
+	}
 	opts.Filter = FilterNearest
 	screen.DrawImage(r.uiImage, &opts)
 	return nil

@@ -187,18 +187,24 @@ func (r *gpuRenderer) buildFrame(screen *Image) drawFrame {
 			continue
 		}
 		indexCountBefore := len(frame.indices)
-		frame.floats, frame.indices = appendDrawCommand(frame.floats, frame.indices, cmd, w, h)
+		frame.floats, frame.indices = appendDrawCommand(frame.floats, frame.indices, cmd, w, h, screen.screenScaleX, screen.screenScaleY)
 		current.indexCount += uint32(len(frame.indices) - indexCountBefore)
 	}
 	return frame
 }
 
-func appendDrawCommand(floats []float32, indices []uint32, cmd DrawCommand, width, height int) ([]float32, []uint32) {
+func appendDrawCommand(floats []float32, indices []uint32, cmd DrawCommand, width, height int, scaleX, scaleY float32) ([]float32, []uint32) {
+	if scaleX <= 0 {
+		scaleX = 1
+	}
+	if scaleY <= 0 {
+		scaleY = 1
+	}
 	base := uint32(len(floats) / screenVertexFloatCount)
 	invW, invH := 1/float32(width), 1/float32(height)
 	for _, v := range cmd.Vertices {
 		floats = append(floats,
-			v.DstX, v.DstY,
+			v.DstX*scaleX, v.DstY*scaleY,
 			v.SrcX*invW, v.SrcY*invH,
 			saneColor(v.ColorR), saneColor(v.ColorG), saneColor(v.ColorB), saneColor(v.ColorA),
 		)
