@@ -610,6 +610,36 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			m.storageWindow.OpenWindow(ctx)
 			continue
 		}
+		if friends, ok, err := network.ParseFriendsList(pkt); err != nil {
+			log.Printf("parse friends list 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyFriendsList(ctx, friends)
+			continue
+		}
+		if friendState, ok, err := network.ParseFriendState(pkt); err != nil {
+			log.Printf("parse friend state 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyFriendState(ctx, friendState)
+			continue
+		}
+		if friendRequest, ok, err := network.ParseFriendRequest(pkt); err != nil {
+			log.Printf("parse friend request 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			log.Printf("friend request aid=%d gid=%d name=%q", friendRequest.AccountID, friendRequest.CharID, friendRequest.Name)
+			continue
+		}
+		if friendAdded, ok, err := network.ParseFriendAddResult(pkt); err != nil {
+			log.Printf("parse friend add result 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyFriendAddResult(ctx, friendAdded)
+			continue
+		}
+		if friendDeleted, ok, err := network.ParseFriendDelete(pkt); err != nil {
+			log.Printf("parse friend delete 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyFriendDelete(ctx, friendDeleted)
+			continue
+		}
 		if storageItem, ok, err := network.ParseStorageItemAdded(pkt); err != nil {
 			log.Printf("parse storage item added 0x%04X: %v", pkt.ID, err)
 		} else if ok {

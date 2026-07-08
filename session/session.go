@@ -26,6 +26,7 @@ type Session struct {
 	Stats       Stats
 	Skills      Skills
 	Statuses    Statuses
+	Friends     Friends
 }
 
 func New() *Session {
@@ -170,6 +171,21 @@ type Skill struct {
 
 type Statuses struct {
 	Active map[uint16]StatusEffect
+}
+
+type Friends struct {
+	List []Friend
+}
+
+type Friend struct {
+	AccountID uint32
+	CharID    uint32
+	Name      string
+	State     uint8
+}
+
+func (f Friend) Online() bool {
+	return f.State == 0
 }
 
 type StatusEffect struct {

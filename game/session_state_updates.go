@@ -126,3 +126,83 @@ func upsertSessionSkill(s *session.Session, skill session.Skill) {
 	}
 	s.Skills.List = append(s.Skills.List, skill)
 }
+
+func applyFriendsList(ctx client.Context, friends []network.Friend) {
+	if ctx.Session == nil {
+		return
+	}
+	ctx.Session.Friends.List = ctx.Session.Friends.List[:0]
+	for _, friend := range friends {
+		ctx.Session.Friends.List = append(ctx.Session.Friends.List, sessionFriendFromNetwork(friend))
+	}
+	log.Printf("friend list received count=%d", len(ctx.Session.Friends.List))
+}
+
+func applyFriendState(ctx client.Context, state network.FriendState) {
+	if ctx.Session == nil {
+		return
+	}
+	for i := range ctx.Session.Friends.List {
+		friend := &ctx.Session.Friends.List[i]
+		if friend.AccountID != state.AccountID || friend.CharID != state.CharID {
+			continue
+		}
+		friend.State = state.State
+		log.Printf("friend state aid=%d gid=%d name=%q state=%d online=%t", friend.AccountID, friend.CharID, friend.Name, friend.State, friend.Online())
+		return
+	}
+	ctx.Session.Friends.List = append(ctx.Session.Friends.List, session.Friend{
+		AccountID: state.AccountID,
+		CharID:    state.CharID,
+		State:     state.State,
+	})
+	log.Printf("friend state aid=%d gid=%d state=%d online=%t", state.AccountID, state.CharID, state.State, state.State == 0)
+}
+
+func applyFriendAddResult(ctx client.Context, result network.FriendAddResult) {
+	if ctx.Session == nil || result.Result != 0 {
+		return
+	}
+	upsertSessionFriend(ctx.Session, session.Friend{
+		AccountID: result.AccountID,
+		CharID:    result.CharID,
+		Name:      result.Name,
+		State:     0,
+	})
+	log.Printf("friend added aid=%d gid=%d name=%q", result.AccountID, result.CharID, result.Name)
+}
+
+func applyFriendDelete(ctx client.Context, deleted network.FriendDelete) {
+	if ctx.Session == nil {
+		return
+	}
+	for i := range ctx.Session.Friends.List {
+		friend := ctx.Session.Friends.List[i]
+		if friend.AccountID != deleted.AccountID || friend.CharID != deleted.CharID {
+			continue
+		}
+		ctx.Session.Friends.List = append(ctx.Session.Friends.List[:i], ctx.Session.Friends.List[i+1:]...)
+		log.Printf("friend deleted aid=%d gid=%d name=%q", friend.AccountID, friend.CharID, friend.Name)
+		return
+	}
+}
+
+func sessionFriendFromNetwork(friend network.Friend) session.Friend {
+	return session.Friend{
+		AccountID: friend.AccountID,
+		CharID:    friend.CharID,
+		Name:      friend.Name,
+		State:     friend.State,
+	}
+}
+
+func upsertSessionFriend(s *session.Session, friend session.Friend) {
+	for i := range s.Friends.List {
+		if s.Friends.List[i].AccountID != friend.AccountID || s.Friends.List[i].CharID != friend.CharID {
+			continue
+		}
+		s.Friends.List[i] = friend
+		return
+	}
+	s.Friends.List = append(s.Friends.List, friend)
+}
