@@ -28,17 +28,19 @@ var (
 	minimapTextColor   = TextColor
 	minimapMutedColor  = MutedTextColor
 	minimapPlayerColor = color.RGBA{R: 255, G: 232, B: 96, A: 255}
-	minimapMobColor    = color.RGBA{R: 255, G: 96, B: 96, A: 230}
-	minimapNPCColor    = color.RGBA{R: 120, G: 190, B: 255, A: 220}
 )
 
 type Minimap struct {
-	mapName   string
-	img       image.Image
-	scaled    image.Image
-	scaledKey string
-	window    WindowState
-	widget    *minimapWidget
+	mapName     string
+	img         image.Image
+	scaled      image.Image
+	scaledKey   string
+	window      WindowState
+	widget      *minimapWidget
+	markerMap   string
+	markerX     int
+	markerY     int
+	hasPosition bool
 }
 
 type minimapRect struct {
@@ -55,21 +57,37 @@ func (m *Minimap) Update(ctx Context) bool {
 	if ctx.World == nil {
 		m.window.Close()
 		m.window.Unpublish(ctx)
+		m.hasPosition = false
 		return false
 	}
+	previousMap := m.mapName
 	m.ensureImage(ctx.Resources, ctx.World.MapName)
 	if m.widget == nil {
 		m.widget = newMinimapWidget()
 	}
 	m.widget.ctx = ctx
 	m.widget.image = m.scaledImage(minimapContentMapSize(w, h))
-	m.widget.SetNeedsRedraw(true)
+	markerChanged := m.playerMarkerChanged(ctx.World.Player.X, ctx.World.Player.Y)
+	needsPublish := false
 	if !m.window.IsOpen() {
 		m.window.OpenAt(x, y, m.widgetTree())
+		needsPublish = true
 	} else {
-		m.window.SetAutoPosition(x, y)
+		if markerChanged || previousMap != m.mapName {
+			m.window.SetContent(m.widgetTree())
+			needsPublish = true
+		}
+		if m.window.SetAutoPosition(x, y) {
+			needsPublish = true
+		}
 	}
-	m.window.Publish(ctx)
+	if m.window.published == nil {
+		needsPublish = true
+	}
+	if needsPublish {
+		m.widget.SetNeedsRedraw(true)
+		m.window.Publish(ctx)
+	}
 	return false
 }
 
@@ -107,6 +125,17 @@ func (m *Minimap) ensureImage(manager *res.Manager, mapName string) {
 		return
 	}
 	m.img = img
+}
+
+func (m *Minimap) playerMarkerChanged(x, y int) bool {
+	if m.hasPosition && m.markerMap == m.mapName && m.markerX == x && m.markerY == y {
+		return false
+	}
+	m.markerMap = m.mapName
+	m.markerX = x
+	m.markerY = y
+	m.hasPosition = true
+	return true
 }
 
 func minimapBounds(width, _ int) (int, int, int, int) {
@@ -197,7 +226,6 @@ func (w *minimapWidget) Draw(_ widget.Context, canvas widget.Canvas) {
 	if w.ctx.World != nil {
 		mapW, mapH := minimapWorldSize(w.ctx.World)
 		if mapW > 0 && mapH > 0 {
-			w.drawActorMarkers(canvas, w.ctx.World, rect, mapW, mapH)
 			drawMinimapMarker(canvas, rect, mapW, mapH, w.ctx.World.Player.X, w.ctx.World.Player.Y, minimapPlayerColor, 4)
 		}
 		label := minimapDisplayName(w.ctx.World.MapName)
@@ -238,20 +266,6 @@ func drawMinimapFallback(canvas widget.Canvas, rect minimapRect) {
 
 func strokeMinimapRect(canvas widget.Canvas, rect minimapRect) {
 	canvas.StrokeRect(geometry.NewRect(float32(rect.x), float32(rect.y), float32(rect.w), float32(rect.h)), Color(WindowBorderColor), 1)
-}
-
-func (w *minimapWidget) drawActorMarkers(canvas widget.Canvas, world *worldstate.World, rect minimapRect, mapW, mapH int) {
-	for _, actor := range world.Actors {
-		if actor.ID == 0 || actor.X < 0 || actor.Y < 0 || actor.X >= mapW || actor.Y >= mapH {
-			continue
-		}
-		switch {
-		case actor.HasObjectType && actor.ObjectType == actorObjectTypeNPC:
-			drawMinimapMarker(canvas, rect, mapW, mapH, actor.X, actor.Y, minimapNPCColor, 2)
-		case actor.HasObjectType && (actor.ObjectType == actorObjectTypeMob || actor.ObjectType == actorObjectTypeNPCABR || actor.ObjectType == actorObjectTypeNPCBionic):
-			drawMinimapMarker(canvas, rect, mapW, mapH, actor.X, actor.Y, minimapMobColor, 2)
-		}
-	}
 }
 
 func drawMinimapMarker(canvas widget.Canvas, rect minimapRect, mapW, mapH, cellX, cellY int, fill color.RGBA, radius int) {
