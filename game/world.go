@@ -93,6 +93,7 @@ type WorldMode struct {
 	escapeMenu       gameui.EscapeMenu
 	teleportModal    gameui.TeleportModal
 	deathModal       gameui.DeathModal
+	friendRequest    gameui.ConfirmModal
 	characterWindow  gameui.CharacterWindow
 	basicMenu        gameui.BasicMenu
 	inventoryBag     gameui.InventoryBagWindow
@@ -626,13 +627,14 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		if friendRequest, ok, err := network.ParseFriendRequest(pkt); err != nil {
 			log.Printf("parse friend request 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("friend request aid=%d gid=%d name=%q", friendRequest.AccountID, friendRequest.CharID, friendRequest.Name)
+			m.openFriendRequest(ctx, friendRequest)
 			continue
 		}
 		if friendAdded, ok, err := network.ParseFriendAddResult(pkt); err != nil {
 			log.Printf("parse friend add result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyFriendAddResult(ctx, friendAdded)
+			m.addFriendResultMessage(friendAdded)
 			continue
 		}
 		if friendDeleted, ok, err := network.ParseFriendDelete(pkt); err != nil {
@@ -891,8 +893,11 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	m.skills().AdjustPendingLevelFromWheel(ctx)
-	if !m.escapeMenu.IsOpen() && !m.teleportModal.IsOpen() && !m.deathModal.IsOpen() && !m.settingsWindow.IsOpen() && !m.identifyWindow.IsOpen() {
+	if !m.escapeMenu.IsOpen() && !m.teleportModal.IsOpen() && !m.deathModal.IsOpen() && !m.friendRequest.IsOpen() && !m.settingsWindow.IsOpen() && !m.identifyWindow.IsOpen() {
 		m.updateCameraRotation(ctx)
+	}
+	if m.friendRequest.Update(ctx) {
+		return nil, nil
 	}
 	if m.deathModal.Update(ctx) {
 		return nil, nil
@@ -1052,6 +1057,50 @@ func (m *WorldMode) handleBasicMenuAction(ctx client.Context, action string) {
 		m.minimap.Toggle(ctx)
 	case "friend":
 		m.friendsWindow.Toggle(ctx)
+	}
+}
+
+func (m *WorldMode) openFriendRequest(ctx client.Context, request network.FriendRequest) {
+	name := strings.TrimSpace(request.Name)
+	if name == "" {
+		name = "Someone"
+	}
+	log.Printf("friend request aid=%d gid=%d name=%q", request.AccountID, request.CharID, request.Name)
+	m.friendRequest.Open(ctx, "Friend Request", fmt.Sprintf("%s wants to be friends with you.", name), func() {
+		if ctx.Network == nil {
+			log.Printf("friend request accept failed: not connected")
+			return
+		}
+		if err := ctx.Network.SendFriendRequestAck(request.AccountID, request.CharID, true); err != nil {
+			log.Printf("friend request accept failed aid=%d gid=%d: %v", request.AccountID, request.CharID, err)
+		}
+	}, func() {
+		if ctx.Network == nil {
+			log.Printf("friend request reject failed: not connected")
+			return
+		}
+		if err := ctx.Network.SendFriendRequestAck(request.AccountID, request.CharID, false); err != nil {
+			log.Printf("friend request reject failed aid=%d gid=%d: %v", request.AccountID, request.CharID, err)
+		}
+	})
+}
+
+func (m *WorldMode) addFriendResultMessage(result network.FriendAddResult) {
+	name := strings.TrimSpace(result.Name)
+	if name == "" {
+		name = "Player"
+	}
+	switch result.Result {
+	case 0:
+		m.console.AddBlueMessage("You have become friends with %s.", name)
+	case 1:
+		m.console.AddErrorMessage("%s does not want to be friends with you.", name)
+	case 2:
+		m.console.AddErrorMessage("Your Friend List is full.")
+	case 3:
+		m.console.AddErrorMessage("%s's Friend List is full.", name)
+	default:
+		m.console.AddErrorMessage("Friend request failed.")
 	}
 }
 
