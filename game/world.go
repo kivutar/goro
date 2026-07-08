@@ -5663,20 +5663,14 @@ func cameraGroundFootprint(projection sceneProjection, screenWidth, screenHeight
 }
 
 type gndSurfaceDraw struct {
-	points      [4]screenPoint
-	verts       [4]modelPoint3
-	uvs         [4]texturePoint
-	vertexOrder [4]int
-	indices     []uint16
-	surface     res.GNDSurface
-	baseTints   [4]color.RGBA
-	heights     [4]float32
-	vertexNorms [4]modelPoint3
-	lighting    sceneLighting
-	water       bool
-	waterType   int
-	waterFrame  int
-	tint        color.RGBA
+	verts      [4]modelPoint3
+	uvs        [4]texturePoint
+	indices    []uint16
+	heights    [4]float32
+	water      bool
+	waterType  int
+	waterFrame int
+	tint       color.RGBA
 }
 
 func (m *WorldMode) smoothGNDTopNormals(gnd *res.GND) [][4]modelPoint3 {
@@ -5839,33 +5833,6 @@ func mapWater(gnd *res.GND, rsw *res.RSW) (res.RSWWater, bool) {
 		return rsw.Water, true
 	}
 	return res.RSWWater{}, false
-}
-
-func newGNDSurfaceDraw(projection sceneProjection, verts [4]modelPoint3, uvs [4]texturePoint, vertexOrder [4]int, indices []uint16, surface res.GNDSurface, heights [4]float32, lighting sceneLighting) gndSurfaceDraw {
-	return newGNDSurfaceDrawWithNormals(projection, verts, uvs, vertexOrder, indices, surface, uniformGNDSurfaceBaseTints(surface.Color), heights, [4]modelPoint3{}, lighting)
-}
-
-func newGNDSurfaceDrawWithNormals(projection sceneProjection, verts [4]modelPoint3, uvs [4]texturePoint, vertexOrder [4]int, indices []uint16, surface res.GNDSurface, baseTints [4]color.RGBA, heights [4]float32, vertexNormals [4]modelPoint3, lighting sceneLighting) gndSurfaceDraw {
-	normal := quadNormal(verts)
-	for i := range vertexNormals {
-		if vertexNormals[i] == (modelPoint3{}) {
-			vertexNormals[i] = normal
-		} else {
-			vertexNormals[i] = normalize3(vertexNormals[i])
-		}
-	}
-	return gndSurfaceDraw{
-		points:      projectGNDQuad(projection, verts),
-		verts:       verts,
-		uvs:         uvs,
-		vertexOrder: vertexOrder,
-		indices:     indices,
-		surface:     surface,
-		baseTints:   baseTints,
-		heights:     heights,
-		vertexNorms: vertexNormals,
-		lighting:    lighting,
-	}
 }
 
 func (m *WorldMode) drawWaterSurface(screen *render.Image, texture *render.Image, draw gndSurfaceDraw, projection sceneProjection, fog sceneFog) {
@@ -6065,15 +6032,6 @@ func waterTint(water res.RSWWater, rsw *res.RSW) color.RGBA {
 		}
 	}
 	return color.RGBA{R: 255, G: 255, B: 255, A: alpha}
-}
-
-func projectGNDQuad(projection sceneProjection, verts [4]modelPoint3) [4]screenPoint {
-	return [4]screenPoint{
-		projection.Project(verts[0].x, verts[0].z, verts[0].y),
-		projection.Project(verts[1].x, verts[1].z, verts[1].y),
-		projection.Project(verts[2].x, verts[2].z, verts[2].y),
-		projection.Project(verts[3].x, verts[3].z, verts[3].y),
-	}
 }
 
 func quadNormal(verts [4]modelPoint3) modelPoint3 {

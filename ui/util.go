@@ -22,13 +22,6 @@ const (
 	CursorActionNoWalk  = 13
 )
 
-const (
-	actorObjectTypeMob       = 5
-	actorObjectTypeNPC       = 6
-	actorObjectTypeNPCABR    = 13
-	actorObjectTypeNPCBionic = 14
-)
-
 type Context = client.Context
 
 type AssetProvider interface {
