@@ -277,7 +277,9 @@ func (m *WorldMode) Enter(ctx client.Context) {
 	} else if m.mapFade.started.IsZero() {
 		m.mapFade.started = now
 	}
+	zoom := m.camera.zoom
 	m.camera.Reset()
+	m.camera.zoom = zoom
 	ctx.World.GAT = nil
 	ctx.World.GND = nil
 	ctx.World.RSW = nil
