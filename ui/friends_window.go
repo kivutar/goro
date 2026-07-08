@@ -14,6 +14,8 @@ const (
 	friendsWindowWidth  = 286
 	friendsWindowHeight = 256
 	friendsRowHeight    = 24
+	friendsTabWidth     = 72
+	friendsTabHeight    = 24
 	friendsListMax      = 40
 )
 
@@ -86,21 +88,31 @@ func (w *FriendsWindow) widgetTree(ctx Context) widget.Widget {
 		Size(friendsWindowWidth, friendsWindowHeight),
 		Content(
 			primitives.Box(
-				primitives.HBox(
-					rotheme.Button("Friends", nil).
-						Width(88).
-						Height(23),
-					rotheme.ButtonDisabled("Party", true, nil).
-						Width(88).
-						Height(23),
-					primitives.Expanded(primitives.Box()),
-				).Gap(2),
+				friendsTabs(),
 				friendsList(friends),
 			).
-				Padding(10).
-				Gap(8),
+				Gap(-1),
 		),
 	)
+}
+
+func friendsTabs() widget.Widget {
+	return primitives.HBox(
+		newTabWidget(tabWidgetConfig{
+			label:      "Friends",
+			active:     true,
+			width:      friendsTabWidth,
+			height:     friendsTabHeight,
+			blendEdge:  tabBlendBottom,
+			blendInset: 1,
+		}),
+		newTabWidget(tabWidgetConfig{
+			label:  "Party",
+			width:  friendsTabWidth,
+			height: friendsTabHeight,
+		}),
+		primitives.Expanded(primitives.Box()),
+	).Gap(-1)
 }
 
 func friendsList(friends []session.Friend) widget.Widget {

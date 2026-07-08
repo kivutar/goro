@@ -193,11 +193,19 @@ func (w *InventoryBagWindow) tabColumn(ctx Context) widget.Widget {
 	tabs := make([]widget.Widget, 0, len(inventoryBagTabs))
 	for _, tab := range inventoryBagTabs {
 		tab := tab
-		tabs = append(tabs, newInventoryTabWidget(tab.label, tab.tab == w.tab, func() {
-			w.tab = tab.tab
-			w.scroll = 0
-			w.lastClickItem = 0
-			w.refresh(ctx, w.itemInfo)
+		tabs = append(tabs, newTabWidget(tabWidgetConfig{
+			label:      tab.label,
+			active:     tab.tab == w.tab,
+			width:      inventoryBagTabW + inventoryBagTabOver*2,
+			height:     inventoryBagTabH,
+			blendEdge:  tabBlendRight,
+			blendInset: inventoryBagTabOver,
+			onClick: func() {
+				w.tab = tab.tab
+				w.scroll = 0
+				w.lastClickItem = 0
+				w.refresh(ctx, w.itemInfo)
+			},
 		}))
 	}
 	return primitives.Box(tabs...).
@@ -398,44 +406,66 @@ func (w *InventoryBagWindow) inventorySnapshot(s *session.Session) string {
 	return b.String()
 }
 
-type inventoryTabWidget struct {
-	widget.WidgetBase
-	label   string
-	active  bool
-	hovered bool
-	onClick func()
+type tabBlendEdge int
+
+const (
+	tabBlendNone tabBlendEdge = iota
+	tabBlendRight
+	tabBlendBottom
+)
+
+type tabWidgetConfig struct {
+	label      string
+	active     bool
+	width      int
+	height     int
+	blendEdge  tabBlendEdge
+	blendInset int
+	onClick    func()
 }
 
-func newInventoryTabWidget(label string, active bool, onClick func()) *inventoryTabWidget {
-	w := &inventoryTabWidget{label: label, active: active, onClick: onClick}
+type tabWidget struct {
+	widget.WidgetBase
+	cfg     tabWidgetConfig
+	hovered bool
+}
+
+func newTabWidget(cfg tabWidgetConfig) *tabWidget {
+	w := &tabWidget{cfg: cfg}
 	w.SetVisible(true)
 	w.SetEnabled(true)
 	return w
 }
 
-func (w *inventoryTabWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	size := constraints.Constrain(geometry.Sz(inventoryBagTabW+inventoryBagTabOver*2, inventoryBagTabH))
+func (w *tabWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(float32(w.cfg.width), float32(w.cfg.height)))
 	w.SetBounds(geometry.FromPointSize(w.Position(), size))
 	return size
 }
 
-func (w *inventoryTabWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+func (w *tabWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 	bounds := w.Bounds()
 	fill := rotheme.Default.Colors.Button
-	if w.active {
+	if w.cfg.active {
 		fill = rotheme.Default.Colors.WindowBody
 	} else if w.hovered {
 		fill = rotheme.Default.Colors.ButtonHover
 	}
 	canvas.DrawRect(bounds, fill)
 	canvas.StrokeRect(bounds, rotheme.Default.Colors.WindowBorder, 1)
-	if w.active {
-		canvas.DrawRect(geometry.NewRect(bounds.Max.X-1, bounds.Min.Y+1, 1, bounds.Height()-2), rotheme.Default.Colors.WindowBody)
+	if w.cfg.active {
+		inset := float32(w.cfg.blendInset)
+		switch w.cfg.blendEdge {
+		case tabBlendRight:
+			canvas.DrawRect(geometry.NewRect(bounds.Max.X-1, bounds.Min.Y+inset, 1, bounds.Height()-inset*2), rotheme.Default.Colors.WindowBody)
+		case tabBlendBottom:
+			canvas.DrawRect(geometry.NewRect(bounds.Min.X+inset, bounds.Max.Y-1, bounds.Width()-inset*2, 1), rotheme.Default.Colors.WindowBody)
+		}
 	}
-	rotheme.DrawText(canvas, w.label, bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
+	rotheme.DrawText(canvas, w.cfg.label, bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignCenter)
 }
 
-func (w *inventoryTabWidget) Event(ctx widget.Context, e event.Event) bool {
+func (w *tabWidget) Event(ctx widget.Context, e event.Event) bool {
 	mouse, ok := e.(*event.MouseEvent)
 	if !ok {
 		return false
@@ -452,8 +482,8 @@ func (w *inventoryTabWidget) Event(ctx widget.Context, e event.Event) bool {
 		w.SetNeedsRedraw(true)
 		return false
 	case event.MousePress:
-		if mouse.Button == event.ButtonLeft && w.onClick != nil {
-			w.onClick()
+		if mouse.Button == event.ButtonLeft && w.cfg.onClick != nil {
+			w.cfg.onClick()
 			return true
 		}
 	}
