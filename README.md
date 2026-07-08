@@ -2,16 +2,29 @@
 
 `goro` is a Go Ragnarok Online client foundation.
 
-The current runtime uses GoGPU/wgpu for the window and presentation path. The
-first migration pass renders into a compatibility canvas and uploads the frame to
-GoGPU each frame; hot paths can move to native GPU pipelines incrementally.
-Build and run with `CGO_ENABLED=0` and `-tags nofakecgo`. The tag lets GoGPU's
-goffi use Oto/purego's fake cgo runtime symbols instead of defining a second
-copy, which keeps pure-Go audio enabled.
+The runtime uses GoGPU/wgpu for the window and presentation path, with a modern
+GPU pipeline and Vulkan support. Build and run with `CGO_ENABLED=0` and
+`-tags nofakecgo`.
 
-BGM playback uses `libmpg123` at runtime when available. This is needed for old
-22 kHz Ragnarok MP3 tracks; without it, the client falls back to the pure-Go MP3
-decoder, which is less accurate for those files.
+## Goals
+
+- Faithfully reimplement the Ragnarok Online client.
+- Focus on the pre-renewal 2008 experience first.
+- Stay pure Go, without cgo, so cross-compilation and deployment stay simple on
+  many platforms.
+- Use a modern GPU pipeline through GoGPU, including Vulkan and Wayland support.
+- Deliver good performance, including support for high-refresh-rate displays.
+- Provide a modernized, themeable UI built with `gogpu/ui`.
+- Keep the engine reusable for creating new MMORPGs.
+- Become a drop-in replacement for `ragexe` and `sakexe`.
+
+Stretch goals:
+
+- Provide GRF tooling.
+- Provide map, sprite, and model viewers.
+- Support optional Lua scripting for autoplay and automation experiments.
+- Support more Ragnarok Online client versions.
+- Support optional anti-cheat and security features.
 
 ## Run
 
