@@ -14,7 +14,7 @@ import (
 
 const (
 	settingsWindowWidth  = 300
-	settingsWindowHeight = 272
+	settingsWindowHeight = 330
 )
 
 type SettingsWindow struct {
@@ -149,6 +149,32 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 						),
 					),
 				).Gap(8),
+
+				rotheme.SectionLabel("Gameplay"),
+
+				rotheme.Checkbox(
+					checkbox.Checked(settingsNoShift(ctx)),
+					checkbox.LabelOpt("No Shift"),
+					checkbox.OnToggle(func(enabled bool) {
+						if ctx.Session != nil {
+							ctx.Session.NoShift = enabled
+						}
+						w.saveSettings(ctx)
+						w.refresh(ctx)
+					}),
+				),
+
+				rotheme.Checkbox(
+					checkbox.Checked(settingsNoCtrl(ctx)),
+					checkbox.LabelOpt("No Ctrl"),
+					checkbox.OnToggle(func(enabled bool) {
+						if ctx.Session != nil {
+							ctx.Session.NoCtrl = enabled
+						}
+						w.saveSettings(ctx)
+						w.refresh(ctx)
+					}),
+				),
 			).
 				Padding(14).
 				Gap(8),
@@ -170,6 +196,8 @@ func (w *SettingsWindow) saveSettings(ctx client.Context) {
 		FPS:        settingsRuntimeFPS(ctx),
 		BGMVolume:  settingsVolumeBGM(ctx),
 		SFXVolume:  settingsVolumeSFX(ctx),
+		NoShift:    settingsNoShift(ctx),
+		NoCtrl:     settingsNoCtrl(ctx),
 	}
 	path, err := config.SaveUserSettings(settings)
 	if err != nil {
@@ -212,4 +240,18 @@ func settingsRuntimeFPS(ctx client.Context) bool {
 		return ctx.Runtime.FPS()
 	}
 	return ctx.Config.Render.FPS
+}
+
+func settingsNoShift(ctx client.Context) bool {
+	if ctx.Session != nil {
+		return ctx.Session.NoShift
+	}
+	return ctx.Config.Gameplay.NoShift
+}
+
+func settingsNoCtrl(ctx client.Context) bool {
+	if ctx.Session != nil {
+		return ctx.Session.NoCtrl
+	}
+	return ctx.Config.Gameplay.NoCtrl
 }

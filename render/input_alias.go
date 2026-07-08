@@ -20,6 +20,7 @@ const (
 	KeyArrowRight = input.KeyArrowRight
 	KeyBackspace  = input.KeyBackspace
 	KeyShift      = input.KeyShift
+	KeyCtrl       = input.KeyCtrl
 	KeyF1         = input.KeyF1
 	KeyF2         = input.KeyF2
 	KeyF3         = input.KeyF3

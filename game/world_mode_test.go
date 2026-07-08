@@ -694,6 +694,26 @@ func TestAttackRetryDueUsesOpenMidgardInterval(t *testing.T) {
 	}
 }
 
+func TestNormalAttackLockActiveUsesNoCtrlOrHeldCtrl(t *testing.T) {
+	inputState := input.NewState()
+	ctx := client.Context{Input: inputState, Session: &session.Session{}}
+
+	if normalAttackLockActive(ctx) {
+		t.Fatal("attack lock should be inactive without noctrl or held ctrl")
+	}
+
+	ctx.Session.NoCtrl = true
+	if !normalAttackLockActive(ctx) {
+		t.Fatal("attack lock should be active with noctrl")
+	}
+
+	ctx.Session.NoCtrl = false
+	inputState.SetKey(render.KeyCtrl, true)
+	if !normalAttackLockActive(ctx) {
+		t.Fatal("attack lock should be active while ctrl is held")
+	}
+}
+
 func TestLockAttackKeepsExistingRetryTimersForSameTarget(t *testing.T) {
 	firstAttack := time.Unix(100, 0)
 	firstChase := time.Unix(101, 0)

@@ -63,6 +63,10 @@ trace = true
 
 [fog]
 enabled = false
+
+[gameplay]
+no_shift = true
+no_ctrl = false
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -78,6 +82,8 @@ enabled = false
 		"--graphics-api", "vulkan",
 		"--no-ui=false",
 		"--char-slot", "3",
+		"--no-shift=false",
+		"--no-ctrl=true",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -105,6 +111,9 @@ enabled = false
 	}
 	if cfg.Fog.Enabled {
 		t.Fatalf("fog enabled = true, want false")
+	}
+	if cfg.Gameplay.NoShift || !cfg.Gameplay.NoCtrl {
+		t.Fatalf("unexpected gameplay config: %#v", cfg.Gameplay)
 	}
 }
 
@@ -152,6 +161,10 @@ sfx_volume = 0.20
 [render]
 vsync = false
 fps = true
+
+[gameplay]
+no_shift = true
+no_ctrl = false
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +172,7 @@ fps = true
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Window.Fullscreen || cfg.Audio.BGMVolume != 0.10 || cfg.Audio.SFXVolume != 0.20 || cfg.Render.VSync || !cfg.Render.FPS {
+	if !cfg.Window.Fullscreen || cfg.Audio.BGMVolume != 0.10 || cfg.Audio.SFXVolume != 0.20 || cfg.Render.VSync || !cfg.Render.FPS || !cfg.Gameplay.NoShift || cfg.Gameplay.NoCtrl {
 		t.Fatalf("user config not loaded: %#v", cfg)
 	}
 }
@@ -191,6 +204,8 @@ fullscreen = false
 		FPS:        true,
 		BGMVolume:  0.33,
 		SFXVolume:  0.44,
+		NoShift:    true,
+		NoCtrl:     false,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -212,6 +227,8 @@ fullscreen = false
 		"fps = true",
 		"bgm_volume = 0.33",
 		"sfx_volume = 0.44",
+		"no_shift = true",
+		"no_ctrl = false",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("saved config missing %q:\n%s", want, text)

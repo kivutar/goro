@@ -1343,7 +1343,11 @@ func (m *WorldMode) requestAttack(ctx client.Context, actor worldstate.Actor, so
 		m.walkCooldown = 30
 		return
 	}
-	m.lockAttack(actor.ID)
+	if normalAttackLockActive(ctx) {
+		m.lockAttack(actor.ID)
+	} else {
+		m.clearLockedAttack()
+	}
 	attackRange := currentNormalAttackRange(ctx)
 	if attackTargetWithinRange(ctx.World.Player.X, ctx.World.Player.Y, actor.X, actor.Y, attackRange) {
 		m.sendAttackAction(ctx, actor, source)
@@ -1458,6 +1462,10 @@ func (m *WorldMode) processLockedAttack(ctx client.Context) {
 	if m.lockedAttackID == 0 || ctx.Network == nil {
 		return
 	}
+	if !normalAttackLockActive(ctx) {
+		m.clearLockedAttack()
+		return
+	}
 	if m.pendingAttack.targetID == m.lockedAttackID {
 		return
 	}
@@ -1495,6 +1503,10 @@ func (m *WorldMode) processLockedAttack(ctx client.Context) {
 
 func attackRetryDue(last time.Time, now time.Time) bool {
 	return last.IsZero() || now.Sub(last) >= attackRetryInterval
+}
+
+func normalAttackLockActive(ctx client.Context) bool {
+	return (ctx.Input != nil && ctx.Input.Pressed(render.KeyCtrl)) || (ctx.Session != nil && ctx.Session.NoCtrl)
 }
 
 func pendingAttackReadyAt(player worldstate.Actor, now time.Time) time.Time {

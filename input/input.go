@@ -17,6 +17,7 @@ const (
 	KeyArrowRight
 	KeyBackspace
 	KeyShift
+	KeyCtrl
 	KeyF1
 	KeyF2
 	KeyF3

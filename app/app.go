@@ -60,6 +60,8 @@ func New(cfg config.Config) (*Game, error) {
 		screenW:  cfg.Window.Width,
 		screenH:  cfg.Window.Height,
 	}
+	g.session.NoShift = cfg.Gameplay.NoShift
+	g.session.NoCtrl = cfg.Gameplay.NoCtrl
 
 	ctx := g.modeContext()
 	g.modes = game.NewManager(ctx, game.NewLoginMode())

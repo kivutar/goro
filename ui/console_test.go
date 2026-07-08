@@ -32,6 +32,26 @@ func TestConsoleNoShiftCommandTogglesSessionPreference(t *testing.T) {
 	}
 }
 
+func TestConsoleNoCtrlCommandTogglesSessionPreference(t *testing.T) {
+	console := &ChatConsole{input: "/nc", active: true}
+	sessionState := &session.Session{}
+	ctx := client.Context{Session: sessionState}
+
+	if !console.SubmitCommand(ctx, "/nc") {
+		t.Fatal("noctrl command was not handled")
+	}
+	if !sessionState.NoCtrl {
+		t.Fatal("noctrl was not enabled")
+	}
+
+	if !console.SubmitCommand(ctx, "/noctrl") {
+		t.Fatal("noctrl command was not handled")
+	}
+	if sessionState.NoCtrl {
+		t.Fatal("noctrl was not disabled")
+	}
+}
+
 func TestConsoleMemoCommandWithoutNetwork(t *testing.T) {
 	console := &ChatConsole{input: "/memo", active: true}
 

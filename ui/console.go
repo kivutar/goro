@@ -216,6 +216,22 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 		c.setInput("")
 		c.setActive(false)
 		return true
+	case "/noctrl", "/nc":
+		if ctx.Session == nil {
+			c.AddErrorMessage("noctrl failed: no session")
+			c.setInput("")
+			c.setActive(false)
+			return true
+		}
+		ctx.Session.NoCtrl = !ctx.Session.NoCtrl
+		if ctx.Session.NoCtrl {
+			c.AddSystemMessage("No Ctrl: On")
+		} else {
+			c.AddSystemMessage("No Ctrl: Off")
+		}
+		c.setInput("")
+		c.setActive(false)
+		return true
 	case "/memo":
 		c.submitMemo(ctx)
 		return true

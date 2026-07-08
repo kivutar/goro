@@ -12,14 +12,15 @@ import (
 )
 
 type Config struct {
-	DataDir string
-	Window  WindowConfig
-	Packet  PacketConfig
-	Login   LoginConfig
-	Audio   AudioConfig
-	Render  RenderConfig
-	Network NetworkConfig
-	Fog     FogConfig
+	DataDir  string
+	Window   WindowConfig
+	Packet   PacketConfig
+	Login    LoginConfig
+	Audio    AudioConfig
+	Render   RenderConfig
+	Network  NetworkConfig
+	Fog      FogConfig
+	Gameplay GameplayConfig
 }
 
 type WindowConfig struct {
@@ -67,6 +68,11 @@ type FogConfig struct {
 	Enabled bool
 }
 
+type GameplayConfig struct {
+	NoShift bool
+	NoCtrl  bool
+}
+
 func LoadConfig(args []string) (Config, error) {
 	cfg := defaultConfig()
 
@@ -94,6 +100,8 @@ type UserSettings struct {
 	FPS        bool
 	BGMVolume  float64
 	SFXVolume  float64
+	NoShift    bool
+	NoCtrl     bool
 }
 
 func UserConfigPath() (string, error) {
@@ -129,6 +137,10 @@ func SaveUserSettings(settings UserSettings) (string, error) {
 		"audio": {
 			"bgm_volume": formatINIValueFloat(settings.BGMVolume),
 			"sfx_volume": formatINIValueFloat(settings.SFXVolume),
+		},
+		"gameplay": {
+			"no_shift": formatINIValueBool(settings.NoShift),
+			"no_ctrl":  formatINIValueBool(settings.NoCtrl),
 		},
 	}
 	existing, err := os.ReadFile(path)
@@ -169,6 +181,9 @@ func defaultConfig() Config {
 		},
 		Fog: FogConfig{
 			Enabled: true,
+		},
+		Gameplay: GameplayConfig{
+			NoCtrl: true,
 		},
 	}
 }
@@ -238,6 +253,8 @@ func applyCLI(cfg *Config, args []string) error {
 	fs.BoolVar(&cfg.Render.WorldDebugStats, "world-debug-stats", cfg.Render.WorldDebugStats, "show world renderer debug stats")
 	fs.BoolVar(&cfg.Network.Trace, "net-trace", cfg.Network.Trace, "log network reads and writes")
 	fs.BoolVar(&cfg.Fog.Enabled, "fog", cfg.Fog.Enabled, "enable map fog")
+	fs.BoolVar(&cfg.Gameplay.NoShift, "no-shift", cfg.Gameplay.NoShift, "allow support skills to target enemies without holding Shift")
+	fs.BoolVar(&cfg.Gameplay.NoCtrl, "no-ctrl", cfg.Gameplay.NoCtrl, "keep attacking with one click without holding Ctrl")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -328,6 +345,10 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		return setBool(value, &cfg.Network.Trace)
 	case "fog.enabled":
 		return setBool(value, &cfg.Fog.Enabled)
+	case "gameplay.noshift":
+		return setBool(value, &cfg.Gameplay.NoShift)
+	case "gameplay.noctrl":
+		return setBool(value, &cfg.Gameplay.NoCtrl)
 	default:
 		return fmt.Errorf("unknown key %q in section %q", key, section)
 	}
@@ -360,7 +381,7 @@ func validateConfig(cfg *Config) error {
 }
 
 func upsertINIValues(src string, values map[string]map[string]string) string {
-	sectionOrder := []string{"window", "render", "audio"}
+	sectionOrder := []string{"window", "render", "audio", "gameplay"}
 	seenSections := make(map[string]bool)
 	written := make(map[string]map[string]bool)
 	for section := range values {
@@ -431,7 +452,7 @@ func upsertINIValues(src string, values map[string]map[string]string) string {
 }
 
 func sortedINIKeys(values map[string]string) []string {
-	preferred := []string{"fullscreen", "vsync", "fps", "bgm_volume", "sfx_volume"}
+	preferred := []string{"fullscreen", "vsync", "fps", "bgm_volume", "sfx_volume", "no_shift", "no_ctrl"}
 	keys := make([]string, 0, len(values))
 	seen := make(map[string]bool, len(values))
 	for _, key := range preferred {
