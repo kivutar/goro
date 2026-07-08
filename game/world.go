@@ -105,7 +105,7 @@ type WorldMode struct {
 	statsWindow      gameui.StatsWindow
 	skillWindow      gameui.SkillWindow
 	friendsWindow    gameui.FriendsWindow
-	friendContext    gameui.FriendContextMenu
+	playerContext    gameui.PlayerContextMenu
 	settingsWindow   gameui.SettingsWindow
 	shortcutBar      gameui.ShortcutBar
 	mapFade          mapFadeState
@@ -894,15 +894,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	m.skills().AdjustPendingLevelFromWheel(ctx)
-	friendContextConsumed := m.friendContext.Update(ctx)
-	if name := m.friendContext.PopAddFriendName(); name != "" {
+	playerContextConsumed := m.playerContext.Update(ctx)
+	if name := m.playerContext.PopAddFriendName(); name != "" {
 		m.sendAddFriend(ctx, name)
 		return nil, nil
 	}
-	if friendContextConsumed {
+	if playerContextConsumed {
 		return nil, nil
 	}
-	if m.openFriendContextFromInput(ctx, now) {
+	if m.openPlayerContextFromInput(ctx, now) {
 		return nil, nil
 	}
 	if !m.escapeMenu.IsOpen() && !m.teleportModal.IsOpen() && !m.deathModal.IsOpen() && !m.friendRequest.IsOpen() && !m.settingsWindow.IsOpen() && !m.identifyWindow.IsOpen() {
@@ -1116,7 +1116,7 @@ func (m *WorldMode) addFriendResultMessage(result network.FriendAddResult) {
 	}
 }
 
-func (m *WorldMode) openFriendContextFromInput(ctx client.Context, now time.Time) bool {
+func (m *WorldMode) openPlayerContextFromInput(ctx client.Context, now time.Time) bool {
 	if ctx.Input == nil || !ctx.Input.MouseJustPressed(render.MouseButtonRight) || uiPointerBlocked(ctx) {
 		return false
 	}
@@ -1126,7 +1126,7 @@ func (m *WorldMode) openFriendContextFromInput(ctx client.Context, now time.Time
 	if !ok || friendNameInSession(ctx.Session, actor.Name) {
 		return false
 	}
-	m.friendContext.Open(ctx, ctx.Input.MouseX, ctx.Input.MouseY, actor.Name)
+	m.playerContext.Open(ctx, ctx.Input.MouseX, ctx.Input.MouseY, actor.Name)
 	return true
 }
 
@@ -4182,7 +4182,7 @@ func clickedPlayerTarget(ctx client.Context, projection sceneProjection, mouseX,
 		if _, dead := deadActors[actor.ID]; dead {
 			continue
 		}
-		if !actorCanOpenFriendContext(ctx, actor) {
+		if !actorCanOpenPlayerContext(ctx, actor) {
 			continue
 		}
 		actorX, actorY := actor.RenderPosition(now)
@@ -4277,7 +4277,7 @@ func skillTargetMapStateAllowsMismatch(ctx client.Context, actor worldstate.Acto
 	return false
 }
 
-func actorCanOpenFriendContext(ctx client.Context, actor worldstate.Actor) bool {
+func actorCanOpenPlayerContext(ctx client.Context, actor worldstate.Actor) bool {
 	if isLocalActor(ctx, actor.ID) || strings.TrimSpace(actor.Name) == "" {
 		return false
 	}
