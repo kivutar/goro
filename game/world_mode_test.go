@@ -4327,6 +4327,34 @@ func TestHandleMapChangeSameServerUpdatesMapAndResetsActors(t *testing.T) {
 	}
 }
 
+func TestNextWorldModeReusesMinimapOverlay(t *testing.T) {
+	world := worldstate.New()
+	world.MapName = "prontera"
+	world.SetPlayerPosition(10, 20, 4)
+	ctx := client.Context{
+		World:     world,
+		Input:     input.NewState(),
+		UIManager: &worldModeTestUIManager{},
+		ScreenW:   1280,
+		ScreenH:   720,
+	}
+	mode := &WorldMode{}
+	mode.minimap.Update(ctx)
+	manager := ctx.UIManager.(*worldModeTestUIManager)
+	if len(manager.overlays) != 1 {
+		t.Fatalf("minimap overlays before map change = %d, want 1", len(manager.overlays))
+	}
+
+	next := mode.nextWorldMode()
+	world.MapName = "geffen"
+	world.SetPlayerPosition(120, 80, 4)
+	next.minimap.Update(ctx)
+
+	if len(manager.overlays) != 1 {
+		t.Fatalf("minimap overlays after map change = %d, want 1", len(manager.overlays))
+	}
+}
+
 func TestHandleMapChangeSameLoadedMapReusesModeAndSnapsCamera(t *testing.T) {
 	world := worldstate.New()
 	world.MapName = "izlude"

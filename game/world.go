@@ -1014,6 +1014,8 @@ func (m *WorldMode) handleBasicMenuAction(ctx client.Context, action string) {
 		m.inventoryBag.Toggle(ctx)
 	case "equip":
 		m.equipmentWindow.Toggle(ctx)
+	case "map":
+		m.minimap.Toggle(ctx)
 	}
 }
 
@@ -1077,6 +1079,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.console = m.console
 	next.characterWindow = m.characterWindow
 	next.shortcutBar = m.shortcutBar
+	next.minimap = m.minimap
 	next.startMapFadeIn(time.Now())
 	return next
 }

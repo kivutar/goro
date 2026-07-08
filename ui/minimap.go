@@ -37,6 +37,7 @@ type Minimap struct {
 	scaledKey   string
 	window      WindowState
 	widget      *minimapWidget
+	hidden      bool
 	markerMap   string
 	markerX     int
 	markerY     int
@@ -54,7 +55,7 @@ func (m *Minimap) Update(ctx Context) bool {
 	width, height := ctx.ScreenSize()
 	x, y, w, h := minimapBounds(width, height)
 	m.ensureWindow(w, h)
-	if ctx.World == nil {
+	if ctx.World == nil || m.hidden {
 		m.window.Close()
 		m.window.Unpublish(ctx)
 		m.hasPosition = false
@@ -89,6 +90,16 @@ func (m *Minimap) Update(ctx Context) bool {
 		m.window.Publish(ctx)
 	}
 	return false
+}
+
+func (m *Minimap) Toggle(ctx Context) {
+	m.hidden = !m.hidden
+	if m.hidden {
+		m.window.Close()
+		m.window.Unpublish(ctx)
+		return
+	}
+	m.Update(ctx)
 }
 
 func (m *Minimap) ensureWindow(width, height int) {
