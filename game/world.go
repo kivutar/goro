@@ -103,6 +103,7 @@ type WorldMode struct {
 	identifyWindow   gameui.IdentifyWindow
 	statsWindow      gameui.StatsWindow
 	skillWindow      gameui.SkillWindow
+	friendsWindow    gameui.FriendsWindow
 	settingsWindow   gameui.SettingsWindow
 	shortcutBar      gameui.ShortcutBar
 	mapFade          mapFadeState
@@ -953,6 +954,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.skillWindow.Update(ctx, &m.shortcutBar, m) {
 		return nil, nil
 	}
+	if m.friendsWindow.Update(ctx) {
+		return nil, nil
+	}
 	if m.statsWindow.Update(ctx) {
 		return nil, nil
 	}
@@ -1046,6 +1050,8 @@ func (m *WorldMode) handleBasicMenuAction(ctx client.Context, action string) {
 		m.equipmentWindow.Toggle(ctx)
 	case "map":
 		m.minimap.Toggle(ctx)
+	case "friend":
+		m.friendsWindow.Toggle(ctx)
 	}
 }
 
