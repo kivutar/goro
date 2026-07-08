@@ -150,7 +150,7 @@ func friendRow(friend session.Friend, index int) widget.Widget {
 	}
 	name := strings.TrimSpace(friend.Name)
 	if name == "" {
-		name = fmt.Sprintf("%d", friend.CharID)
+		name = "Unknown"
 	}
 	return primitives.HBox(
 		rotheme.Text(trimRunes(name, 24)).

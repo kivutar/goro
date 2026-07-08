@@ -31,6 +31,30 @@ func TestParseFriendsList(t *testing.T) {
 	}
 }
 
+func TestParseCompactFriendsList(t *testing.T) {
+	data := make([]byte, 4+8*2)
+	binary.LittleEndian.PutUint16(data[0:2], PacketZCFriendsList)
+	binary.LittleEndian.PutUint16(data[2:4], uint16(len(data)))
+	binary.LittleEndian.PutUint32(data[4:8], 10)
+	binary.LittleEndian.PutUint32(data[8:12], 20)
+	binary.LittleEndian.PutUint32(data[12:16], 11)
+	binary.LittleEndian.PutUint32(data[16:20], 21)
+
+	friends, ok, err := ParseFriendsList(Packet{ID: PacketZCFriendsList, Data: data})
+	if err != nil || !ok {
+		t.Fatalf("ParseFriendsList ok=%t err=%v", ok, err)
+	}
+	if len(friends) != 2 {
+		t.Fatalf("friends len = %d, want 2", len(friends))
+	}
+	if friends[0].AccountID != 10 || friends[0].CharID != 20 || friends[0].Name != "" || friends[0].State != 1 {
+		t.Fatalf("friend 0 = %+v", friends[0])
+	}
+	if friends[1].AccountID != 11 || friends[1].CharID != 21 || friends[1].Name != "" || friends[1].State != 1 {
+		t.Fatalf("friend 1 = %+v", friends[1])
+	}
+}
+
 func TestParseFriendPackets(t *testing.T) {
 	state := []byte{0x06, 0x02, 1, 0, 0, 0, 2, 0, 0, 0, 0}
 	parsedState, ok, err := ParseFriendState(Packet{ID: PacketZCFriendsState, Data: state})
@@ -39,6 +63,19 @@ func TestParseFriendPackets(t *testing.T) {
 	}
 	if parsedState.AccountID != 1 || parsedState.CharID != 2 || parsedState.State != 0 {
 		t.Fatalf("state = %+v", parsedState)
+	}
+
+	stateWithName := make([]byte, 35)
+	binary.LittleEndian.PutUint16(stateWithName[0:2], PacketZCFriendsState)
+	binary.LittleEndian.PutUint32(stateWithName[2:6], 1)
+	binary.LittleEndian.PutUint32(stateWithName[6:10], 2)
+	copy(stateWithName[11:35], "Alice")
+	parsedStateWithName, ok, err := ParseFriendState(Packet{ID: PacketZCFriendsState, Data: stateWithName})
+	if err != nil || !ok {
+		t.Fatalf("ParseFriendState with name ok=%t err=%v", ok, err)
+	}
+	if parsedStateWithName.Name != "Alice" {
+		t.Fatalf("state with name = %+v", parsedStateWithName)
 	}
 
 	request := make([]byte, 34)

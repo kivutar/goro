@@ -29,6 +29,7 @@ type FriendState struct {
 	AccountID uint32
 	CharID    uint32
 	State     uint8
+	Name      string
 }
 
 type FriendRequest struct {
@@ -57,9 +58,19 @@ func ParseFriendsList(packet Packet) ([]Friend, bool, error) {
 		return nil, true, fmt.Errorf("ZC_FRIENDS_LIST too short: %d", len(packet.Data))
 	}
 	body := packet.Data[4:]
-	if len(body)%32 != 0 {
-		return nil, true, fmt.Errorf("ZC_FRIENDS_LIST bad body len: %d", len(body))
+	if len(body) == 0 {
+		return nil, true, nil
 	}
+	if len(body)%32 == 0 && friendListNamesLookValid(body) {
+		return parseNamedFriendsList(body), true, nil
+	}
+	if len(body)%8 == 0 {
+		return parseCompactFriendsList(body), true, nil
+	}
+	return nil, true, fmt.Errorf("ZC_FRIENDS_LIST bad body len: %d", len(body))
+}
+
+func parseNamedFriendsList(body []byte) []Friend {
 	friends := make([]Friend, 0, len(body)/32)
 	for len(body) > 0 {
 		friends = append(friends, Friend{
@@ -70,7 +81,44 @@ func ParseFriendsList(packet Packet) ([]Friend, bool, error) {
 		})
 		body = body[32:]
 	}
-	return friends, true, nil
+	return friends
+}
+
+func parseCompactFriendsList(body []byte) []Friend {
+	friends := make([]Friend, 0, len(body)/8)
+	for len(body) > 0 {
+		friends = append(friends, Friend{
+			AccountID: binary.LittleEndian.Uint32(body[0:4]),
+			CharID:    binary.LittleEndian.Uint32(body[4:8]),
+			State:     1,
+		})
+		body = body[8:]
+	}
+	return friends
+}
+
+func friendListNamesLookValid(body []byte) bool {
+	for len(body) > 0 {
+		if !validFriendNameBytes(body[8:32]) {
+			return false
+		}
+		body = body[32:]
+	}
+	return true
+}
+
+func validFriendNameBytes(raw []byte) bool {
+	seen := false
+	for _, b := range raw {
+		if b == 0 {
+			break
+		}
+		if b < 0x20 || b == 0x7f {
+			return false
+		}
+		seen = true
+	}
+	return seen
 }
 
 func ParseFriendState(packet Packet) (FriendState, bool, error) {
@@ -84,7 +132,15 @@ func ParseFriendState(packet Packet) (FriendState, bool, error) {
 		AccountID: binary.LittleEndian.Uint32(packet.Data[2:6]),
 		CharID:    binary.LittleEndian.Uint32(packet.Data[6:10]),
 		State:     packet.Data[10],
+		Name:      friendStateName(packet.Data),
 	}, true, nil
+}
+
+func friendStateName(data []byte) string {
+	if len(data) < 35 {
+		return ""
+	}
+	return fixedPacketString(data[11:35])
 }
 
 func ParseFriendRequest(packet Packet) (FriendRequest, bool, error) {

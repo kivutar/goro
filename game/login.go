@@ -327,6 +327,18 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				m.startWorldFade(time.Now())
 			}
 		}
+		if friends, ok, err := network.ParseFriendsList(pkt); err != nil {
+			m.packets = append(m.packets, "parse friends list: "+err.Error())
+		} else if ok {
+			applyFriendsList(ctx, friends)
+			continue
+		}
+		if friendState, ok, err := network.ParseFriendState(pkt); err != nil {
+			m.packets = append(m.packets, "parse friend state: "+err.Error())
+		} else if ok {
+			applyFriendState(ctx, friendState)
+			continue
+		}
 		if entry, ok, err := network.ParseActorEntry(pkt); err != nil {
 			m.packets = append(m.packets, "parse actor entry: "+err.Error())
 		} else if ok {

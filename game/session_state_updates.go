@@ -131,9 +131,19 @@ func applyFriendsList(ctx client.Context, friends []network.Friend) {
 	if ctx.Session == nil {
 		return
 	}
+	known := make(map[[2]uint32]string, len(ctx.Session.Friends.List))
+	for _, friend := range ctx.Session.Friends.List {
+		if friend.Name != "" {
+			known[[2]uint32{friend.AccountID, friend.CharID}] = friend.Name
+		}
+	}
 	ctx.Session.Friends.List = ctx.Session.Friends.List[:0]
 	for _, friend := range friends {
-		ctx.Session.Friends.List = append(ctx.Session.Friends.List, sessionFriendFromNetwork(friend))
+		next := sessionFriendFromNetwork(friend)
+		if next.Name == "" {
+			next.Name = known[[2]uint32{next.AccountID, next.CharID}]
+		}
+		ctx.Session.Friends.List = append(ctx.Session.Friends.List, next)
 	}
 	log.Printf("friend list received count=%d", len(ctx.Session.Friends.List))
 }
@@ -148,15 +158,19 @@ func applyFriendState(ctx client.Context, state network.FriendState) {
 			continue
 		}
 		friend.State = state.State
+		if state.Name != "" {
+			friend.Name = state.Name
+		}
 		log.Printf("friend state aid=%d gid=%d name=%q state=%d online=%t", friend.AccountID, friend.CharID, friend.Name, friend.State, friend.Online())
 		return
 	}
 	ctx.Session.Friends.List = append(ctx.Session.Friends.List, session.Friend{
 		AccountID: state.AccountID,
 		CharID:    state.CharID,
+		Name:      state.Name,
 		State:     state.State,
 	})
-	log.Printf("friend state aid=%d gid=%d state=%d online=%t", state.AccountID, state.CharID, state.State, state.State == 0)
+	log.Printf("friend state aid=%d gid=%d name=%q state=%d online=%t", state.AccountID, state.CharID, state.Name, state.State, state.State == 0)
 }
 
 func applyFriendAddResult(ctx client.Context, result network.FriendAddResult) {

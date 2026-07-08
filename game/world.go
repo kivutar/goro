@@ -105,6 +105,7 @@ type WorldMode struct {
 	statsWindow      gameui.StatsWindow
 	skillWindow      gameui.SkillWindow
 	friendsWindow    gameui.FriendsWindow
+	friendContext    gameui.FriendContextMenu
 	settingsWindow   gameui.SettingsWindow
 	shortcutBar      gameui.ShortcutBar
 	mapFade          mapFadeState
@@ -893,6 +894,17 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	m.skills().AdjustPendingLevelFromWheel(ctx)
+	friendContextConsumed := m.friendContext.Update(ctx)
+	if name := m.friendContext.PopAddFriendName(); name != "" {
+		m.sendAddFriend(ctx, name)
+		return nil, nil
+	}
+	if friendContextConsumed {
+		return nil, nil
+	}
+	if m.openFriendContextFromInput(ctx, now) {
+		return nil, nil
+	}
 	if !m.escapeMenu.IsOpen() && !m.teleportModal.IsOpen() && !m.deathModal.IsOpen() && !m.friendRequest.IsOpen() && !m.settingsWindow.IsOpen() && !m.identifyWindow.IsOpen() {
 		m.updateCameraRotation(ctx)
 	}
@@ -1102,6 +1114,47 @@ func (m *WorldMode) addFriendResultMessage(result network.FriendAddResult) {
 	default:
 		m.console.AddErrorMessage("Friend request failed.")
 	}
+}
+
+func (m *WorldMode) openFriendContextFromInput(ctx client.Context, now time.Time) bool {
+	if ctx.Input == nil || !ctx.Input.MouseJustPressed(render.MouseButtonRight) || uiPointerBlocked(ctx) {
+		return false
+	}
+	screenW, screenH := ctx.ScreenSize()
+	projection := m.sceneProjection(ctx, screenW, screenH, now)
+	actor, ok := clickedPlayerTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorDeaths)
+	if !ok || friendNameInSession(ctx.Session, actor.Name) {
+		return false
+	}
+	m.friendContext.Open(ctx, ctx.Input.MouseX, ctx.Input.MouseY, actor.Name)
+	return true
+}
+
+func (m *WorldMode) sendAddFriend(ctx client.Context, name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return
+	}
+	if ctx.Network == nil {
+		log.Printf("add friend failed name=%q: not connected", name)
+		return
+	}
+	if err := ctx.Network.SendAddFriend(name); err != nil {
+		log.Printf("add friend failed name=%q: %v", name, err)
+	}
+}
+
+func friendNameInSession(s *session.Session, name string) bool {
+	name = strings.TrimSpace(name)
+	if s == nil || name == "" {
+		return false
+	}
+	for _, friend := range s.Friends.List {
+		if friend.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange) Mode {
@@ -4119,6 +4172,37 @@ func clickedSkillTarget(ctx client.Context, projection sceneProjection, skill se
 	return best, bestDistance < math.Inf(1)
 }
 
+func clickedPlayerTarget(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {
+	if ctx.World == nil {
+		return worldstate.Actor{}, false
+	}
+	bestDistance := math.Inf(1)
+	var best worldstate.Actor
+	for _, actor := range ctx.World.Actors {
+		if _, dead := deadActors[actor.ID]; dead {
+			continue
+		}
+		if !actorCanOpenFriendContext(ctx, actor) {
+			continue
+		}
+		actorX, actorY := actor.RenderPosition(now)
+		terrainZ := terrainHeightAt(ctx.World, actorX, actorY)
+		point := projection.Project(cellCenter(actorX), cellCenter(actorY), terrainZ)
+		scale := actorBillboardScreenScale(projection, cellCenter(actorX), cellCenter(actorY), terrainZ)
+		if !pointInActorPickBounds(float64(mouseX), float64(mouseY), float64(point.x), float64(point.y), scale) {
+			continue
+		}
+		dx := float64(point.x) - float64(mouseX)
+		dy := float64(point.y) - float64(mouseY)
+		distance := dx*dx + dy*dy
+		if distance < bestDistance {
+			bestDistance = distance
+			best = actor
+		}
+	}
+	return best, bestDistance < math.Inf(1)
+}
+
 func skillTargetCandidates(ctx client.Context, skill session.Skill) []worldstate.Actor {
 	if ctx.World == nil {
 		return nil
@@ -4191,6 +4275,16 @@ func skillTargetMapStateAllowsMismatch(ctx client.Context, actor worldstate.Acto
 	// reference client allows target-type mismatches on PvP/GvG maps. Goro does not yet
 	// parse map state packets, so keep the rule isolated until that state exists.
 	return false
+}
+
+func actorCanOpenFriendContext(ctx client.Context, actor worldstate.Actor) bool {
+	if isLocalActor(ctx, actor.ID) || strings.TrimSpace(actor.Name) == "" {
+		return false
+	}
+	if actor.HasObjectType {
+		return actor.ObjectType == actorObjectTypePC
+	}
+	return res.HasPlayerJobToken(int(actor.Job))
 }
 
 func actorCanBeAttackClicked(ctx client.Context, actor worldstate.Actor) bool {
