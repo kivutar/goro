@@ -144,6 +144,18 @@ func DrawUISpeechBubble(dst *Image, text string, centerX, bottomY, maxWidth floa
 	})
 }
 
+func DrawUITooltip(dst *Image, text string, centerX, belowY, aboveY float64) {
+	if dst == nil || text == "" || !dst.screen {
+		return
+	}
+	dst.uiTooltips = append(dst.uiTooltips, UITooltipCommand{
+		Text:    text,
+		CenterX: centerX,
+		BelowY:  belowY,
+		AboveY:  aboveY,
+	})
+}
+
 func DrawLine(dst *Image, x0, y0, x1, y1 float64, c color.Color) {
 	if dst == nil || dst.pix == nil {
 		return

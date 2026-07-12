@@ -192,6 +192,7 @@ type Image struct {
 	uiRects         []UIRectCommand
 	uiSpeechBubbles []UISpeechBubbleCommand
 	uiTextLabels    []UITextLabelCommand
+	uiTooltips      []UITooltipCommand
 	clear           color.RGBA
 	camera          Camera3D
 }
@@ -265,6 +266,13 @@ type UITextLabelCommand struct {
 	Size       float32
 }
 
+type UITooltipCommand struct {
+	Text    string
+	CenterX float64
+	BelowY  float64
+	AboveY  float64
+}
+
 type UIRectCommand struct {
 	X, Y, W, H float64
 	Color      color.RGBA
@@ -296,7 +304,18 @@ func (i *Image) BeginFrame() {
 	i.uiRects = i.uiRects[:0]
 	i.uiSpeechBubbles = i.uiSpeechBubbles[:0]
 	i.uiTextLabels = i.uiTextLabels[:0]
+	i.uiTooltips = i.uiTooltips[:0]
 	i.camera = Camera3D{}
+}
+
+func (i *Image) clearUIOverlayCommands() {
+	if i == nil {
+		return
+	}
+	i.uiRects = i.uiRects[:0]
+	i.uiSpeechBubbles = i.uiSpeechBubbles[:0]
+	i.uiTextLabels = i.uiTextLabels[:0]
+	i.uiTooltips = i.uiTooltips[:0]
 }
 
 func (i *Image) SetScreenScale(x, y float32) {

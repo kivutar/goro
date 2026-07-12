@@ -16,6 +16,10 @@ type overlayMode interface {
 	DrawOverlay(client.Context, *render.Image)
 }
 
+type uiOverlayMode interface {
+	DrawUIOverlay(client.Context, *render.Image)
+}
+
 type Manager struct {
 	ctx  client.Context
 	mode Mode
@@ -58,5 +62,11 @@ func (m *Manager) Draw(screen *render.Image) {
 func (m *Manager) DrawOverlay(screen *render.Image) {
 	if mode, ok := m.mode.(overlayMode); ok {
 		mode.DrawOverlay(m.ctx, screen)
+	}
+}
+
+func (m *Manager) DrawUIOverlay(screen *render.Image) {
+	if mode, ok := m.mode.(uiOverlayMode); ok {
+		mode.DrawUIOverlay(m.ctx, screen)
 	}
 }

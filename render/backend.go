@@ -72,6 +72,10 @@ type overlayDrawer interface {
 	DrawOverlay(*Image)
 }
 
+type uiOverlayDrawer interface {
+	DrawUIOverlay(*Image)
+}
+
 type runtimeSettingsProvider interface {
 	RuntimeFullscreen() bool
 	RuntimeVSync() bool
@@ -89,8 +93,6 @@ type runner struct {
 	ui              *uiapp.App
 	uiCanvas        *ggcanvas.Canvas
 	uiImage         *Image
-	fpsCanvas       *ggcanvas.Canvas
-	fpsImage        *Image
 	uiOverlayCanvas *ggcanvas.Canvas
 	uiTextCache     map[string]cachedOverlayImage
 	uiBubbleCache   map[string]cachedOverlayImage
@@ -113,7 +115,6 @@ type runner struct {
 	fpsDisplay      float64
 	frameMSDisplay  float64
 	fpsText         string
-	fpsScale        float64
 	uiOverlayScale  float64
 	quit            func()
 	cpuProfile      *os.File
@@ -211,10 +212,6 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 		if r.uiCanvas != nil {
 			_ = r.uiCanvas.Close()
 			r.uiCanvas = nil
-		}
-		if r.fpsCanvas != nil {
-			_ = r.fpsCanvas.Close()
-			r.fpsCanvas = nil
 		}
 		if r.uiOverlayCanvas != nil {
 			_ = r.uiOverlayCanvas.Close()
@@ -592,6 +589,12 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	if err := r.drawUI(r.screen, width, height, deviceScale); err != nil {
 		return err
 	}
+	if drawer, ok := r.game.(uiOverlayDrawer); ok {
+		drawer.DrawUIOverlay(r.screen)
+		if err := r.drawUIOverlay(r.screen, deviceScale); err != nil {
+			return err
+		}
+	}
 	if drawer, ok := r.game.(overlayDrawer); ok {
 		drawer.DrawOverlay(r.screen)
 	}
@@ -721,9 +724,10 @@ func updateCanvasImage(canvas *ggcanvas.Canvas, dstImage *Image) *Image {
 }
 
 func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
-	if screen == nil || (len(screen.uiRects) == 0 && len(screen.uiSpeechBubbles) == 0 && len(screen.uiTextLabels) == 0) {
+	if screen == nil || (len(screen.uiRects) == 0 && len(screen.uiSpeechBubbles) == 0 && len(screen.uiTextLabels) == 0 && len(screen.uiTooltips) == 0) {
 		return nil
 	}
+	defer screen.clearUIOverlayCommands()
 	provider := r.app.GPUContextProvider()
 	if provider == nil {
 		return nil
@@ -759,7 +763,39 @@ func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
 		}
 		drawCachedOverlayImage(screen, cached, x, label.Y)
 	}
+	for _, tooltip := range screen.uiTooltips {
+		cached, err := r.cachedTooltipImage(provider, tooltip, deviceScale)
+		if err != nil {
+			return err
+		}
+		screenW, screenH := screen.Bounds().Dx(), screen.Bounds().Dy()
+		x := tooltip.CenterX - float64(cached.width)/2
+		y := tooltip.BelowY
+		if y+float64(cached.height)+8 > float64(screenH) && tooltip.AboveY > 0 {
+			y = tooltip.AboveY - float64(cached.height)
+		}
+		x = clampOverlayFloat64(x, 8, maxOverlayFloat64(8, float64(screenW-cached.width-8)))
+		y = clampOverlayFloat64(y, 8, maxOverlayFloat64(8, float64(screenH-cached.height-8)))
+		drawCachedOverlayImage(screen, cached, x, y)
+	}
 	return nil
+}
+
+func clampOverlayFloat64(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func maxOverlayFloat64(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func drawCachedOverlayImage(screen *Image, cached cachedOverlayImage, x, y float64) {
@@ -845,15 +881,51 @@ func (r *runner) cachedSpeechBubbleImage(provider gpucontext.DeviceProvider, bub
 	if maxWidth <= 0 {
 		maxWidth = 220
 	}
-	const (
-		size     float32 = 11
-		lineH    float32 = 14
-		padX     float32 = 7
-		padY     float32 = 5
-		minWidth float32 = 28
-		maxLines         = 4
-	)
 	key := fmt.Sprintf("bubble|%.3f|%.1f|%s", deviceScale, maxWidth, text)
+	style := consoleOverlayTextBoxStyle()
+	style.minWidth = 28
+	style.maxWidth = maxWidth
+	style.maxLines = 4
+	style.wrap = true
+	return r.cachedOverlayTextBoxImage(provider, key, text, deviceScale, style)
+}
+
+func (r *runner) cachedTooltipImage(provider gpucontext.DeviceProvider, tooltip UITooltipCommand, deviceScale float64) (cachedOverlayImage, error) {
+	text := strings.TrimSpace(tooltip.Text)
+	if text == "" {
+		return cachedOverlayImage{}, nil
+	}
+	key := fmt.Sprintf("tooltip|%.3f|%s", deviceScale, text)
+	return r.cachedOverlayTextBoxImage(provider, key, text, deviceScale, consoleOverlayTextBoxStyle())
+}
+
+type overlayTextBoxStyle struct {
+	size       float32
+	lineH      float32
+	padX       float32
+	padY       float32
+	minWidth   float32
+	maxWidth   float32
+	maxLines   int
+	wrap       bool
+	background widget.Color
+	foreground widget.Color
+}
+
+func consoleOverlayTextBoxStyle() overlayTextBoxStyle {
+	return overlayTextBoxStyle{
+		size:       rotheme.Default.Typography.TextSize,
+		lineH:      14,
+		padX:       8,
+		padY:       6,
+		minWidth:   1,
+		maxLines:   1,
+		background: widget.RGBA8(14, 18, 24, 188),
+		foreground: widget.RGBA8(235, 242, 250, 255),
+	}
+}
+
+func (r *runner) cachedOverlayTextBoxImage(provider gpucontext.DeviceProvider, key, text string, deviceScale float64, style overlayTextBoxStyle) (cachedOverlayImage, error) {
 	if cached, ok := r.uiBubbleCache[key]; ok {
 		return cached, nil
 	}
@@ -861,32 +933,40 @@ func (r *runner) cachedSpeechBubbleImage(provider gpucontext.DeviceProvider, bub
 	if err != nil {
 		return cachedOverlayImage{}, err
 	}
-	var lines []string
+	lines := []string{text}
 	if err := measure.Draw(func(cc *gg.Context) {
 		canvas := uirender.NewCanvas(cc, 1, 1)
-		lines = wrapOverlayText(canvas, text, size, false, maxWidth-padX*2)
+		if style.wrap {
+			lines = wrapOverlayText(canvas, text, style.size, false, style.maxWidth-style.padX*2)
+		}
 	}); err != nil {
-		return cachedOverlayImage{}, fmt.Errorf("measure speech bubble overlay: %w", err)
+		return cachedOverlayImage{}, fmt.Errorf("measure text box overlay: %w", err)
 	}
-	if len(lines) > maxLines {
-		lines = append(lines[:maxLines-1], ellipsizeOverlayText(measure, strings.Join(lines[maxLines-1:], " "), size, false, maxWidth-padX*2))
+	if len(lines) == 0 {
+		lines = []string{text}
+	}
+	if style.maxLines > 0 && len(lines) > style.maxLines {
+		lines = append(lines[:style.maxLines-1], ellipsizeOverlayText(measure, strings.Join(lines[style.maxLines-1:], " "), style.size, false, style.maxWidth-style.padX*2))
 	}
 	textWidth := float32(0)
 	if err := measure.Draw(func(cc *gg.Context) {
 		canvas := uirender.NewCanvas(cc, 1, 1)
 		for _, line := range lines {
-			if w := rotheme.MeasureText(canvas, line, size, false); w > textWidth {
+			if w := rotheme.MeasureText(canvas, line, style.size, false); w > textWidth {
 				textWidth = w
 			}
 		}
 	}); err != nil {
-		return cachedOverlayImage{}, fmt.Errorf("measure speech bubble width: %w", err)
+		return cachedOverlayImage{}, fmt.Errorf("measure text box width: %w", err)
 	}
-	width := int(maxFloat32(minWidth, textWidth+padX*2) + 0.999)
-	if width > int(maxWidth) {
-		width = int(maxWidth)
+	width := int(maxFloat32(style.minWidth, textWidth+style.padX*2) + 0.999)
+	if style.maxWidth > 0 && width > int(style.maxWidth) {
+		width = int(style.maxWidth)
 	}
-	height := int(float32(len(lines))*lineH + padY*2 + 0.999)
+	if width < 1 {
+		width = 1
+	}
+	height := int(float32(len(lines))*style.lineH + style.padY*2 + 0.999)
 	canvas, err := r.ensureOverlayCanvas(provider, width, height, deviceScale)
 	if err != nil {
 		return cachedOverlayImage{}, err
@@ -898,17 +978,16 @@ func (r *runner) cachedSpeechBubbleImage(provider gpucontext.DeviceProvider, bub
 			textMode.SetTextMode(widget.TextModeVector)
 			defer textMode.SetTextMode(widget.TextModeAuto)
 		}
-		uiCanvas.DrawRect(geometry.NewRect(0, 0, float32(width), float32(height)), widget.RGBA8(0, 0, 0, 170))
-		fg := widget.RGBA8(255, 255, 255, 255)
+		uiCanvas.DrawRect(geometry.NewRect(0, 0, float32(width), float32(height)), style.background)
 		for i, line := range lines {
-			y := padY + float32(i)*lineH
-			rotheme.DrawText(uiCanvas, line, geometry.NewRect(padX, y, float32(width)-padX*2, lineH), size, fg, false, widget.TextAlignLeft)
+			y := style.padY + float32(i)*style.lineH
+			rotheme.DrawText(uiCanvas, line, geometry.NewRect(style.padX, y, float32(width)-style.padX*2, style.lineH), style.size, style.foreground, false, widget.TextAlignLeft)
 		}
 	}); err != nil {
-		return cachedOverlayImage{}, fmt.Errorf("draw speech bubble overlay: %w", err)
+		return cachedOverlayImage{}, fmt.Errorf("draw text box overlay: %w", err)
 	}
 	if _, err := canvas.Flush(); err != nil {
-		return cachedOverlayImage{}, fmt.Errorf("flush speech bubble overlay: %w", err)
+		return cachedOverlayImage{}, fmt.Errorf("flush text box overlay: %w", err)
 	}
 	cached := cachedOverlayImage{image: updateCanvasImage(canvas, nil), width: width, height: height}
 	if r.uiBubbleCache == nil {
@@ -1037,53 +1116,10 @@ func (r *runner) drawFPSMeter(screen *Image, deviceScale float64) error {
 	if deviceScale <= 0 {
 		deviceScale = 1
 	}
-	const canvasW, canvasH = 180, 22
-	if r.fpsCanvas == nil {
-		canvas, err := ggcanvas.NewWithScale(provider, canvasW, canvasH, deviceScale)
-		if err != nil {
-			return fmt.Errorf("create fps canvas: %w", err)
-		}
-		r.fpsCanvas = canvas
-		r.fpsScale = deviceScale
+	cached, err := r.cachedOverlayTextBoxImage(provider, fmt.Sprintf("fps|%.3f|%s", deviceScale, r.fpsText), r.fpsText, deviceScale, consoleOverlayTextBoxStyle())
+	if err != nil {
+		return fmt.Errorf("draw fps overlay: %w", err)
 	}
-	if r.fpsScale != deviceScale {
-		r.fpsCanvas.SetDeviceScale(deviceScale)
-		r.fpsScale = deviceScale
-		r.fpsImage = nil
-	}
-	if err := r.fpsCanvas.Draw(func(cc *gg.Context) {
-		canvas := uirender.NewCanvas(cc, canvasW, canvasH)
-		canvas.Clear(widget.RGBA8(0, 0, 0, 0))
-		if textMode, ok := canvas.(widget.TextModeController); ok {
-			textMode.SetTextMode(widget.TextModeVector)
-			defer textMode.SetTextMode(widget.TextModeAuto)
-		}
-		const h float32 = 20
-		textW := rotheme.MeasureText(canvas, r.fpsText, rotheme.Default.Typography.TextSize, false)
-		w := textW + 10
-		if w < 1 {
-			w = 1
-		}
-		bg := widget.RGBA8(0, 0, 0, 170)
-		fg := widget.RGBA8(224, 255, 190, 255)
-		canvas.DrawRect(geometry.NewRect(0, 0, w, h), bg)
-		rotheme.DrawText(canvas, r.fpsText, geometry.NewRect(5, 3, w-10, 14), rotheme.Default.Typography.TextSize, fg, false, widget.TextAlignLeft)
-	}); err != nil {
-		return fmt.Errorf("draw fps canvas: %w", err)
-	}
-	if _, err := r.fpsCanvas.Flush(); err != nil {
-		return fmt.Errorf("flush fps canvas: %w", err)
-	}
-	r.fpsImage = updateCanvasImage(r.fpsCanvas, r.fpsImage)
-	if r.fpsImage == nil {
-		return nil
-	}
-	var opts DrawImageOptions
-	if b := r.fpsImage.Bounds(); b.Dx() > 0 && b.Dy() > 0 {
-		opts.GeoM.Scale(float64(canvasW)/float64(b.Dx()), float64(canvasH)/float64(b.Dy()))
-	}
-	opts.GeoM.Translate(6, 6)
-	opts.Filter = FilterNearest
-	screen.DrawImage(r.fpsImage, &opts)
+	drawCachedOverlayImage(screen, cached, 6, 6)
 	return nil
 }

@@ -1518,6 +1518,13 @@ func (m *WorldMode) DrawOverlay(ctx client.Context, screen *render.Image) {
 	}
 }
 
+func (m *WorldMode) DrawUIOverlay(ctx client.Context, screen *render.Image) {
+	if ctx.Config.Render.NoUI {
+		return
+	}
+	m.shortcutBar.DrawTooltip(screen, ctx)
+}
+
 func (m *WorldMode) drawUIDragGhosts(screen *render.Image, ctx client.Context) {
 	m.inventoryBag.DrawDragGhost(screen, ctx, m)
 	m.storageWindow.DrawDragGhost(screen, ctx, m)

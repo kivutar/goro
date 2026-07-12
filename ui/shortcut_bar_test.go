@@ -182,3 +182,48 @@ func TestSkillForShortcutFallsBackAndClampsLevel(t *testing.T) {
 		t.Fatalf("clamped shortcut level = %d, want learned level 4", skill.Level)
 	}
 }
+
+func TestShortcutSkillTooltipUsesHotkeyAndName(t *testing.T) {
+	bar := &ShortcutBar{}
+	bar.slots[1] = shortcutSlotState{kind: shortcutSkill, skillID: 6, skillLevel: 2}
+	bar.ctx = Context{
+		ScreenW: 800,
+		ScreenH: 600,
+		Session: &session.Session{
+			Skills: session.Skills{
+				List: []session.Skill{{ID: 6, Level: 8, Name: "Provoke"}},
+			},
+		},
+	}
+
+	bar.showTooltip(1)
+	if !bar.tooltipOpen || bar.tooltipSlot != 1 {
+		t.Fatalf("tooltip state open=%v slot=%d, want slot 1 open", bar.tooltipOpen, bar.tooltipSlot)
+	}
+	if got := bar.tooltipText(1); got != "[ F2 ] Provoke" {
+		t.Fatalf("tooltip text = %q", got)
+	}
+}
+
+func TestShortcutTooltipUnpublishesForEmptySlot(t *testing.T) {
+	bar := &ShortcutBar{}
+	bar.slots[0] = shortcutSlotState{kind: shortcutSkill, skillID: 6, skillLevel: 2}
+	bar.ctx = Context{
+		ScreenW: 800,
+		ScreenH: 600,
+		Session: &session.Session{
+			Skills: session.Skills{
+				List: []session.Skill{{ID: 6, Level: 2, Name: "Provoke"}},
+			},
+		},
+	}
+
+	bar.showTooltip(0)
+	if !bar.tooltipOpen {
+		t.Fatal("tooltip did not open")
+	}
+	bar.showTooltip(1)
+	if bar.tooltipOpen {
+		t.Fatal("tooltip is still open after hovering empty slot")
+	}
+}

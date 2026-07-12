@@ -46,18 +46,20 @@ type shortcutSlotState struct {
 }
 
 type ShortcutBar struct {
-	slots     [shortcutSlots]shortcutSlotState
-	loaded    bool
-	path      string
-	content   widget.Widget
-	root      widget.Widget
-	published bool
-	rootX     int
-	ctx       Context
-	actions   GameActions
-	assets    AssetProvider
-	icons     map[shortcutItemIconKey]image.Image
-	iconMiss  map[shortcutItemIconKey]struct{}
+	slots       [shortcutSlots]shortcutSlotState
+	loaded      bool
+	path        string
+	content     widget.Widget
+	root        widget.Widget
+	published   bool
+	rootX       int
+	ctx         Context
+	actions     GameActions
+	assets      AssetProvider
+	icons       map[shortcutItemIconKey]image.Image
+	iconMiss    map[shortcutItemIconKey]struct{}
+	tooltipSlot int
+	tooltipOpen bool
 }
 
 type shortcutItemIconKey struct {
@@ -124,9 +126,28 @@ func (b *ShortcutBar) ResetOverlay(ctx Context) {
 	if b.published && ctx.UIManager != nil && b.root != nil {
 		ctx.UIManager.RemoveOverlay(b.root)
 	}
+	b.hideTooltip()
 	b.published = false
 	b.root = nil
 	b.content = nil
+}
+
+func (b *ShortcutBar) DrawTooltip(screen *render.Image, ctx Context) {
+	if !b.tooltipOpen {
+		return
+	}
+	text := b.tooltipText(b.tooltipSlot)
+	if text == "" {
+		return
+	}
+	barX, barY := b.bounds(ctx)
+	render.DrawUITooltip(
+		screen,
+		text,
+		float64(barX+shortcutBarWidth()/2),
+		float64(barY+shortcutBarHeight()+2),
+		float64(barY-2),
+	)
 }
 
 func (b *ShortcutBar) AcceptItemDrop(ctx Context, item session.InventoryItem, mx, my int) bool {
@@ -392,10 +413,12 @@ func (w *shortcutSlotButton) Event(ctx widget.Context, e event.Event) bool {
 	case event.MouseEnter, event.MouseMove:
 		w.hovered = true
 		ctx.SetCursor(widget.CursorPointer)
+		w.bar.showTooltip(w.slot)
 		return true
 	case event.MouseLeave:
 		w.hovered = false
 		ctx.SetCursor(widget.CursorDefault)
+		w.bar.hideTooltip()
 	case event.MousePress:
 		switch mouse.Button {
 		case event.ButtonLeft:
@@ -404,11 +427,53 @@ func (w *shortcutSlotButton) Event(ctx widget.Context, e event.Event) bool {
 		case event.ButtonRight:
 			w.bar.slots[w.slot] = shortcutSlotState{}
 			w.bar.save(w.bar.ctx)
+			w.bar.hideTooltip()
 			w.bar.redraw()
 			return true
 		}
 	}
 	return true
+}
+
+func (b *ShortcutBar) showTooltip(slot int) {
+	if slot < 0 || slot >= shortcutSlots {
+		return
+	}
+	if b.tooltipText(slot) == "" {
+		b.hideTooltip()
+		return
+	}
+	if b.tooltipOpen && b.tooltipSlot == slot {
+		return
+	}
+	b.tooltipSlot = slot
+	b.tooltipOpen = true
+}
+
+func (b *ShortcutBar) tooltipText(slot int) string {
+	if slot < 0 || slot >= shortcutSlots {
+		return ""
+	}
+	entry := b.slots[slot]
+	if entry.kind != shortcutSkill {
+		return ""
+	}
+	skill, ok := skillForShortcut(b.ctx.Session, entry)
+	if !ok {
+		skill = session.Skill{ID: entry.skillID, Level: entry.skillLevel}
+	}
+	if skill.ID == 0 {
+		return ""
+	}
+	name := trimRunes(skillDisplayName(b.ctx.Resources, skill), 38)
+	if name == "" {
+		return ""
+	}
+	return fmt.Sprintf("[ F%d ] %s", slot+1, name)
+}
+
+func (b *ShortcutBar) hideTooltip() {
+	b.tooltipOpen = false
 }
 
 func (b *ShortcutBar) redraw() {
