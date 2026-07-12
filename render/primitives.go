@@ -88,6 +88,13 @@ func DrawRect(dst *Image, x, y, w, h float64, c color.Color) {
 	}
 	rgba := color.RGBAModel.Convert(c).(color.RGBA)
 	if dst.screen {
+		x0, y0 := snapScreenPoint(dst, x, y)
+		x1, y1 := snapScreenPoint(dst, x+w, y+h)
+		w, h = x1-x0, y1-y0
+		if w <= 0 || h <= 0 {
+			return
+		}
+		x, y = x0, y0
 		drawSolidQuad(dst, x, y, w, h, rgba)
 		return
 	}
@@ -116,6 +123,24 @@ func DrawUIRect(dst *Image, x, y, w, h float64, c color.RGBA) {
 		W:     w,
 		H:     h,
 		Color: c,
+	})
+}
+
+func DrawUISpeechBubble(dst *Image, text string, centerX, bottomY, maxWidth float64) {
+	if dst == nil || text == "" {
+		return
+	}
+	if maxWidth <= 0 {
+		maxWidth = 220
+	}
+	if !dst.screen {
+		return
+	}
+	dst.uiSpeechBubbles = append(dst.uiSpeechBubbles, UISpeechBubbleCommand{
+		Text:     text,
+		CenterX:  centerX,
+		BottomY:  bottomY,
+		MaxWidth: maxWidth,
 	})
 }
 
@@ -164,7 +189,8 @@ func DebugPrintAtColor(dst *Image, text string, x, y int, c color.RGBA) {
 	if dst.screen {
 		img := cachedDebugTextColor(text, c)
 		var opts DrawImageOptions
-		opts.GeoM.Translate(float64(x), float64(y))
+		x, y := snapScreenPoint(dst, float64(x), float64(y))
+		opts.GeoM.Translate(x, y)
 		opts.Filter = FilterNearest
 		dst.DrawImage(img, &opts)
 		return
@@ -323,10 +349,6 @@ func DrawOutlinedTextAt(dst *Image, text string, x, y int, foreground, outline c
 	if dst == nil || text == "" {
 		return
 	}
-	if dst.screen {
-		DrawUIOutlinedTextAt(dst, text, float64(x), float64(y), foreground, outline)
-		return
-	}
 	img := OutlinedTextImage(text, foreground, outline)
 	var opts DrawImageOptions
 	opts.GeoM.Translate(float64(x), float64(y))
@@ -335,38 +357,56 @@ func DrawOutlinedTextAt(dst *Image, text string, x, y int, foreground, outline c
 }
 
 func DrawUIOutlinedTextAt(dst *Image, text string, x, y float64, foreground, outline color.RGBA) {
-	queueUIOutlinedText(dst, text, x, y, foreground, outline, false)
+	drawOrQueueUIOutlinedText(dst, text, x, y, foreground, outline, false)
 }
 
 func DrawCenteredUIOutlinedTextAt(dst *Image, text string, centerX, y float64, foreground, outline color.RGBA) {
-	queueUIOutlinedText(dst, text, centerX, y, foreground, outline, true)
+	drawOrQueueUIOutlinedText(dst, text, centerX, y, foreground, outline, true)
 }
 
-func queueUIOutlinedText(dst *Image, text string, x, y float64, foreground, outline color.RGBA, centered bool) {
+func drawOrQueueUIOutlinedText(dst *Image, text string, x, y float64, foreground, outline color.RGBA, centered bool) {
 	if dst == nil || text == "" {
 		return
 	}
-	if !dst.screen {
-		if centered {
-			img := OutlinedTextImage(text, foreground, outline)
-			if img == nil {
-				return
-			}
-			x -= float64(img.Bounds().Dx()) / 2
-		}
-		DrawOutlinedTextAt(dst, text, int(math.Round(x)), int(math.Round(y)), foreground, outline)
+	if dst.screen {
+		dst.uiTextLabels = append(dst.uiTextLabels, UITextLabelCommand{
+			Text:       text,
+			X:          x,
+			Y:          y,
+			Foreground: foreground,
+			Outline:    outline,
+			Centered:   centered,
+			Bold:       true,
+			Size:       12,
+		})
 		return
 	}
-	dst.uiTextLabels = append(dst.uiTextLabels, UITextLabelCommand{
-		Text:       text,
-		X:          x,
-		Y:          y,
-		Foreground: foreground,
-		Outline:    outline,
-		Centered:   centered,
-		Bold:       true,
-		Size:       12,
-	})
+	img := OutlinedTextImage(text, foreground, outline)
+	if img == nil {
+		return
+	}
+	if centered {
+		x -= float64(img.Bounds().Dx()) / 2
+	}
+	x, y = snapScreenPoint(dst, x, y)
+	var opts DrawImageOptions
+	opts.GeoM.Translate(x, y)
+	opts.Filter = FilterNearest
+	dst.DrawImage(img, &opts)
+}
+
+func snapScreenPoint(dst *Image, x, y float64) (float64, float64) {
+	if dst == nil || !dst.screen {
+		return x, y
+	}
+	return snapScreenValue(x, float64(dst.screenScaleX)), snapScreenValue(y, float64(dst.screenScaleY))
+}
+
+func snapScreenValue(v, scale float64) float64 {
+	if scale <= 0 || math.IsNaN(scale) || math.IsInf(scale, 0) {
+		return math.Round(v)
+	}
+	return math.Round(v*scale) / scale
 }
 
 func drawTextWithFace(dst *Image, text string, x, y int, face font.Face, c color.RGBA) {

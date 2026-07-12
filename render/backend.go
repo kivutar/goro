@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"image/color"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -77,6 +78,12 @@ type runtimeSettingsProvider interface {
 	RuntimeFPS() bool
 }
 
+type cachedOverlayImage struct {
+	image  *Image
+	width  int
+	height int
+}
+
 type runner struct {
 	app             *gogpu.App
 	ui              *uiapp.App
@@ -85,7 +92,8 @@ type runner struct {
 	fpsCanvas       *ggcanvas.Canvas
 	fpsImage        *Image
 	uiOverlayCanvas *ggcanvas.Canvas
-	uiOverlayImage  *Image
+	uiTextCache     map[string]cachedOverlayImage
+	uiBubbleCache   map[string]cachedOverlayImage
 	game            Game
 	screen          *Image
 	gpu             *gpuRenderer
@@ -713,7 +721,7 @@ func updateCanvasImage(canvas *ggcanvas.Canvas, dstImage *Image) *Image {
 }
 
 func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
-	if screen == nil || (len(screen.uiRects) == 0 && len(screen.uiTextLabels) == 0) {
+	if screen == nil || (len(screen.uiRects) == 0 && len(screen.uiSpeechBubbles) == 0 && len(screen.uiTextLabels) == 0) {
 		return nil
 	}
 	provider := r.app.GPUContextProvider()
@@ -723,91 +731,277 @@ func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
 	if deviceScale <= 0 {
 		deviceScale = 1
 	}
-	width, height := screen.Bounds().Dx(), screen.Bounds().Dy()
-	if width <= 0 || height <= 0 {
-		return nil
-	}
-	if r.uiOverlayCanvas == nil {
-		canvas, err := ggcanvas.NewWithScale(provider, width, height, deviceScale)
-		if err != nil {
-			return fmt.Errorf("create ui overlay canvas: %w", err)
-		}
-		r.uiOverlayCanvas = canvas
-		r.uiOverlayScale = deviceScale
-	}
-	canvasW, canvasH := r.uiOverlayCanvas.Size()
-	if canvasW != width || canvasH != height {
-		if err := r.uiOverlayCanvas.Resize(width, height); err != nil {
-			return fmt.Errorf("resize ui overlay canvas: %w", err)
-		}
-		r.uiOverlayImage = nil
-	}
 	if r.uiOverlayScale != deviceScale {
-		r.uiOverlayCanvas.SetDeviceScale(deviceScale)
 		r.uiOverlayScale = deviceScale
-		r.uiOverlayImage = nil
+		r.uiTextCache = nil
+		r.uiBubbleCache = nil
 	}
-	if err := r.uiOverlayCanvas.Draw(func(cc *gg.Context) {
+	for _, rect := range screen.uiRects {
+		DrawRect(screen, rect.X, rect.Y, rect.W, rect.H, rect.Color)
+	}
+	for _, bubble := range screen.uiSpeechBubbles {
+		cached, err := r.cachedSpeechBubbleImage(provider, bubble, deviceScale)
+		if err != nil {
+			return err
+		}
+		x := bubble.CenterX - float64(cached.width)/2
+		y := bubble.BottomY - float64(cached.height)
+		drawCachedOverlayImage(screen, cached, x, y)
+	}
+	for _, label := range screen.uiTextLabels {
+		cached, err := r.cachedTextLabelImage(provider, label, deviceScale)
+		if err != nil {
+			return err
+		}
+		x := label.X
+		if label.Centered {
+			x -= float64(cached.width) / 2
+		}
+		drawCachedOverlayImage(screen, cached, x, label.Y)
+	}
+	return nil
+}
+
+func drawCachedOverlayImage(screen *Image, cached cachedOverlayImage, x, y float64) {
+	if cached.image == nil || cached.width <= 0 || cached.height <= 0 {
+		return
+	}
+	x, y = snapScreenPoint(screen, x, y)
+	var opts DrawImageOptions
+	if b := cached.image.Bounds(); b.Dx() > 0 && b.Dy() > 0 {
+		opts.GeoM.Scale(float64(cached.width)/float64(b.Dx()), float64(cached.height)/float64(b.Dy()))
+	}
+	opts.GeoM.Translate(x, y)
+	opts.Filter = FilterNearest
+	screen.DrawImage(cached.image, &opts)
+}
+
+func (r *runner) cachedTextLabelImage(provider gpucontext.DeviceProvider, label UITextLabelCommand, deviceScale float64) (cachedOverlayImage, error) {
+	size := label.Size
+	if size <= 0 {
+		size = rotheme.Default.Typography.TextSize
+	}
+	key := fmt.Sprintf("text|%.3f|%s|%t|%.1f|%08x|%08x", deviceScale, label.Text, label.Bold, size, rgbaKey(label.Foreground), rgbaKey(label.Outline))
+	if cached, ok := r.uiTextCache[key]; ok {
+		return cached, nil
+	}
+	measure, err := r.ensureOverlayCanvas(provider, 1, 1, deviceScale)
+	if err != nil {
+		return cachedOverlayImage{}, err
+	}
+	var textW float32
+	if err := measure.Draw(func(cc *gg.Context) {
+		canvas := uirender.NewCanvas(cc, 1, 1)
+		textW = rotheme.MeasureText(canvas, label.Text, size, label.Bold)
+	}); err != nil {
+		return cachedOverlayImage{}, fmt.Errorf("measure ui text overlay: %w", err)
+	}
+	width := int(textW + 4.999)
+	if width < 4 {
+		width = 4
+	}
+	height := int(size + 8)
+	if height < 16 {
+		height = 16
+	}
+	canvas, err := r.ensureOverlayCanvas(provider, width, height, deviceScale)
+	if err != nil {
+		return cachedOverlayImage{}, err
+	}
+	fg := widget.RGBA8(label.Foreground.R, label.Foreground.G, label.Foreground.B, label.Foreground.A)
+	outline := widget.RGBA8(label.Outline.R, label.Outline.G, label.Outline.B, label.Outline.A)
+	if err := canvas.Draw(func(cc *gg.Context) {
 		uiCanvas := uirender.NewCanvas(cc, width, height)
 		uiCanvas.Clear(widget.RGBA8(0, 0, 0, 0))
 		if textMode, ok := uiCanvas.(widget.TextModeController); ok {
 			textMode.SetTextMode(widget.TextModeVector)
 			defer textMode.SetTextMode(widget.TextModeAuto)
 		}
-		for _, rect := range screen.uiRects {
-			uiCanvas.DrawRect(
-				geometry.NewRect(float32(rect.X), float32(rect.Y), float32(rect.W), float32(rect.H)),
-				widget.RGBA8(rect.Color.R, rect.Color.G, rect.Color.B, rect.Color.A),
-			)
+		bounds := geometry.NewRect(2, 2, float32(width), float32(height))
+		for _, offset := range [][2]float32{{0, -1}, {0, 1}, {-1, 0}, {1, 0}} {
+			rotheme.DrawText(uiCanvas, label.Text, bounds.TranslateXY(offset[0], offset[1]), size, outline, label.Bold, widget.TextAlignLeft)
 		}
-		for _, label := range screen.uiTextLabels {
-			drawOutlinedUIText(uiCanvas, label)
-		}
+		rotheme.DrawText(uiCanvas, label.Text, bounds, size, fg, label.Bold, widget.TextAlignLeft)
 	}); err != nil {
-		return fmt.Errorf("draw ui overlay canvas: %w", err)
+		return cachedOverlayImage{}, fmt.Errorf("draw ui text overlay: %w", err)
 	}
-	if _, err := r.uiOverlayCanvas.Flush(); err != nil {
-		return fmt.Errorf("flush ui overlay canvas: %w", err)
+	if _, err := canvas.Flush(); err != nil {
+		return cachedOverlayImage{}, fmt.Errorf("flush ui text overlay: %w", err)
 	}
-	r.uiOverlayImage = updateCanvasImage(r.uiOverlayCanvas, r.uiOverlayImage)
-	if r.uiOverlayImage == nil {
-		return nil
+	cached := cachedOverlayImage{image: updateCanvasImage(canvas, nil), width: width, height: height}
+	if r.uiTextCache == nil {
+		r.uiTextCache = make(map[string]cachedOverlayImage)
 	}
-	var opts DrawImageOptions
-	if b := r.uiOverlayImage.Bounds(); b.Dx() > 0 && b.Dy() > 0 {
-		opts.GeoM.Scale(float64(width)/float64(b.Dx()), float64(height)/float64(b.Dy()))
-	}
-	opts.Filter = FilterNearest
-	screen.DrawImage(r.uiOverlayImage, &opts)
-	return nil
+	r.uiTextCache[key] = cached
+	return cached, nil
 }
 
-func drawOutlinedUIText(canvas widget.Canvas, label UITextLabelCommand) {
-	size := label.Size
-	if size <= 0 {
-		size = rotheme.Default.Typography.TextSize
+func (r *runner) cachedSpeechBubbleImage(provider gpucontext.DeviceProvider, bubble UISpeechBubbleCommand, deviceScale float64) (cachedOverlayImage, error) {
+	text := strings.TrimSpace(bubble.Text)
+	if text == "" {
+		return cachedOverlayImage{}, nil
 	}
-	textW := rotheme.MeasureText(canvas, label.Text, size, label.Bold)
-	x := float32(label.X)
-	if label.Centered {
-		x -= textW / 2
+	maxWidth := float32(bubble.MaxWidth)
+	if maxWidth <= 0 {
+		maxWidth = 220
 	}
-	y := float32(label.Y)
-	width := textW + 4
-	if width < 4 {
-		width = 4
+	const (
+		size     float32 = 11
+		lineH    float32 = 14
+		padX     float32 = 7
+		padY     float32 = 5
+		minWidth float32 = 28
+		maxLines         = 4
+	)
+	key := fmt.Sprintf("bubble|%.3f|%.1f|%s", deviceScale, maxWidth, text)
+	if cached, ok := r.uiBubbleCache[key]; ok {
+		return cached, nil
 	}
-	height := size + 8
-	if height < 16 {
-		height = 16
+	measure, err := r.ensureOverlayCanvas(provider, 1, 1, deviceScale)
+	if err != nil {
+		return cachedOverlayImage{}, err
 	}
-	fg := widget.RGBA8(label.Foreground.R, label.Foreground.G, label.Foreground.B, label.Foreground.A)
-	outline := widget.RGBA8(label.Outline.R, label.Outline.G, label.Outline.B, label.Outline.A)
-	bounds := geometry.NewRect(x+2, y+2, width, height)
-	for _, offset := range [][2]float32{{0, -1}, {0, 1}, {-1, 0}, {1, 0}} {
-		rotheme.DrawText(canvas, label.Text, bounds.TranslateXY(offset[0], offset[1]), size, outline, label.Bold, widget.TextAlignLeft)
+	var lines []string
+	if err := measure.Draw(func(cc *gg.Context) {
+		canvas := uirender.NewCanvas(cc, 1, 1)
+		lines = wrapOverlayText(canvas, text, size, false, maxWidth-padX*2)
+	}); err != nil {
+		return cachedOverlayImage{}, fmt.Errorf("measure speech bubble overlay: %w", err)
 	}
-	rotheme.DrawText(canvas, label.Text, bounds, size, fg, label.Bold, widget.TextAlignLeft)
+	if len(lines) > maxLines {
+		lines = append(lines[:maxLines-1], ellipsizeOverlayText(measure, strings.Join(lines[maxLines-1:], " "), size, false, maxWidth-padX*2))
+	}
+	textWidth := float32(0)
+	if err := measure.Draw(func(cc *gg.Context) {
+		canvas := uirender.NewCanvas(cc, 1, 1)
+		for _, line := range lines {
+			if w := rotheme.MeasureText(canvas, line, size, false); w > textWidth {
+				textWidth = w
+			}
+		}
+	}); err != nil {
+		return cachedOverlayImage{}, fmt.Errorf("measure speech bubble width: %w", err)
+	}
+	width := int(maxFloat32(minWidth, textWidth+padX*2) + 0.999)
+	if width > int(maxWidth) {
+		width = int(maxWidth)
+	}
+	height := int(float32(len(lines))*lineH + padY*2 + 0.999)
+	canvas, err := r.ensureOverlayCanvas(provider, width, height, deviceScale)
+	if err != nil {
+		return cachedOverlayImage{}, err
+	}
+	if err := canvas.Draw(func(cc *gg.Context) {
+		uiCanvas := uirender.NewCanvas(cc, width, height)
+		uiCanvas.Clear(widget.RGBA8(0, 0, 0, 0))
+		if textMode, ok := uiCanvas.(widget.TextModeController); ok {
+			textMode.SetTextMode(widget.TextModeVector)
+			defer textMode.SetTextMode(widget.TextModeAuto)
+		}
+		uiCanvas.DrawRect(geometry.NewRect(0, 0, float32(width), float32(height)), widget.RGBA8(0, 0, 0, 170))
+		fg := widget.RGBA8(255, 255, 255, 255)
+		for i, line := range lines {
+			y := padY + float32(i)*lineH
+			rotheme.DrawText(uiCanvas, line, geometry.NewRect(padX, y, float32(width)-padX*2, lineH), size, fg, false, widget.TextAlignLeft)
+		}
+	}); err != nil {
+		return cachedOverlayImage{}, fmt.Errorf("draw speech bubble overlay: %w", err)
+	}
+	if _, err := canvas.Flush(); err != nil {
+		return cachedOverlayImage{}, fmt.Errorf("flush speech bubble overlay: %w", err)
+	}
+	cached := cachedOverlayImage{image: updateCanvasImage(canvas, nil), width: width, height: height}
+	if r.uiBubbleCache == nil {
+		r.uiBubbleCache = make(map[string]cachedOverlayImage)
+	}
+	r.uiBubbleCache[key] = cached
+	return cached, nil
+}
+
+func (r *runner) ensureOverlayCanvas(provider gpucontext.DeviceProvider, width, height int, deviceScale float64) (*ggcanvas.Canvas, error) {
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	if r.uiOverlayCanvas == nil {
+		canvas, err := ggcanvas.NewWithScale(provider, width, height, deviceScale)
+		if err != nil {
+			return nil, fmt.Errorf("create ui overlay canvas: %w", err)
+		}
+		r.uiOverlayCanvas = canvas
+		r.uiOverlayScale = deviceScale
+		return canvas, nil
+	}
+	canvasW, canvasH := r.uiOverlayCanvas.Size()
+	if canvasW != width || canvasH != height {
+		if err := r.uiOverlayCanvas.Resize(width, height); err != nil {
+			return nil, fmt.Errorf("resize ui overlay canvas: %w", err)
+		}
+	}
+	if r.uiOverlayScale != deviceScale {
+		r.uiOverlayCanvas.SetDeviceScale(deviceScale)
+		r.uiOverlayScale = deviceScale
+		r.uiTextCache = nil
+		r.uiBubbleCache = nil
+	}
+	return r.uiOverlayCanvas, nil
+}
+
+func wrapOverlayText(canvas widget.Canvas, text string, size float32, bold bool, maxWidth float32) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil
+	}
+	lines := make([]string, 0, 2)
+	line := ""
+	for _, word := range words {
+		candidate := word
+		if line != "" {
+			candidate = line + " " + word
+		}
+		if line == "" || rotheme.MeasureText(canvas, candidate, size, bold) <= maxWidth {
+			line = candidate
+			continue
+		}
+		lines = append(lines, line)
+		line = word
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func ellipsizeOverlayText(canvas *ggcanvas.Canvas, text string, size float32, bold bool, maxWidth float32) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	result := text
+	_ = canvas.Draw(func(cc *gg.Context) {
+		uiCanvas := uirender.NewCanvas(cc, 1, 1)
+		if rotheme.MeasureText(uiCanvas, result, size, bold) <= maxWidth {
+			return
+		}
+		const suffix = "..."
+		runes := []rune(result)
+		for len(runes) > 0 {
+			candidate := strings.TrimSpace(string(runes)) + suffix
+			if rotheme.MeasureText(uiCanvas, candidate, size, bold) <= maxWidth {
+				result = candidate
+				return
+			}
+			runes = runes[:len(runes)-1]
+		}
+		result = suffix
+	})
+	return result
+}
+
+func rgbaKey(c color.RGBA) uint32 {
+	return uint32(c.R)<<24 | uint32(c.G)<<16 | uint32(c.B)<<8 | uint32(c.A)
 }
 
 func (r *runner) updateFPSCounter(now time.Time) {

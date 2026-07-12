@@ -190,6 +190,7 @@ type Image struct {
 	worldMeshes     []WorldMeshCommand
 	worldBillboards []WorldBillboardCommand
 	uiRects         []UIRectCommand
+	uiSpeechBubbles []UISpeechBubbleCommand
 	uiTextLabels    []UITextLabelCommand
 	clear           color.RGBA
 	camera          Camera3D
@@ -269,6 +270,13 @@ type UIRectCommand struct {
 	Color      color.RGBA
 }
 
+type UISpeechBubbleCommand struct {
+	Text     string
+	CenterX  float64
+	BottomY  float64
+	MaxWidth float64
+}
+
 func NewScreenImage(width, height int) *Image {
 	img := NewImage(width, height)
 	img.screen = true
@@ -286,6 +294,7 @@ func (i *Image) BeginFrame() {
 	i.worldMeshes = i.worldMeshes[:0]
 	i.worldBillboards = i.worldBillboards[:0]
 	i.uiRects = i.uiRects[:0]
+	i.uiSpeechBubbles = i.uiSpeechBubbles[:0]
 	i.uiTextLabels = i.uiTextLabels[:0]
 	i.camera = Camera3D{}
 }

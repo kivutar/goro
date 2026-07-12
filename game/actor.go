@@ -217,6 +217,7 @@ func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVan
 	delete(m.actorDeaths, vanish.ID)
 	delete(m.actorSoundFrames, vanish.ID)
 	delete(m.actorLife, vanish.ID)
+	delete(m.speechBubbles, vanish.ID)
 }
 
 func (m *WorldMode) cleanupDeadActors(ctx client.Context, now time.Time) {
@@ -233,6 +234,7 @@ func (m *WorldMode) cleanupDeadActors(ctx client.Context, now time.Time) {
 		delete(m.actorAnims, id)
 		delete(m.actorSoundFrames, id)
 		delete(m.actorLife, id)
+		delete(m.speechBubbles, id)
 		if m.pendingAttack.targetID == id {
 			m.pendingAttack = attackIntent{}
 		}
@@ -504,6 +506,7 @@ func (m *WorldMode) drawSceneActorOverlays(screen *render.Image, ctx client.Cont
 	}
 	m.drawAttackFocusMarker(screen, ctx, now, entries)
 	m.drawVendingBoardLabels(screen, ctx, entries)
+	m.drawSpeechBubbles(screen, entries, now)
 	m.drawHoveredLocalPlayerNameLabel(screen, ctx, entries)
 	m.drawHoveredActorNameLabel(screen, ctx, projection, now)
 }

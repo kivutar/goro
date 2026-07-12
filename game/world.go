@@ -90,6 +90,7 @@ type WorldMode struct {
 	actorSoundFrames  map[uint32]actorSoundFrame
 	actorLife         map[uint32]actorLife
 	actorNameReqAt    map[uint32]time.Time
+	speechBubbles     map[uint32]speechBubble
 	gndNormalSource   *res.GND
 	gndTopNormals     [][4]modelPoint3
 	minimap           gameui.Minimap
@@ -270,6 +271,7 @@ func (m *WorldMode) Enter(ctx client.Context) {
 	m.actorDeaths = make(map[uint32]time.Time)
 	m.actorSoundFrames = make(map[uint32]actorSoundFrame)
 	m.actorLife = make(map[uint32]actorLife)
+	m.speechBubbles = make(map[uint32]speechBubble)
 	m.syncCurrentActorEffectStateEffects(ctx)
 	m.shortcutBar.Load(ctx)
 	m.npcDialog.ResetPublished(ctx)
@@ -387,6 +389,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		if chat, ok, err := network.ParseChatMessage(pkt); err != nil {
 			log.Printf("parse chat message 0x%04X: %v", pkt.ID, err)
 		} else if ok {
+			m.applySpeechBubble(ctx, chat, now)
 			addConsoleMessage(&m.console, ctx.Resources, chat)
 			continue
 		}
