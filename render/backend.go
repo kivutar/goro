@@ -724,7 +724,7 @@ func updateCanvasImage(canvas *ggcanvas.Canvas, dstImage *Image) *Image {
 }
 
 func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
-	if screen == nil || (len(screen.uiRects) == 0 && len(screen.uiSpeechBubbles) == 0 && len(screen.uiTextLabels) == 0 && len(screen.uiTooltips) == 0) {
+	if screen == nil || (len(screen.uiRects) == 0 && len(screen.uiTextBoxes) == 0 && len(screen.uiTextLabels) == 0) {
 		return nil
 	}
 	defer screen.clearUIOverlayCommands()
@@ -743,13 +743,12 @@ func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
 	for _, rect := range screen.uiRects {
 		DrawRect(screen, rect.X, rect.Y, rect.W, rect.H, rect.Color)
 	}
-	for _, bubble := range screen.uiSpeechBubbles {
-		cached, err := r.cachedSpeechBubbleImage(provider, bubble, deviceScale)
+	for _, box := range screen.uiTextBoxes {
+		cached, err := r.cachedTextBoxImage(provider, box, deviceScale)
 		if err != nil {
 			return err
 		}
-		x := bubble.CenterX - float64(cached.width)/2
-		y := bubble.BottomY - float64(cached.height)
+		x, y := uiTextBoxPosition(screen, box, cached)
 		drawCachedOverlayImage(screen, cached, x, y)
 	}
 	for _, label := range screen.uiTextLabels {
@@ -763,22 +762,26 @@ func (r *runner) drawUIOverlay(screen *Image, deviceScale float64) error {
 		}
 		drawCachedOverlayImage(screen, cached, x, label.Y)
 	}
-	for _, tooltip := range screen.uiTooltips {
-		cached, err := r.cachedTooltipImage(provider, tooltip, deviceScale)
-		if err != nil {
-			return err
-		}
+	return nil
+}
+
+func uiTextBoxPosition(screen *Image, box UITextBoxCommand, cached cachedOverlayImage) (float64, float64) {
+	switch box.Anchor {
+	case UITextBoxAnchorBottomCenter:
+		return box.X - float64(cached.width)/2, box.Y - float64(cached.height)
+	case UITextBoxAnchorTooltipCenter:
 		screenW, screenH := screen.Bounds().Dx(), screen.Bounds().Dy()
-		x := tooltip.CenterX - float64(cached.width)/2
-		y := tooltip.BelowY
-		if y+float64(cached.height)+8 > float64(screenH) && tooltip.AboveY > 0 {
-			y = tooltip.AboveY - float64(cached.height)
+		x := box.X - float64(cached.width)/2
+		y := box.Y
+		if y+float64(cached.height)+8 > float64(screenH) && box.AltY > 0 {
+			y = box.AltY - float64(cached.height)
 		}
 		x = clampOverlayFloat64(x, 8, maxOverlayFloat64(8, float64(screenW-cached.width-8)))
 		y = clampOverlayFloat64(y, 8, maxOverlayFloat64(8, float64(screenH-cached.height-8)))
-		drawCachedOverlayImage(screen, cached, x, y)
+		return x, y
+	default:
+		return box.X, box.Y
 	}
-	return nil
 }
 
 func clampOverlayFloat64(v, lo, hi float64) float64 {
@@ -872,31 +875,28 @@ func (r *runner) cachedTextLabelImage(provider gpucontext.DeviceProvider, label 
 	return cached, nil
 }
 
-func (r *runner) cachedSpeechBubbleImage(provider gpucontext.DeviceProvider, bubble UISpeechBubbleCommand, deviceScale float64) (cachedOverlayImage, error) {
-	text := strings.TrimSpace(bubble.Text)
+func (r *runner) cachedTextBoxImage(provider gpucontext.DeviceProvider, box UITextBoxCommand, deviceScale float64) (cachedOverlayImage, error) {
+	text := strings.TrimSpace(box.Text)
 	if text == "" {
 		return cachedOverlayImage{}, nil
 	}
-	maxWidth := float32(bubble.MaxWidth)
+	maxWidth := float32(box.MaxWidth)
 	if maxWidth <= 0 {
-		maxWidth = 220
+		maxWidth = 0
 	}
-	key := fmt.Sprintf("bubble|%.3f|%.1f|%s", deviceScale, maxWidth, text)
+	maxLines := box.MaxLines
+	if maxLines <= 0 {
+		maxLines = 1
+	}
+	key := fmt.Sprintf("box|%.3f|%d|%.1f|%s", deviceScale, maxLines, maxWidth, text)
 	style := consoleOverlayTextBoxStyle()
-	style.minWidth = 28
-	style.maxWidth = maxWidth
-	style.maxLines = 4
-	style.wrap = true
-	return r.cachedOverlayTextBoxImage(provider, key, text, deviceScale, style)
-}
-
-func (r *runner) cachedTooltipImage(provider gpucontext.DeviceProvider, tooltip UITooltipCommand, deviceScale float64) (cachedOverlayImage, error) {
-	text := strings.TrimSpace(tooltip.Text)
-	if text == "" {
-		return cachedOverlayImage{}, nil
+	style.maxLines = maxLines
+	if maxWidth > 0 {
+		style.minWidth = 28
+		style.maxWidth = maxWidth
+		style.wrap = true
 	}
-	key := fmt.Sprintf("tooltip|%.3f|%s", deviceScale, text)
-	return r.cachedOverlayTextBoxImage(provider, key, text, deviceScale, consoleOverlayTextBoxStyle())
+	return r.cachedOverlayTextBoxImage(provider, key, text, deviceScale, style)
 }
 
 type overlayTextBoxStyle struct {
@@ -1116,10 +1116,17 @@ func (r *runner) drawFPSMeter(screen *Image, deviceScale float64) error {
 	if deviceScale <= 0 {
 		deviceScale = 1
 	}
-	cached, err := r.cachedOverlayTextBoxImage(provider, fmt.Sprintf("fps|%.3f|%s", deviceScale, r.fpsText), r.fpsText, deviceScale, consoleOverlayTextBoxStyle())
+	box := UITextBoxCommand{
+		Text:   r.fpsText,
+		X:      6,
+		Y:      6,
+		Anchor: UITextBoxAnchorTopLeft,
+	}
+	cached, err := r.cachedTextBoxImage(provider, box, deviceScale)
 	if err != nil {
 		return fmt.Errorf("draw fps overlay: %w", err)
 	}
-	drawCachedOverlayImage(screen, cached, 6, 6)
+	x, y := uiTextBoxPosition(screen, box, cached)
+	drawCachedOverlayImage(screen, cached, x, y)
 	return nil
 }

@@ -190,9 +190,8 @@ type Image struct {
 	worldMeshes     []WorldMeshCommand
 	worldBillboards []WorldBillboardCommand
 	uiRects         []UIRectCommand
-	uiSpeechBubbles []UISpeechBubbleCommand
+	uiTextBoxes     []UITextBoxCommand
 	uiTextLabels    []UITextLabelCommand
-	uiTooltips      []UITooltipCommand
 	clear           color.RGBA
 	camera          Camera3D
 }
@@ -266,23 +265,27 @@ type UITextLabelCommand struct {
 	Size       float32
 }
 
-type UITooltipCommand struct {
-	Text    string
-	CenterX float64
-	BelowY  float64
-	AboveY  float64
-}
-
 type UIRectCommand struct {
 	X, Y, W, H float64
 	Color      color.RGBA
 }
 
-type UISpeechBubbleCommand struct {
+type UITextBoxAnchor int
+
+const (
+	UITextBoxAnchorTopLeft UITextBoxAnchor = iota
+	UITextBoxAnchorBottomCenter
+	UITextBoxAnchorTooltipCenter
+)
+
+type UITextBoxCommand struct {
 	Text     string
-	CenterX  float64
-	BottomY  float64
+	X        float64
+	Y        float64
+	AltY     float64
+	Anchor   UITextBoxAnchor
 	MaxWidth float64
+	MaxLines int
 }
 
 func NewScreenImage(width, height int) *Image {
@@ -302,9 +305,8 @@ func (i *Image) BeginFrame() {
 	i.worldMeshes = i.worldMeshes[:0]
 	i.worldBillboards = i.worldBillboards[:0]
 	i.uiRects = i.uiRects[:0]
-	i.uiSpeechBubbles = i.uiSpeechBubbles[:0]
+	i.uiTextBoxes = i.uiTextBoxes[:0]
 	i.uiTextLabels = i.uiTextLabels[:0]
-	i.uiTooltips = i.uiTooltips[:0]
 	i.camera = Camera3D{}
 }
 
@@ -313,9 +315,8 @@ func (i *Image) clearUIOverlayCommands() {
 		return
 	}
 	i.uiRects = i.uiRects[:0]
-	i.uiSpeechBubbles = i.uiSpeechBubbles[:0]
+	i.uiTextBoxes = i.uiTextBoxes[:0]
 	i.uiTextLabels = i.uiTextLabels[:0]
-	i.uiTooltips = i.uiTooltips[:0]
 }
 
 func (i *Image) SetScreenScale(x, y float32) {
