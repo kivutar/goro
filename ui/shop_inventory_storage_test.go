@@ -164,18 +164,19 @@ func TestInventoryBagShowsCartButtonOnlyWhenPlayerHasCart(t *testing.T) {
 func TestInventoryBagTooltipTracksHoveredItem(t *testing.T) {
 	window := InventoryBagWindow{}
 	item := session.InventoryItem{Index: 8, ItemID: 501, Identified: true}
+	ctx := Context{Input: input.NewState(), ScreenW: 800, ScreenH: 600, UIManager: NewManager()}
 
-	window.showTooltip(item)
-	if !window.tooltipOpen {
+	window.showTooltip(ctx, item)
+	if !window.tooltip.Open() {
 		t.Fatal("tooltip should be open")
 	}
-	if window.tooltipItem.ItemID != item.ItemID || window.tooltipItem.Index != item.Index {
-		t.Fatalf("tooltip item = %+v, want %+v", window.tooltipItem, item)
+	if got := window.tooltip.Text(); got != "item 501" {
+		t.Fatalf("tooltip text = %q", got)
 	}
 
 	window.hideTooltip()
-	if window.tooltipOpen || window.tooltipItem.ItemID != 0 {
-		t.Fatalf("tooltip not cleared: open=%t item=%+v", window.tooltipOpen, window.tooltipItem)
+	if window.tooltip.Open() {
+		t.Fatal("tooltip not cleared")
 	}
 }
 

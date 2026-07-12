@@ -883,6 +883,7 @@ func (r *runner) cachedTextLabelImage(provider gpucontext.DeviceProvider, label 
 		r.uiTextCache = make(map[string]cachedOverlayImage)
 	}
 	r.uiTextCache[key] = cached
+	trimOverlayImageCache(r.uiTextCache)
 	return cached, nil
 }
 
@@ -1005,7 +1006,20 @@ func (r *runner) cachedOverlayTextBoxImage(provider gpucontext.DeviceProvider, k
 		r.uiBubbleCache = make(map[string]cachedOverlayImage)
 	}
 	r.uiBubbleCache[key] = cached
+	trimOverlayImageCache(r.uiBubbleCache)
 	return cached, nil
+}
+
+func trimOverlayImageCache(cache map[string]cachedOverlayImage) {
+	if len(cache) <= 512 {
+		return
+	}
+	for key := range cache {
+		delete(cache, key)
+		if len(cache) <= 384 {
+			return
+		}
+	}
 }
 
 func (r *runner) ensureOverlayCanvas(provider gpucontext.DeviceProvider, width, height int, deviceScale float64) (*ggcanvas.Canvas, error) {

@@ -46,20 +46,19 @@ type shortcutSlotState struct {
 }
 
 type ShortcutBar struct {
-	slots       [shortcutSlots]shortcutSlotState
-	loaded      bool
-	path        string
-	content     widget.Widget
-	root        widget.Widget
-	published   bool
-	rootX       int
-	ctx         Context
-	actions     GameActions
-	assets      AssetProvider
-	icons       map[shortcutItemIconKey]image.Image
-	iconMiss    map[shortcutItemIconKey]struct{}
-	tooltipSlot int
-	tooltipOpen bool
+	slots     [shortcutSlots]shortcutSlotState
+	loaded    bool
+	path      string
+	content   widget.Widget
+	root      widget.Widget
+	published bool
+	rootX     int
+	ctx       Context
+	actions   GameActions
+	assets    AssetProvider
+	icons     map[shortcutItemIconKey]image.Image
+	iconMiss  map[shortcutItemIconKey]struct{}
+	tooltip   tooltipState
 }
 
 type shortcutItemIconKey struct {
@@ -132,22 +131,8 @@ func (b *ShortcutBar) ResetOverlay(ctx Context) {
 	b.content = nil
 }
 
-func (b *ShortcutBar) DrawTooltip(screen *render.Image, ctx Context) {
-	if !b.tooltipOpen {
-		return
-	}
-	text := b.tooltipText(b.tooltipSlot)
-	if text == "" {
-		return
-	}
-	barX, barY := b.bounds(ctx)
-	render.DrawUITooltip(
-		screen,
-		text,
-		float64(barX+shortcutBarWidth()/2),
-		float64(barY+shortcutBarHeight()+2),
-		float64(barY-2),
-	)
+func (b *ShortcutBar) DrawTooltip(screen *render.Image) {
+	b.tooltip.Draw(screen)
 }
 
 func (b *ShortcutBar) AcceptItemDrop(ctx Context, item session.InventoryItem, mx, my int) bool {
@@ -439,15 +424,13 @@ func (b *ShortcutBar) showTooltip(slot int) {
 	if slot < 0 || slot >= shortcutSlots {
 		return
 	}
-	if b.tooltipText(slot) == "" {
+	text := b.tooltipText(slot)
+	if text == "" {
 		b.hideTooltip()
 		return
 	}
-	if b.tooltipOpen && b.tooltipSlot == slot {
-		return
-	}
-	b.tooltipSlot = slot
-	b.tooltipOpen = true
+	barX, barY := b.bounds(b.ctx)
+	b.tooltip.Show(b.ctx, text, barX+shortcutBarWidth()/2, barY+shortcutBarHeight()+2, barY-2)
 }
 
 func (b *ShortcutBar) tooltipText(slot int) string {
@@ -473,7 +456,7 @@ func (b *ShortcutBar) tooltipText(slot int) string {
 }
 
 func (b *ShortcutBar) hideTooltip() {
-	b.tooltipOpen = false
+	b.tooltip.Hide()
 }
 
 func (b *ShortcutBar) redraw() {

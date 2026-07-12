@@ -31,15 +31,14 @@ const (
 
 type EquipmentWindow struct {
 	Window
-	snapshot    string
-	itemInfo    *ItemInfoWindow
-	cart        *CartWindow
-	hasCart     bool
-	preview     image.Image
-	tooltipItem session.InventoryItem
-	tooltipOpen bool
-	icons       map[equipmentItemIconKey]image.Image
-	iconMiss    map[equipmentItemIconKey]struct{}
+	snapshot string
+	itemInfo *ItemInfoWindow
+	cart     *CartWindow
+	hasCart  bool
+	preview  image.Image
+	tooltip  tooltipState
+	icons    map[equipmentItemIconKey]image.Image
+	iconMiss map[equipmentItemIconKey]struct{}
 }
 
 type equipmentItemIconKey struct {
@@ -257,7 +256,7 @@ func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot
 			w.hideTooltip()
 			w.activateItem(ctx, item)
 		},
-		onHover: func(item session.InventoryItem) { w.showTooltip(item) },
+		onHover: func(item session.InventoryItem) { w.showTooltip(ctx, item) },
 		onLeave: func() { w.hideTooltip() },
 		onRightClick: func(item session.InventoryItem) {
 			w.hideTooltip()
@@ -272,25 +271,21 @@ func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot
 	})
 }
 
-func (w *EquipmentWindow) DrawTooltip(screen *render.Image, ctx Context) {
-	if !w.tooltipOpen || screen == nil || ctx.Input == nil {
-		return
-	}
-	drawInventoryItemTooltip(screen, ctx, w.tooltipItem)
-}
-
-func (w *EquipmentWindow) showTooltip(item session.InventoryItem) {
-	if item.ItemID == 0 {
+func (w *EquipmentWindow) showTooltip(ctx Context, item session.InventoryItem) {
+	if item.ItemID == 0 || ctx.Input == nil {
 		w.hideTooltip()
 		return
 	}
-	w.tooltipItem = item
-	w.tooltipOpen = true
+	text := inventoryItemDisplayName(ctx.Resources, item)
+	w.tooltip.Show(ctx, text, ctx.Input.MouseX, ctx.Input.MouseY+18, ctx.Input.MouseY-6)
 }
 
 func (w *EquipmentWindow) hideTooltip() {
-	w.tooltipItem = session.InventoryItem{}
-	w.tooltipOpen = false
+	w.tooltip.Hide()
+}
+
+func (w *EquipmentWindow) DrawTooltip(screen *render.Image) {
+	w.tooltip.Draw(screen)
 }
 
 func (w *EquipmentWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/session"
 )
 
@@ -66,17 +67,18 @@ func TestEquipmentWindowOpensCentered(t *testing.T) {
 func TestEquipmentWindowTooltipTracksHoveredItem(t *testing.T) {
 	window := EquipmentWindow{}
 	item := session.InventoryItem{Index: 3, ItemID: 1201, Identified: true}
+	ctx := Context{Input: input.NewState(), ScreenW: 800, ScreenH: 600, UIManager: NewManager()}
 
-	window.showTooltip(item)
-	if !window.tooltipOpen {
+	window.showTooltip(ctx, item)
+	if !window.tooltip.Open() {
 		t.Fatal("tooltip should be open")
 	}
-	if window.tooltipItem.ItemID != item.ItemID || window.tooltipItem.Index != item.Index {
-		t.Fatalf("tooltip item = %+v, want %+v", window.tooltipItem, item)
+	if got := window.tooltip.Text(); got != "item 1201" {
+		t.Fatalf("tooltip text = %q", got)
 	}
 
 	window.hideTooltip()
-	if window.tooltipOpen || window.tooltipItem.ItemID != 0 {
-		t.Fatalf("tooltip not cleared: open=%t item=%+v", window.tooltipOpen, window.tooltipItem)
+	if window.tooltip.Open() {
+		t.Fatal("tooltip not cleared")
 	}
 }

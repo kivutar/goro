@@ -60,8 +60,7 @@ type InventoryBagWindow struct {
 	dragItem      session.InventoryItem
 	dragActive    bool
 	dragFrom      time.Time
-	tooltipItem   session.InventoryItem
-	tooltipOpen   bool
+	tooltip       tooltipState
 	icons         map[inventoryBagIconKey]image.Image
 	iconMiss      map[inventoryBagIconKey]struct{}
 }
@@ -152,11 +151,11 @@ func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets Asse
 	w.Publish(ctx)
 }
 
-func (w *InventoryBagWindow) DrawTooltip(screen *render.Image, ctx Context) {
-	if !w.tooltipOpen || w.dragActive || screen == nil || ctx.Input == nil {
+func (w *InventoryBagWindow) DrawTooltip(screen *render.Image) {
+	if w.dragActive {
 		return
 	}
-	drawInventoryItemTooltip(screen, ctx, w.tooltipItem)
+	w.tooltip.Draw(screen)
 }
 
 func (w *InventoryBagWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
@@ -197,7 +196,7 @@ func (w *InventoryBagWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow, c
 					scroll:  w.scroll,
 					onWheel: func(delta float32) { w.scrollBy(delta, ctx.Session); w.refresh(ctx, itemInfo) },
 					onPress: func(item session.InventoryItem) { w.startItemDragOrActivate(ctx, item) },
-					onHover: func(item session.InventoryItem) { w.showTooltip(item) },
+					onHover: func(item session.InventoryItem) { w.showTooltip(ctx, item) },
 					onLeave: func() { w.hideTooltip() },
 					onRightClick: func(item session.InventoryItem, mx, my int) {
 						w.hideTooltip()
@@ -289,18 +288,17 @@ func (w *InventoryBagWindow) startItemDragOrActivate(ctx Context, item session.I
 	w.lastClickAt = now
 }
 
-func (w *InventoryBagWindow) showTooltip(item session.InventoryItem) {
-	if item.ItemID == 0 {
+func (w *InventoryBagWindow) showTooltip(ctx Context, item session.InventoryItem) {
+	if item.ItemID == 0 || w.dragActive || ctx.Input == nil {
 		w.hideTooltip()
 		return
 	}
-	w.tooltipItem = item
-	w.tooltipOpen = true
+	text := inventoryItemDisplayName(ctx.Resources, item)
+	w.tooltip.Show(ctx, text, ctx.Input.MouseX, ctx.Input.MouseY+18, ctx.Input.MouseY-6)
 }
 
 func (w *InventoryBagWindow) hideTooltip() {
-	w.tooltipItem = session.InventoryItem{}
-	w.tooltipOpen = false
+	w.tooltip.Hide()
 }
 
 func (w *InventoryBagWindow) pointInside(x, y int) bool {

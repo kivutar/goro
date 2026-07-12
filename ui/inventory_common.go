@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 )
@@ -40,17 +39,6 @@ func inventoryItemDisplayName(manager *res.Manager, item session.InventoryItem) 
 		}
 	}
 	return fmt.Sprintf("item %d", item.ItemID)
-}
-
-func drawInventoryItemTooltip(screen *render.Image, ctx Context, item session.InventoryItem) {
-	if screen == nil || ctx.Input == nil {
-		return
-	}
-	text := inventoryItemDisplayName(ctx.Resources, item)
-	if strings.TrimSpace(text) == "" {
-		return
-	}
-	render.DrawUITooltip(screen, text, float64(ctx.Input.MouseX), float64(ctx.Input.MouseY+18), float64(ctx.Input.MouseY-6))
 }
 
 func inventoryItemDisplayNameWithSlots(manager *res.Manager, item session.InventoryItem, name string) string {
