@@ -1524,6 +1524,7 @@ func (m *WorldMode) DrawUIOverlay(ctx client.Context, screen *render.Image) {
 	}
 	m.inventoryBag.DrawTooltip(screen)
 	m.equipmentWindow.DrawTooltip(screen)
+	m.skillWindow.DrawTooltip(screen)
 	m.shortcutBar.DrawTooltip(screen)
 }
 

@@ -147,15 +147,21 @@ func DrawUISpeechBubble(dst *Image, text string, centerX, bottomY, maxWidth floa
 }
 
 func DrawUITooltip(dst *Image, text string, centerX, belowY, aboveY float64) {
+	DrawUITooltipBox(dst, text, centerX, belowY, aboveY, 0, 1)
+}
+
+func DrawUITooltipBox(dst *Image, text string, centerX, belowY, aboveY, maxWidth float64, maxLines int) {
 	if dst == nil || text == "" || !dst.screen {
 		return
 	}
 	dst.uiTextBoxes = append(dst.uiTextBoxes, UITextBoxCommand{
-		Text:   text,
-		X:      centerX,
-		Y:      belowY,
-		AltY:   aboveY,
-		Anchor: UITextBoxAnchorTooltipCenter,
+		Text:     text,
+		X:        centerX,
+		Y:        belowY,
+		AltY:     aboveY,
+		Anchor:   UITextBoxAnchorTooltipCenter,
+		MaxWidth: maxWidth,
+		MaxLines: maxLines,
 	})
 }
 

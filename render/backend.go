@@ -948,9 +948,7 @@ func (r *runner) cachedOverlayTextBoxImage(provider gpucontext.DeviceProvider, k
 	lines := []string{text}
 	if err := measure.Draw(func(cc *gg.Context) {
 		canvas := uirender.NewCanvas(cc, 1, 1)
-		if style.wrap {
-			lines = wrapOverlayText(canvas, text, style.size, false, style.maxWidth-style.padX*2)
-		}
+		lines = overlayTextBoxLines(canvas, text, style)
 	}); err != nil {
 		return cachedOverlayImage{}, fmt.Errorf("measure text box overlay: %w", err)
 	}
@@ -1020,6 +1018,31 @@ func trimOverlayImageCache(cache map[string]cachedOverlayImage) {
 			return
 		}
 	}
+}
+
+func overlayTextBoxLines(canvas widget.Canvas, text string, style overlayTextBoxStyle) []string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	paragraphs := strings.Split(text, "\n")
+	lines := make([]string, 0, len(paragraphs))
+	for _, paragraph := range paragraphs {
+		paragraph = strings.TrimSpace(paragraph)
+		if paragraph == "" {
+			lines = append(lines, "")
+			continue
+		}
+		if style.wrap {
+			wrapped := wrapOverlayText(canvas, paragraph, style.size, false, style.maxWidth-style.padX*2)
+			if len(wrapped) == 0 {
+				lines = append(lines, paragraph)
+			} else {
+				lines = append(lines, wrapped...)
+			}
+			continue
+		}
+		lines = append(lines, paragraph)
+	}
+	return lines
 }
 
 func (r *runner) ensureOverlayCanvas(provider gpucontext.DeviceProvider, width, height int, deviceScale float64) (*ggcanvas.Canvas, error) {

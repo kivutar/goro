@@ -7,14 +7,20 @@ import (
 )
 
 type tooltipState struct {
-	text    string
-	centerX int
-	belowY  int
-	aboveY  int
-	open    bool
+	text     string
+	centerX  int
+	belowY   int
+	aboveY   int
+	maxWidth float64
+	maxLines int
+	open     bool
 }
 
 func (t *tooltipState) Show(ctx Context, text string, centerX, belowY, aboveY int) {
+	t.ShowBox(ctx, text, centerX, belowY, aboveY, 0, 1)
+}
+
+func (t *tooltipState) ShowBox(ctx Context, text string, centerX, belowY, aboveY int, maxWidth float64, maxLines int) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		t.Hide()
@@ -24,6 +30,8 @@ func (t *tooltipState) Show(ctx Context, text string, centerX, belowY, aboveY in
 	t.centerX = centerX
 	t.belowY = belowY
 	t.aboveY = aboveY
+	t.maxWidth = maxWidth
+	t.maxLines = maxLines
 	t.open = true
 }
 
@@ -39,7 +47,7 @@ func (t *tooltipState) Draw(screen *render.Image) {
 	if t == nil || !t.open {
 		return
 	}
-	render.DrawUITooltip(screen, t.text, float64(t.centerX), float64(t.belowY), float64(t.aboveY))
+	render.DrawUITooltipBox(screen, t.text, float64(t.centerX), float64(t.belowY), float64(t.aboveY), t.maxWidth, t.maxLines)
 }
 
 func (t *tooltipState) Open() bool {

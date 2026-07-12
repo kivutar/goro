@@ -44,8 +44,7 @@ type SkillWindow struct {
 	hasHover       bool
 	hoverX         int
 	hoverY         int
-	tooltip        *skillInfoPopover
-	tooltipRoot    widget.Widget
+	tooltip        tooltipState
 	pending        map[uint16]int
 	pendingOrder   []uint16
 	icons          map[uint16]image.Image
@@ -145,11 +144,10 @@ func (w *SkillWindow) Draw(screen *render.Image, ctx Context, assets AssetProvid
 	w.EnsureWindow(skillWindowWidth, skillWindowHeight)
 	if !w.IsOpen() {
 		w.Unpublish(ctx)
-		w.unpublishTooltip(ctx)
+		w.hideTooltip()
 		return
 	}
 	w.Publish(ctx)
-	w.publishTooltip(ctx)
 }
 
 func (w *SkillWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
@@ -162,7 +160,7 @@ func (w *SkillWindow) Publish(ctx Context) {
 	w.EnsureWindow(skillWindowWidth, skillWindowHeight)
 	if !w.IsOpen() {
 		w.Unpublish(ctx)
-		w.unpublishTooltip(ctx)
+		w.hideTooltip()
 		return
 	}
 	w.Window.Publish(ctx)
@@ -186,7 +184,7 @@ func (w *SkillWindow) openAtDefault(ctx Context) {
 func (w *SkillWindow) close(ctx Context) {
 	w.dragActive = false
 	w.hasHover = false
-	w.unpublishTooltip(ctx)
+	w.hideTooltip()
 	w.Window.Close()
 	w.Publish(ctx)
 }
@@ -291,11 +289,11 @@ func (w *SkillWindow) skillList(ctx Context, assets AssetProvider, actions GameA
 				w.hasHover = true
 				w.hoverX = mx
 				w.hoverY = my
-				w.publishTooltip(ctx)
+				w.showTooltip(ctx, skill, mx, my)
 			},
 			onHoverExit: func() {
 				w.hasHover = false
-				w.unpublishTooltip(ctx)
+				w.hideTooltip()
 			},
 			isHovered: func(skill session.Skill) bool {
 				return w.hasHover && w.hoveredSkill.ID == skill.ID
@@ -337,30 +335,20 @@ func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session
 	w.lastClickAt = now
 	w.dragSkill = skill
 	w.dragActive = true
-	w.unpublishTooltip(ctx)
+	w.hideTooltip()
 	w.dragFrom = now
 	w.hoverX = mx
 	w.hoverY = my
 }
 
-func (w *SkillWindow) publishTooltip(ctx Context) {
-	if ctx.UIManager == nil || w.dragActive || !w.hasHover || w.hoveredSkill.ID == 0 {
-		w.unpublishTooltip(ctx)
+func (w *SkillWindow) showTooltip(ctx Context, skill session.Skill, mx, my int) {
+	if w.dragActive || skill.ID == 0 {
+		w.hideTooltip()
 		return
 	}
-	x, y, width, height := skillTooltipBounds(ctx, w.hoveredSkill, w.hoverX, w.hoverY)
-	name := trimRunes(skillDisplayName(ctx.Resources, w.hoveredSkill), 38)
-	lines := skillTooltipLines(ctx, w.hoveredSkill)
-	if w.tooltip == nil {
-		w.tooltip = newSkillInfoPopover(x, y, width, height, name, lines)
-	} else {
-		w.tooltip.Set(x, y, width, height, name, lines)
-	}
-	if w.tooltipRoot != w.tooltip {
-		w.unpublishTooltip(ctx)
-		w.tooltipRoot = w.tooltip
-		ctx.UIManager.AddOverlay(w.tooltipRoot)
-	}
+	const tooltipW = 292
+	text := skillTooltipText(ctx, skill)
+	w.tooltip.ShowBox(ctx, text, mx+16+tooltipW/2, my+18, my-6, tooltipW, 24)
 }
 
 func (w *SkillWindow) updateTooltipHover(ctx Context) {
@@ -370,7 +358,7 @@ func (w *SkillWindow) updateTooltipHover(ctx Context) {
 	skill, ok := w.skillAtMouse(ctx, ctx.Input.MouseX, ctx.Input.MouseY)
 	if !ok || skill.ID != w.hoveredSkill.ID {
 		w.hasHover = false
-		w.unpublishTooltip(ctx)
+		w.hideTooltip()
 	}
 }
 
@@ -391,12 +379,12 @@ func (w *SkillWindow) skillListOrigin() (int, int) {
 	return w.x + skillWindowPad, w.y + ROWindowTitleHeight + skillWindowPad + 14 + 5 + 14 + 5
 }
 
-func (w *SkillWindow) unpublishTooltip(ctx Context) {
-	if ctx.UIManager == nil || w.tooltipRoot == nil {
-		return
-	}
-	ctx.UIManager.RemoveOverlay(w.tooltipRoot)
-	w.tooltipRoot = nil
+func (w *SkillWindow) hideTooltip() {
+	w.tooltip.Hide()
+}
+
+func (w *SkillWindow) DrawTooltip(screen *render.Image) {
+	w.tooltip.Draw(screen)
 }
 
 func (w *SkillWindow) skillIconImage(ctx Context, assets AssetProvider, skill session.Skill) image.Image {
@@ -661,16 +649,10 @@ func skillDisplayName(manager *res.Manager, skill session.Skill) string {
 	return skillLabel(skill)
 }
 
-func skillTooltipBounds(ctx Context, skill session.Skill, mouseX, mouseY int) (int, int, int, int) {
-	const tooltipW = 292
-	lines := skillTooltipLines(ctx, skill)
-	tooltipH := 12 + itemInfoLineH*(len(lines)+1)
-	x := mouseX + 16
-	y := mouseY + 18
-	screenW, screenH := ctx.ScreenSize()
-	x = clampInventoryWindowInt(x, 8, maxInt(8, screenW-tooltipW-8))
-	y = clampInventoryWindowInt(y, 8, maxInt(8, screenH-tooltipH-8))
-	return x, y, tooltipW, tooltipH
+func skillTooltipText(ctx Context, skill session.Skill) string {
+	name := trimRunes(skillDisplayName(ctx.Resources, skill), 38)
+	lines := append([]string{name}, skillTooltipLines(ctx, skill)...)
+	return strings.Join(lines, "\n")
 }
 
 func skillTooltipLines(ctx Context, skill session.Skill) []string {
@@ -702,83 +684,6 @@ func skillTooltipLines(ctx Context, skill session.Skill) []string {
 		lines = append(lines, "", "No description available.")
 	}
 	return wrapItemInfoLines(lines, 38)
-}
-
-type skillInfoPopover struct {
-	widget.WidgetBase
-	x, y          int
-	width, height int
-	lines         []string
-	name          string
-}
-
-func newSkillInfoPopover(x, y, width, height int, name string, lines []string) *skillInfoPopover {
-	p := &skillInfoPopover{}
-	p.SetVisible(true)
-	p.SetEnabled(true)
-	p.Set(x, y, width, height, name, lines)
-	return p
-}
-
-func (p *skillInfoPopover) Set(x, y, width, height int, name string, lines []string) {
-	if p.x == x && p.y == y && p.width == width && p.height == height && p.name == name && sameStringSlice(p.lines, lines) {
-		return
-	}
-	p.x = x
-	p.y = y
-	p.width = width
-	p.height = height
-	p.name = name
-	p.lines = append(p.lines[:0], lines...)
-	p.SetNeedsRedraw(true)
-}
-
-func sameStringSlice(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func (p *skillInfoPopover) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	size := constraints.Constrain(geometry.Sz(float32(p.width), float32(p.height)))
-	p.SetBounds(geometry.NewRect(float32(p.x), float32(p.y), size.Width, size.Height))
-	return size
-}
-
-func (p *skillInfoPopover) Draw(ctx widget.Context, canvas widget.Canvas) {
-	bounds := p.Bounds()
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-	canvas.DrawRect(geometry.NewRect(bounds.Min.X, bounds.Min.Y, bounds.Width(), 1), rotheme.Default.Colors.WindowBorder)
-	canvas.DrawRect(geometry.NewRect(bounds.Min.X, bounds.Max.Y-1, bounds.Width(), 1), rotheme.Default.Colors.WindowBorder)
-	canvas.DrawRect(geometry.NewRect(bounds.Min.X, bounds.Min.Y, 1, bounds.Height()), rotheme.Default.Colors.WindowBorder)
-	canvas.DrawRect(geometry.NewRect(bounds.Max.X-1, bounds.Min.Y, 1, bounds.Height()), rotheme.Default.Colors.WindowBorder)
-
-	x := bounds.Min.X + 7
-	y := bounds.Min.Y + 6
-	rotheme.DrawText(canvas, p.name, geometry.NewRect(x, y, bounds.Width()-14, float32(itemInfoLineH)), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignLeft)
-	y += float32(itemInfoLineH)
-	for i, line := range p.lines {
-		color := rotheme.Default.Colors.MutedText
-		if i >= 4 {
-			color = rotheme.Default.Colors.Text
-		}
-		rotheme.DrawText(canvas, line, geometry.NewRect(x, y, bounds.Width()-14, float32(itemInfoLineH)), rotheme.Default.Typography.TextSize, color, false, widget.TextAlignLeft)
-		y += float32(itemInfoLineH)
-	}
-}
-
-func (p *skillInfoPopover) Event(ctx widget.Context, e event.Event) bool {
-	return false
-}
-
-func (p *skillInfoPopover) Children() []widget.Widget {
-	return nil
 }
 
 func canIncreaseSkill(s *session.Session, skill session.Skill) bool {
