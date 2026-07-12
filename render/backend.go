@@ -575,14 +575,14 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	r.screen.BeginFrame()
 	r.screen.SetScreenScale(scaleX, scaleY)
 	r.game.Draw(r.screen)
+	if err := r.drawUITextLabels(r.screen, deviceScale); err != nil {
+		return err
+	}
 	if err := r.drawUI(r.screen, width, height, deviceScale); err != nil {
 		return err
 	}
 	if drawer, ok := r.game.(overlayDrawer); ok {
 		drawer.DrawOverlay(r.screen)
-	}
-	if err := r.drawUITextLabels(r.screen, deviceScale); err != nil {
-		return err
 	}
 	if err := r.drawFPSMeter(r.screen, deviceScale); err != nil {
 		return err
