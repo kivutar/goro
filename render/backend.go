@@ -14,6 +14,7 @@ import (
 	gogputypes "github.com/gogpu/gogpu/gpu/types"
 	"github.com/gogpu/gpucontext"
 	uiapp "github.com/gogpu/ui/app"
+	"github.com/gogpu/ui/geometry"
 	uirender "github.com/gogpu/ui/render"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
@@ -76,15 +77,13 @@ type runtimeSettingsProvider interface {
 	RuntimeFPS() bool
 }
 
-type fpsCounterReceiver interface {
-	SetFPSCounter(string)
-}
-
 type runner struct {
 	app            *gogpu.App
 	ui             *uiapp.App
 	uiCanvas       *ggcanvas.Canvas
 	uiImage        *Image
+	fpsCanvas      *ggcanvas.Canvas
+	fpsImage       *Image
 	game           Game
 	screen         *Image
 	gpu            *gpuRenderer
@@ -103,6 +102,8 @@ type runner struct {
 	fpsFrames      int64
 	fpsDisplay     float64
 	frameMSDisplay float64
+	fpsText        string
+	fpsScale       float64
 	quit           func()
 	cpuProfile     *os.File
 	fullscreen     bool
@@ -199,6 +200,10 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 		if r.uiCanvas != nil {
 			_ = r.uiCanvas.Close()
 			r.uiCanvas = nil
+		}
+		if r.fpsCanvas != nil {
+			_ = r.fpsCanvas.Close()
+			r.fpsCanvas = nil
 		}
 	})
 	return gg.Run()
@@ -524,6 +529,7 @@ func (r *runner) applyRuntimeSettings() {
 		r.fpsFrames = 0
 		r.fpsDisplay = 0
 		r.frameMSDisplay = 0
+		r.fpsText = ""
 	}
 	if vsync := provider.RuntimeVSync(); vsync != r.vsync {
 		r.vsync = vsync
@@ -564,13 +570,15 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	}
 	r.screen.BeginFrame()
 	r.screen.SetScreenScale(scaleX, scaleY)
-	r.publishFPSCounter()
 	r.game.Draw(r.screen)
 	if err := r.drawUI(r.screen, width, height, deviceScale); err != nil {
 		return err
 	}
 	if drawer, ok := r.game.(overlayDrawer); ok {
 		drawer.DrawOverlay(r.screen)
+	}
+	if err := r.drawFPSMeter(r.screen, deviceScale); err != nil {
+		return err
 	}
 	if err := r.gpu.Draw(ctx, r.screen); err != nil {
 		return err
@@ -667,18 +675,22 @@ func (r *runner) drawUI(screen *Image, width, height int, deviceScale float64) e
 }
 
 func (r *runner) updateUIImage() {
-	if r.uiCanvas == nil || r.uiCanvas.Context() == nil {
-		return
+	r.uiImage = updateCanvasImage(r.uiCanvas, r.uiImage)
+}
+
+func updateCanvasImage(canvas *ggcanvas.Canvas, dstImage *Image) *Image {
+	if canvas == nil || canvas.Context() == nil {
+		return dstImage
 	}
-	src := r.uiCanvas.Context().ResizeTarget().ImageView()
+	src := canvas.Context().ResizeTarget().ImageView()
 	if src == nil {
-		return
+		return dstImage
 	}
 	width, height := src.Bounds().Dx(), src.Bounds().Dy()
-	if r.uiImage == nil || r.uiImage.pix == nil || r.uiImage.Bounds().Dx() != width || r.uiImage.Bounds().Dy() != height {
-		r.uiImage = NewImage(width, height)
+	if dstImage == nil || dstImage.pix == nil || dstImage.Bounds().Dx() != width || dstImage.Bounds().Dy() != height {
+		dstImage = NewImage(width, height)
 	}
-	dst := r.uiImage.pix
+	dst := dstImage.pix
 	if src.Stride == width*4 && dst.Stride == width*4 {
 		copy(dst.Pix, src.Pix)
 	} else {
@@ -686,7 +698,8 @@ func (r *runner) updateUIImage() {
 			copy(dst.Pix[y*dst.Stride:y*dst.Stride+width*4], src.Pix[y*src.Stride:y*src.Stride+width*4])
 		}
 	}
-	r.uiImage.version++
+	dstImage.version++
+	return dstImage
 }
 
 func (r *runner) updateFPSCounter(now time.Time) {
@@ -695,6 +708,7 @@ func (r *runner) updateFPSCounter(now time.Time) {
 	}
 	if r.fpsStarted.IsZero() {
 		r.fpsStarted = now
+		r.fpsText = "FPS --"
 		return
 	}
 	r.fpsFrames++
@@ -707,20 +721,67 @@ func (r *runner) updateFPSCounter(now time.Time) {
 	r.frameMSDisplay = seconds * 1000 / float64(r.fpsFrames)
 	r.fpsFrames = 0
 	r.fpsStarted = now
+	r.fpsText = fmt.Sprintf("FPS %.1f  %.2f ms", r.fpsDisplay, r.frameMSDisplay)
 }
 
-func (r *runner) publishFPSCounter() {
-	receiver, ok := r.game.(fpsCounterReceiver)
-	if !ok {
-		return
+func (r *runner) drawFPSMeter(screen *Image, deviceScale float64) error {
+	if !r.renderCfg.FPS || r.fpsText == "" || screen == nil {
+		return nil
 	}
-	if !r.renderCfg.FPS {
-		receiver.SetFPSCounter("")
-		return
+	provider := r.app.GPUContextProvider()
+	if provider == nil {
+		return nil
 	}
-	text := "FPS --"
-	if r.fpsDisplay > 0 {
-		text = fmt.Sprintf("FPS %.1f  %.2f ms", r.fpsDisplay, r.frameMSDisplay)
+	if deviceScale <= 0 {
+		deviceScale = 1
 	}
-	receiver.SetFPSCounter(text)
+	const canvasW, canvasH = 180, 22
+	if r.fpsCanvas == nil {
+		canvas, err := ggcanvas.NewWithScale(provider, canvasW, canvasH, deviceScale)
+		if err != nil {
+			return fmt.Errorf("create fps canvas: %w", err)
+		}
+		r.fpsCanvas = canvas
+		r.fpsScale = deviceScale
+	}
+	if r.fpsScale != deviceScale {
+		r.fpsCanvas.SetDeviceScale(deviceScale)
+		r.fpsScale = deviceScale
+		r.fpsImage = nil
+	}
+	if err := r.fpsCanvas.Draw(func(cc *gg.Context) {
+		canvas := uirender.NewCanvas(cc, canvasW, canvasH)
+		canvas.Clear(widget.RGBA8(0, 0, 0, 0))
+		if textMode, ok := canvas.(widget.TextModeController); ok {
+			textMode.SetTextMode(widget.TextModeVector)
+			defer textMode.SetTextMode(widget.TextModeAuto)
+		}
+		const h float32 = 20
+		textW := rotheme.MeasureText(canvas, r.fpsText, rotheme.Default.Typography.TextSize, false)
+		w := textW + 10
+		if w < 1 {
+			w = 1
+		}
+		bg := widget.RGBA8(0, 0, 0, 170)
+		fg := widget.RGBA8(224, 255, 190, 255)
+		canvas.DrawRect(geometry.NewRect(0, 0, w, h), bg)
+		rotheme.DrawText(canvas, r.fpsText, geometry.NewRect(5, 3, w-10, 14), rotheme.Default.Typography.TextSize, fg, false, widget.TextAlignLeft)
+	}); err != nil {
+		return fmt.Errorf("draw fps canvas: %w", err)
+	}
+	if _, err := r.fpsCanvas.Flush(); err != nil {
+		return fmt.Errorf("flush fps canvas: %w", err)
+	}
+	r.fpsImage = updateCanvasImage(r.fpsCanvas, r.fpsImage)
+	if r.fpsImage == nil {
+		return nil
+	}
+	var opts DrawImageOptions
+	if b := r.fpsImage.Bounds(); b.Dx() > 0 && b.Dy() > 0 {
+		opts.GeoM.Scale(float64(canvasW)/float64(b.Dx()), float64(canvasH)/float64(b.Dy()))
+	}
+	opts.GeoM.Translate(6, 6)
+	opts.Filter = FilterNearest
+	screen.DrawImage(r.fpsImage, &opts)
+	return nil
 }
