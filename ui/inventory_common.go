@@ -64,13 +64,3 @@ func itemDisplayNameHasSlotSuffix(name string) bool {
 	_, err := strconv.Atoi(strings.TrimSpace(name[open+1 : len(name)-1]))
 	return err == nil
 }
-
-func clampInventoryWindowInt(value, minValue, maxValue int) int {
-	if value < minValue {
-		return minValue
-	}
-	if value > maxValue {
-		return maxValue
-	}
-	return value
-}
