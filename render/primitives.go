@@ -306,11 +306,50 @@ func DrawOutlinedTextAt(dst *Image, text string, x, y int, foreground, outline c
 	if dst == nil || text == "" {
 		return
 	}
+	if dst.screen {
+		DrawUIOutlinedTextAt(dst, text, float64(x), float64(y), foreground, outline)
+		return
+	}
 	img := OutlinedTextImage(text, foreground, outline)
 	var opts DrawImageOptions
 	opts.GeoM.Translate(float64(x), float64(y))
 	opts.Filter = FilterNearest
 	dst.DrawImage(img, &opts)
+}
+
+func DrawUIOutlinedTextAt(dst *Image, text string, x, y float64, foreground, outline color.RGBA) {
+	queueUIOutlinedText(dst, text, x, y, foreground, outline, false)
+}
+
+func DrawCenteredUIOutlinedTextAt(dst *Image, text string, centerX, y float64, foreground, outline color.RGBA) {
+	queueUIOutlinedText(dst, text, centerX, y, foreground, outline, true)
+}
+
+func queueUIOutlinedText(dst *Image, text string, x, y float64, foreground, outline color.RGBA, centered bool) {
+	if dst == nil || text == "" {
+		return
+	}
+	if !dst.screen {
+		if centered {
+			img := OutlinedTextImage(text, foreground, outline)
+			if img == nil {
+				return
+			}
+			x -= float64(img.Bounds().Dx()) / 2
+		}
+		DrawOutlinedTextAt(dst, text, int(math.Round(x)), int(math.Round(y)), foreground, outline)
+		return
+	}
+	dst.uiTextLabels = append(dst.uiTextLabels, UITextLabelCommand{
+		Text:       text,
+		X:          x,
+		Y:          y,
+		Foreground: foreground,
+		Outline:    outline,
+		Centered:   centered,
+		Bold:       true,
+		Size:       12,
+	})
 }
 
 func drawTextWithFace(dst *Image, text string, x, y int, face font.Face, c color.RGBA) {

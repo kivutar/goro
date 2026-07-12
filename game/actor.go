@@ -1034,13 +1034,7 @@ func drawActorNameLabelAtY(screen *render.Image, label string, centerX, labelY f
 		return
 	}
 	outline := color.RGBA{A: 196}
-	text := render.OutlinedTextImage(label, foreground, outline)
-	if text == nil {
-		return
-	}
-	x := int(math.Round(centerX)) - text.Bounds().Dx()/2
-	y := int(math.Round(labelY))
-	render.DrawOutlinedTextAt(screen, label, x, y, foreground, outline)
+	render.DrawCenteredUIOutlinedTextAt(screen, label, centerX, labelY, foreground, outline)
 }
 
 func actorSpriteTopY(baseY, scale float64) float64 {

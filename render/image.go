@@ -189,6 +189,7 @@ type Image struct {
 	worldCommands   []WorldCommand
 	worldMeshes     []WorldMeshCommand
 	worldBillboards []WorldBillboardCommand
+	uiTextLabels    []UITextLabelCommand
 	clear           color.RGBA
 	camera          Camera3D
 }
@@ -251,6 +252,17 @@ type WorldBillboardCommand struct {
 	DepthBias   float32
 }
 
+type UITextLabelCommand struct {
+	Text       string
+	X          float64
+	Y          float64
+	Foreground color.RGBA
+	Outline    color.RGBA
+	Centered   bool
+	Bold       bool
+	Size       float32
+}
+
 func NewScreenImage(width, height int) *Image {
 	img := NewImage(width, height)
 	img.screen = true
@@ -267,6 +279,7 @@ func (i *Image) BeginFrame() {
 	i.worldCommands = i.worldCommands[:0]
 	i.worldMeshes = i.worldMeshes[:0]
 	i.worldBillboards = i.worldBillboards[:0]
+	i.uiTextLabels = i.uiTextLabels[:0]
 	i.camera = Camera3D{}
 }
 

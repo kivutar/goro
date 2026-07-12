@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"runtime/pprof"
 	"strings"
@@ -84,6 +85,7 @@ type runner struct {
 	uiImage        *Image
 	fpsCanvas      *ggcanvas.Canvas
 	fpsImage       *Image
+	textLabels     map[string]*uiTextLabelTexture
 	game           Game
 	screen         *Image
 	gpu            *gpuRenderer
@@ -104,6 +106,7 @@ type runner struct {
 	frameMSDisplay float64
 	fpsText        string
 	fpsScale       float64
+	textLabelScale float64
 	quit           func()
 	cpuProfile     *os.File
 	fullscreen     bool
@@ -205,6 +208,7 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 			_ = r.fpsCanvas.Close()
 			r.fpsCanvas = nil
 		}
+		r.closeTextLabelTextures()
 	})
 	return gg.Run()
 }
@@ -577,6 +581,9 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	if drawer, ok := r.game.(overlayDrawer); ok {
 		drawer.DrawOverlay(r.screen)
 	}
+	if err := r.drawUITextLabels(r.screen, deviceScale); err != nil {
+		return err
+	}
 	if err := r.drawFPSMeter(r.screen, deviceScale); err != nil {
 		return err
 	}
@@ -700,6 +707,166 @@ func updateCanvasImage(canvas *ggcanvas.Canvas, dstImage *Image) *Image {
 	}
 	dstImage.version++
 	return dstImage
+}
+
+type uiTextLabelTexture struct {
+	canvas *ggcanvas.Canvas
+	image  *Image
+	width  int
+	height int
+}
+
+func (r *runner) drawUITextLabels(screen *Image, deviceScale float64) error {
+	if screen == nil || len(screen.uiTextLabels) == 0 {
+		return nil
+	}
+	provider := r.app.GPUContextProvider()
+	if provider == nil {
+		return nil
+	}
+	if deviceScale <= 0 {
+		deviceScale = 1
+	}
+	if r.textLabelScale != deviceScale {
+		r.closeTextLabelTextures()
+		r.textLabelScale = deviceScale
+	}
+	for _, label := range screen.uiTextLabels {
+		texture, err := r.uiTextLabelTexture(provider, deviceScale, label)
+		if err != nil {
+			return err
+		}
+		if texture == nil || texture.image == nil {
+			continue
+		}
+		x := label.X
+		if label.Centered {
+			x -= float64(texture.width) / 2
+		}
+		var opts DrawImageOptions
+		if b := texture.image.Bounds(); b.Dx() > 0 && b.Dy() > 0 {
+			opts.GeoM.Scale(float64(texture.width)/float64(b.Dx()), float64(texture.height)/float64(b.Dy()))
+		}
+		opts.GeoM.Translate(math.Round(x), math.Round(label.Y))
+		opts.Filter = FilterNearest
+		screen.DrawImage(texture.image, &opts)
+	}
+	return nil
+}
+
+func (r *runner) uiTextLabelTexture(provider gpucontext.DeviceProvider, deviceScale float64, label UITextLabelCommand) (*uiTextLabelTexture, error) {
+	key := uiTextLabelKey(label)
+	if texture := r.textLabels[key]; texture != nil {
+		return texture, nil
+	}
+	if r.textLabels == nil {
+		r.textLabels = make(map[string]*uiTextLabelTexture)
+	}
+	size := label.Size
+	if size <= 0 {
+		size = rotheme.Default.Typography.TextSize
+	}
+	textW, err := r.measureUITextLabelWidth(provider, deviceScale, label, size)
+	if err != nil {
+		return nil, err
+	}
+	width := int(math.Ceil(float64(textW))) + 6
+	if width < 24 {
+		width = 24
+	}
+	height := int(math.Ceil(float64(size))) + 10
+	if height < 18 {
+		height = 18
+	}
+	canvas, err := ggcanvas.NewWithScale(provider, width, height, deviceScale)
+	if err != nil {
+		return nil, fmt.Errorf("create text label canvas: %w", err)
+	}
+	texture := &uiTextLabelTexture{canvas: canvas, width: width, height: height}
+	if err := canvas.Draw(func(cc *gg.Context) {
+		uiCanvas := uirender.NewCanvas(cc, width, height)
+		uiCanvas.Clear(widget.RGBA8(0, 0, 0, 0))
+		if textMode, ok := uiCanvas.(widget.TextModeController); ok {
+			textMode.SetTextMode(widget.TextModeVector)
+			defer textMode.SetTextMode(widget.TextModeAuto)
+		}
+		drawOutlinedUIText(uiCanvas, label, width, height, size)
+	}); err != nil {
+		_ = canvas.Close()
+		return nil, fmt.Errorf("draw text label canvas: %w", err)
+	}
+	if _, err := canvas.Flush(); err != nil {
+		_ = canvas.Close()
+		return nil, fmt.Errorf("flush text label canvas: %w", err)
+	}
+	texture.image = updateCanvasImage(canvas, nil)
+	r.textLabels[key] = texture
+	r.trimTextLabelTextures()
+	return texture, nil
+}
+
+func (r *runner) measureUITextLabelWidth(provider gpucontext.DeviceProvider, deviceScale float64, label UITextLabelCommand, size float32) (float32, error) {
+	canvas, err := ggcanvas.NewWithScale(provider, 1, 1, deviceScale)
+	if err != nil {
+		return 0, fmt.Errorf("create text label measure canvas: %w", err)
+	}
+	defer canvas.Close()
+	var width float32
+	if err := canvas.Draw(func(cc *gg.Context) {
+		uiCanvas := uirender.NewCanvas(cc, 1, 1)
+		if textMode, ok := uiCanvas.(widget.TextModeController); ok {
+			textMode.SetTextMode(widget.TextModeVector)
+			defer textMode.SetTextMode(widget.TextModeAuto)
+		}
+		width = rotheme.MeasureText(uiCanvas, label.Text, size, label.Bold)
+	}); err != nil {
+		return 0, fmt.Errorf("measure text label: %w", err)
+	}
+	return width, nil
+}
+
+func drawOutlinedUIText(canvas widget.Canvas, label UITextLabelCommand, width, height int, size float32) {
+	fg := widget.RGBA8(label.Foreground.R, label.Foreground.G, label.Foreground.B, label.Foreground.A)
+	outline := widget.RGBA8(label.Outline.R, label.Outline.G, label.Outline.B, label.Outline.A)
+	bounds := geometry.NewRect(2, 2, float32(width-4), float32(height-4))
+	for _, offset := range [][2]float32{{0, -1}, {0, 1}, {-1, 0}, {1, 0}} {
+		rotheme.DrawText(canvas, label.Text, bounds.TranslateXY(offset[0], offset[1]), size, outline, label.Bold, widget.TextAlignLeft)
+	}
+	rotheme.DrawText(canvas, label.Text, bounds, size, fg, label.Bold, widget.TextAlignLeft)
+}
+
+func uiTextLabelKey(label UITextLabelCommand) string {
+	return fmt.Sprintf("%s|%d|%d|%d|%d|%d|%d|%d|%d|%.1f|%t",
+		label.Text,
+		label.Foreground.R, label.Foreground.G, label.Foreground.B, label.Foreground.A,
+		label.Outline.R, label.Outline.G, label.Outline.B, label.Outline.A,
+		label.Size,
+		label.Bold,
+	)
+}
+
+func (r *runner) trimTextLabelTextures() {
+	if len(r.textLabels) <= 256 {
+		return
+	}
+	for key, texture := range r.textLabels {
+		if texture != nil && texture.canvas != nil {
+			_ = texture.canvas.Close()
+		}
+		delete(r.textLabels, key)
+		if len(r.textLabels) <= 192 {
+			return
+		}
+	}
+}
+
+func (r *runner) closeTextLabelTextures() {
+	for key, texture := range r.textLabels {
+		if texture != nil && texture.canvas != nil {
+			_ = texture.canvas.Close()
+		}
+		delete(r.textLabels, key)
+	}
 }
 
 func (r *runner) updateFPSCounter(now time.Time) {
