@@ -62,3 +62,21 @@ func TestEquipmentWindowOpensCentered(t *testing.T) {
 		t.Fatalf("equipment position = %d,%d, want centered", window.Window.x, window.Window.y)
 	}
 }
+
+func TestEquipmentWindowTooltipTracksHoveredItem(t *testing.T) {
+	window := EquipmentWindow{}
+	item := session.InventoryItem{Index: 3, ItemID: 1201, Identified: true}
+
+	window.showTooltip(item)
+	if !window.tooltipOpen {
+		t.Fatal("tooltip should be open")
+	}
+	if window.tooltipItem.ItemID != item.ItemID || window.tooltipItem.Index != item.Index {
+		t.Fatalf("tooltip item = %+v, want %+v", window.tooltipItem, item)
+	}
+
+	window.hideTooltip()
+	if window.tooltipOpen || window.tooltipItem.ItemID != 0 {
+		t.Fatalf("tooltip not cleared: open=%t item=%+v", window.tooltipOpen, window.tooltipItem)
+	}
+}

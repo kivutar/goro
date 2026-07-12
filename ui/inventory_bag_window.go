@@ -60,6 +60,8 @@ type InventoryBagWindow struct {
 	dragItem      session.InventoryItem
 	dragActive    bool
 	dragFrom      time.Time
+	tooltipItem   session.InventoryItem
+	tooltipOpen   bool
 	icons         map[inventoryBagIconKey]image.Image
 	iconMiss      map[inventoryBagIconKey]struct{}
 }
@@ -72,6 +74,7 @@ type inventoryBagIconKey struct {
 func (w *InventoryBagWindow) Toggle(ctx Context) {
 	w.EnsureWindow(inventoryBagWidth, inventoryBagHeight)
 	if w.IsOpen() {
+		w.hideTooltip()
 		w.Window.Close()
 		w.Publish(ctx)
 		return
@@ -87,6 +90,7 @@ func (w *InventoryBagWindow) Toggle(ctx Context) {
 func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage *StorageWindow, cart *CartWindow, trade *TradeWindow, itemInfo *ItemInfoWindow) bool {
 	w.EnsureWindow(inventoryBagWidth, inventoryBagHeight)
 	if !w.IsOpen() || ctx.Input == nil {
+		w.hideTooltip()
 		return false
 	}
 	cartChanged := cart != w.cart
@@ -103,6 +107,7 @@ func (w *InventoryBagWindow) Update(ctx Context, shortcuts *ShortcutBar, storage
 	}
 	consumed := w.Window.Update(ctx)
 	if !w.IsOpen() {
+		w.hideTooltip()
 		w.Publish(ctx)
 		return consumed
 	}
@@ -147,6 +152,13 @@ func (w *InventoryBagWindow) Draw(screen *render.Image, ctx Context, assets Asse
 	w.Publish(ctx)
 }
 
+func (w *InventoryBagWindow) DrawTooltip(screen *render.Image, ctx Context) {
+	if !w.tooltipOpen || w.dragActive || screen == nil || ctx.Input == nil {
+		return
+	}
+	drawInventoryItemTooltip(screen, ctx, w.tooltipItem)
+}
+
 func (w *InventoryBagWindow) DrawDragGhost(screen *render.Image, ctx Context, assets AssetProvider) {
 	if !w.dragActive || screen == nil || ctx.Input == nil || assets == nil {
 		return
@@ -185,7 +197,10 @@ func (w *InventoryBagWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow, c
 					scroll:  w.scroll,
 					onWheel: func(delta float32) { w.scrollBy(delta, ctx.Session); w.refresh(ctx, itemInfo) },
 					onPress: func(item session.InventoryItem) { w.startItemDragOrActivate(ctx, item) },
+					onHover: func(item session.InventoryItem) { w.showTooltip(item) },
+					onLeave: func() { w.hideTooltip() },
 					onRightClick: func(item session.InventoryItem, mx, my int) {
+						w.hideTooltip()
 						w.dragActive = false
 						w.dragItem = session.InventoryItem{}
 						if itemInfo != nil {
@@ -211,6 +226,7 @@ func (w *InventoryBagWindow) tabColumn(ctx Context, cart *CartWindow) widget.Wid
 			blendEdge:  tabBlendRight,
 			blendInset: inventoryBagTabOver,
 			onClick: func() {
+				w.hideTooltip()
 				w.tab = tab.tab
 				w.scroll = 0
 				w.lastClickItem = 0
@@ -237,6 +253,7 @@ func (w *InventoryBagWindow) tabColumn(ctx Context, cart *CartWindow) widget.Wid
 }
 
 func (w *InventoryBagWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
+	w.hideTooltip()
 	w.ClampScroll(ctx.Session)
 	w.snapshot = w.inventorySnapshot(ctx.Session)
 	w.itemInfo = itemInfo
@@ -255,6 +272,7 @@ func inventoryBagHasCart(ctx Context) bool {
 }
 
 func (w *InventoryBagWindow) startItemDragOrActivate(ctx Context, item session.InventoryItem) {
+	w.hideTooltip()
 	now := time.Now()
 	if w.lastClickItem == item.Index && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
 		w.dragActive = false
@@ -269,6 +287,20 @@ func (w *InventoryBagWindow) startItemDragOrActivate(ctx Context, item session.I
 	w.dragFrom = now
 	w.lastClickItem = item.Index
 	w.lastClickAt = now
+}
+
+func (w *InventoryBagWindow) showTooltip(item session.InventoryItem) {
+	if item.ItemID == 0 {
+		w.hideTooltip()
+		return
+	}
+	w.tooltipItem = item
+	w.tooltipOpen = true
+}
+
+func (w *InventoryBagWindow) hideTooltip() {
+	w.tooltipItem = session.InventoryItem{}
+	w.tooltipOpen = false
 }
 
 func (w *InventoryBagWindow) pointInside(x, y int) bool {
@@ -527,6 +559,8 @@ type inventoryGridConfig struct {
 	scroll       int
 	onWheel      func(float32)
 	onPress      func(session.InventoryItem)
+	onHover      func(session.InventoryItem)
+	onLeave      func()
 	onRightClick func(session.InventoryItem, int, int)
 }
 
@@ -596,13 +630,22 @@ func (w *inventoryGridWidget) Event(ctx widget.Context, e event.Event) bool {
 		case event.MouseEnter, event.MouseMove:
 			w.hovered = index
 			if index >= 0 && index < len(w.cfg.items) {
+				if w.cfg.onHover != nil {
+					w.cfg.onHover(w.cfg.items[index])
+				}
 				ctx.SetCursor(widget.CursorPointer)
 			} else {
+				if w.cfg.onLeave != nil {
+					w.cfg.onLeave()
+				}
 				ctx.SetCursor(widget.CursorDefault)
 			}
 			return true
 		case event.MouseLeave:
 			w.hovered = -1
+			if w.cfg.onLeave != nil {
+				w.cfg.onLeave()
+			}
 			ctx.SetCursor(widget.CursorDefault)
 			return false
 		case event.MousePress:

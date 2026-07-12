@@ -11,6 +11,7 @@ import (
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -30,13 +31,15 @@ const (
 
 type EquipmentWindow struct {
 	Window
-	snapshot string
-	itemInfo *ItemInfoWindow
-	cart     *CartWindow
-	hasCart  bool
-	preview  image.Image
-	icons    map[equipmentItemIconKey]image.Image
-	iconMiss map[equipmentItemIconKey]struct{}
+	snapshot    string
+	itemInfo    *ItemInfoWindow
+	cart        *CartWindow
+	hasCart     bool
+	preview     image.Image
+	tooltipItem session.InventoryItem
+	tooltipOpen bool
+	icons       map[equipmentItemIconKey]image.Image
+	iconMiss    map[equipmentItemIconKey]struct{}
 }
 
 type equipmentItemIconKey struct {
@@ -90,6 +93,7 @@ var (
 func (w *EquipmentWindow) Toggle(ctx Context) {
 	w.EnsureWindow(equipmentWindowWidth, equipmentWindowHeight)
 	if w.IsOpen() {
+		w.hideTooltip()
 		w.Window.Close()
 		w.Publish(ctx)
 		return
@@ -104,12 +108,14 @@ func (w *EquipmentWindow) Toggle(ctx Context) {
 func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, cart *CartWindow, assets AssetProvider) bool {
 	w.EnsureWindow(equipmentWindowWidth, equipmentWindowHeight)
 	if !w.IsOpen() {
+		w.hideTooltip()
 		return false
 	}
 	snapshot := equipmentSnapshot(ctx.Session)
 	needsPreview := w.preview == nil && assets != nil
 	hasCart := inventoryBagHasCart(ctx)
 	if snapshot != w.snapshot || itemInfo != w.itemInfo || cart != w.cart || hasCart != w.hasCart || needsPreview {
+		w.hideTooltip()
 		w.snapshot = snapshot
 		w.itemInfo = itemInfo
 		w.cart = cart
@@ -121,6 +127,7 @@ func (w *EquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow, cart *Ca
 	}
 	consumed := w.Window.Update(ctx)
 	if !w.IsOpen() {
+		w.hideTooltip()
 		w.Publish(ctx)
 		return consumed
 	}
@@ -247,9 +254,13 @@ func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot
 		width:   width,
 		res:     ctx.Resources,
 		onClick: func(item session.InventoryItem) {
+			w.hideTooltip()
 			w.activateItem(ctx, item)
 		},
+		onHover: func(item session.InventoryItem) { w.showTooltip(item) },
+		onLeave: func() { w.hideTooltip() },
 		onRightClick: func(item session.InventoryItem) {
+			w.hideTooltip()
 			if itemInfo != nil {
 				x, y := 0, 0
 				if ctx.Input != nil {
@@ -259,6 +270,27 @@ func (w *EquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot
 			}
 		},
 	})
+}
+
+func (w *EquipmentWindow) DrawTooltip(screen *render.Image, ctx Context) {
+	if !w.tooltipOpen || screen == nil || ctx.Input == nil {
+		return
+	}
+	drawInventoryItemTooltip(screen, ctx, w.tooltipItem)
+}
+
+func (w *EquipmentWindow) showTooltip(item session.InventoryItem) {
+	if item.ItemID == 0 {
+		w.hideTooltip()
+		return
+	}
+	w.tooltipItem = item
+	w.tooltipOpen = true
+}
+
+func (w *EquipmentWindow) hideTooltip() {
+	w.tooltipItem = session.InventoryItem{}
+	w.tooltipOpen = false
 }
 
 func (w *EquipmentWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
@@ -366,6 +398,8 @@ type equipmentSlotWidgetConfig struct {
 	width        int
 	res          *res.Manager
 	onClick      func(session.InventoryItem)
+	onHover      func(session.InventoryItem)
+	onLeave      func()
 	onRightClick func(session.InventoryItem)
 }
 
@@ -454,14 +488,22 @@ func (w *equipmentSlotWidget) Event(ctx widget.Context, e event.Event) bool {
 		return false
 	}
 	switch mouse.MouseType {
-	case event.MouseEnter:
+	case event.MouseEnter, event.MouseMove:
 		w.hovered = true
 		if w.cfg.hasItem {
+			if w.cfg.onHover != nil {
+				w.cfg.onHover(w.cfg.item)
+			}
 			ctx.SetCursor(widget.CursorPointer)
+		} else if w.cfg.onLeave != nil {
+			w.cfg.onLeave()
 		}
 		return w.cfg.hasItem
 	case event.MouseLeave:
 		w.hovered = false
+		if w.cfg.onLeave != nil {
+			w.cfg.onLeave()
+		}
 		ctx.SetCursor(widget.CursorDefault)
 		return false
 	case event.MousePress:
