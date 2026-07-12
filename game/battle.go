@@ -1522,10 +1522,10 @@ func (m *WorldMode) drawActorLifeBar(screen *render.Image, ctx client.Context, e
 	} else if ratio < 0.25 {
 		fill = color.RGBA{R: 255, G: 255, B: 0, A: 255}
 	}
-	render.DrawRect(screen, x, y, width, height, color.RGBA{R: 16, G: 24, B: 156, A: 255})
-	render.DrawRect(screen, x+1, y+1, width-2, height-2, color.RGBA{R: 66, G: 66, B: 66, A: 255})
+	render.DrawUIRect(screen, x, y, width, height, color.RGBA{R: 16, G: 24, B: 156, A: 255})
+	render.DrawUIRect(screen, x+1, y+1, width-2, height-2, color.RGBA{R: 66, G: 66, B: 66, A: 255})
 	if fillWidth > 0 {
-		render.DrawRect(screen, x+1, y+1, fillWidth, 3, fill)
+		render.DrawUIRect(screen, x+1, y+1, fillWidth, 3, fill)
 	}
 	if life.hasSP {
 		spRatio := float64(life.sp) / float64(life.maxSP)
@@ -1534,9 +1534,9 @@ func (m *WorldMode) drawActorLifeBar(screen *render.Image, ctx client.Context, e
 		} else if spRatio > 1 {
 			spRatio = 1
 		}
-		render.DrawRect(screen, x, y+4, width, 1, color.RGBA{R: 16, G: 24, B: 156, A: 255})
+		render.DrawUIRect(screen, x, y+4, width, 1, color.RGBA{R: 16, G: 24, B: 156, A: 255})
 		if spWidth := math.Round((width - 2) * spRatio); spWidth > 0 {
-			render.DrawRect(screen, x+1, y+5, spWidth, 3, gameui.PlayerSPBarColor)
+			render.DrawUIRect(screen, x+1, y+5, spWidth, 3, gameui.PlayerSPBarColor)
 		}
 	}
 }

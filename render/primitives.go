@@ -102,6 +102,23 @@ func DrawRect(dst *Image, x, y, w, h float64, c color.Color) {
 	}
 }
 
+func DrawUIRect(dst *Image, x, y, w, h float64, c color.RGBA) {
+	if dst == nil || w <= 0 || h <= 0 {
+		return
+	}
+	if !dst.screen {
+		DrawRect(dst, x, y, w, h, c)
+		return
+	}
+	dst.uiRects = append(dst.uiRects, UIRectCommand{
+		X:     x,
+		Y:     y,
+		W:     w,
+		H:     h,
+		Color: c,
+	})
+}
+
 func DrawLine(dst *Image, x0, y0, x1, y1 float64, c color.Color) {
 	if dst == nil || dst.pix == nil {
 		return

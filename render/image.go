@@ -189,6 +189,7 @@ type Image struct {
 	worldCommands   []WorldCommand
 	worldMeshes     []WorldMeshCommand
 	worldBillboards []WorldBillboardCommand
+	uiRects         []UIRectCommand
 	uiTextLabels    []UITextLabelCommand
 	clear           color.RGBA
 	camera          Camera3D
@@ -263,6 +264,11 @@ type UITextLabelCommand struct {
 	Size       float32
 }
 
+type UIRectCommand struct {
+	X, Y, W, H float64
+	Color      color.RGBA
+}
+
 func NewScreenImage(width, height int) *Image {
 	img := NewImage(width, height)
 	img.screen = true
@@ -279,6 +285,7 @@ func (i *Image) BeginFrame() {
 	i.worldCommands = i.worldCommands[:0]
 	i.worldMeshes = i.worldMeshes[:0]
 	i.worldBillboards = i.worldBillboards[:0]
+	i.uiRects = i.uiRects[:0]
 	i.uiTextLabels = i.uiTextLabels[:0]
 	i.camera = Camera3D{}
 }
