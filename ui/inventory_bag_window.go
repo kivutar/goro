@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -141,10 +141,10 @@ func (w *InventoryBagWindow) UpdateDrag(ctx Context, shortcuts *ShortcutBar, sto
 		}
 		if !w.pointInside(ctx.Input.MouseX, ctx.Input.MouseY) {
 			if err := dropInventoryItem(ctx, item); err != nil {
-				log.Printf("inventory drop failed: %v", err)
+				glog.Warnf("inventory drop failed: %v", err)
 				return true
 			}
-			log.Printf("inventory drop requested index=%d item=%d amount=%d", item.Index, item.ItemID, inventoryDropAmount(item))
+			glog.Debugf("inventory drop requested index=%d item=%d amount=%d", item.Index, item.ItemID, inventoryDropAmount(item))
 			return true
 		}
 		return true
@@ -376,22 +376,22 @@ func (w *InventoryBagWindow) markIconMiss(key inventoryBagIconKey) {
 func (w *InventoryBagWindow) activateItem(ctx Context, item session.InventoryItem) {
 	if item.Type == db.ItemTypeCard {
 		if ctx.Network == nil {
-			log.Printf("card composition failed: not connected")
+			glog.Warnf("card composition failed: not connected")
 			return
 		}
 		candidates := cardCompositionCandidateItems(ctx, item)
 		if len(candidates) == 0 {
-			log.Printf("card composition has no local compatible equipment card_index=%d item=%d location=0x%04X", item.Index, item.ItemID, item.Location)
+			glog.Debugf("card composition has no local compatible equipment card_index=%d item=%d location=0x%04X", item.Index, item.ItemID, item.Location)
 			logCardCompositionRejectedItems(ctx, item)
 		} else {
-			log.Printf("card composition local compatible equipment card_index=%d item=%d indexes=%v", item.Index, item.ItemID, inventoryItemIndexes(candidates))
+			glog.Debugf("card composition local compatible equipment card_index=%d item=%d indexes=%v", item.Index, item.ItemID, inventoryItemIndexes(candidates))
 		}
 		w.pendingCard = item.Index
 		if err := ctx.Network.SendItemCompositionList(item.Index); err != nil {
-			log.Printf("card composition list failed: %v", err)
+			glog.Warnf("card composition list failed: %v", err)
 			return
 		}
-		log.Printf("card composition list requested index=%d item=%d", item.Index, item.ItemID)
+		glog.Debugf("card composition list requested index=%d item=%d", item.Index, item.ItemID)
 		return
 	}
 	if inventoryItemIsEquipment(item) {
@@ -399,14 +399,14 @@ func (w *InventoryBagWindow) activateItem(ctx Context, item session.InventoryIte
 		return
 	}
 	if !inventoryItemIsUsable(item) {
-		log.Printf("inventory use skipped: item cannot be used index=%d item=%d type=%d", item.Index, item.ItemID, item.Type)
+		glog.Debugf("inventory use skipped: item cannot be used index=%d item=%d type=%d", item.Index, item.ItemID, item.Type)
 		return
 	}
 	if err := useInventoryItem(ctx, item); err != nil {
-		log.Printf("inventory use failed: %v", err)
+		glog.Warnf("inventory use failed: %v", err)
 		return
 	}
-	log.Printf("inventory use requested index=%d item=%d type=%d", item.Index, item.ItemID, item.Type)
+	glog.Debugf("inventory use requested index=%d item=%d type=%d", item.Index, item.ItemID, item.Type)
 }
 
 func (w *InventoryBagWindow) scrollBy(wheelY float32, s *session.Session) {
@@ -799,7 +799,7 @@ func logCardCompositionRejectedItems(ctx Context, card session.InventoryItem) {
 			continue
 		}
 		if ok, reason := cardCompositionCanTarget(ctx, card, item); !ok {
-			log.Printf("card composition rejected equipment index=%d item=%d type=%d location=0x%04X identified=%v equipped=%v cards=%v reason=%q", item.Index, item.ItemID, item.Type, item.Location, item.Identified, item.Equipped, item.Cards, reason)
+			glog.Warnf("card composition rejected equipment index=%d item=%d type=%d location=0x%04X identified=%v equipped=%v cards=%v reason=%q", item.Index, item.ItemID, item.Type, item.Location, item.Identified, item.Equipped, item.Cards, reason)
 		}
 	}
 }

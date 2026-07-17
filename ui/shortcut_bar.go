@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
@@ -175,7 +175,7 @@ func (b *ShortcutBar) activate(ctx Context, actions GameActions, slot int) {
 		if err := useInventoryItem(ctx, item); err != nil {
 			return
 		}
-		log.Printf("shortcut item use slot=%d index=%d item=%d", slot+1, item.Index, item.ItemID)
+		glog.Debugf("shortcut item use slot=%d index=%d item=%d", slot+1, item.Index, item.ItemID)
 	case shortcutSkill:
 		skill, ok := skillForShortcut(ctx.Session, entry)
 		if !ok {
@@ -529,7 +529,7 @@ func (b *ShortcutBar) sendSlotChange(ctx Context, slot int) {
 	hotkey := b.slots[slot].hotkey()
 	if ctx.Network != nil {
 		if err := ctx.Network.SendHotkey(uint16(slot), hotkey); err != nil {
-			log.Printf("shortcut hotkey save failed slot=%d: %v", slot+1, err)
+			glog.Warnf("shortcut hotkey save failed slot=%d: %v", slot+1, err)
 		}
 	}
 	if ctx.Session != nil {

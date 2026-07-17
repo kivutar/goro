@@ -2,12 +2,12 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 )
@@ -266,11 +266,11 @@ func (m *WorldMode) effectSpriteView(manager *res.Manager, file string) *spriteV
 	view, status := loadSpriteView(manager, actCandidates, sprCandidates, nil, "effect sprite "+file)
 	if view == nil {
 		m.effectViewMiss[key] = struct{}{}
-		log.Printf("effect sprite unavailable file=%q: %s", file, status)
+		glog.Warnf("effect sprite unavailable file=%q: %s", file, status)
 		return nil
 	}
 	m.effectViews[key] = view
-	log.Printf("effect sprite resources file=%q %s", file, status)
+	glog.Debugf("effect sprite resources file=%q %s", file, status)
 	return view
 }
 

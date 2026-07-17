@@ -2,11 +2,11 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	worldstate "github.com/kivutar/goro/world"
@@ -20,7 +20,7 @@ func (m *WorldMode) applyActorStateChange(ctx client.Context, change network.Act
 		oldState := ctx.World.Player.EffectState
 		setActorRenderState(&ctx.World.Player, change.BodyState, change.HealthState, change.EffectState)
 		m.applyActorEffectStateEffects(ctx, change.ID, oldState, change.EffectState)
-		log.Printf("actor state local id=%d body=%d health=0x%04X effect=0x%08X", change.ID, change.BodyState, change.HealthState, change.EffectState)
+		glog.Debugf("actor state local id=%d body=%d health=0x%04X effect=0x%08X", change.ID, change.BodyState, change.HealthState, change.EffectState)
 		return
 	}
 	actor, ok := ctx.World.Actors[change.ID]
@@ -31,7 +31,7 @@ func (m *WorldMode) applyActorStateChange(ctx client.Context, change network.Act
 	setActorRenderState(&actor, change.BodyState, change.HealthState, change.EffectState)
 	m.applyActorEffectStateEffects(ctx, change.ID, oldState, change.EffectState)
 	upsertActor(ctx, actor)
-	log.Printf("actor state id=%d body=%d health=0x%04X effect=0x%08X", change.ID, change.BodyState, change.HealthState, change.EffectState)
+	glog.Debugf("actor state id=%d body=%d health=0x%04X effect=0x%08X", change.ID, change.BodyState, change.HealthState, change.EffectState)
 }
 
 func (m *WorldMode) applyActorBladeStop(ctx client.Context, blade network.ActorBladeStop) {
@@ -40,7 +40,7 @@ func (m *WorldMode) applyActorBladeStop(ctx client.Context, blade network.ActorB
 	}
 	m.applyActorBladeStopSide(ctx, blade.SourceID, blade.TargetID, blade.Active)
 	m.applyActorBladeStopSide(ctx, blade.TargetID, blade.SourceID, blade.Active)
-	log.Printf("actor blade stop src=%d target=%d active=%t", blade.SourceID, blade.TargetID, blade.Active)
+	glog.Debugf("actor blade stop src=%d target=%d active=%t", blade.SourceID, blade.TargetID, blade.Active)
 }
 
 func (m *WorldMode) applyActorBladeStopSide(ctx client.Context, actorID, lookID uint32, active bool) {

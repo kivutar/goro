@@ -2,9 +2,9 @@ package game
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image/color"
-	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -247,7 +247,7 @@ func (m *WorldMode) requestAttack(ctx client.Context, actor world.Actor, source 
 	}
 	targetX, targetY, ok := attackApproachCell(ctx, actor, attackRange)
 	if !ok {
-		log.Printf("%s attack chase blocked target=%d player=%d,%d target=%d,%d range=%d", source, actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
+		glog.Warnf("%s attack chase blocked target=%d player=%d,%d target=%d,%d range=%d", source, actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
 		m.setWalkCooldown(walkRequestCooldown)
 		return
 	}
@@ -255,7 +255,7 @@ func (m *WorldMode) requestAttack(ctx client.Context, actor world.Actor, source 
 		targetID: actor.ID,
 		expires:  time.Now().Add(8 * time.Second),
 	}
-	log.Printf("%s attack chase target=%d player=%d,%d target=%d,%d range=%d chase=%d,%d", source, actor.ID, playerX, playerY, actor.X, actor.Y, attackRange, targetX, targetY)
+	glog.Debugf("%s attack chase target=%d player=%d,%d target=%d,%d range=%d chase=%d,%d", source, actor.ID, playerX, playerY, actor.X, actor.Y, attackRange, targetX, targetY)
 	m.requestWalk(ctx, targetX, targetY, source+" attack chase")
 }
 
@@ -304,13 +304,13 @@ func (m *WorldMode) updatePendingAttack(ctx client.Context, source string, logOu
 	}
 	now := time.Now()
 	if now.After(m.pendingAttack.expires) {
-		log.Printf("%s pending attack expired target=%d", source, m.pendingAttack.targetID)
+		glog.Debugf("%s pending attack expired target=%d", source, m.pendingAttack.targetID)
 		m.pendingAttack = attackIntent{}
 		return
 	}
 	actor, ok := ctx.World.Actors[m.pendingAttack.targetID]
 	if !ok {
-		log.Printf("%s pending attack target vanished id=%d", source, m.pendingAttack.targetID)
+		glog.Debugf("%s pending attack target vanished id=%d", source, m.pendingAttack.targetID)
 		m.pendingAttack = attackIntent{}
 		return
 	}
@@ -318,7 +318,7 @@ func (m *WorldMode) updatePendingAttack(ctx client.Context, source string, logOu
 	playerX, playerY := currentPlayerCell(ctx, now)
 	if !attackTargetWithinRange(playerX, playerY, actor.X, actor.Y, attackRange) {
 		if logOutOfRange {
-			log.Printf("%s pending attack still out of range target=%d player=%d,%d target=%d,%d range=%d", source, actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
+			glog.Debugf("%s pending attack still out of range target=%d player=%d,%d target=%d,%d range=%d", source, actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
 		}
 		return
 	}
@@ -327,7 +327,7 @@ func (m *WorldMode) updatePendingAttack(ctx client.Context, source string, logOu
 		m.pendingAttack.readyAt = readyAt
 	}
 	if logOutOfRange {
-		log.Printf("%s pending attack scheduled target=%d delay_ms=%d", source, actor.ID, maxInt(0, int(m.pendingAttack.readyAt.Sub(now).Milliseconds())))
+		glog.Debugf("%s pending attack scheduled target=%d delay_ms=%d", source, actor.ID, maxInt(0, int(m.pendingAttack.readyAt.Sub(now).Milliseconds())))
 	}
 }
 
@@ -337,7 +337,7 @@ func (m *WorldMode) processPendingAttack(ctx client.Context) {
 	}
 	now := time.Now()
 	if now.After(m.pendingAttack.expires) {
-		log.Printf("pending attack expired target=%d", m.pendingAttack.targetID)
+		glog.Debugf("pending attack expired target=%d", m.pendingAttack.targetID)
 		m.pendingAttack = attackIntent{}
 		return
 	}
@@ -346,14 +346,14 @@ func (m *WorldMode) processPendingAttack(ctx client.Context) {
 	}
 	actor, ok := ctx.World.Actors[m.pendingAttack.targetID]
 	if !ok {
-		log.Printf("pending attack target vanished id=%d", m.pendingAttack.targetID)
+		glog.Debugf("pending attack target vanished id=%d", m.pendingAttack.targetID)
 		m.pendingAttack = attackIntent{}
 		return
 	}
 	attackRange := currentNormalAttackRange(ctx)
 	playerX, playerY := currentPlayerCell(ctx, now)
 	if !attackTargetWithinRange(playerX, playerY, actor.X, actor.Y, attackRange) {
-		log.Printf("pending attack became out of range target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
+		glog.Debugf("pending attack became out of range target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
 		m.pendingAttack.readyAt = time.Time{}
 		m.requestAttack(ctx, actor, "pending")
 		return
@@ -379,12 +379,12 @@ func (m *WorldMode) processLockedAttack(ctx client.Context) {
 	}
 	actor, ok := ctx.World.Actors[m.lockedAttackID]
 	if !ok {
-		log.Printf("locked attack target vanished id=%d", m.lockedAttackID)
+		glog.Debugf("locked attack target vanished id=%d", m.lockedAttackID)
 		m.clearLockedAttack()
 		return
 	}
 	if !actorCanBeAttackClicked(ctx, actor) {
-		log.Printf("locked attack target no longer attackable id=%d object_type=%d", actor.ID, actor.ObjectType)
+		glog.Debugf("locked attack target no longer attackable id=%d object_type=%d", actor.ID, actor.ObjectType)
 		m.clearLockedAttack()
 		return
 	}
@@ -394,7 +394,7 @@ func (m *WorldMode) processLockedAttack(ctx client.Context) {
 		if !attackRetryDue(m.lastAttackAt, now) {
 			return
 		}
-		log.Printf("locked attack retry target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
+		glog.Debugf("locked attack retry target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
 		m.sendAttackAction(ctx, actor, "locked")
 		return
 	}
@@ -402,7 +402,7 @@ func (m *WorldMode) processLockedAttack(ctx client.Context) {
 		return
 	}
 	m.lastChaseAt = now
-	log.Printf("locked attack chase retry target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
+	glog.Debugf("locked attack chase retry target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, actor.X, actor.Y, attackRange)
 	m.requestAttack(ctx, actor, "locked")
 }
 
@@ -430,13 +430,13 @@ func (m *WorldMode) sendAttackAction(ctx client.Context, actor world.Actor, sour
 		m.lastAttackAt = time.Now()
 		m.setWalkCooldown(walkRequestCooldown)
 	} else {
-		log.Printf("%s attack request failed target=%d action=%d: %v", source, actor.ID, network.ActionAttack, err)
+		glog.Warnf("%s attack request failed target=%d action=%d: %v", source, actor.ID, network.ActionAttack, err)
 		m.setWalkCooldown(walkErrorCooldown)
 	}
 }
 
 func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.ActorActionNotify) {
-	log.Printf("actor action src=%d dst=%d skill=%d level=%d damage=%d left_damage=%d hits=%d action=%d src_speed=%d dst_speed=%d tick=%d", action.SourceID, action.TargetID, action.SkillID, action.SkillLevel, action.Damage, action.LeftDamage, action.HitCount, action.Action, action.SourceSpeed, action.TargetSpeed, action.ServerTick)
+	glog.Debugf("actor action src=%d dst=%d skill=%d level=%d damage=%d left_damage=%d hits=%d action=%d src_speed=%d dst_speed=%d tick=%d", action.SourceID, action.TargetID, action.SkillID, action.SkillLevel, action.Damage, action.LeftDamage, action.HitCount, action.Action, action.SourceSpeed, action.TargetSpeed, action.ServerTick)
 	now := time.Now()
 	if action.Action == network.ActorActionPickupItem {
 		m.applyActorPickupActionNotify(ctx, action, now)
@@ -512,7 +512,7 @@ func (m *WorldMode) addSkillBeginEffect(ctx client.Context, action network.Actor
 			actorID = 0
 		}
 		if m.addWorldEffectAt(ctx, effectID, actorID, starts) {
-			log.Printf("skill begin effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
+			glog.Debugf("skill begin effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
 		}
 	}
 }
@@ -522,7 +522,7 @@ func (m *WorldMode) addNormalAttackBeforeHitEffect(ctx client.Context, action ne
 		return
 	}
 	if m.addWorldEffectBetweenAt(ctx, effectArrowShot, action.TargetID, action.SourceID, starts) {
-		log.Printf("normal attack before-hit effect src=%d target=%d effect=%d", action.SourceID, action.TargetID, effectArrowShot)
+		glog.Debugf("normal attack before-hit effect src=%d target=%d effect=%d", action.SourceID, action.TargetID, effectArrowShot)
 	}
 }
 
@@ -539,12 +539,12 @@ func (m *WorldMode) addSkillEffect(ctx client.Context, action network.ActorActio
 	}
 	for _, effectID := range skillEffectIDs(action.SkillID) {
 		if m.addWorldEffectBetweenAt(ctx, effectID, action.TargetID, action.SourceID, starts) {
-			log.Printf("skill effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
+			glog.Debugf("skill effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
 		}
 	}
 	for _, effectID := range skillEffectOnCasterIDs(action.SkillID) {
 		if m.addWorldEffectAt(ctx, effectID, action.SourceID, starts) {
-			log.Printf("skill caster effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
+			glog.Debugf("skill caster effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
 		}
 	}
 }
@@ -563,12 +563,12 @@ func (m *WorldMode) addSkillBeforeHitEffect(ctx client.Context, action network.A
 		effectStarts := starts.Add(multiHitDelay * time.Duration(i))
 		for _, effectID := range effectIDs {
 			if m.addWorldEffectBetweenAt(ctx, effectID, action.TargetID, action.SourceID, effectStarts) {
-				log.Printf("skill before-hit effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
+				glog.Debugf("skill before-hit effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
 			}
 		}
 		for _, effectID := range selfEffectIDs {
 			if m.addWorldEffectAt(ctx, effectID, action.SourceID, effectStarts) {
-				log.Printf("skill before-hit self effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
+				glog.Debugf("skill before-hit self effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
 			}
 		}
 	}
@@ -588,12 +588,12 @@ func (m *WorldMode) addSkillHitEffect(ctx client.Context, action network.ActorAc
 		effectStarts := starts.Add(multiHitDelay * time.Duration(i))
 		for _, effectID := range effectIDs {
 			if m.addWorldEffectAt(ctx, effectID, action.TargetID, effectStarts) {
-				log.Printf("skill hit effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
+				glog.Debugf("skill hit effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
 			}
 		}
 		for _, effectID := range casterEffectIDs {
 			if m.addWorldEffectAt(ctx, effectID, action.SourceID, effectStarts) {
-				log.Printf("skill hit caster effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
+				glog.Debugf("skill hit caster effect skill=%d src=%d target=%d effect=%d hit=%d/%d", action.SkillID, action.SourceID, action.TargetID, effectID, i+1, count)
 			}
 		}
 	}
@@ -721,7 +721,7 @@ func (m *WorldMode) applyActorHPUpdate(update network.ActorHPUpdate) {
 		maxHP:     update.MaxHP,
 		updatedAt: time.Now(),
 	}
-	log.Printf("actor hp id=%d hp=%d max_hp=%d tiny=%t", update.ID, hp, update.MaxHP, update.Tiny)
+	glog.Debugf("actor hp id=%d hp=%d max_hp=%d tiny=%t", update.ID, hp, update.MaxHP, update.Tiny)
 }
 
 func actorForCombatID(ctx client.Context, id uint32) (world.Actor, bool, bool) {
@@ -1102,7 +1102,7 @@ func (m *WorldMode) applyAttackFailureForDistance(ctx client.Context, failure ne
 		ctx.Session.AttackRange = attackRange
 	}
 	playerX, playerY := currentPlayerCell(ctx, time.Now())
-	log.Printf("attack distance failure target=%d server_player=%d,%d server_target=%d,%d range=%d client_player=%d,%d", failure.TargetID, failure.SourceX, failure.SourceY, failure.TargetX, failure.TargetY, attackRange, playerX, playerY)
+	glog.Debugf("attack distance failure target=%d server_player=%d,%d server_target=%d,%d range=%d client_player=%d,%d", failure.TargetID, failure.SourceX, failure.SourceY, failure.TargetX, failure.TargetY, attackRange, playerX, playerY)
 	ctx.World.SetPlayerPosition(failure.SourceX, failure.SourceY, ctx.World.Player.Dir)
 	if actor, ok := ctx.World.Actors[failure.TargetID]; ok {
 		actor.X = failure.TargetX
@@ -1142,7 +1142,7 @@ func (m *WorldMode) applyRecovery(ctx client.Context, recovery network.Recovery)
 		}
 		m.scheduleSound(time.Now(), visual.sfxCandidates()...)
 	}
-	log.Printf("recovery status=%d amount=%d hp=%d/%d sp=%d/%d", recovery.StatusID, recovery.Amount, ctx.Session.Vitals.HP, ctx.Session.Vitals.MaxHP, ctx.Session.Vitals.SP, ctx.Session.Vitals.MaxSP)
+	glog.Debugf("recovery status=%d amount=%d hp=%d/%d sp=%d/%d", recovery.StatusID, recovery.Amount, ctx.Session.Vitals.HP, ctx.Session.Vitals.MaxHP, ctx.Session.Vitals.SP, ctx.Session.Vitals.MaxSP)
 }
 
 func (m *WorldMode) addLocalRecoveryFloater(ctx client.Context, amount int, floaterColor color.RGBA, kind damageFloaterKind) {
@@ -1424,7 +1424,7 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 			}
 		}
 	}
-	log.Printf("actor death id=%d job=%d local=%t action=%d death_ms=%d remove_ms=%d", id, actor.Job, local, actionFamily, deathDuration.Milliseconds(), visibleDuration.Milliseconds())
+	glog.Debugf("actor death id=%d job=%d local=%t action=%d death_ms=%d remove_ms=%d", id, actor.Job, local, actionFamily, deathDuration.Milliseconds(), visibleDuration.Milliseconds())
 }
 
 func (m *WorldMode) clearActorDeath(id uint32) {

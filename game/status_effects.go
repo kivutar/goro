@@ -1,11 +1,11 @@
 package game
 
 import (
-	"log"
 	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 )
@@ -29,7 +29,7 @@ func (m *WorldMode) applyStatusEffectChange(ctx client.Context, change network.S
 	m.addStatusEffectTransition(ctx, change)
 	if !change.Active {
 		delete(ctx.Session.Statuses.Active, change.StatusID)
-		log.Printf("status effect inactive id=%d actor=%d", change.StatusID, change.ActorID)
+		glog.Debugf("status effect inactive id=%d actor=%d", change.StatusID, change.ActorID)
 		return
 	}
 	now := time.Now()
@@ -43,7 +43,7 @@ func (m *WorldMode) applyStatusEffectChange(ctx client.Context, change network.S
 		effect.ExpiresAt = now.Add(change.Duration)
 	}
 	ctx.Session.Statuses.Active[change.StatusID] = effect
-	log.Printf("status effect active id=%d actor=%d duration_ms=%d", change.StatusID, change.ActorID, change.Duration.Milliseconds())
+	glog.Debugf("status effect active id=%d actor=%d duration_ms=%d", change.StatusID, change.ActorID, change.Duration.Milliseconds())
 }
 
 func (m *WorldMode) applyActorEffectStateStatus(ctx client.Context, change network.StatusEffectChange) {
@@ -102,11 +102,11 @@ func (m *WorldMode) applyTrickDeadStatus(ctx client.Context, change network.Stat
 	if change.Active {
 		actionFamily := deathActionFamilyForActor(actor)
 		m.setTrickDeadStatusAction(ctx, id, actionFamily, now, m.actorActionDuration(ctx, actor, actionFamily, defaultDeathAnimationDuration), true)
-		log.Printf("trick dead active actor=%d", id)
+		glog.Debugf("trick dead active actor=%d", id)
 		return
 	}
 	m.setTrickDeadStatusAction(ctx, id, spriteActionIdle, now, defaultAttackAnimationDuration, false)
-	log.Printf("trick dead inactive actor=%d", id)
+	glog.Debugf("trick dead inactive actor=%d", id)
 }
 
 func (m *WorldMode) setTrickDeadStatusAction(ctx client.Context, id uint32, actionFamily int, started time.Time, duration time.Duration, holdFinal bool) {
@@ -129,7 +129,7 @@ func (m *WorldMode) addStatusEffectTransition(ctx client.Context, change network
 		effectID = effectBashBegin
 	}
 	if m.addWorldEffect(ctx, effectID, localSkillTarget(ctx)) {
-		log.Printf("status effect transition id=%d active=%t effect=%d", change.StatusID, change.Active, effectID)
+		glog.Debugf("status effect transition id=%d active=%t effect=%d", change.StatusID, change.Active, effectID)
 	}
 }
 

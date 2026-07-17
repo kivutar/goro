@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -207,9 +207,9 @@ func (c *Client) SendTryCaptureMonster(targetID uint32) error {
 	packet := BuildTryCaptureMonsterPacket(targetID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_TRYCAPTURE_MONSTER opcode=0x%04X target=%d client_date=%d", ID(packet), targetID, c.clientDate)
+		glog.Debugf("sent CZ_TRYCAPTURE_MONSTER opcode=0x%04X target=%d client_date=%d", ID(packet), targetID, c.clientDate)
 	} else {
-		log.Printf("send CZ_TRYCAPTURE_MONSTER failed opcode=0x%04X len=%d target=%d client_date=%d: %v", ID(packet), len(packet), targetID, c.clientDate, err)
+		glog.Warnf("send CZ_TRYCAPTURE_MONSTER failed opcode=0x%04X len=%d target=%d client_date=%d: %v", ID(packet), len(packet), targetID, c.clientDate, err)
 	}
 	return err
 }
@@ -218,9 +218,9 @@ func (c *Client) SendPetCommand(command uint8) error {
 	packet := BuildCommandPetPacket(command)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_COMMAND_PET opcode=0x%04X command=%d client_date=%d", ID(packet), command, c.clientDate)
+		glog.Debugf("sent CZ_COMMAND_PET opcode=0x%04X command=%d client_date=%d", ID(packet), command, c.clientDate)
 	} else {
-		log.Printf("send CZ_COMMAND_PET failed opcode=0x%04X len=%d command=%d client_date=%d: %v", ID(packet), len(packet), command, c.clientDate, err)
+		glog.Warnf("send CZ_COMMAND_PET failed opcode=0x%04X len=%d command=%d client_date=%d: %v", ID(packet), len(packet), command, c.clientDate, err)
 	}
 	return err
 }
@@ -229,9 +229,9 @@ func (c *Client) SendPetAct(data uint32) error {
 	packet := BuildPetActPacket(data)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PET_ACT opcode=0x%04X data=%d client_date=%d", ID(packet), data, c.clientDate)
+		glog.Debugf("sent CZ_PET_ACT opcode=0x%04X data=%d client_date=%d", ID(packet), data, c.clientDate)
 	} else {
-		log.Printf("send CZ_PET_ACT failed opcode=0x%04X len=%d data=%d client_date=%d: %v", ID(packet), len(packet), data, c.clientDate, err)
+		glog.Warnf("send CZ_PET_ACT failed opcode=0x%04X len=%d data=%d client_date=%d: %v", ID(packet), len(packet), data, c.clientDate, err)
 	}
 	return err
 }
@@ -240,9 +240,9 @@ func (c *Client) SendRenamePet(name string) error {
 	packet := BuildRenamePetPacket(name)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_RENAME_PET opcode=0x%04X name=%q client_date=%d", ID(packet), name, c.clientDate)
+		glog.Debugf("sent CZ_RENAME_PET opcode=0x%04X name=%q client_date=%d", ID(packet), name, c.clientDate)
 	} else {
-		log.Printf("send CZ_RENAME_PET failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
+		glog.Warnf("send CZ_RENAME_PET failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
 	}
 	return err
 }
@@ -251,9 +251,9 @@ func (c *Client) SendSelectPetEgg(index uint16) error {
 	packet := BuildSelectPetEggPacket(index)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_SELECT_PETEGG opcode=0x%04X index=%d client_date=%d", ID(packet), index, c.clientDate)
+		glog.Debugf("sent CZ_SELECT_PETEGG opcode=0x%04X index=%d client_date=%d", ID(packet), index, c.clientDate)
 	} else {
-		log.Printf("send CZ_SELECT_PETEGG failed opcode=0x%04X len=%d index=%d client_date=%d: %v", ID(packet), len(packet), index, c.clientDate, err)
+		glog.Warnf("send CZ_SELECT_PETEGG failed opcode=0x%04X len=%d index=%d client_date=%d: %v", ID(packet), len(packet), index, c.clientDate, err)
 	}
 	return err
 }

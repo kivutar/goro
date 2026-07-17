@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -57,9 +57,9 @@ func (c *Client) SendLessEffect(enabled bool) error {
 	packet := BuildLessEffectPacket(enabled)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_LESSEFFECT opcode=0x%04X enabled=%t client_date=%d", ID(packet), enabled, c.clientDate)
+		glog.Debugf("sent CZ_LESSEFFECT opcode=0x%04X enabled=%t client_date=%d", ID(packet), enabled, c.clientDate)
 	} else {
-		log.Printf("send CZ_LESSEFFECT failed opcode=0x%04X len=%d enabled=%t client_date=%d: %v", ID(packet), len(packet), enabled, c.clientDate, err)
+		glog.Warnf("send CZ_LESSEFFECT failed opcode=0x%04X len=%d enabled=%t client_date=%d: %v", ID(packet), len(packet), enabled, c.clientDate, err)
 	}
 	return err
 }

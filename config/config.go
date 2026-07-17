@@ -23,6 +23,7 @@ type Config struct {
 	Fog      FogConfig
 	Gameplay GameplayConfig
 	Script   ScriptConfig
+	Log      LogConfig
 }
 
 type WindowConfig struct {
@@ -80,6 +81,11 @@ type GameplayConfig struct {
 
 type ScriptConfig struct {
 	Path string
+}
+
+type LogConfig struct {
+	Level string
+	File  string
 }
 
 func LoadConfig(args []string) (Config, error) {
@@ -230,6 +236,9 @@ func defaultConfig() Config {
 		Gameplay: GameplayConfig{
 			NoCtrl: true,
 		},
+		Log: LogConfig{
+			Level: "info",
+		},
 	}
 }
 
@@ -305,6 +314,8 @@ func applyCLI(cfg *Config, args []string) error {
 	fs.BoolVar(&cfg.Gameplay.SnapItems, "itemsnap", cfg.Gameplay.SnapItems, "magnetize pickup cursor to floor items")
 	fs.BoolVar(&cfg.Gameplay.SnapItems, "item-snap", cfg.Gameplay.SnapItems, "magnetize pickup cursor to floor items")
 	fs.StringVar(&cfg.Script.Path, "script", cfg.Script.Path, "Lua script to run while in game")
+	fs.StringVar(&cfg.Log.Level, "log-level", cfg.Log.Level, "minimum log level: debug, info, warn, error, fatal")
+	fs.StringVar(&cfg.Log.File, "log-file", cfg.Log.File, "append logs to this file")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -407,6 +418,10 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		return setBool(value, &cfg.Gameplay.SnapItems)
 	case ".script", "script.path":
 		cfg.Script.Path = value
+	case "log.level":
+		cfg.Log.Level = strings.ToLower(value)
+	case "log.file":
+		cfg.Log.File = value
 	default:
 		return fmt.Errorf("unknown key %q in section %q", key, section)
 	}
@@ -434,6 +449,11 @@ func validateConfig(cfg *Config) error {
 	}
 	if cfg.Render.BenchSeconds < 0 || cfg.Render.BenchWarmupSeconds < 0 {
 		return fmt.Errorf("benchmark durations must be non-negative")
+	}
+	switch cfg.Log.Level {
+	case "debug", "info", "warn", "warning", "error", "fatal":
+	default:
+		return fmt.Errorf("invalid log level %q", cfg.Log.Level)
 	}
 	return nil
 }

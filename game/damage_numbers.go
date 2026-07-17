@@ -2,12 +2,12 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/render"
 )
 
@@ -36,11 +36,11 @@ func (m *WorldMode) damageNumberSprite(ctx client.Context) *spriteView {
 	)
 	if view == nil {
 		m.damageNumberMiss = true
-		log.Printf("damage number sprite unavailable: %s", status)
+		glog.Warnf("damage number sprite unavailable: %s", status)
 		return nil
 	}
 	m.damageNumberView = view
-	log.Printf("damage number sprite resources %s", status)
+	glog.Debugf("damage number sprite resources %s", status)
 	return view
 }
 
@@ -78,11 +78,11 @@ func (m *WorldMode) damageMessageSprite(ctx client.Context) *spriteView {
 	)
 	if view == nil {
 		m.damageMsgMiss = true
-		log.Printf("damage message sprite unavailable: %s", status)
+		glog.Warnf("damage message sprite unavailable: %s", status)
 		return nil
 	}
 	m.damageMsgView = view
-	log.Printf("damage message sprite resources %s", status)
+	glog.Debugf("damage message sprite resources %s", status)
 	return view
 }
 

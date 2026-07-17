@@ -1,14 +1,13 @@
 package ui
 
 import (
-	"log"
-
 	"github.com/gogpu/ui/core/checkbox"
 	"github.com/gogpu/ui/core/slider"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -225,10 +224,10 @@ func (w *SettingsWindow) saveSettings(ctx client.Context) {
 	}
 	path, err := config.SaveUserSettings(settings)
 	if err != nil {
-		log.Printf("settings save failed: %v", err)
+		glog.Warnf("settings save failed: %v", err)
 		return
 	}
-	log.Printf("settings saved path=%s", path)
+	glog.Debugf("settings saved path=%s", path)
 }
 
 func settingsVolumeBGM(ctx client.Context) float64 {

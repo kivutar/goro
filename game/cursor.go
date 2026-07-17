@@ -1,10 +1,10 @@
 package game
 
 import (
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
 	"image/color"
-	"log"
 	"math"
 	"time"
 
@@ -107,7 +107,7 @@ func (s *roCursorState) ensureLoaded(ctx client.Context) {
 		s.view = view
 	} else {
 		s.viewMiss = true
-		log.Printf("cursor resources unavailable: %s", status)
+		glog.Warnf("cursor resources unavailable: %s", status)
 	}
 }
 

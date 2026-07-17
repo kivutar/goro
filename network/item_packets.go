@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const PacketCZItemPickup uint16 = 0x009F
@@ -1166,9 +1166,9 @@ func (c *Client) SendItemPickup(gid uint32) error {
 	packet := BuildItemPickupPacketForClientDate(gid, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ITEM_PICKUP opcode=0x%04X target=%d client_date=%d", ID(packet), gid, c.clientDate)
+		glog.Debugf("sent CZ_ITEM_PICKUP opcode=0x%04X target=%d client_date=%d", ID(packet), gid, c.clientDate)
 	} else {
-		log.Printf("send CZ_ITEM_PICKUP failed opcode=0x%04X len=%d target=%d client_date=%d: %v", ID(packet), len(packet), gid, c.clientDate, err)
+		glog.Warnf("send CZ_ITEM_PICKUP failed opcode=0x%04X len=%d target=%d client_date=%d: %v", ID(packet), len(packet), gid, c.clientDate, err)
 	}
 	return err
 }
@@ -1177,9 +1177,9 @@ func (c *Client) SendUseInventoryItem(index uint16, targetAID uint32) error {
 	packet := BuildUseInventoryItemPacketForClientDate(index, targetAID, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_USE_ITEM opcode=0x%04X index=%d target=%d client_date=%d", ID(packet), index, targetAID, c.clientDate)
+		glog.Debugf("sent CZ_USE_ITEM opcode=0x%04X index=%d target=%d client_date=%d", ID(packet), index, targetAID, c.clientDate)
 	} else {
-		log.Printf("send CZ_USE_ITEM failed opcode=0x%04X len=%d index=%d target=%d client_date=%d: %v", ID(packet), len(packet), index, targetAID, c.clientDate, err)
+		glog.Warnf("send CZ_USE_ITEM failed opcode=0x%04X len=%d index=%d target=%d client_date=%d: %v", ID(packet), len(packet), index, targetAID, c.clientDate, err)
 	}
 	return err
 }
@@ -1188,9 +1188,9 @@ func (c *Client) SendDropInventoryItem(index, amount uint16) error {
 	packet := BuildDropInventoryItemPacketForClientDate(index, amount, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ITEM_THROW opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_ITEM_THROW opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_ITEM_THROW failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_ITEM_THROW failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1199,9 +1199,9 @@ func (c *Client) SendItemIdentify(index uint16) error {
 	packet := BuildItemIdentifyPacket(index)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_ITEMIDENTIFY opcode=0x%04X index=%d client_date=%d", ID(packet), index, c.clientDate)
+		glog.Debugf("sent CZ_REQ_ITEMIDENTIFY opcode=0x%04X index=%d client_date=%d", ID(packet), index, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_ITEMIDENTIFY failed opcode=0x%04X len=%d index=%d client_date=%d: %v", ID(packet), len(packet), index, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_ITEMIDENTIFY failed opcode=0x%04X len=%d index=%d client_date=%d: %v", ID(packet), len(packet), index, c.clientDate, err)
 	}
 	return err
 }
@@ -1210,9 +1210,9 @@ func (c *Client) SendItemCompositionList(cardIndex uint16) error {
 	packet := BuildItemCompositionListPacket(cardIndex)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_ITEMCOMPOSITION_LIST opcode=0x%04X card_index=%d client_date=%d", ID(packet), cardIndex, c.clientDate)
+		glog.Debugf("sent CZ_REQ_ITEMCOMPOSITION_LIST opcode=0x%04X card_index=%d client_date=%d", ID(packet), cardIndex, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_ITEMCOMPOSITION_LIST failed opcode=0x%04X len=%d card_index=%d client_date=%d: %v", ID(packet), len(packet), cardIndex, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_ITEMCOMPOSITION_LIST failed opcode=0x%04X len=%d card_index=%d client_date=%d: %v", ID(packet), len(packet), cardIndex, c.clientDate, err)
 	}
 	return err
 }
@@ -1221,9 +1221,9 @@ func (c *Client) SendItemComposition(cardIndex, equipIndex uint16) error {
 	packet := BuildItemCompositionPacket(cardIndex, equipIndex)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_ITEMCOMPOSITION opcode=0x%04X card_index=%d equip_index=%d client_date=%d", ID(packet), cardIndex, equipIndex, c.clientDate)
+		glog.Debugf("sent CZ_REQ_ITEMCOMPOSITION opcode=0x%04X card_index=%d equip_index=%d client_date=%d", ID(packet), cardIndex, equipIndex, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_ITEMCOMPOSITION failed opcode=0x%04X len=%d card_index=%d equip_index=%d client_date=%d: %v", ID(packet), len(packet), cardIndex, equipIndex, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_ITEMCOMPOSITION failed opcode=0x%04X len=%d card_index=%d equip_index=%d client_date=%d: %v", ID(packet), len(packet), cardIndex, equipIndex, c.clientDate, err)
 	}
 	return err
 }
@@ -1232,9 +1232,9 @@ func (c *Client) SendMakingArrow(itemID uint16) error {
 	packet := BuildMakingArrowPacket(itemID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_MAKINGARROW opcode=0x%04X item=%d client_date=%d", ID(packet), itemID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_MAKINGARROW opcode=0x%04X item=%d client_date=%d", ID(packet), itemID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_MAKINGARROW failed opcode=0x%04X len=%d item=%d client_date=%d: %v", ID(packet), len(packet), itemID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_MAKINGARROW failed opcode=0x%04X len=%d item=%d client_date=%d: %v", ID(packet), len(packet), itemID, c.clientDate, err)
 	}
 	return err
 }
@@ -1243,9 +1243,9 @@ func (c *Client) SendWearEquip(index, location uint16) error {
 	packet := BuildWearEquipPacket(index, location)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_WEAR_EQUIP opcode=0x%04X index=%d location=0x%04X client_date=%d", ID(packet), index, location, c.clientDate)
+		glog.Debugf("sent CZ_REQ_WEAR_EQUIP opcode=0x%04X index=%d location=0x%04X client_date=%d", ID(packet), index, location, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_WEAR_EQUIP failed opcode=0x%04X index=%d location=0x%04X client_date=%d: %v", ID(packet), index, location, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_WEAR_EQUIP failed opcode=0x%04X index=%d location=0x%04X client_date=%d: %v", ID(packet), index, location, c.clientDate, err)
 	}
 	return err
 }
@@ -1254,9 +1254,9 @@ func (c *Client) SendTakeoffEquip(index uint16) error {
 	packet := BuildTakeoffEquipPacket(index)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_TAKEOFF_EQUIP opcode=0x%04X index=%d client_date=%d", ID(packet), index, c.clientDate)
+		glog.Debugf("sent CZ_REQ_TAKEOFF_EQUIP opcode=0x%04X index=%d client_date=%d", ID(packet), index, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_TAKEOFF_EQUIP failed opcode=0x%04X index=%d client_date=%d: %v", ID(packet), index, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_TAKEOFF_EQUIP failed opcode=0x%04X index=%d client_date=%d: %v", ID(packet), index, c.clientDate, err)
 	}
 	return err
 }
@@ -1265,9 +1265,9 @@ func (c *Client) SendMoveToStorage(index uint16, amount uint32) error {
 	packet := BuildMoveToStoragePacketForClientDate(index, amount, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MOVE_ITEM_TO_STORAGE opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_MOVE_ITEM_TO_STORAGE opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_MOVE_ITEM_TO_STORAGE failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_MOVE_ITEM_TO_STORAGE failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1276,9 +1276,9 @@ func (c *Client) SendMoveFromStorage(index uint16, amount uint32) error {
 	packet := BuildMoveFromStoragePacketForClientDate(index, amount, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MOVE_ITEM_FROM_STORAGE opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_MOVE_ITEM_FROM_STORAGE opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_MOVE_ITEM_FROM_STORAGE failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_MOVE_ITEM_FROM_STORAGE failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1287,9 +1287,9 @@ func (c *Client) SendCloseStorage() error {
 	packet := BuildCloseStoragePacketForClientDate(c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CLOSE_STORAGE opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_CLOSE_STORAGE opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_CLOSE_STORAGE failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+		glog.Warnf("send CZ_CLOSE_STORAGE failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -1298,9 +1298,9 @@ func (c *Client) SendMoveToCart(index uint16, amount uint32) error {
 	packet := BuildMoveToCartPacket(index, amount)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MOVE_ITEM_TO_CART opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_MOVE_ITEM_TO_CART opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_MOVE_ITEM_TO_CART failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_MOVE_ITEM_TO_CART failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1309,9 +1309,9 @@ func (c *Client) SendMoveFromCart(index uint16, amount uint32) error {
 	packet := BuildMoveFromCartPacket(index, amount)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MOVE_ITEM_FROM_CART opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_MOVE_ITEM_FROM_CART opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_MOVE_ITEM_FROM_CART failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_MOVE_ITEM_FROM_CART failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1320,9 +1320,9 @@ func (c *Client) SendMoveStorageToCart(index uint16, amount uint32) error {
 	packet := BuildMoveStorageToCartPacket(index, amount)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MOVE_ITEM_FROM_STORAGE_TO_CART opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_MOVE_ITEM_FROM_STORAGE_TO_CART opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_MOVE_ITEM_FROM_STORAGE_TO_CART failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_MOVE_ITEM_FROM_STORAGE_TO_CART failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1331,9 +1331,9 @@ func (c *Client) SendMoveCartToStorage(index uint16, amount uint32) error {
 	packet := BuildMoveCartToStoragePacket(index, amount)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MOVE_ITEM_FROM_CART_TO_STORAGE opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_MOVE_ITEM_FROM_CART_TO_STORAGE opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_MOVE_ITEM_FROM_CART_TO_STORAGE failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_MOVE_ITEM_FROM_CART_TO_STORAGE failed opcode=0x%04X len=%d index=%d amount=%d client_date=%d: %v", ID(packet), len(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -1342,9 +1342,9 @@ func (c *Client) SendShopDealSelection(npcID uint32, dealType uint8) error {
 	packet := BuildShopDealSelectionPacket(npcID, dealType)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ACK_SELECT_DEALTYPE opcode=0x%04X npc=%d type=%d client_date=%d", ID(packet), npcID, dealType, c.clientDate)
+		glog.Debugf("sent CZ_ACK_SELECT_DEALTYPE opcode=0x%04X npc=%d type=%d client_date=%d", ID(packet), npcID, dealType, c.clientDate)
 	} else {
-		log.Printf("send CZ_ACK_SELECT_DEALTYPE failed opcode=0x%04X npc=%d type=%d client_date=%d: %v", ID(packet), npcID, dealType, c.clientDate, err)
+		glog.Warnf("send CZ_ACK_SELECT_DEALTYPE failed opcode=0x%04X npc=%d type=%d client_date=%d: %v", ID(packet), npcID, dealType, c.clientDate, err)
 	}
 	return err
 }
@@ -1353,9 +1353,9 @@ func (c *Client) SendShopSellItems(items []SellRequestItem) error {
 	packet := BuildSellItemListPacket(items)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PC_SELL_ITEMLIST opcode=0x%04X count=%d client_date=%d", ID(packet), len(items), c.clientDate)
+		glog.Debugf("sent CZ_PC_SELL_ITEMLIST opcode=0x%04X count=%d client_date=%d", ID(packet), len(items), c.clientDate)
 	} else {
-		log.Printf("send CZ_PC_SELL_ITEMLIST failed opcode=0x%04X count=%d client_date=%d: %v", ID(packet), len(items), c.clientDate, err)
+		glog.Warnf("send CZ_PC_SELL_ITEMLIST failed opcode=0x%04X count=%d client_date=%d: %v", ID(packet), len(items), c.clientDate, err)
 	}
 	return err
 }
@@ -1364,9 +1364,9 @@ func (c *Client) SendShopBuyItems(items []BuyRequestItem) error {
 	packet := BuildBuyItemListPacket(items)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PC_PURCHASE_ITEMLIST opcode=0x%04X count=%d client_date=%d", ID(packet), len(items), c.clientDate)
+		glog.Debugf("sent CZ_PC_PURCHASE_ITEMLIST opcode=0x%04X count=%d client_date=%d", ID(packet), len(items), c.clientDate)
 	} else {
-		log.Printf("send CZ_PC_PURCHASE_ITEMLIST failed opcode=0x%04X count=%d client_date=%d: %v", ID(packet), len(items), c.clientDate, err)
+		glog.Warnf("send CZ_PC_PURCHASE_ITEMLIST failed opcode=0x%04X count=%d client_date=%d: %v", ID(packet), len(items), c.clientDate, err)
 	}
 	return err
 }

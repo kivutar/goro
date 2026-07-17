@@ -1,13 +1,13 @@
 package game
 
 import (
-	"log"
 	"math"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -35,19 +35,19 @@ func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
 		}
 		bot, err := newLuaBot(ctx, m, path)
 		if err != nil {
-			log.Printf("lua script load failed path=%q: %v", path, err)
+			glog.Warnf("lua script load failed path=%q: %v", path, err)
 			m.bot = &luaBot{path: path, disabled: true}
 			return
 		}
 		m.bot = bot
-		log.Printf("lua script loaded path=%q", path)
+		glog.Debugf("lua script loaded path=%q", path)
 	}
 	if m.bot.disabled || now.Before(m.bot.nextTick) {
 		return
 	}
 	m.bot.nextTick = now.Add(botTickInterval)
 	if err := m.bot.tick(); err != nil {
-		log.Printf("lua script tick failed path=%q: %v", m.bot.path, err)
+		glog.Warnf("lua script tick failed path=%q: %v", m.bot.path, err)
 		m.bot.close()
 		m.bot.disabled = true
 	}

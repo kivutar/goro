@@ -3,9 +3,9 @@ package game
 import (
 	"fmt"
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"image"
 	"image/color"
-	"log"
 	"math"
 	"strings"
 	"time"
@@ -70,7 +70,7 @@ func (m *WorldMode) applyFloorItemEntry(ctx client.Context, entry network.FloorI
 		DroppedAt:  time.Now(),
 	}
 	ctx.World.UpsertItem(item)
-	log.Printf("floor item entry id=%d item_id=%d identified=%t amount=%d x=%d y=%d sub=%d,%d falling=%t", item.ID, item.ItemID, item.Identified, item.Amount, item.X, item.Y, item.SubX, item.SubY, item.Falling)
+	glog.Debugf("floor item entry id=%d item_id=%d identified=%t amount=%d x=%d y=%d sub=%d,%d falling=%t", item.ID, item.ItemID, item.Identified, item.Amount, item.X, item.Y, item.SubX, item.SubY, item.Falling)
 }
 
 func (m *WorldMode) applyFloorItemDisappear(ctx client.Context, disappear network.FloorItemDisappear) {
@@ -81,7 +81,7 @@ func (m *WorldMode) applyFloorItemDisappear(ctx client.Context, disappear networ
 	if m.pendingPickup.itemID == disappear.ID {
 		m.pendingPickup = pickupIntent{}
 	}
-	log.Printf("floor item disappear id=%d", disappear.ID)
+	glog.Debugf("floor item disappear id=%d", disappear.ID)
 }
 
 func (m *WorldMode) applyItemPickupAck(ctx client.Context, ack network.ItemPickupAck) {
@@ -99,10 +99,10 @@ func (m *WorldMode) applyItemPickupAck(ctx client.Context, ack network.ItemPicku
 			Refine:     ack.Refine,
 		})
 		m.applyLocalPickupSuccess(ctx)
-		log.Printf("item pickup ack success index=%d item_id=%d amount=%d type=%d location=0x%04X identified=%t", ack.Index, ack.ItemID, ack.Amount, ack.Type, ack.Location, ack.Identified)
+		glog.Debugf("item pickup ack success index=%d item_id=%d amount=%d type=%d location=0x%04X identified=%t", ack.Index, ack.ItemID, ack.Amount, ack.Type, ack.Location, ack.Identified)
 		return
 	}
-	log.Printf("item pickup ack failed index=%d item_id=%d amount=%d result=%d", ack.Index, ack.ItemID, ack.Amount, ack.Result)
+	glog.Warnf("item pickup ack failed index=%d item_id=%d amount=%d result=%d", ack.Index, ack.ItemID, ack.Amount, ack.Result)
 }
 
 func (m *WorldMode) requestPickup(ctx client.Context, item worldstate.FloorItem, source string) {
@@ -117,7 +117,7 @@ func (m *WorldMode) requestPickup(ctx client.Context, item worldstate.FloorItem,
 	}
 	targetX, targetY, ok := pickupApproachCell(ctx, item)
 	if !ok {
-		log.Printf("%s pickup walk blocked item=%d player=%d,%d item=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y)
+		glog.Warnf("%s pickup walk blocked item=%d player=%d,%d item=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y)
 		m.setWalkCooldown(walkRequestCooldown)
 		return
 	}
@@ -125,7 +125,7 @@ func (m *WorldMode) requestPickup(ctx client.Context, item worldstate.FloorItem,
 		itemID:  item.ID,
 		expires: time.Now().Add(8 * time.Second),
 	}
-	log.Printf("%s pickup walk target item=%d player=%d,%d item=%d,%d walk=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y, targetX, targetY)
+	glog.Debugf("%s pickup walk target item=%d player=%d,%d item=%d,%d walk=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y, targetX, targetY)
 	m.requestWalk(ctx, targetX, targetY, source+" pickup")
 }
 
@@ -139,20 +139,20 @@ func (m *WorldMode) updatePendingPickup(ctx client.Context, source string, logOu
 	}
 	now := time.Now()
 	if now.After(m.pendingPickup.expires) {
-		log.Printf("%s pending pickup expired item=%d", source, m.pendingPickup.itemID)
+		glog.Debugf("%s pending pickup expired item=%d", source, m.pendingPickup.itemID)
 		m.pendingPickup = pickupIntent{}
 		return
 	}
 	item, ok := ctx.World.Items[m.pendingPickup.itemID]
 	if !ok {
-		log.Printf("%s pending pickup item vanished id=%d", source, m.pendingPickup.itemID)
+		glog.Debugf("%s pending pickup item vanished id=%d", source, m.pendingPickup.itemID)
 		m.pendingPickup = pickupIntent{}
 		return
 	}
 	playerX, playerY := currentPlayerCell(ctx, now)
 	if !itemWithinPickupRange(playerX, playerY, item.X, item.Y) {
 		if logOutOfRange {
-			log.Printf("%s pending pickup still out of range item=%d player=%d,%d item=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y)
+			glog.Debugf("%s pending pickup still out of range item=%d player=%d,%d item=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y)
 		}
 		return
 	}
@@ -161,7 +161,7 @@ func (m *WorldMode) updatePendingPickup(ctx client.Context, source string, logOu
 		m.pendingPickup.readyAt = readyAt
 	}
 	if logOutOfRange {
-		log.Printf("%s pending pickup scheduled item=%d delay_ms=%d", source, item.ID, maxInt(0, int(m.pendingPickup.readyAt.Sub(now).Milliseconds())))
+		glog.Debugf("%s pending pickup scheduled item=%d delay_ms=%d", source, item.ID, maxInt(0, int(m.pendingPickup.readyAt.Sub(now).Milliseconds())))
 	}
 }
 
@@ -171,7 +171,7 @@ func (m *WorldMode) processPendingPickup(ctx client.Context) {
 	}
 	now := time.Now()
 	if now.After(m.pendingPickup.expires) {
-		log.Printf("pending pickup expired item=%d", m.pendingPickup.itemID)
+		glog.Debugf("pending pickup expired item=%d", m.pendingPickup.itemID)
 		m.pendingPickup = pickupIntent{}
 		return
 	}
@@ -180,13 +180,13 @@ func (m *WorldMode) processPendingPickup(ctx client.Context) {
 	}
 	item, ok := ctx.World.Items[m.pendingPickup.itemID]
 	if !ok {
-		log.Printf("pending pickup item vanished id=%d", m.pendingPickup.itemID)
+		glog.Debugf("pending pickup item vanished id=%d", m.pendingPickup.itemID)
 		m.pendingPickup = pickupIntent{}
 		return
 	}
 	playerX, playerY := currentPlayerCell(ctx, now)
 	if !itemWithinPickupRange(playerX, playerY, item.X, item.Y) {
-		log.Printf("pending pickup became out of range item=%d player=%d,%d item=%d,%d", item.ID, playerX, playerY, item.X, item.Y)
+		glog.Debugf("pending pickup became out of range item=%d player=%d,%d item=%d,%d", item.ID, playerX, playerY, item.X, item.Y)
 		m.pendingPickup.readyAt = time.Time{}
 		m.requestPickup(ctx, item, "pending")
 		return
@@ -211,7 +211,7 @@ func (m *WorldMode) sendPickupRequest(ctx client.Context, item worldstate.FloorI
 		m.pickupReqItemID = item.ID
 		m.setWalkCooldown(walkRequestCooldown)
 	} else {
-		log.Printf("%s pickup request failed item=%d: %v", source, item.ID, err)
+		glog.Warnf("%s pickup request failed item=%d: %v", source, item.ID, err)
 		m.setWalkCooldown(walkErrorCooldown)
 	}
 }
@@ -671,7 +671,7 @@ func (m *WorldMode) itemSpriteView(manager *res.Manager, itemID uint16, identifi
 	resourceName, ok := manager.ItemResourceName(int(itemID), identified)
 	if !ok {
 		m.itemViewMiss[key] = struct{}{}
-		log.Printf("item sprite resource missing item_id=%d identified=%t", itemID, identified)
+		glog.Warnf("item sprite resource missing item_id=%d identified=%t", itemID, identified)
 		return nil
 	}
 	view, status := loadSpriteView(
@@ -683,11 +683,11 @@ func (m *WorldMode) itemSpriteView(manager *res.Manager, itemID uint16, identifi
 	)
 	if view == nil {
 		m.itemViewMiss[key] = struct{}{}
-		log.Printf("item sprite unavailable item_id=%d identified=%t resource=%q: %s", itemID, identified, resourceName, status)
+		glog.Warnf("item sprite unavailable item_id=%d identified=%t resource=%q: %s", itemID, identified, resourceName, status)
 		return nil
 	}
 	m.itemViews[key] = view
-	log.Printf("item sprite resources item_id=%d identified=%t resource=%q %s", itemID, identified, resourceName, status)
+	glog.Debugf("item sprite resources item_id=%d identified=%t resource=%q %s", itemID, identified, resourceName, status)
 	return view
 }
 

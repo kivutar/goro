@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"image/png"
-	"log"
 	"math"
 	"os"
 	"runtime/pprof"
@@ -22,6 +21,7 @@ import (
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/ui/rotheme"
 )
@@ -213,13 +213,13 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	})
 	gg.OnUpdate(func(float64) {
 		if err := r.update(); err != nil {
-			log.Printf("update error: %v", err)
+			glog.Errorf("update error: %v", err)
 			gg.Quit()
 		}
 	})
 	gg.OnDraw(func(ctx *gogpu.Context) {
 		if err := r.draw(ctx); err != nil {
-			log.Printf("draw error: %v", err)
+			glog.Errorf("draw error: %v", err)
 			gg.Quit()
 		}
 	})
@@ -502,16 +502,16 @@ func (r *runner) update() error {
 		if path := r.renderCfg.CPUProfile; path != "" {
 			file, err := os.Create(path)
 			if err != nil {
-				log.Printf("cpu profile start failed: %v", err)
+				glog.Warnf("cpu profile start failed: %v", err)
 			} else if err := pprof.StartCPUProfile(file); err != nil {
-				log.Printf("cpu profile start failed: %v", err)
+				glog.Warnf("cpu profile start failed: %v", err)
 				_ = file.Close()
 			} else {
 				r.cpuProfile = file
-				log.Printf("cpu profile writing %s", path)
+				glog.Infof("cpu profile writing %s", path)
 			}
 		}
-		log.Printf("benchmark start duration=%s warmup=%s vsync=%v", r.duration, r.warmup, r.renderCfg.VSync)
+		glog.Infof("benchmark start duration=%s warmup=%s vsync=%v", r.duration, r.warmup, r.renderCfg.VSync)
 	}
 	if err := r.game.Update(); err != nil {
 		return err
@@ -527,13 +527,13 @@ func (r *runner) update() error {
 	if r.measureStarted.IsZero() && now.Sub(r.started) >= r.warmup {
 		r.measureStarted = now
 		r.measuredFrames = 0
-		log.Printf("benchmark measure start elapsed=%.3fs", now.Sub(r.started).Seconds())
+		glog.Infof("benchmark measure start elapsed=%.3fs", now.Sub(r.started).Seconds())
 	}
 	if now.Sub(r.lastLog) >= time.Second {
 		elapsed := now.Sub(r.started).Seconds()
 		interval := now.Sub(r.lastLog).Seconds()
 		frames := r.frames - r.lastFrame
-		log.Printf("benchmark fps interval=%.1f average=%.1f frames=%d elapsed=%.1fs", float64(frames)/interval, float64(r.frames)/elapsed, r.frames, elapsed)
+		glog.Infof("benchmark fps interval=%.1f average=%.1f frames=%d elapsed=%.1fs", float64(frames)/interval, float64(r.frames)/elapsed, r.frames, elapsed)
 		r.lastLog = now
 		r.lastFrame = r.frames
 	}
@@ -547,7 +547,7 @@ func (r *runner) update() error {
 				measuredFPS = float64(r.measuredFrames) / measuredElapsed
 			}
 		}
-		log.Printf("benchmark result fps=%.1f measured_fps=%.1f frames=%d measured_frames=%d elapsed=%.3fs measured_elapsed=%.3fs", float64(r.frames)/elapsed, measuredFPS, r.frames, r.measuredFrames, elapsed, measuredElapsed)
+		glog.Infof("benchmark result fps=%.1f measured_fps=%.1f frames=%d measured_frames=%d elapsed=%.3fs measured_elapsed=%.3fs", float64(r.frames)/elapsed, measuredFPS, r.frames, r.measuredFrames, elapsed, measuredElapsed)
 		if r.cpuProfile != nil {
 			pprof.StopCPUProfile()
 			_ = r.cpuProfile.Close()
@@ -580,7 +580,7 @@ func (r *runner) applyRuntimeSettings() {
 		r.vsync = vsync
 		r.renderCfg.VSync = vsync
 		if !r.vsyncWarned {
-			log.Printf("runtime vsync changed to %v; current gogpu backend applies vsync at startup", vsync)
+			glog.Debugf("runtime vsync changed to %v; current gogpu backend applies vsync at startup", vsync)
 			r.vsyncWarned = true
 		}
 	}
@@ -611,7 +611,7 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 			return err
 		}
 		r.gpu = gpu
-		log.Printf("render backend=%s surface_format=%s", ctx.Backend(), r.gpu.format)
+		glog.Infof("render backend=%s surface_format=%s", ctx.Backend(), r.gpu.format)
 	}
 	r.screen.BeginFrame()
 	r.screen.SetScreenScale(scaleX, scaleY)
@@ -690,7 +690,7 @@ func (r *runner) saveScreenshot(ctx *gogpu.Context, path string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Printf("screenshot close failed path=%s error=%v", path, err)
+			glog.Warnf("screenshot close failed path=%s error=%v", path, err)
 		}
 	}()
 	if err := png.Encode(file, img); err != nil {

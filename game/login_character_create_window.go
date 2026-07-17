@@ -3,11 +3,11 @@ package game
 import (
 	"fmt"
 	"image"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
@@ -250,7 +250,7 @@ func (m *LoginMode) characterCreatePreviewView(ctx client.Context) *humanoidSpri
 	m.create.previewKey = key
 	if view == nil {
 		m.create.previewFailed = true
-		log.Printf("char create sprite resources hair=%d color=%d sex=%d %s", m.create.hairStyle, m.create.hairColor, ctx.Session.Sex, status)
+		glog.Debugf("char create sprite resources hair=%d color=%d sex=%d %s", m.create.hairStyle, m.create.hairColor, ctx.Session.Sex, status)
 		return nil
 	}
 	m.create.preview = view

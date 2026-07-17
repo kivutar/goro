@@ -2,10 +2,10 @@ package ui
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -158,7 +158,7 @@ func (w *StatsWindow) requestStatIncrease(ctx Context, row statRow) {
 		return
 	}
 	if err := ctx.Network.SendStatusIncrease(row.statusID); err != nil {
-		log.Printf("status increase request status=%d failed: %v", row.statusID, err)
+		glog.Warnf("status increase request status=%d failed: %v", row.statusID, err)
 		return
 	}
 }
@@ -302,14 +302,14 @@ func (w *StatsWindow) ApplyStatusChangeAck(ctx Context, ack network.StatusChange
 		return
 	}
 	if !ack.Success {
-		log.Printf("status increase ack status=%d success=false value=%d", ack.StatusID, ack.Value)
+		glog.Debugf("status increase ack status=%d success=false value=%d", ack.StatusID, ack.Value)
 		return
 	}
 	setSessionStat(ctx.Session, ack.StatusID, ack.Value)
 	if ctx.Session.Stats.Points > 0 {
 		ctx.Session.Stats.Points--
 	}
-	log.Printf("status increase ack status=%d success=true value=%d", ack.StatusID, ack.Value)
+	glog.Debugf("status increase ack status=%d success=true value=%d", ack.StatusID, ack.Value)
 	w.refresh(ctx)
 }
 

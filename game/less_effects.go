@@ -1,9 +1,8 @@
 package game
 
 import (
-	"log"
-
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 )
 
 func sendLessEffectPreference(ctx client.Context) {
@@ -11,6 +10,6 @@ func sendLessEffectPreference(ctx client.Context) {
 		return
 	}
 	if err := ctx.Network.SendLessEffect(true); err != nil {
-		log.Printf("send less effect preference failed: %v", err)
+		glog.Warnf("send less effect preference failed: %v", err)
 	}
 }

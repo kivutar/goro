@@ -2,9 +2,9 @@ package game
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/session"
 )
 
@@ -21,7 +21,7 @@ func (m *WorldMode) updateSkillTextPrompt(ctx client.Context) bool {
 		return true
 	}
 	if m.pendingSkillText.skill.ID != 0 && !m.ui.skillTextPrompt.IsOpen() {
-		log.Printf("skill text prompt canceled skill=%d target=%d,%d", m.pendingSkillText.skill.ID, m.pendingSkillText.x, m.pendingSkillText.y)
+		glog.Debugf("skill text prompt canceled skill=%d target=%d,%d", m.pendingSkillText.skill.ID, m.pendingSkillText.x, m.pendingSkillText.y)
 		m.pendingSkillText = pendingSkillTextTarget{}
 	}
 	return consumed
@@ -35,10 +35,10 @@ func (m *WorldMode) sendPendingSkillText(ctx client.Context, text string) {
 	}
 	if err := m.skills().SendToGroundWithText(ctx, pending.skill, pending.x, pending.y, text, pending.source); err != nil {
 		m.ui.console.AddErrorMessage("%s failed.", skillLabel(pending.skill))
-		log.Printf("skill text send failed skill=%d target=%d,%d: %v", pending.skill.ID, pending.x, pending.y, err)
+		glog.Warnf("skill text send failed skill=%d target=%d,%d: %v", pending.skill.ID, pending.x, pending.y, err)
 		return
 	}
-	log.Printf("skill text sent skill=%d target=%d,%d", pending.skill.ID, pending.x, pending.y)
+	glog.Debugf("skill text sent skill=%d target=%d,%d", pending.skill.ID, pending.x, pending.y)
 }
 
 func skillTextPromptTitle(skill session.Skill) string {

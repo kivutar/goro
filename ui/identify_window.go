@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"image"
-	"log"
 	"sort"
 
 	"github.com/gogpu/ui/core/datatable"
@@ -11,6 +10,7 @@ import (
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -77,7 +77,7 @@ func (w *IdentifyWindow) ApplyAck(ctx Context, ack network.ItemIdentifyAck) {
 		w.Publish(ctx)
 		return
 	}
-	log.Printf("identify failed index=%d", ack.Index)
+	glog.Warnf("identify failed index=%d", ack.Index)
 }
 
 func (w *IdentifyWindow) Update(ctx Context) bool {
@@ -263,20 +263,20 @@ func (w *IdentifyWindow) identifySelected(ctx Context) {
 
 func (w *IdentifyWindow) identify(ctx Context, item session.InventoryItem) {
 	if ctx.Network == nil {
-		log.Printf("identify failed: not connected")
+		glog.Warnf("identify failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendItemIdentify(item.Index); err != nil {
-		log.Printf("identify failed: %v", err)
+		glog.Warnf("identify failed: %v", err)
 		return
 	}
-	log.Printf("identify requested index=%d item=%d", item.Index, item.ItemID)
+	glog.Debugf("identify requested index=%d item=%d", item.Index, item.ItemID)
 }
 
 func (w *IdentifyWindow) cancel(ctx Context) {
 	if ctx.Network != nil {
 		if err := ctx.Network.SendItemIdentify(identifyCancelIndex); err != nil {
-			log.Printf("identify cancel failed: %v", err)
+			glog.Warnf("identify cancel failed: %v", err)
 			return
 		}
 	}

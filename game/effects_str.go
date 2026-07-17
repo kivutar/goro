@@ -3,12 +3,12 @@ package game
 import (
 	"fmt"
 	"image/color"
-	"log"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 )
@@ -96,14 +96,14 @@ func (m *WorldMode) loadWorldEffectSTR(manager *res.Manager, strFile, texturePat
 		str, err := res.ParseSTR(data, texturePath)
 		if err != nil {
 			m.strEffectMiss[key] = struct{}{}
-			log.Printf("str effect parse failed path=%s: %v", path, err)
+			glog.Warnf("str effect parse failed path=%s: %v", path, err)
 			return nil
 		}
 		m.strEffects[key] = str
 		return str
 	}
 	if attempted {
-		log.Printf("str effect missing file=%s", strFile)
+		glog.Warnf("str effect missing file=%s", strFile)
 	}
 	return nil
 }
@@ -130,7 +130,7 @@ func (m *WorldMode) strEffectTexture(manager *res.Manager, path string) *render.
 	img, _, err := res.LoadImageExact(manager, candidates)
 	if err != nil {
 		m.textureMiss[key] = struct{}{}
-		log.Printf("str effect texture missing path=%s: %v", path, err)
+		glog.Warnf("str effect texture missing path=%s: %v", path, err)
 		return nil
 	}
 	texture := render.NewImageFromImage(res.ApplyEffectTransparency(img))

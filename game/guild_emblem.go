@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"log"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -36,7 +36,7 @@ func (m *WorldMode) requestActorGuildEmblem(ctx client.Context, guildID, version
 		return
 	}
 	if err := ctx.Network.SendGuildEmblemRequest(guildID); err != nil {
-		log.Printf("request guild emblem failed guild=%d version=%d: %v", guildID, version, err)
+		glog.Warnf("request guild emblem failed guild=%d version=%d: %v", guildID, version, err)
 		return
 	}
 	emblem.requestedVersion = version
@@ -46,7 +46,7 @@ func (m *WorldMode) requestActorGuildEmblem(ctx client.Context, guildID, version
 func (m *WorldMode) applyGuildEmblemImage(ctx client.Context, packet network.GuildEmblemImage) {
 	image, err := decodeGuildEmblemImage(packet.Data)
 	if err != nil {
-		log.Printf("decode guild emblem failed guild=%d version=%d: %v", packet.GuildID, packet.EmblemVersion, err)
+		glog.Warnf("decode guild emblem failed guild=%d version=%d: %v", packet.GuildID, packet.EmblemVersion, err)
 		return
 	}
 	if m.guildEmblems == nil {
@@ -57,7 +57,7 @@ func (m *WorldMode) applyGuildEmblemImage(ctx client.Context, packet network.Gui
 		requestedVersion: packet.EmblemVersion,
 		image:            render.NewImageFromImage(image),
 	}
-	log.Printf("guild emblem loaded guild=%d version=%d size=%dx%d", packet.GuildID, packet.EmblemVersion, image.Bounds().Dx(), image.Bounds().Dy())
+	glog.Debugf("guild emblem loaded guild=%d version=%d size=%dx%d", packet.GuildID, packet.EmblemVersion, image.Bounds().Dx(), image.Bounds().Dy())
 }
 
 func decodeGuildEmblemImage(data []byte) (image.Image, error) {

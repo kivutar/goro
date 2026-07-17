@@ -2,8 +2,8 @@ package game
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
-	"log"
 	"strings"
 	"time"
 
@@ -17,22 +17,22 @@ func (m *WorldMode) openFriendRequest(ctx client.Context, request network.Friend
 	if name == "" {
 		name = "Someone"
 	}
-	log.Printf("friend request aid=%d gid=%d name=%q", request.AccountID, request.CharID, request.Name)
+	glog.Debugf("friend request aid=%d gid=%d name=%q", request.AccountID, request.CharID, request.Name)
 	m.ui.friendRequest.Open(ctx, "Friend Request", fmt.Sprintf("%s wants to be friends with you.", name), func() {
 		if ctx.Network == nil {
-			log.Printf("friend request accept failed: not connected")
+			glog.Warnf("friend request accept failed: not connected")
 			return
 		}
 		if err := ctx.Network.SendFriendRequestAck(request.AccountID, request.CharID, true); err != nil {
-			log.Printf("friend request accept failed aid=%d gid=%d: %v", request.AccountID, request.CharID, err)
+			glog.Warnf("friend request accept failed aid=%d gid=%d: %v", request.AccountID, request.CharID, err)
 		}
 	}, func() {
 		if ctx.Network == nil {
-			log.Printf("friend request reject failed: not connected")
+			glog.Warnf("friend request reject failed: not connected")
 			return
 		}
 		if err := ctx.Network.SendFriendRequestAck(request.AccountID, request.CharID, false); err != nil {
-			log.Printf("friend request reject failed aid=%d gid=%d: %v", request.AccountID, request.CharID, err)
+			glog.Warnf("friend request reject failed aid=%d gid=%d: %v", request.AccountID, request.CharID, err)
 		}
 	})
 }
@@ -76,11 +76,11 @@ func (m *WorldMode) sendAddFriend(ctx client.Context, name string) {
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("add friend failed name=%q: not connected", name)
+		glog.Warnf("add friend failed name=%q: not connected", name)
 		return
 	}
 	if err := ctx.Network.SendAddFriend(name); err != nil {
-		log.Printf("add friend failed name=%q: %v", name, err)
+		glog.Warnf("add friend failed name=%q: %v", name, err)
 	}
 }
 
@@ -96,7 +96,7 @@ func (m *WorldMode) openDeleteFriendConfirm(ctx client.Context, friend session.F
 		}
 		if err := ctx.Network.SendDeleteFriend(friend.AccountID, friend.CharID); err != nil {
 			m.ui.console.AddErrorMessage("Delete friend failed.")
-			log.Printf("delete friend failed aid=%d gid=%d name=%q: %v", friend.AccountID, friend.CharID, friend.Name, err)
+			glog.Warnf("delete friend failed aid=%d gid=%d name=%q: %v", friend.AccountID, friend.CharID, friend.Name, err)
 			return
 		}
 		m.ui.console.AddSystemMessage("Delete friend request sent for %s.", name)
@@ -138,7 +138,7 @@ func applyFriendsList(ctx client.Context, friends []network.Friend) {
 		}
 		ctx.Session.Friends.List = append(ctx.Session.Friends.List, next)
 	}
-	log.Printf("friend list received count=%d", len(ctx.Session.Friends.List))
+	glog.Debugf("friend list received count=%d", len(ctx.Session.Friends.List))
 }
 
 func applyFriendState(ctx client.Context, state network.FriendState) {
@@ -154,7 +154,7 @@ func applyFriendState(ctx client.Context, state network.FriendState) {
 		if state.Name != "" {
 			friend.Name = state.Name
 		}
-		log.Printf("friend state aid=%d gid=%d name=%q state=%d online=%t", friend.AccountID, friend.CharID, friend.Name, friend.State, friend.Online())
+		glog.Debugf("friend state aid=%d gid=%d name=%q state=%d online=%t", friend.AccountID, friend.CharID, friend.Name, friend.State, friend.Online())
 		return
 	}
 	ctx.Session.Friends.List = append(ctx.Session.Friends.List, session.Friend{
@@ -163,7 +163,7 @@ func applyFriendState(ctx client.Context, state network.FriendState) {
 		Name:      state.Name,
 		State:     state.State,
 	})
-	log.Printf("friend state aid=%d gid=%d name=%q state=%d online=%t", state.AccountID, state.CharID, state.Name, state.State, state.State == 0)
+	glog.Debugf("friend state aid=%d gid=%d name=%q state=%d online=%t", state.AccountID, state.CharID, state.Name, state.State, state.State == 0)
 }
 
 func applyFriendAddResult(ctx client.Context, result network.FriendAddResult) {
@@ -176,7 +176,7 @@ func applyFriendAddResult(ctx client.Context, result network.FriendAddResult) {
 		Name:      result.Name,
 		State:     0,
 	})
-	log.Printf("friend added aid=%d gid=%d name=%q", result.AccountID, result.CharID, result.Name)
+	glog.Debugf("friend added aid=%d gid=%d name=%q", result.AccountID, result.CharID, result.Name)
 }
 
 func applyFriendDelete(ctx client.Context, deleted network.FriendDelete) (session.Friend, bool) {
@@ -189,10 +189,10 @@ func applyFriendDelete(ctx client.Context, deleted network.FriendDelete) (sessio
 			continue
 		}
 		ctx.Session.Friends.List = append(ctx.Session.Friends.List[:i], ctx.Session.Friends.List[i+1:]...)
-		log.Printf("friend deleted aid=%d gid=%d name=%q", friend.AccountID, friend.CharID, friend.Name)
+		glog.Debugf("friend deleted aid=%d gid=%d name=%q", friend.AccountID, friend.CharID, friend.Name)
 		return friend, true
 	}
-	log.Printf("friend delete not found aid=%d gid=%d", deleted.AccountID, deleted.CharID)
+	glog.Warnf("friend delete not found aid=%d gid=%d", deleted.AccountID, deleted.CharID)
 	return session.Friend{}, false
 }
 

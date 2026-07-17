@@ -2,10 +2,10 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 )
@@ -69,7 +69,7 @@ func applyParameterChange(ctx client.Context, change network.ParameterChange) {
 	case network.StatusHP, network.StatusMaxHP:
 		syncLocalPartyVitals(ctx)
 	}
-	log.Printf("parameter change var=%d value=%d hp=%d/%d sp=%d/%d base_lv=%d job_lv=%d base_exp=%d/%d job_exp=%d/%d zeny=%d weight=%d/%d",
+	glog.Debugf("parameter change var=%d value=%d hp=%d/%d sp=%d/%d base_lv=%d job_lv=%d base_exp=%d/%d job_exp=%d/%d zeny=%d weight=%d/%d",
 		change.VarID,
 		change.Value,
 		ctx.Session.Vitals.HP,

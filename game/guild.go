@@ -2,10 +2,10 @@ package game
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 )
 
@@ -15,7 +15,7 @@ func (m *WorldMode) sendGuildInvite(ctx client.Context, actorID uint32, name str
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("guild invite failed target=%d name=%q: not connected", actorID, name)
+		glog.Warnf("guild invite failed target=%d name=%q: not connected", actorID, name)
 		m.ui.console.AddErrorMessage("Guild invitation failed: not connected.")
 		return
 	}
@@ -25,7 +25,7 @@ func (m *WorldMode) sendGuildInvite(ctx client.Context, actorID uint32, name str
 		charID = ctx.Session.CharID
 	}
 	if err := ctx.Network.SendGuildInvite(actorID, accountID, charID); err != nil {
-		log.Printf("guild invite failed target=%d name=%q: %v", actorID, name, err)
+		glog.Warnf("guild invite failed target=%d name=%q: %v", actorID, name, err)
 		m.ui.console.AddErrorMessage("Guild invitation failed.")
 		return
 	}
@@ -37,21 +37,21 @@ func (m *WorldMode) openGuildInviteRequest(ctx client.Context, request network.G
 	rawName := strings.TrimSpace(request.GuildName)
 	m.ui.guildRequest.Open(ctx, "Guild Invitation", fmt.Sprintf("Would you like to join %s?", name), func() {
 		if ctx.Network == nil {
-			log.Printf("guild invite accept failed: not connected")
+			glog.Warnf("guild invite accept failed: not connected")
 			return
 		}
 		if err := ctx.Network.SendGuildInviteReply(request.GuildID, true); err != nil {
-			log.Printf("guild invite accept failed guild=%d name=%q: %v", request.GuildID, request.GuildName, err)
+			glog.Warnf("guild invite accept failed guild=%d name=%q: %v", request.GuildID, request.GuildName, err)
 			return
 		}
 		applyLocalGuildName(ctx, rawName)
 	}, func() {
 		if ctx.Network == nil {
-			log.Printf("guild invite reject failed: not connected")
+			glog.Warnf("guild invite reject failed: not connected")
 			return
 		}
 		if err := ctx.Network.SendGuildInviteReply(request.GuildID, false); err != nil {
-			log.Printf("guild invite reject failed guild=%d name=%q: %v", request.GuildID, request.GuildName, err)
+			glog.Warnf("guild invite reject failed guild=%d name=%q: %v", request.GuildID, request.GuildName, err)
 		}
 	})
 }

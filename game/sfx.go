@@ -1,13 +1,13 @@
 package game
 
 import (
-	"log"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/res"
 	worldstate "github.com/kivutar/goro/world"
 )
@@ -165,14 +165,14 @@ func (m *WorldMode) playSFXFirstVolume(ctx client.Context, volume float64, paths
 		source, err := ctx.Audio.PlaySFXVolume(path, volume)
 		if err == nil {
 			if source != "" {
-				log.Printf("sfx playing path=%s source=%s", path, source)
+				glog.Debugf("sfx playing path=%s source=%s", path, source)
 			}
 			return
 		}
 		lastErr = err
 	}
 	if lastErr != nil {
-		log.Printf("sfx failed paths=%v: %v", paths, lastErr)
+		glog.Warnf("sfx failed paths=%v: %v", paths, lastErr)
 	}
 }
 

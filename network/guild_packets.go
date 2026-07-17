@@ -5,7 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -223,9 +223,9 @@ func (c *Client) SendCreateGuild(charID uint32, name string) error {
 	packet := BuildCreateGuildPacket(charID, name)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_MAKE_GUILD opcode=0x%04X char_id=%d name=%q client_date=%d", ID(packet), charID, name, c.clientDate)
+		glog.Debugf("sent CZ_REQ_MAKE_GUILD opcode=0x%04X char_id=%d name=%q client_date=%d", ID(packet), charID, name, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_MAKE_GUILD failed opcode=0x%04X len=%d char_id=%d name=%q client_date=%d: %v", ID(packet), len(packet), charID, name, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_MAKE_GUILD failed opcode=0x%04X len=%d char_id=%d name=%q client_date=%d: %v", ID(packet), len(packet), charID, name, c.clientDate, err)
 	}
 	return err
 }
@@ -234,9 +234,9 @@ func (c *Client) SendGuildInvite(targetAID, inviterAID, inviterCharID uint32) er
 	packet := BuildRequestGuildInvitePacket(targetAID, inviterAID, inviterCharID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_JOIN_GUILD opcode=0x%04X target=%d inviter_aid=%d inviter_char=%d client_date=%d", ID(packet), targetAID, inviterAID, inviterCharID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_JOIN_GUILD opcode=0x%04X target=%d inviter_aid=%d inviter_char=%d client_date=%d", ID(packet), targetAID, inviterAID, inviterCharID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_JOIN_GUILD failed opcode=0x%04X len=%d target=%d inviter_aid=%d inviter_char=%d client_date=%d: %v", ID(packet), len(packet), targetAID, inviterAID, inviterCharID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_JOIN_GUILD failed opcode=0x%04X len=%d target=%d inviter_aid=%d inviter_char=%d client_date=%d: %v", ID(packet), len(packet), targetAID, inviterAID, inviterCharID, c.clientDate, err)
 	}
 	return err
 }
@@ -245,9 +245,9 @@ func (c *Client) SendGuildInviteReply(guildID uint32, accept bool) error {
 	packet := BuildGuildInviteReplyPacket(guildID, accept)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_JOIN_GUILD opcode=0x%04X guild_id=%d accept=%t client_date=%d", ID(packet), guildID, accept, c.clientDate)
+		glog.Debugf("sent CZ_JOIN_GUILD opcode=0x%04X guild_id=%d accept=%t client_date=%d", ID(packet), guildID, accept, c.clientDate)
 	} else {
-		log.Printf("send CZ_JOIN_GUILD failed opcode=0x%04X len=%d guild_id=%d accept=%t client_date=%d: %v", ID(packet), len(packet), guildID, accept, c.clientDate, err)
+		glog.Warnf("send CZ_JOIN_GUILD failed opcode=0x%04X len=%d guild_id=%d accept=%t client_date=%d: %v", ID(packet), len(packet), guildID, accept, c.clientDate, err)
 	}
 	return err
 }
@@ -256,9 +256,9 @@ func (c *Client) SendGuildEmblemRequest(guildID uint32) error {
 	packet := BuildGuildEmblemRequestPacket(guildID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_GUILD_EMBLEM_IMG opcode=0x%04X guild_id=%d client_date=%d", ID(packet), guildID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_GUILD_EMBLEM_IMG opcode=0x%04X guild_id=%d client_date=%d", ID(packet), guildID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_GUILD_EMBLEM_IMG failed opcode=0x%04X len=%d guild_id=%d client_date=%d: %v", ID(packet), len(packet), guildID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_GUILD_EMBLEM_IMG failed opcode=0x%04X len=%d guild_id=%d client_date=%d: %v", ID(packet), len(packet), guildID, c.clientDate, err)
 	}
 	return err
 }
@@ -270,9 +270,9 @@ func (c *Client) SendGuildEmblem(bmp []byte) error {
 	}
 	err = c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REGISTER_GUILD_EMBLEM_IMG opcode=0x%04X bytes=%d client_date=%d", ID(packet), len(bmp), c.clientDate)
+		glog.Debugf("sent CZ_REGISTER_GUILD_EMBLEM_IMG opcode=0x%04X bytes=%d client_date=%d", ID(packet), len(bmp), c.clientDate)
 	} else {
-		log.Printf("send CZ_REGISTER_GUILD_EMBLEM_IMG failed opcode=0x%04X len=%d bytes=%d client_date=%d: %v", ID(packet), len(packet), len(bmp), c.clientDate, err)
+		glog.Warnf("send CZ_REGISTER_GUILD_EMBLEM_IMG failed opcode=0x%04X len=%d bytes=%d client_date=%d: %v", ID(packet), len(packet), len(bmp), c.clientDate, err)
 	}
 	return err
 }

@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -40,9 +40,9 @@ func (c *Client) SendEmotion(emotionType uint8) error {
 	packet := BuildEmotionPacket(emotionType)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_EMOTION opcode=0x%04X type=%d client_date=%d", ID(packet), emotionType, c.clientDate)
+		glog.Debugf("sent CZ_REQ_EMOTION opcode=0x%04X type=%d client_date=%d", ID(packet), emotionType, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_EMOTION failed opcode=0x%04X type=%d client_date=%d: %v", ID(packet), emotionType, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_EMOTION failed opcode=0x%04X type=%d client_date=%d: %v", ID(packet), emotionType, c.clientDate, err)
 	}
 	return err
 }

@@ -1,8 +1,8 @@
 package game
 
 import (
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
-	"log"
 	"math"
 	"time"
 
@@ -108,11 +108,11 @@ func (m *WorldMode) requestWalk(ctx client.Context, targetX, targetY int, source
 		return
 	}
 	playerX, playerY := currentPlayerCell(ctx, time.Now())
-	log.Printf("%s walk request from=%d,%d to=%d,%d", source, playerX, playerY, targetX, targetY)
+	glog.Debugf("%s walk request from=%d,%d to=%d,%d", source, playerX, playerY, targetX, targetY)
 	if err := ctx.Network.SendWalkToXY(targetX, targetY); err == nil {
 		m.setWalkCooldown(walkRequestCooldown)
 	} else {
-		log.Printf("%s walk request failed from=%d,%d to=%d,%d: %v", source, playerX, playerY, targetX, targetY, err)
+		glog.Warnf("%s walk request failed from=%d,%d to=%d,%d: %v", source, playerX, playerY, targetX, targetY, err)
 		m.setWalkCooldown(walkErrorCooldown)
 	}
 }
@@ -138,9 +138,9 @@ func (m *WorldMode) requestChangeDirection(ctx client.Context, targetX, targetY 
 	if !ok {
 		return
 	}
-	log.Printf("%s change direction request player=%d,%d target=%d,%d head_dir=%d dir=%d", source, playerX, playerY, targetX, targetY, headDir, bodyDir)
+	glog.Debugf("%s change direction request player=%d,%d target=%d,%d head_dir=%d dir=%d", source, playerX, playerY, targetX, targetY, headDir, bodyDir)
 	if err := ctx.Network.SendChangeDirection(headDir, bodyDir); err != nil {
-		log.Printf("%s change direction failed target=%d,%d head_dir=%d dir=%d: %v", source, targetX, targetY, headDir, bodyDir, err)
+		glog.Warnf("%s change direction failed target=%d,%d head_dir=%d dir=%d: %v", source, targetX, targetY, headDir, bodyDir, err)
 		m.setWalkCooldown(walkErrorCooldown)
 		return
 	}

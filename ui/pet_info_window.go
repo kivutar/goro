@@ -2,12 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -153,7 +153,7 @@ func (w *PetInfoWindow) rename(ctx Context) {
 		return
 	}
 	if err := ctx.Network.SendRenamePet(name); err != nil {
-		log.Printf("pet rename failed: %v", err)
+		glog.Warnf("pet rename failed: %v", err)
 		return
 	}
 }

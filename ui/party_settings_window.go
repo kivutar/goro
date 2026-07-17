@@ -1,13 +1,13 @@
 package ui
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/gogpu/ui/core/checkbox"
 	"github.com/gogpu/ui/core/radio"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -104,10 +104,10 @@ func (w *PartySettingsWindow) apply(ctx Context) {
 	}
 	if ctx.Network != nil {
 		if err := ctx.Network.SendPartyOption(w.expShare); err != nil {
-			log.Printf("party settings failed: %v", err)
+			glog.Warnf("party settings failed: %v", err)
 		}
 		if err := ctx.Network.SendPartyInviteConfig(w.refuseInvites); err != nil {
-			log.Printf("party invite settings failed: %v", err)
+			glog.Warnf("party invite settings failed: %v", err)
 		}
 	}
 	w.Window.Close()

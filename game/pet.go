@@ -2,12 +2,12 @@ package game
 
 import (
 	"fmt"
-	"log"
 	"math/rand/v2"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
@@ -101,7 +101,7 @@ func (m *WorldMode) startPetCapture(ctx client.Context) {
 	m.pendingSkillText = pendingSkillTextTarget{}
 	m.pendingPetCapture = petCaptureState{active: true, started: time.Now()}
 	m.ui.console.AddSystemMessage("Select a monster to capture.")
-	log.Printf("pet capture target pending")
+	glog.Debugf("pet capture target pending")
 }
 
 func (m *WorldMode) cancelPetCapture(source string) {
@@ -109,7 +109,7 @@ func (m *WorldMode) cancelPetCapture(source string) {
 		return
 	}
 	m.pendingPetCapture = petCaptureState{}
-	log.Printf("pet capture canceled source=%s", source)
+	glog.Debugf("pet capture canceled source=%s", source)
 }
 
 func (m *WorldMode) cancelPetCaptureFromInput(ctx client.Context) bool {
@@ -131,11 +131,11 @@ func (m *WorldMode) handlePetCaptureClick(ctx client.Context, projection scenePr
 	actor, ok := clickedSkillTarget(ctx, projection, skill, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorDeaths)
 	if !ok {
 		if x, y, groundOK := clickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); groundOK {
-			log.Printf("pet capture canceled by ground click mouse=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, x, y)
+			glog.Debugf("pet capture canceled by ground click mouse=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, x, y)
 			m.cancelPetCapture("ground-click")
 			return true
 		}
-		log.Printf("pet capture target miss mouse=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY)
+		glog.Debugf("pet capture target miss mouse=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY)
 		return true
 	}
 	if ctx.Network == nil {
@@ -144,7 +144,7 @@ func (m *WorldMode) handlePetCaptureClick(ctx client.Context, projection scenePr
 	}
 	m.pendingPetCapture = petCaptureState{}
 	m.openPetSlotMachine(ctx, actor.ID)
-	log.Printf("pet capture target selected target=%d name=%q job=%d object_type=%d", actor.ID, actor.Name, actor.Job, actor.ObjectType)
+	glog.Debugf("pet capture target selected target=%d name=%q job=%d object_type=%d", actor.ID, actor.Name, actor.Job, actor.ObjectType)
 	return true
 }
 
@@ -156,11 +156,11 @@ func (m *WorldMode) applyPetCaptureResult(ctx client.Context, result network.Pet
 	} else {
 		m.ui.console.AddErrorMessage("Pet capture failed.")
 	}
-	log.Printf("pet capture result success=%t", result.Success)
+	glog.Debugf("pet capture result success=%t", result.Success)
 }
 
 func (m *WorldMode) applyPetEggList(ctx client.Context, list network.PetEggList) {
-	log.Printf("pet egg list indexes=%v", list.Indexes)
+	glog.Debugf("pet egg list indexes=%v", list.Indexes)
 	if len(list.Indexes) == 0 {
 		m.ui.console.AddErrorMessage("No pet eggs available.")
 		return
@@ -169,7 +169,7 @@ func (m *WorldMode) applyPetEggList(ctx client.Context, list network.PetEggList)
 }
 
 func (m *WorldMode) applyPetProperty(ctx client.Context, property network.PetProperty) {
-	log.Printf("pet property name=%q level=%d fullness=%d relationship=%d accessory=%d job=%d modified=%t", property.Name, property.Level, property.Fullness, property.Relationship, property.AccessoryID, property.Job, property.Modified)
+	glog.Debugf("pet property name=%q level=%d fullness=%d relationship=%d accessory=%d job=%d modified=%t", property.Name, property.Level, property.Fullness, property.Relationship, property.AccessoryID, property.Job, property.Modified)
 	if !m.hasPetProperty {
 		m.petOldFullness = property.Fullness
 	} else {
@@ -197,11 +197,11 @@ func (m *WorldMode) applyPetFeedResult(ctx client.Context, result network.PetFee
 	} else {
 		m.ui.console.AddErrorMessage("Failed to feed pet with %s.", name)
 	}
-	log.Printf("pet feed result success=%t item=%d", result.Success, result.ItemID)
+	glog.Debugf("pet feed result success=%t item=%d", result.Success, result.ItemID)
 }
 
 func (m *WorldMode) applyPetStateChange(ctx client.Context, change network.PetStateChange) {
-	log.Printf("pet state type=%d id=%d data=%d", change.Type, change.ID, change.Data)
+	glog.Debugf("pet state type=%d id=%d data=%d", change.Type, change.ID, change.Data)
 	switch change.Type {
 	case petStateInit:
 		m.petID = change.ID
@@ -240,20 +240,20 @@ func (m *WorldMode) applyPetAction(ctx client.Context, action network.PetAction)
 	if action.Data < 5000 {
 		emotionType := uint8(action.Data / 10)
 		m.applyEmotionNotify(ctx, network.EmotionNotify{GID: action.ID, Type: emotionType})
-		log.Printf("pet emotion actor=%d data=%d type=%d", action.ID, action.Data, emotionType)
+		glog.Debugf("pet emotion actor=%d data=%d type=%d", action.ID, action.Data, emotionType)
 		return
 	}
 	if ctx.Resources == nil {
-		log.Printf("pet talk actor=%d data=%d ignored=no_resources", action.ID, action.Data)
+		glog.Debugf("pet talk actor=%d data=%d ignored=no_resources", action.ID, action.Data)
 		return
 	}
 	text, ok := ctx.Resources.PetTalk(action.Data)
 	if !ok {
-		log.Printf("pet talk actor=%d data=%d ignored=missing_text", action.ID, action.Data)
+		glog.Debugf("pet talk actor=%d data=%d ignored=missing_text", action.ID, action.Data)
 		return
 	}
 	m.applyPetTalk(ctx, action.ID, text, time.Now())
-	log.Printf("pet talk actor=%d data=%d text=%q", action.ID, action.Data, text)
+	glog.Debugf("pet talk actor=%d data=%d text=%q", action.ID, action.Data, text)
 }
 
 func (m *WorldMode) applyPetTalk(ctx client.Context, id uint32, text string, now time.Time) {
@@ -305,10 +305,10 @@ func (m *WorldMode) sendPetTalk(ctx client.Context, action int) bool {
 	}
 	data := petTalkNumber(job, action, petHungryState(int(m.petOldFullness)))
 	if err := ctx.Network.SendPetAct(data); err != nil {
-		log.Printf("send pet talk failed action=%d data=%d: %v", action, data, err)
+		glog.Warnf("send pet talk failed action=%d data=%d: %v", action, data, err)
 		return false
 	}
-	log.Printf("pet talk requested action=%d data=%d", action, data)
+	glog.Debugf("pet talk requested action=%d data=%d", action, data)
 	return true
 }
 
@@ -322,10 +322,10 @@ func (m *WorldMode) sendPetFeedEmotion(ctx client.Context) bool {
 	}
 	data := uint32(emotion*10 + 2)
 	if err := ctx.Network.SendPetAct(data); err != nil {
-		log.Printf("send pet feed emotion failed emotion=%d data=%d: %v", emotion, data, err)
+		glog.Warnf("send pet feed emotion failed emotion=%d data=%d: %v", emotion, data, err)
 		return false
 	}
-	log.Printf("pet feed emotion requested emotion=%d data=%d", emotion, data)
+	glog.Debugf("pet feed emotion requested emotion=%d data=%d", emotion, data)
 	return true
 }
 
@@ -459,7 +459,7 @@ func (m *WorldMode) openPetContextFromInput(ctx client.Context, now time.Time) b
 	if !ok {
 		return false
 	}
-	log.Printf("pet context target id=%d name=%q job=%d", actor.ID, actor.Name, actor.Job)
+	glog.Debugf("pet context target id=%d name=%q job=%d", actor.ID, actor.Name, actor.Job)
 	m.ui.petContext.Open(ctx, ctx.Input.MouseX, ctx.Input.MouseY)
 	return true
 }
@@ -501,7 +501,7 @@ func (m *WorldMode) sendPetCommand(ctx client.Context, command uint8) {
 	}
 	if err := ctx.Network.SendPetCommand(command); err != nil {
 		m.ui.console.AddErrorMessage("Pet command failed.")
-		log.Printf("pet command failed command=%d: %v", command, err)
+		glog.Warnf("pet command failed command=%d: %v", command, err)
 	}
 }
 

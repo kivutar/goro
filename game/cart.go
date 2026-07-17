@@ -2,11 +2,11 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -160,7 +160,7 @@ func (m *WorldMode) applyPushCartStatus(ctx client.Context, change network.Statu
 	if change.ActorID == 0 || isLocalActor(ctx, change.ActorID) {
 		setActorPushCartStatus(&ctx.World.Player, change.Active, cartNum)
 		refreshLocalPlayerMoveSpeed(ctx)
-		log.Printf("actor cart status local actor=%d active=%t cart=%d", change.ActorID, change.Active, ctx.World.Player.CartNum)
+		glog.Debugf("actor cart status local actor=%d active=%t cart=%d", change.ActorID, change.Active, ctx.World.Player.CartNum)
 		return true
 	}
 	actor, ok := ctx.World.Actors[change.ActorID]
@@ -169,7 +169,7 @@ func (m *WorldMode) applyPushCartStatus(ctx client.Context, change network.Statu
 	}
 	setActorPushCartStatus(&actor, change.Active, cartNum)
 	upsertActor(ctx, actor)
-	log.Printf("actor cart status actor=%d active=%t cart=%d", change.ActorID, change.Active, actor.CartNum)
+	glog.Debugf("actor cart status actor=%d active=%t cart=%d", change.ActorID, change.Active, actor.CartNum)
 	return true
 }
 
@@ -198,12 +198,12 @@ func (m *WorldMode) cartSpriteView(ctx client.Context, cartNum int) *spriteView 
 	view, status := loadCartSpriteView(ctx.Resources, cartNum)
 	if view == nil {
 		m.cartViewMiss[cartNum] = struct{}{}
-		log.Printf("cart sprite unavailable cart=%d: %s", cartNum, status)
+		glog.Warnf("cart sprite unavailable cart=%d: %s", cartNum, status)
 		return nil
 	}
 	m.cartViews[cartNum] = view
 	if status != "" {
-		log.Printf("cart sprite resources cart=%d %s", cartNum, status)
+		glog.Debugf("cart sprite resources cart=%d %s", cartNum, status)
 	}
 	return view
 }

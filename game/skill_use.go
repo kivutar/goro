@@ -2,8 +2,8 @@ package game
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
-	"log"
 	"math"
 	"time"
 
@@ -118,7 +118,7 @@ func (c skillController) Use(ctx client.Context, skill session.Skill, source str
 			}
 		}
 		c.mode.ui.changeCartWindow.Open(ctx)
-		log.Printf("%s skill opens change cart selector skill=%d", source, skill.ID)
+		glog.Debugf("%s skill opens change cart selector skill=%d", source, skill.ID)
 		return nil
 	}
 	if isSelfTargetSkill(skill) {
@@ -130,7 +130,7 @@ func (c skillController) Use(ctx client.Context, skill session.Skill, source str
 	}
 	if skill.Range > 0 || isGroundTargetSkill(skill) {
 		c.mode.pendingSkill = pendingSkillTarget{skill: skill, maxLevel: maxInt(1, skill.Level), started: time.Now()}
-		log.Printf("%s skill target pending skill=%d level=%d range=%d", source, skill.ID, skill.Level, skill.Range)
+		glog.Debugf("%s skill target pending skill=%d level=%d range=%d", source, skill.ID, skill.Level, skill.Range)
 		return nil
 	}
 	target := localSkillTarget(ctx)
@@ -151,7 +151,7 @@ func (c skillController) SendToID(ctx client.Context, skill session.Skill, targe
 		return fmt.Errorf("missing skill target")
 	}
 	level := uint16(maxInt(1, skill.Level))
-	log.Printf("%s skill use skill=%d level=%d target=%d", source, skill.ID, level, target)
+	glog.Debugf("%s skill use skill=%d level=%d target=%d", source, skill.ID, level, target)
 	if err := ctx.Network.SendUseSkillToID(skill.ID, level, target); err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (c skillController) SendToGround(ctx client.Context, skill session.Skill, x
 		return fmt.Errorf("invalid ground target %d,%d", x, y)
 	}
 	level := uint16(maxInt(1, skill.Level))
-	log.Printf("%s ground skill use skill=%d level=%d target=%d,%d", source, skill.ID, level, x, y)
+	glog.Debugf("%s ground skill use skill=%d level=%d target=%d,%d", source, skill.ID, level, x, y)
 	if err := ctx.Network.SendUseSkillToGround(skill.ID, level, x, y); err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (c skillController) SendToGroundWithText(ctx client.Context, skill session.
 		return fmt.Errorf("invalid ground target %d,%d", x, y)
 	}
 	level := uint16(maxInt(1, skill.Level))
-	log.Printf("%s ground skill with text use skill=%d level=%d target=%d,%d text_len=%d", source, skill.ID, level, x, y, len([]byte(text)))
+	glog.Debugf("%s ground skill with text use skill=%d level=%d target=%d,%d text_len=%d", source, skill.ID, level, x, y, len([]byte(text)))
 	if err := ctx.Network.SendUseSkillToGroundWithText(skill.ID, level, x, y, text); err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (c skillController) Cancel(source string) {
 	if c.mode.pendingSkill.skill.ID == 0 {
 		return
 	}
-	log.Printf("skill target canceled skill=%d source=%s", c.mode.pendingSkill.skill.ID, source)
+	glog.Debugf("skill target canceled skill=%d source=%s", c.mode.pendingSkill.skill.ID, source)
 	c.mode.pendingSkill = pendingSkillTarget{}
 }
 
@@ -242,7 +242,7 @@ func (c skillController) AdjustPendingLevelFromWheel(ctx client.Context) bool {
 	}
 	pending.skill.Level = level
 	c.mode.pendingSkill = pending
-	log.Printf("skill target level changed skill=%d level=%d max=%d", pending.skill.ID, level, maxLevel)
+	glog.Debugf("skill target level changed skill=%d level=%d max=%d", pending.skill.ID, level, maxLevel)
 	return true
 }
 
@@ -254,42 +254,42 @@ func (c skillController) HandleClick(ctx client.Context, projection sceneProject
 	if isGroundTargetSkill(skill) {
 		targetX, targetY, ok := clickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY)
 		if !ok {
-			log.Printf("skill ground target miss skill=%d mouse=%d,%d", skill.ID, ctx.Input.MouseX, ctx.Input.MouseY)
+			glog.Debugf("skill ground target miss skill=%d mouse=%d,%d", skill.ID, ctx.Input.MouseX, ctx.Input.MouseY)
 			return
 		}
 		if skillNeedsGroundText(skill.ID) {
 			c.mode.openSkillTextPrompt(ctx, skill, targetX, targetY, "target")
 			c.mode.pendingSkill = pendingSkillTarget{}
-			log.Printf("skill ground text prompt opened skill=%d target=%d,%d", skill.ID, targetX, targetY)
+			glog.Debugf("skill ground text prompt opened skill=%d target=%d,%d", skill.ID, targetX, targetY)
 			return
 		}
 		if err := c.SendToGround(ctx, skill, targetX, targetY, "target"); err != nil {
-			log.Printf("skill ground target failed skill=%d target=%d,%d: %v", skill.ID, targetX, targetY, err)
+			glog.Warnf("skill ground target failed skill=%d target=%d,%d: %v", skill.ID, targetX, targetY, err)
 			return
 		}
 		c.mode.pendingSkill = pendingSkillTarget{}
-		log.Printf("skill ground target sent skill=%d target=%d,%d", skill.ID, targetX, targetY)
+		glog.Debugf("skill ground target sent skill=%d target=%d,%d", skill.ID, targetX, targetY)
 		return
 	}
 	actor, ok := clickedSkillTarget(ctx, projection, skill, ctx.Input.MouseX, ctx.Input.MouseY, now, c.mode.actorDeaths)
 	if !ok {
 		if x, y, groundOK := clickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); groundOK {
-			log.Printf("skill target canceled by ground click skill=%d mouse=%d,%d target=%d,%d", skill.ID, ctx.Input.MouseX, ctx.Input.MouseY, x, y)
+			glog.Debugf("skill target canceled by ground click skill=%d mouse=%d,%d target=%d,%d", skill.ID, ctx.Input.MouseX, ctx.Input.MouseY, x, y)
 			c.Cancel("ground-click")
 			return
 		}
-		log.Printf("skill target miss skill=%d mouse=%d,%d", skill.ID, ctx.Input.MouseX, ctx.Input.MouseY)
+		glog.Debugf("skill target miss skill=%d mouse=%d,%d", skill.ID, ctx.Input.MouseX, ctx.Input.MouseY)
 		return
 	}
 	if c.chaseTargetIfNeeded(ctx, skill, actor, "target") {
 		return
 	}
 	if err := c.SendToID(ctx, skill, actor.ID, "target"); err != nil {
-		log.Printf("skill target failed skill=%d target=%d: %v", skill.ID, actor.ID, err)
+		glog.Warnf("skill target failed skill=%d target=%d: %v", skill.ID, actor.ID, err)
 		return
 	}
 	c.mode.pendingSkill = pendingSkillTarget{}
-	log.Printf("skill target sent skill=%d target=%d name=%q job=%d object_type=%d", skill.ID, actor.ID, actor.Name, actor.Job, actor.ObjectType)
+	glog.Debugf("skill target sent skill=%d target=%d name=%q job=%d object_type=%d", skill.ID, actor.ID, actor.Name, actor.Job, actor.ObjectType)
 }
 
 func skillNeedsGroundText(skillID uint16) bool {
@@ -303,7 +303,7 @@ func (c skillController) chaseTargetIfNeeded(ctx client.Context, skill session.S
 	playerX, playerY := currentPlayerCell(ctx, time.Now())
 	targetX, targetY, ok := attackApproachCell(ctx, actor, targetSkillRange(skill))
 	if !ok {
-		log.Printf("%s skill chase blocked skill=%d target=%d player=%d,%d target=%d,%d range=%d", source, skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(skill))
+		glog.Warnf("%s skill chase blocked skill=%d target=%d player=%d,%d target=%d,%d range=%d", source, skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(skill))
 		c.mode.setWalkCooldown(walkRequestCooldown)
 		return true
 	}
@@ -318,7 +318,7 @@ func (c skillController) chaseTargetIfNeeded(ctx client.Context, skill session.S
 	if c.mode.pendingSkill.started.IsZero() {
 		c.mode.pendingSkill.started = time.Now()
 	}
-	log.Printf("%s skill chase target skill=%d target=%d player=%d,%d target=%d,%d range=%d chase=%d,%d", source, skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(skill), targetX, targetY)
+	glog.Debugf("%s skill chase target skill=%d target=%d player=%d,%d target=%d,%d range=%d chase=%d,%d", source, skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(skill), targetX, targetY)
 	c.mode.requestWalk(ctx, targetX, targetY, source+" skill chase")
 	return true
 }
@@ -334,20 +334,20 @@ func (c skillController) UpdatePendingTarget(ctx client.Context, source string, 
 	}
 	now := time.Now()
 	if now.After(pending.expires) {
-		log.Printf("%s pending skill expired skill=%d target=%d", source, pending.skill.ID, pending.targetID)
+		glog.Debugf("%s pending skill expired skill=%d target=%d", source, pending.skill.ID, pending.targetID)
 		c.mode.pendingSkill = pendingSkillTarget{}
 		return
 	}
 	actor, ok := ctx.World.Actors[pending.targetID]
 	if !ok {
-		log.Printf("%s pending skill target vanished skill=%d target=%d", source, pending.skill.ID, pending.targetID)
+		glog.Debugf("%s pending skill target vanished skill=%d target=%d", source, pending.skill.ID, pending.targetID)
 		c.mode.pendingSkill = pendingSkillTarget{}
 		return
 	}
 	playerX, playerY := currentPlayerCell(ctx, now)
 	if !targetSkillWithinRange(ctx, pending.skill, actor) {
 		if logOutOfRange {
-			log.Printf("%s pending skill still out of range skill=%d target=%d player=%d,%d target=%d,%d range=%d", source, pending.skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(pending.skill))
+			glog.Debugf("%s pending skill still out of range skill=%d target=%d player=%d,%d target=%d,%d range=%d", source, pending.skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(pending.skill))
 		}
 		return
 	}
@@ -357,7 +357,7 @@ func (c skillController) UpdatePendingTarget(ctx client.Context, source string, 
 	}
 	c.mode.pendingSkill = pending
 	if logOutOfRange {
-		log.Printf("%s pending skill scheduled skill=%d target=%d delay_ms=%d", source, pending.skill.ID, pending.targetID, maxInt(0, int(pending.readyAt.Sub(now).Milliseconds())))
+		glog.Debugf("%s pending skill scheduled skill=%d target=%d delay_ms=%d", source, pending.skill.ID, pending.targetID, maxInt(0, int(pending.readyAt.Sub(now).Milliseconds())))
 	}
 }
 
@@ -368,7 +368,7 @@ func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	}
 	now := time.Now()
 	if now.After(pending.expires) {
-		log.Printf("pending skill expired skill=%d target=%d", pending.skill.ID, pending.targetID)
+		glog.Debugf("pending skill expired skill=%d target=%d", pending.skill.ID, pending.targetID)
 		c.mode.pendingSkill = pendingSkillTarget{}
 		return
 	}
@@ -377,13 +377,13 @@ func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	}
 	actor, ok := ctx.World.Actors[pending.targetID]
 	if !ok {
-		log.Printf("pending skill target vanished skill=%d target=%d", pending.skill.ID, pending.targetID)
+		glog.Debugf("pending skill target vanished skill=%d target=%d", pending.skill.ID, pending.targetID)
 		c.mode.pendingSkill = pendingSkillTarget{}
 		return
 	}
 	playerX, playerY := currentPlayerCell(ctx, now)
 	if !targetSkillWithinRange(ctx, pending.skill, actor) {
-		log.Printf("pending skill became out of range skill=%d target=%d player=%d,%d target=%d,%d range=%d", pending.skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(pending.skill))
+		glog.Debugf("pending skill became out of range skill=%d target=%d player=%d,%d target=%d,%d range=%d", pending.skill.ID, actor.ID, playerX, playerY, actor.X, actor.Y, targetSkillRange(pending.skill))
 		pending.readyAt = time.Time{}
 		c.mode.pendingSkill = pending
 		c.chaseTargetIfNeeded(ctx, pending.skill, actor, "pending")
@@ -391,21 +391,21 @@ func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	}
 	c.mode.pendingSkill = pendingSkillTarget{}
 	if err := c.SendToID(ctx, pending.skill, actor.ID, "pending"); err != nil {
-		log.Printf("pending skill failed skill=%d target=%d: %v", pending.skill.ID, actor.ID, err)
+		glog.Warnf("pending skill failed skill=%d target=%d: %v", pending.skill.ID, actor.ID, err)
 		return
 	}
-	log.Printf("pending skill sent skill=%d target=%d name=%q job=%d object_type=%d", pending.skill.ID, actor.ID, actor.Name, actor.Job, actor.ObjectType)
+	glog.Debugf("pending skill sent skill=%d target=%d name=%q job=%d object_type=%d", pending.skill.ID, actor.ID, actor.Name, actor.Job, actor.ObjectType)
 }
 
 func (c skillController) ApplyAutoRun(ctx client.Context, auto network.AutoRunSkill) {
 	skill := sessionSkillFromNetwork(auto.Skill)
 	target := localSkillTarget(ctx)
-	log.Printf("auto-run skill received skill=%d level=%d range=%d name=%q target=%d", skill.ID, skill.Level, skill.Range, skill.Name, target)
+	glog.Debugf("auto-run skill received skill=%d level=%d range=%d name=%q target=%d", skill.ID, skill.Level, skill.Range, skill.Name, target)
 	if target == 0 {
 		return
 	}
 	if err := c.SendToID(ctx, skill, target, "auto"); err != nil {
-		log.Printf("auto-run skill use failed skill=%d target=%d: %v", skill.ID, target, err)
+		glog.Warnf("auto-run skill use failed skill=%d target=%d: %v", skill.ID, target, err)
 		return
 	}
 }

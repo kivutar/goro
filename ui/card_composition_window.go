@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"image"
-	"log"
 	"sort"
 
 	"github.com/gogpu/ui/core/datatable"
@@ -12,6 +11,7 @@ import (
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -58,7 +58,7 @@ func (w *CardCompositionWindow) OpenList(ctx Context, cardIndex uint16, list net
 func (w *CardCompositionWindow) ApplyAck(ctx Context, ack network.ItemCompositionAck) {
 	w.EnsureWindow(cardCompositionWindowWidth, cardCompositionWindowHeight)
 	if !ack.Success {
-		log.Printf("card composition failed card_index=%d equip_index=%d", ack.CardIndex, ack.EquipIndex)
+		glog.Warnf("card composition failed card_index=%d equip_index=%d", ack.CardIndex, ack.EquipIndex)
 		w.Close()
 		w.Publish(ctx)
 		return
@@ -151,12 +151,12 @@ func (w *CardCompositionWindow) composeSelected(ctx Context) {
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("card composition failed: not connected")
+		glog.Warnf("card composition failed: not connected")
 		return
 	}
 	equipIndex := items[w.selectedRow].Index
 	if err := ctx.Network.SendItemComposition(w.cardIndex, equipIndex); err != nil {
-		log.Printf("card composition failed: %v", err)
+		glog.Warnf("card composition failed: %v", err)
 	}
 }
 

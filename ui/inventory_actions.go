@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/session"
 )
 
@@ -37,28 +37,28 @@ func dropInventoryItem(ctx Context, item session.InventoryItem) error {
 
 func equipInventoryItem(ctx Context, item session.InventoryItem) {
 	if ctx.Network == nil {
-		log.Printf("inventory equip failed: not connected")
+		glog.Warnf("inventory equip failed: not connected")
 		return
 	}
 	if item.Equipped {
 		if err := ctx.Network.SendTakeoffEquip(item.Index); err != nil {
-			log.Printf("inventory unequip failed: %v", err)
+			glog.Warnf("inventory unequip failed: %v", err)
 		}
 		return
 	}
 	if item.Type == db.ItemTypePetArmor {
 		if err := ctx.Network.SendWearEquip(item.Index, 0); err != nil {
-			log.Printf("inventory pet armor equip failed: %v", err)
+			glog.Warnf("inventory pet armor equip failed: %v", err)
 		}
 		return
 	}
 	location := inventoryItemEquipLocationForSession(ctx.Session, item)
 	if location == 0 {
-		log.Printf("inventory equip failed: missing equip location item=%d index=%d", item.ItemID, item.Index)
+		glog.Warnf("inventory equip failed: missing equip location item=%d index=%d", item.ItemID, item.Index)
 		return
 	}
 	if err := ctx.Network.SendWearEquip(item.Index, location); err != nil {
-		log.Printf("inventory equip failed: %v", err)
+		glog.Warnf("inventory equip failed: %v", err)
 	}
 }
 

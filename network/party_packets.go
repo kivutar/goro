@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 	"strings"
 )
 
@@ -360,9 +360,9 @@ func (c *Client) SendMakeParty(name string) error {
 	packet := BuildMakePartyPacket(name)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MAKE_GROUP opcode=0x%04X name=%q client_date=%d", ID(packet), name, c.clientDate)
+		glog.Debugf("sent CZ_MAKE_GROUP opcode=0x%04X name=%q client_date=%d", ID(packet), name, c.clientDate)
 	} else {
-		log.Printf("send CZ_MAKE_GROUP failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
+		glog.Warnf("send CZ_MAKE_GROUP failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
 	}
 	return err
 }
@@ -371,9 +371,9 @@ func (c *Client) SendMakeParty2(name string, itemPickupRule, itemDivisionRule ui
 	packet := BuildMakeParty2Packet(name, itemPickupRule, itemDivisionRule)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_MAKE_GROUP2 opcode=0x%04X name=%q pickup=%d division=%d client_date=%d", ID(packet), name, itemPickupRule, itemDivisionRule, c.clientDate)
+		glog.Debugf("sent CZ_MAKE_GROUP2 opcode=0x%04X name=%q pickup=%d division=%d client_date=%d", ID(packet), name, itemPickupRule, itemDivisionRule, c.clientDate)
 	} else {
-		log.Printf("send CZ_MAKE_GROUP2 failed opcode=0x%04X len=%d name=%q pickup=%d division=%d client_date=%d: %v", ID(packet), len(packet), name, itemPickupRule, itemDivisionRule, c.clientDate, err)
+		glog.Warnf("send CZ_MAKE_GROUP2 failed opcode=0x%04X len=%d name=%q pickup=%d division=%d client_date=%d: %v", ID(packet), len(packet), name, itemPickupRule, itemDivisionRule, c.clientDate, err)
 	}
 	return err
 }
@@ -382,9 +382,9 @@ func (c *Client) SendPartyInvite(accountID uint32, name string) error {
 	packet := BuildPartyInvitePacket(accountID, name)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PARTY_JOIN_REQ opcode=0x%04X aid=%d name=%q client_date=%d", ID(packet), accountID, name, c.clientDate)
+		glog.Debugf("sent CZ_PARTY_JOIN_REQ opcode=0x%04X aid=%d name=%q client_date=%d", ID(packet), accountID, name, c.clientDate)
 	} else {
-		log.Printf("send CZ_PARTY_JOIN_REQ failed opcode=0x%04X len=%d aid=%d name=%q client_date=%d: %v", ID(packet), len(packet), accountID, name, c.clientDate, err)
+		glog.Warnf("send CZ_PARTY_JOIN_REQ failed opcode=0x%04X len=%d aid=%d name=%q client_date=%d: %v", ID(packet), len(packet), accountID, name, c.clientDate, err)
 	}
 	return err
 }
@@ -393,9 +393,9 @@ func (c *Client) SendPartyInviteAck(requestID uint32, accepted bool) error {
 	packet := BuildPartyInviteAckPacket(requestID, accepted)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PARTY_JOIN_REQ_ACK opcode=0x%04X request=%d accepted=%t client_date=%d", ID(packet), requestID, accepted, c.clientDate)
+		glog.Debugf("sent CZ_PARTY_JOIN_REQ_ACK opcode=0x%04X request=%d accepted=%t client_date=%d", ID(packet), requestID, accepted, c.clientDate)
 	} else {
-		log.Printf("send CZ_PARTY_JOIN_REQ_ACK failed opcode=0x%04X len=%d request=%d accepted=%t client_date=%d: %v", ID(packet), len(packet), requestID, accepted, c.clientDate, err)
+		glog.Warnf("send CZ_PARTY_JOIN_REQ_ACK failed opcode=0x%04X len=%d request=%d accepted=%t client_date=%d: %v", ID(packet), len(packet), requestID, accepted, c.clientDate, err)
 	}
 	return err
 }
@@ -404,9 +404,9 @@ func (c *Client) SendLeaveParty() error {
 	packet := BuildLeavePartyPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_LEAVE_GROUP opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_REQ_LEAVE_GROUP opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_LEAVE_GROUP failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REQ_LEAVE_GROUP failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -415,9 +415,9 @@ func (c *Client) SendPartyOption(expOption uint32) error {
 	packet := BuildPartyOptionPacket(expOption)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CHANGE_GROUPEXPOPTION opcode=0x%04X exp=%d client_date=%d", ID(packet), expOption, c.clientDate)
+		glog.Debugf("sent CZ_CHANGE_GROUPEXPOPTION opcode=0x%04X exp=%d client_date=%d", ID(packet), expOption, c.clientDate)
 	} else {
-		log.Printf("send CZ_CHANGE_GROUPEXPOPTION failed opcode=0x%04X len=%d exp=%d client_date=%d: %v", ID(packet), len(packet), expOption, c.clientDate, err)
+		glog.Warnf("send CZ_CHANGE_GROUPEXPOPTION failed opcode=0x%04X len=%d exp=%d client_date=%d: %v", ID(packet), len(packet), expOption, c.clientDate, err)
 	}
 	return err
 }
@@ -426,9 +426,9 @@ func (c *Client) SendPartyInviteConfig(refuseInvites bool) error {
 	packet := BuildPartyInviteConfigPacket(refuseInvites)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PARTY_CONFIG opcode=0x%04X refuse_invites=%t client_date=%d", ID(packet), refuseInvites, c.clientDate)
+		glog.Debugf("sent CZ_PARTY_CONFIG opcode=0x%04X refuse_invites=%t client_date=%d", ID(packet), refuseInvites, c.clientDate)
 	} else {
-		log.Printf("send CZ_PARTY_CONFIG failed opcode=0x%04X len=%d refuse_invites=%t client_date=%d: %v", ID(packet), len(packet), refuseInvites, c.clientDate, err)
+		glog.Warnf("send CZ_PARTY_CONFIG failed opcode=0x%04X len=%d refuse_invites=%t client_date=%d: %v", ID(packet), len(packet), refuseInvites, c.clientDate, err)
 	}
 	return err
 }
@@ -437,9 +437,9 @@ func (c *Client) SendExpelPartyMember(accountID uint32, name string) error {
 	packet := BuildExpelPartyMemberPacket(accountID, name)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_EXPEL_GROUP_MEMBER opcode=0x%04X aid=%d name=%q client_date=%d", ID(packet), accountID, name, c.clientDate)
+		glog.Debugf("sent CZ_REQ_EXPEL_GROUP_MEMBER opcode=0x%04X aid=%d name=%q client_date=%d", ID(packet), accountID, name, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_EXPEL_GROUP_MEMBER failed opcode=0x%04X len=%d aid=%d name=%q client_date=%d: %v", ID(packet), len(packet), accountID, name, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_EXPEL_GROUP_MEMBER failed opcode=0x%04X len=%d aid=%d name=%q client_date=%d: %v", ID(packet), len(packet), accountID, name, c.clientDate, err)
 	}
 	return err
 }
@@ -448,9 +448,9 @@ func (c *Client) SendPartyMessage(message string) error {
 	packet := BuildPartyMessagePacket(message)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQUEST_CHAT_PARTY opcode=0x%04X message=%q client_date=%d", ID(packet), message, c.clientDate)
+		glog.Debugf("sent CZ_REQUEST_CHAT_PARTY opcode=0x%04X message=%q client_date=%d", ID(packet), message, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQUEST_CHAT_PARTY failed opcode=0x%04X len=%d message=%q client_date=%d: %v", ID(packet), len(packet), message, c.clientDate, err)
+		glog.Warnf("send CZ_REQUEST_CHAT_PARTY failed opcode=0x%04X len=%d message=%q client_date=%d: %v", ID(packet), len(packet), message, c.clientDate, err)
 	}
 	return err
 }

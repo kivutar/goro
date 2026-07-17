@@ -1,8 +1,8 @@
 package ui
 
 import (
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
-	"log"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
@@ -89,7 +89,7 @@ func (m *EscapeMenu) RequestCharacterSelect(ctx client.Context) {
 	if err := ctx.Network.SendRestart(network.RestartTypeCharSelect); err != nil {
 		m.pending = false
 		m.pendingAction = EscapeMenuActionNone
-		log.Printf("escape menu character select failed: %v", err)
+		glog.Warnf("escape menu character select failed: %v", err)
 		m.refresh(ctx)
 		return
 	}
@@ -111,7 +111,7 @@ func (m *EscapeMenu) RequestQuitGame(ctx client.Context) {
 	if err := ctx.Network.SendQuitGame(); err != nil {
 		m.pending = false
 		m.pendingAction = EscapeMenuActionNone
-		log.Printf("escape menu quit failed: %v", err)
+		glog.Warnf("escape menu quit failed: %v", err)
 		m.refresh(ctx)
 		return
 	}

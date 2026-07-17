@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"sort"
 	"time"
 
@@ -147,14 +147,14 @@ func (w *CartWindow) AcceptInventoryDrop(ctx Context, item session.InventoryItem
 		amount = 1
 	}
 	if ctx.Network == nil {
-		log.Printf("cart deposit failed: not connected")
+		glog.Warnf("cart deposit failed: not connected")
 		return true
 	}
 	if err := ctx.Network.SendMoveToCart(item.Index, amount); err != nil {
-		log.Printf("cart deposit failed: %v", err)
+		glog.Warnf("cart deposit failed: %v", err)
 		return true
 	}
-	log.Printf("cart deposit requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
+	glog.Debugf("cart deposit requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 	return true
 }
 
@@ -168,14 +168,14 @@ func (w *CartWindow) AcceptStorageDrop(ctx Context, item session.InventoryItem, 
 		amount = 1
 	}
 	if ctx.Network == nil {
-		log.Printf("storage to cart failed: not connected")
+		glog.Warnf("storage to cart failed: not connected")
 		return true
 	}
 	if err := ctx.Network.SendMoveStorageToCart(item.Index, amount); err != nil {
-		log.Printf("storage to cart failed: %v", err)
+		glog.Warnf("storage to cart failed: %v", err)
 		return true
 	}
-	log.Printf("storage to cart requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
+	glog.Debugf("storage to cart requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 	return true
 }
 
@@ -286,14 +286,14 @@ func (w *CartWindow) withdraw(ctx Context, item session.InventoryItem) {
 		amount = 1
 	}
 	if ctx.Network == nil {
-		log.Printf("cart withdraw failed: not connected")
+		glog.Warnf("cart withdraw failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendMoveFromCart(item.Index, amount); err != nil {
-		log.Printf("cart withdraw failed: %v", err)
+		glog.Warnf("cart withdraw failed: %v", err)
 		return
 	}
-	log.Printf("cart withdraw requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
+	glog.Debugf("cart withdraw requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 }
 
 func (w *CartWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {

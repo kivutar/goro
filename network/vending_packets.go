@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -279,9 +279,9 @@ func (c *Client) SendCloseVendingStore() error {
 	packet := BuildCloseVendingStorePacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_CLOSESTORE opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_REQ_CLOSESTORE opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_CLOSESTORE failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REQ_CLOSESTORE failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -290,9 +290,9 @@ func (c *Client) SendOpenVendingStore(name string, items []VendingOpenItem) erro
 	packet := BuildOpenVendingStorePacket(name, items)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_OPENSTORE2 opcode=0x%04X items=%d client_date=%d", ID(packet), len(items), c.clientDate)
+		glog.Debugf("sent CZ_REQ_OPENSTORE2 opcode=0x%04X items=%d client_date=%d", ID(packet), len(items), c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_OPENSTORE2 failed opcode=0x%04X len=%d items=%d client_date=%d: %v", ID(packet), len(packet), len(items), c.clientDate, err)
+		glog.Warnf("send CZ_REQ_OPENSTORE2 failed opcode=0x%04X len=%d items=%d client_date=%d: %v", ID(packet), len(packet), len(items), c.clientDate, err)
 	}
 	return err
 }
@@ -301,9 +301,9 @@ func (c *Client) SendCancelVendingStoreOpen() error {
 	packet := BuildCancelVendingStoreOpenPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_OPENSTORE2 cancel opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_REQ_OPENSTORE2 cancel opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_OPENSTORE2 cancel failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REQ_OPENSTORE2 cancel failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -312,9 +312,9 @@ func (c *Client) SendVendingListRequest(ownerAID uint32) error {
 	packet := BuildVendingListRequestPacket(ownerAID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_BUY_FROMMC opcode=0x%04X owner=%d client_date=%d", ID(packet), ownerAID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_BUY_FROMMC opcode=0x%04X owner=%d client_date=%d", ID(packet), ownerAID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_BUY_FROMMC failed opcode=0x%04X owner=%d client_date=%d: %v", ID(packet), ownerAID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_BUY_FROMMC failed opcode=0x%04X owner=%d client_date=%d: %v", ID(packet), ownerAID, c.clientDate, err)
 	}
 	return err
 }
@@ -323,9 +323,9 @@ func (c *Client) SendVendingPurchase(ownerAID uint32, items []VendingPurchaseIte
 	packet := BuildVendingPurchasePacket(ownerAID, items)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_PC_PURCHASE_ITEMLIST_FROMMC opcode=0x%04X owner=%d count=%d client_date=%d", ID(packet), ownerAID, len(items), c.clientDate)
+		glog.Debugf("sent CZ_PC_PURCHASE_ITEMLIST_FROMMC opcode=0x%04X owner=%d count=%d client_date=%d", ID(packet), ownerAID, len(items), c.clientDate)
 	} else {
-		log.Printf("send CZ_PC_PURCHASE_ITEMLIST_FROMMC failed opcode=0x%04X owner=%d count=%d client_date=%d: %v", ID(packet), ownerAID, len(items), c.clientDate, err)
+		glog.Warnf("send CZ_PC_PURCHASE_ITEMLIST_FROMMC failed opcode=0x%04X owner=%d count=%d client_date=%d: %v", ID(packet), ownerAID, len(items), c.clientDate, err)
 	}
 	return err
 }

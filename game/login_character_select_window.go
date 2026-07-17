@@ -2,9 +2,9 @@ package game
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"time"
 
 	"github.com/kivutar/goro/client"
@@ -238,10 +238,10 @@ func (m *LoginMode) autoSelectCharacter(ctx client.Context) bool {
 	m.selectedSlot = clampCharacterSlot(slot, m.maxSlots)
 	if _, ok := characterBySlot(ctx.Session.Characters, m.selectedSlot); !ok {
 		m.status = fmt.Sprintf("character slot %d is empty", slot)
-		log.Printf("autoselect character slot=%d failed: empty slot", slot)
+		glog.Warnf("autoselect character slot=%d failed: empty slot", slot)
 		return false
 	}
-	log.Printf("autoselect character slot=%d", m.selectedSlot)
+	glog.Debugf("autoselect character slot=%d", m.selectedSlot)
 	m.submitSelectedCharacter(ctx)
 	return true
 }
@@ -326,7 +326,7 @@ func (m *LoginMode) characterPreviewView(ctx client.Context, character session.C
 			m.charViewFailed = make(map[uint32]struct{})
 		}
 		m.charViewFailed[character.ID] = struct{}{}
-		log.Printf("char select sprite resources char_id=%d name=%s job=%d %s", character.ID, character.Name, character.Job, status)
+		glog.Debugf("char select sprite resources char_id=%d name=%s job=%d %s", character.ID, character.Name, character.Job, status)
 		return nil
 	}
 	m.charViews[character.ID] = view

@@ -1,11 +1,11 @@
 package game
 
 import (
-	"log"
 	"math"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -46,7 +46,7 @@ func (m *WorldMode) openPetSlotMachine(ctx client.Context, targetID uint32) {
 	if ctx.Config.Render.NoUI {
 		if ctx.Network != nil {
 			if err := ctx.Network.SendTryCaptureMonster(targetID); err != nil {
-				log.Printf("pet capture send failed target=%d: %v", targetID, err)
+				glog.Warnf("pet capture send failed target=%d: %v", targetID, err)
 			}
 		}
 		return
@@ -54,7 +54,7 @@ func (m *WorldMode) openPetSlotMachine(ctx client.Context, targetID uint32) {
 	if m.loadPetSlotMachineView(ctx.Resources) == nil {
 		if ctx.Network != nil {
 			if err := ctx.Network.SendTryCaptureMonster(targetID); err != nil {
-				log.Printf("pet capture send failed target=%d: %v", targetID, err)
+				glog.Warnf("pet capture send failed target=%d: %v", targetID, err)
 			}
 		}
 		return
@@ -91,11 +91,11 @@ func (m *WorldMode) updatePetSlotMachine(ctx client.Context) bool {
 	}
 	if err := ctx.Network.SendTryCaptureMonster(m.petSlotMachine.targetID); err != nil {
 		m.ui.console.AddErrorMessage("Capture failed.")
-		log.Printf("pet capture send failed target=%d: %v", m.petSlotMachine.targetID, err)
+		glog.Warnf("pet capture send failed target=%d: %v", m.petSlotMachine.targetID, err)
 		return true
 	}
 	m.petSlotMachine.attempted = true
-	log.Printf("pet capture try target=%d", m.petSlotMachine.targetID)
+	glog.Debugf("pet capture try target=%d", m.petSlotMachine.targetID)
 	return true
 }
 
@@ -197,11 +197,11 @@ func (m *WorldMode) loadPetSlotMachineView(manager *res.Manager) *spriteView {
 	view, status := loadSlotMachineSpriteView(manager)
 	if view == nil {
 		m.slotMachineMiss = true
-		log.Printf("pet slot machine sprite unavailable: %s", status)
+		glog.Warnf("pet slot machine sprite unavailable: %s", status)
 		return nil
 	}
 	m.slotMachineView = view
-	log.Printf("pet slot machine sprite resources %s", status)
+	glog.Debugf("pet slot machine sprite resources %s", status)
 	return view
 }
 

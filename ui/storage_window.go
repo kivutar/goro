@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"sort"
 	"time"
 
@@ -154,14 +154,14 @@ func (w *StorageWindow) AcceptInventoryDrop(ctx Context, item session.InventoryI
 		amount = 1
 	}
 	if ctx.Network == nil {
-		log.Printf("storage deposit failed: not connected")
+		glog.Warnf("storage deposit failed: not connected")
 		return true
 	}
 	if err := ctx.Network.SendMoveToStorage(item.Index, amount); err != nil {
-		log.Printf("storage deposit failed: %v", err)
+		glog.Warnf("storage deposit failed: %v", err)
 		return true
 	}
-	log.Printf("storage deposit requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
+	glog.Debugf("storage deposit requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 	return true
 }
 
@@ -175,14 +175,14 @@ func (w *StorageWindow) AcceptCartDrop(ctx Context, item session.InventoryItem, 
 		amount = 1
 	}
 	if ctx.Network == nil {
-		log.Printf("cart to storage failed: not connected")
+		glog.Warnf("cart to storage failed: not connected")
 		return true
 	}
 	if err := ctx.Network.SendMoveCartToStorage(item.Index, amount); err != nil {
-		log.Printf("cart to storage failed: %v", err)
+		glog.Warnf("cart to storage failed: %v", err)
 		return true
 	}
-	log.Printf("cart to storage requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
+	glog.Debugf("cart to storage requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 	return true
 }
 
@@ -297,7 +297,7 @@ func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) boo
 func (w *StorageWindow) close(ctx Context) {
 	if ctx.Network != nil {
 		if err := ctx.Network.SendCloseStorage(); err != nil {
-			log.Printf("storage close failed: %v", err)
+			glog.Warnf("storage close failed: %v", err)
 			return
 		}
 	}
@@ -314,14 +314,14 @@ func (w *StorageWindow) withdraw(ctx Context, item session.InventoryItem) {
 		amount = 1
 	}
 	if ctx.Network == nil {
-		log.Printf("storage withdraw failed: not connected")
+		glog.Warnf("storage withdraw failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendMoveFromStorage(item.Index, amount); err != nil {
-		log.Printf("storage withdraw failed: %v", err)
+		glog.Warnf("storage withdraw failed: %v", err)
 		return
 	}
-	log.Printf("storage withdraw requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
+	glog.Debugf("storage withdraw requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 }
 
 func (w *StorageWindow) ClampScroll(s *session.Session) {

@@ -2,7 +2,6 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"math"
 	"sort"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -219,7 +219,7 @@ const (
 )
 
 func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVanish) {
-	log.Printf("actor vanish id=%d reason=%d", vanish.ID, vanish.Reason)
+	glog.Debugf("actor vanish id=%d reason=%d", vanish.ID, vanish.Reason)
 	if m.attackFocusID == vanish.ID {
 		m.clearAttackFocus()
 	}
@@ -284,7 +284,7 @@ func (m *WorldMode) cleanupDeadActors(ctx client.Context, now time.Time) {
 		if m.attackFocusID == id {
 			m.clearAttackFocus()
 		}
-		log.Printf("actor death removed id=%d", id)
+		glog.Debugf("actor death removed id=%d", id)
 	}
 }
 
@@ -347,7 +347,7 @@ func applyWorldActorLookChange(actor *worldstate.Actor, look network.ActorLookCh
 	switch look.Type {
 	case 0:
 		if actorHasMobObjectType(*actor) && res.HasPlayerJobToken(int(look.Value)) {
-			log.Printf("ignored mob look-base player job id=%d old_job=%d value=%d", actor.ID, actor.Job, look.Value)
+			glog.Debugf("ignored mob look-base player job id=%d old_job=%d value=%d", actor.ID, actor.Job, look.Value)
 			return
 		}
 		actor.Job = int16(look.Value)
@@ -903,7 +903,7 @@ func (m *WorldMode) requestActorName(ctx client.Context, id uint32, now time.Tim
 		return
 	}
 	if err := ctx.Network.SendNameRequest(id); err != nil {
-		log.Printf("send name request failed id=%d: %v", id, err)
+		glog.Warnf("send name request failed id=%d: %v", id, err)
 		return
 	}
 	m.actorNameReqAt[id] = now
@@ -1063,12 +1063,12 @@ func (m *WorldMode) drawActorSprite3D(screen *render.Frame, ctx client.Context, 
 		loaded, status := loadHumanoidSpriteViewWithAppearance(ctx.Resources, humanoidAppearance(key), "actor")
 		if loaded == nil {
 			m.actorViewMiss[key] = struct{}{}
-			log.Printf("actor sprite unavailable id=%d job=%d head=%d sex=%d: %s", actor.ID, key.job, key.head, key.sex, status)
+			glog.Warnf("actor sprite unavailable id=%d job=%d head=%d sex=%d: %s", actor.ID, key.job, key.head, key.sex, status)
 			return false
 		}
 		m.actorViews[key] = loaded
 		view = loaded
-		log.Printf("actor sprite resources id=%d job=%d head=%d sex=%d %s", actor.ID, key.job, key.head, key.sex, status)
+		glog.Debugf("actor sprite resources id=%d job=%d head=%d sex=%d %s", actor.ID, key.job, key.head, key.sex, status)
 	}
 	now := time.Now()
 	state := spriteState{
@@ -1167,11 +1167,11 @@ func (m *WorldMode) nonPCSpriteView(ctx client.Context, actor worldstate.Actor) 
 			m.nonPCViewMiss = make(map[int]struct{})
 		}
 		m.nonPCViewMiss[job] = struct{}{}
-		log.Printf("nonpc sprite unavailable id=%d job=%d: %s", actor.ID, job, status)
+		glog.Warnf("nonpc sprite unavailable id=%d job=%d: %s", actor.ID, job, status)
 		return nil
 	}
 	m.nonPCViews[job] = loaded
-	log.Printf("nonpc sprite resources id=%d job=%d %s", actor.ID, job, status)
+	glog.Debugf("nonpc sprite resources id=%d job=%d %s", actor.ID, job, status)
 	return m.petAccessorySpriteView(ctx, actor, loaded)
 }
 
@@ -1193,13 +1193,13 @@ func (m *WorldMode) petAccessorySpriteView(ctx client.Context, actor worldstate.
 			m.petAccessoryMiss = make(map[petAccessorySpriteKey]struct{})
 		}
 		m.petAccessoryMiss[key] = struct{}{}
-		log.Printf("pet accessory sprite unavailable id=%d job=%d accessory=%d: %s", actor.ID, actor.Job, accessoryID, status)
+		glog.Warnf("pet accessory sprite unavailable id=%d job=%d accessory=%d: %s", actor.ID, actor.Job, accessoryID, status)
 		return base
 	}
 	if m.petAccessoryViews == nil {
 		m.petAccessoryViews = make(map[petAccessorySpriteKey]*spriteView)
 	}
 	m.petAccessoryViews[key] = view
-	log.Printf("pet accessory sprite resources id=%d job=%d accessory=%d %s", actor.ID, actor.Job, accessoryID, status)
+	glog.Debugf("pet accessory sprite resources id=%d job=%d accessory=%d %s", actor.ID, actor.Job, accessoryID, status)
 	return view
 }

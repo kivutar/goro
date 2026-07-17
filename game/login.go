@@ -3,10 +3,10 @@ package game
 import (
 	"context"
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
 	"image/color"
-	"log"
 	"strings"
 	"time"
 
@@ -159,7 +159,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	}
 
 	for _, pkt := range ctx.Network.DrainPackets() {
-		log.Printf("recv packet 0x%04X len=%d", pkt.ID, len(pkt.Data))
+		glog.Debugf("recv packet 0x%04X len=%d", pkt.ID, len(pkt.Data))
 		if handleDisconnectPacket(ctx, &m.disconnectDialog, pkt) {
 			continue
 		}
@@ -202,7 +202,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 			applyWarpPosition(ctx, change.X, change.Y)
 			ctx.Session.Playing = true
 			m.status = fmt.Sprintf("map change: %s at %d,%d", change.MapName, change.X, change.Y)
-			log.Printf("login map change map=%s x=%d y=%d server_move=%t addr=%s port=%d", change.MapName, change.X, change.Y, change.ServerMove, change.Address, change.Port)
+			glog.Debugf("login map change map=%s x=%d y=%d server_move=%t addr=%s port=%d", change.MapName, change.X, change.Y, change.ServerMove, change.Address, change.Port)
 			if change.ServerMove {
 				ctx.Session.Zone.Address = change.Address
 				ctx.Session.Zone.Port = change.Port
@@ -228,7 +228,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				ctx.Session.Sex = login.Sex
 				ctx.Session.CharServers = convertCharServers(login.CharServer)
 				m.status = fmt.Sprintf("account accepted: aid=%d char_servers=%d", login.AccountID, len(login.CharServer))
-				log.Printf("account accepted aid=%d sex=%d char_servers=%d", login.AccountID, login.Sex, len(login.CharServer))
+				glog.Infof("account accepted aid=%d sex=%d char_servers=%d", login.AccountID, login.Sex, len(login.CharServer))
 				for _, server := range login.CharServer {
 					m.packets = append(m.packets, fmt.Sprintf("char %s %s:%d users=%d", server.Name, server.Address, server.Port, server.UserCount))
 				}
@@ -244,7 +244,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 			} else {
 				ctx.Session.Characters = convertCharacters(list.Characters)
 				m.status = fmt.Sprintf("char list: %d characters (%s)", len(list.Characters), list.Layout)
-				log.Printf("char list characters=%d layout=%s", len(list.Characters), list.Layout)
+				glog.Debugf("char list characters=%d layout=%s", len(list.Characters), list.Layout)
 				for _, character := range list.Characters {
 					m.packets = append(m.packets, fmt.Sprintf("char slot=%d gid=%d name=%s lv=%d job=%d", character.Slot, character.ID, character.Name, character.Level, character.Job))
 				}
@@ -280,7 +280,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				m.charViewFailed = nil
 				m.charPreviewImages = nil
 				m.status = fmt.Sprintf("created character %s", created.Name)
-				log.Printf("character created slot=%d id=%d name=%s", created.Slot, created.ID, created.Name)
+				glog.Infof("character created slot=%d id=%d name=%s", created.Slot, created.ID, created.Name)
 				m.startPhaseFade(loginPhaseCharacter, time.Now())
 			}
 			continue
@@ -291,7 +291,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				m.packets = append(m.packets, "parse HC_REFUSE_MAKECHAR: "+err.Error())
 			} else {
 				m.status = describeMakeCharacterRefuse(code)
-				log.Printf("character creation refused code=%d", code)
+				glog.Debugf("character creation refused code=%d", code)
 			}
 			continue
 		}
@@ -325,7 +325,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				}
 				ctx.World.MapName = zone.MapName
 				m.status = fmt.Sprintf("zone server: %s %s:%d", zone.MapName, zone.Address, zone.Port)
-				log.Printf("zone server map=%s addr=%s port=%d char_id=%d", zone.MapName, zone.Address, zone.Port, zone.CharID)
+				glog.Debugf("zone server map=%s addr=%s port=%d char_id=%d", zone.MapName, zone.Address, zone.Port, zone.CharID)
 				m.connectMapServer(ctx, zone)
 			}
 		}
@@ -337,7 +337,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 				applyMapAcceptEnter(ctx, enter)
 				sendLessEffectPreference(ctx)
 				m.status = fmt.Sprintf("entered map %s at %d,%d dir=%d tick=%d", ctx.World.MapName, enter.X, enter.Y, enter.Dir, enter.ServerTick)
-				log.Printf("entered map=%s x=%d y=%d dir=%d tick=%d", ctx.World.MapName, enter.X, enter.Y, enter.Dir, enter.ServerTick)
+				glog.Infof("entered map=%s x=%d y=%d dir=%d tick=%d", ctx.World.MapName, enter.X, enter.Y, enter.Dir, enter.ServerTick)
 				m.startWorldFade(time.Now())
 			}
 		}
@@ -356,21 +356,21 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 		if cartItems, ok, err := network.ParseCartItemList(pkt); err != nil {
 			m.packets = append(m.packets, "parse cart item list: "+err.Error())
 		} else if ok {
-			log.Printf("login cart item list items=%d", len(cartItems))
+			glog.Debugf("login cart item list items=%d", len(cartItems))
 			applyCartItemList(ctx, cartItems)
 			continue
 		}
 		if cartAmount, ok, err := network.ParseCartAmount(pkt); err != nil {
 			m.packets = append(m.packets, "parse cart amount: "+err.Error())
 		} else if ok {
-			log.Printf("login cart amount count=%d/%d weight=%d/%d", cartAmount.Amount, cartAmount.MaxAmount, cartAmount.Weight, cartAmount.MaxWeight)
+			glog.Debugf("login cart amount count=%d/%d weight=%d/%d", cartAmount.Amount, cartAmount.MaxAmount, cartAmount.Weight, cartAmount.MaxWeight)
 			applyCartAmount(ctx, cartAmount)
 			continue
 		}
 		if cartItem, ok, err := network.ParseCartItemAdded(pkt); err != nil {
 			m.packets = append(m.packets, "parse cart item added: "+err.Error())
 		} else if ok {
-			log.Printf("login cart item added index=%d item=%d amount=%d", cartItem.Index, cartItem.ItemID, cartItem.Amount)
+			glog.Debugf("login cart item added index=%d item=%d amount=%d", cartItem.Index, cartItem.ItemID, cartItem.Amount)
 			applyCartItemAdded(ctx, cartItem)
 			continue
 		}
@@ -388,28 +388,28 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 			m.packets = append(m.packets, "parse vending board: "+err.Error())
 		} else if ok {
 			applyVendingBoardToWorld(ctx, board)
-			log.Printf("login vending board actor=%d name=%q", board.OwnerAID, board.Name)
+			glog.Debugf("login vending board actor=%d name=%q", board.OwnerAID, board.Name)
 			continue
 		}
 		if board, ok, err := network.ParseVendingBoardDisappear(pkt); err != nil {
 			m.packets = append(m.packets, "parse vending board disappear: "+err.Error())
 		} else if ok {
 			applyVendingBoardDisappearToWorld(ctx, board)
-			log.Printf("login vending board removed actor=%d", board.OwnerAID)
+			glog.Debugf("login vending board removed actor=%d", board.OwnerAID)
 			continue
 		}
 		if board, ok, err := network.ParseChatRoomBoard(pkt); err != nil {
 			m.packets = append(m.packets, "parse chat room board: "+err.Error())
 		} else if ok {
 			applyChatRoomBoardToWorld(ctx, board)
-			log.Printf("login chat room board actor=%d room=%d title=%q", board.OwnerID, board.RoomID, board.Title)
+			glog.Debugf("login chat room board actor=%d room=%d title=%q", board.OwnerID, board.RoomID, board.Title)
 			continue
 		}
 		if destroy, ok, err := network.ParseChatRoomDestroy(pkt); err != nil {
 			m.packets = append(m.packets, "parse chat room destroy: "+err.Error())
 		} else if ok {
 			applyChatRoomDestroyToWorld(ctx, destroy)
-			log.Printf("login chat room board removed room=%d", destroy.RoomID)
+			glog.Debugf("login chat room board removed room=%d", destroy.RoomID)
 			continue
 		}
 		if entry, ok, err := network.ParseActorEntry(pkt); err != nil {
@@ -426,7 +426,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	for _, err := range networkErrors {
-		log.Printf("network frame error: %v", err)
+		glog.Errorf("network frame error: %v", err)
 		m.packets = append(m.packets, "frame error: "+err.Error())
 		if len(m.packets) > 8 {
 			m.packets = m.packets[len(m.packets)-8:]
@@ -733,7 +733,7 @@ func (m *LoginMode) playConfirmSFX(ctx client.Context) {
 	source, err := ctx.Audio.PlaySFX(loginConfirmSFX)
 	if err == nil {
 		if source != "" {
-			log.Printf("sfx playing path=%s source=%s", loginConfirmSFX, source)
+			glog.Debugf("sfx playing path=%s source=%s", loginConfirmSFX, source)
 		}
 	}
 }
@@ -810,7 +810,7 @@ func (m *LoginMode) connectAndMaybeLogin(ctx client.Context, conn res.Connection
 	}
 
 	m.status = ctx.Network.Status()
-	log.Printf("connected login server %s:%d", conn.Address, conn.Port)
+	glog.Infof("connected login server %s:%d", conn.Address, conn.Port)
 	if strings.TrimSpace(m.username) == "" && m.password == "" {
 		return
 	}
@@ -829,7 +829,7 @@ func (m *LoginMode) connectAndMaybeLogin(ctx client.Context, conn res.Connection
 		m.playConfirmSFX(ctx)
 	}
 	m.status = "CA_LOGIN sent"
-	log.Printf("sent CA_LOGIN user=%s version=%d", m.username, conn.Version)
+	glog.Debugf("sent CA_LOGIN user=%s version=%d", m.username, conn.Version)
 }
 
 func (m *LoginMode) connectCharServer(ctx client.Context, server network.CharServer) {
@@ -848,7 +848,7 @@ func (m *LoginMode) connectCharServer(ctx client.Context, server network.CharSer
 		return
 	}
 	m.status = "CA_ENTER sent to char server"
-	log.Printf("sent CA_ENTER account_id=%d addr=%s port=%d", ctx.Session.AccountID, server.Address, server.Port)
+	glog.Debugf("sent CA_ENTER account_id=%d addr=%s port=%d", ctx.Session.AccountID, server.Address, server.Port)
 }
 
 func (m *LoginMode) connectMapServer(ctx client.Context, zone network.ZoneServerNotify) {
@@ -867,7 +867,7 @@ func (m *LoginMode) connectMapServer(ctx client.Context, zone network.ZoneServer
 		return
 	}
 	m.status = "CZ_ENTER2 sent to map server"
-	log.Printf("sent CZ_ENTER2 account_id=%d char_id=%d addr=%s port=%d", ctx.Session.AccountID, zone.CharID, zone.Address, zone.Port)
+	glog.Debugf("sent CZ_ENTER2 account_id=%d char_id=%d addr=%s port=%d", ctx.Session.AccountID, zone.CharID, zone.Address, zone.Port)
 }
 
 func convertCharServers(servers []network.CharServer) []session.CharServer {

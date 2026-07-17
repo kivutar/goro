@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 	"strings"
 )
 
@@ -478,9 +478,9 @@ func (c *Client) SendGlobalChat(name, message string) error {
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQUEST_CHAT opcode=0x%04X len=%d name=%q client_date=%d", ID(packet), len(packet), name, c.clientDate)
+		glog.Debugf("sent CZ_REQUEST_CHAT opcode=0x%04X len=%d name=%q client_date=%d", ID(packet), len(packet), name, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQUEST_CHAT failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
+		glog.Warnf("send CZ_REQUEST_CHAT failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
 	}
 	return err
 }
@@ -492,9 +492,9 @@ func (c *Client) SendWhisper(receiver, message string) error {
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_WHISPER opcode=0x%04X len=%d receiver=%q client_date=%d", ID(packet), len(packet), receiver, c.clientDate)
+		glog.Debugf("sent CZ_WHISPER opcode=0x%04X len=%d receiver=%q client_date=%d", ID(packet), len(packet), receiver, c.clientDate)
 	} else {
-		log.Printf("send CZ_WHISPER failed opcode=0x%04X len=%d receiver=%q client_date=%d: %v", ID(packet), len(packet), receiver, c.clientDate, err)
+		glog.Warnf("send CZ_WHISPER failed opcode=0x%04X len=%d receiver=%q client_date=%d: %v", ID(packet), len(packet), receiver, c.clientDate, err)
 	}
 	return err
 }
@@ -506,9 +506,9 @@ func (c *Client) SendWhisperIgnore(name string, allow bool) error {
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_SETTING_WHISPER_PC opcode=0x%04X name=%q allow=%t client_date=%d", ID(packet), name, allow, c.clientDate)
+		glog.Debugf("sent CZ_SETTING_WHISPER_PC opcode=0x%04X name=%q allow=%t client_date=%d", ID(packet), name, allow, c.clientDate)
 	} else {
-		log.Printf("send CZ_SETTING_WHISPER_PC failed opcode=0x%04X name=%q allow=%t client_date=%d: %v", ID(packet), name, allow, c.clientDate, err)
+		glog.Warnf("send CZ_SETTING_WHISPER_PC failed opcode=0x%04X name=%q allow=%t client_date=%d: %v", ID(packet), name, allow, c.clientDate, err)
 	}
 	return err
 }
@@ -517,9 +517,9 @@ func (c *Client) SendWhisperIgnoreAll(allow bool) error {
 	packet := BuildWhisperIgnoreAllPacket(allow)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_SETTING_WHISPER_STATE opcode=0x%04X allow=%t client_date=%d", ID(packet), allow, c.clientDate)
+		glog.Debugf("sent CZ_SETTING_WHISPER_STATE opcode=0x%04X allow=%t client_date=%d", ID(packet), allow, c.clientDate)
 	} else {
-		log.Printf("send CZ_SETTING_WHISPER_STATE failed opcode=0x%04X allow=%t client_date=%d: %v", ID(packet), allow, c.clientDate, err)
+		glog.Warnf("send CZ_SETTING_WHISPER_STATE failed opcode=0x%04X allow=%t client_date=%d: %v", ID(packet), allow, c.clientDate, err)
 	}
 	return err
 }
@@ -531,9 +531,9 @@ func (c *Client) SendCreateChatRoom(room ChatRoomCreate) error {
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CREATE_CHATROOM opcode=0x%04X len=%d title=%q limit=%d public=%t client_date=%d", ID(packet), len(packet), room.Title, room.Limit, room.Public, c.clientDate)
+		glog.Debugf("sent CZ_CREATE_CHATROOM opcode=0x%04X len=%d title=%q limit=%d public=%t client_date=%d", ID(packet), len(packet), room.Title, room.Limit, room.Public, c.clientDate)
 	} else {
-		log.Printf("send CZ_CREATE_CHATROOM failed opcode=0x%04X len=%d title=%q limit=%d public=%t client_date=%d: %v", ID(packet), len(packet), room.Title, room.Limit, room.Public, c.clientDate, err)
+		glog.Warnf("send CZ_CREATE_CHATROOM failed opcode=0x%04X len=%d title=%q limit=%d public=%t client_date=%d: %v", ID(packet), len(packet), room.Title, room.Limit, room.Public, c.clientDate, err)
 	}
 	return err
 }
@@ -542,9 +542,9 @@ func (c *Client) SendExitChatRoom() error {
 	packet := BuildExitChatRoomPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_EXIT_ROOM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_EXIT_ROOM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_EXIT_ROOM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
+		glog.Warnf("send CZ_EXIT_ROOM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -556,9 +556,9 @@ func (c *Client) SendEnterChatRoom(roomID uint32, password string) error {
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_ENTER_ROOM opcode=0x%04X room=%d client_date=%d", ID(packet), roomID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_ENTER_ROOM opcode=0x%04X room=%d client_date=%d", ID(packet), roomID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_ENTER_ROOM failed opcode=0x%04X room=%d client_date=%d: %v", ID(packet), roomID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_ENTER_ROOM failed opcode=0x%04X room=%d client_date=%d: %v", ID(packet), roomID, c.clientDate, err)
 	}
 	return err
 }

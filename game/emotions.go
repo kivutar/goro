@@ -1,11 +1,11 @@
 package game
 
 import (
-	"log"
 	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 )
 
@@ -32,7 +32,7 @@ func (m *WorldMode) applyEmotionNotify(ctx client.Context, notify network.Emotio
 		spriteFrameOverride: frame,
 		hasSpriteFrame:      true,
 	})
-	log.Printf("emotion actor=%d type=%d frame=%d", notify.GID, notify.Type, frame)
+	glog.Debugf("emotion actor=%d type=%d frame=%d", notify.GID, notify.Type, frame)
 }
 
 func (m *WorldMode) emotionDuration(ctx client.Context, frame int) time.Duration {

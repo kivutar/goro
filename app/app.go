@@ -2,13 +2,13 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	gameaudio "github.com/kivutar/goro/audio"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/game"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
@@ -150,10 +150,10 @@ func (g *Game) ConsumeScreenshotRequest() (string, bool) {
 
 func (g *Game) CompleteScreenshot(path string, err error) {
 	if err != nil {
-		log.Printf("screenshot failed path=%s error=%v", path, err)
+		glog.Errorf("screenshot failed path=%s error=%v", path, err)
 		return
 	}
-	log.Printf("screenshot saved path=%s", path)
+	glog.Infof("screenshot saved path=%s", path)
 }
 
 func (g *Game) RuntimeFullscreen() bool {
@@ -175,16 +175,16 @@ func loadClientUIFont(resource *res.Manager) {
 	}
 	bold, err := resource.ReadFileExact("System/Font/SCDream6.otf")
 	if err != nil {
-		log.Printf("ui font regular loaded but bold missing: %v", err)
+		glog.Warnf("ui font regular loaded but bold missing: %v", err)
 	}
 	if err := render.SetUIFont(regular, bold); err != nil {
-		log.Printf("ui font load failed: %v", err)
+		glog.Errorf("ui font load failed: %v", err)
 		return
 	}
 	if len(bold) > 0 {
-		log.Printf("ui font loaded path=System/Font/SCDream4.otf bold=System/Font/SCDream6.otf")
+		glog.Infof("ui font loaded path=System/Font/SCDream4.otf bold=System/Font/SCDream6.otf")
 	} else {
-		log.Printf("ui font loaded path=System/Font/SCDream4.otf")
+		glog.Infof("ui font loaded path=System/Font/SCDream4.otf")
 	}
 }
 

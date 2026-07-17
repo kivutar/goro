@@ -73,6 +73,10 @@ itemsnap = false
 
 [script]
 path = ./ignored.lua
+
+[log]
+level = warn
+file = ./ignored.log
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -94,6 +98,8 @@ path = ./ignored.lua
 		"--snap=false",
 		"--itemsnap=true",
 		"--script", filepath.Join(root, "bot.lua"),
+		"--log-level", "debug",
+		"--log-file", filepath.Join(root, "goro.log"),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -128,6 +134,9 @@ path = ./ignored.lua
 	if cfg.Script.Path != filepath.Join(root, "bot.lua") {
 		t.Fatalf("script path = %q", cfg.Script.Path)
 	}
+	if cfg.Log.Level != "debug" || cfg.Log.File != filepath.Join(root, "goro.log") {
+		t.Fatalf("unexpected log config: %#v", cfg.Log)
+	}
 }
 
 func TestLoadConfigWindowedOverridesFullscreenINI(t *testing.T) {
@@ -151,6 +160,13 @@ func TestLoadConfigRejectsInvalidCharacterSlot(t *testing.T) {
 	isolateUserConfig(t)
 	if _, err := LoadConfig([]string{"--char-slot", "9"}); err == nil {
 		t.Fatal("expected invalid character slot error")
+	}
+}
+
+func TestLoadConfigRejectsInvalidLogLevel(t *testing.T) {
+	isolateUserConfig(t)
+	if _, err := LoadConfig([]string{"--log-level", "verbose"}); err == nil {
+		t.Fatal("expected invalid log level error")
 	}
 }
 

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"log"
 	"time"
 
 	"github.com/gogpu/ui/core/datatable"
@@ -10,6 +9,7 @@ import (
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
@@ -171,21 +171,21 @@ func (w *MakingArrowWindow) rowAtMouse(mouseX, mouseY int) (int, bool) {
 
 func (w *MakingArrowWindow) makeArrow(ctx Context, itemID uint16) {
 	if ctx.Network == nil {
-		log.Printf("making arrow failed: not connected")
+		glog.Warnf("making arrow failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendMakingArrow(itemID); err != nil {
-		log.Printf("making arrow failed: %v", err)
+		glog.Warnf("making arrow failed: %v", err)
 		return
 	}
-	log.Printf("making arrow requested item=%d", itemID)
+	glog.Debugf("making arrow requested item=%d", itemID)
 	w.Close()
 }
 
 func (w *MakingArrowWindow) cancel(ctx Context) {
 	if ctx.Network != nil {
 		if err := ctx.Network.SendMakingArrow(0xFFFF); err != nil {
-			log.Printf("making arrow cancel failed: %v", err)
+			glog.Warnf("making arrow cancel failed: %v", err)
 		}
 	}
 	w.Close()

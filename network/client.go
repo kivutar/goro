@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -118,7 +118,7 @@ func (c *Client) Send(data []byte) error {
 
 	if c.trace || elapsed > 2*time.Millisecond {
 		headLen := min(len(packet), 32)
-		log.Printf("network enqueue opcode=0x%04X n=%d elapsed=%s head=%s", ID(packet), len(packet), elapsed, hex.EncodeToString(packet[:headLen]))
+		glog.Debugf("network enqueue opcode=0x%04X n=%d elapsed=%s head=%s", ID(packet), len(packet), elapsed, hex.EncodeToString(packet[:headLen]))
 	}
 	return nil
 }
@@ -151,10 +151,10 @@ func (c *Client) SendMakeCharacter(character MakeCharacter) error {
 	packet := BuildMakeCharacterPacket(character)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CH_MAKE_CHAR opcode=0x%04X name=%q slot=%d stats=%d/%d/%d/%d/%d/%d hair_color=%d hair_style=%d client_date=%d",
+		glog.Debugf("sent CH_MAKE_CHAR opcode=0x%04X name=%q slot=%d stats=%d/%d/%d/%d/%d/%d hair_color=%d hair_style=%d client_date=%d",
 			ID(packet), character.Name, character.Slot, character.Str, character.Agi, character.Vit, character.Int, character.Dex, character.Luk, character.HairColor, character.HairStyle, c.clientDate)
 	} else {
-		log.Printf("send CH_MAKE_CHAR failed opcode=0x%04X len=%d name=%q slot=%d client_date=%d: %v",
+		glog.Warnf("send CH_MAKE_CHAR failed opcode=0x%04X len=%d name=%q slot=%d client_date=%d: %v",
 			ID(packet), len(packet), character.Name, character.Slot, c.clientDate, err)
 	}
 	return err
@@ -164,9 +164,9 @@ func (c *Client) SendDeleteCharacter(charID uint32, key string) error {
 	packet := BuildDeleteCharacterPacket(c.clientDate, charID, key)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CH_DELETE_CHAR opcode=0x%04X char_id=%d client_date=%d", ID(packet), charID, c.clientDate)
+		glog.Debugf("sent CH_DELETE_CHAR opcode=0x%04X char_id=%d client_date=%d", ID(packet), charID, c.clientDate)
 	} else {
-		log.Printf("send CH_DELETE_CHAR failed opcode=0x%04X len=%d char_id=%d client_date=%d: %v",
+		glog.Warnf("send CH_DELETE_CHAR failed opcode=0x%04X len=%d char_id=%d client_date=%d: %v",
 			ID(packet), len(packet), charID, c.clientDate, err)
 	}
 	return err
@@ -180,9 +180,9 @@ func (c *Client) SendRestart(restartType uint8) error {
 	packet := BuildRestartPacket(restartType)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_RESTART opcode=0x%04X type=%d client_date=%d", ID(packet), restartType, c.clientDate)
+		glog.Debugf("sent CZ_RESTART opcode=0x%04X type=%d client_date=%d", ID(packet), restartType, c.clientDate)
 	} else {
-		log.Printf("send CZ_RESTART failed opcode=0x%04X len=%d type=%d client_date=%d: %v", ID(packet), len(packet), restartType, c.clientDate, err)
+		glog.Warnf("send CZ_RESTART failed opcode=0x%04X len=%d type=%d client_date=%d: %v", ID(packet), len(packet), restartType, c.clientDate, err)
 	}
 	return err
 }
@@ -191,9 +191,9 @@ func (c *Client) SendQuitGame() error {
 	packet := BuildQuitGamePacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_DISCONNECT opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_REQ_DISCONNECT opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_DISCONNECT failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REQ_DISCONNECT failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -202,9 +202,9 @@ func (c *Client) SendTick(clientTick uint32) error {
 	packet := BuildTickSendPacketForClientDate(clientTick, c.clientDate)
 	err := c.Send(packet)
 	if err == nil && c.trace {
-		log.Printf("sent CZ_REQUEST_TIME opcode=0x%04X tick=%d client_date=%d", ID(packet), clientTick, c.clientDate)
+		glog.Debugf("sent CZ_REQUEST_TIME opcode=0x%04X tick=%d client_date=%d", ID(packet), clientTick, c.clientDate)
 	} else if err != nil {
-		log.Printf("send CZ_REQUEST_TIME failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REQUEST_TIME failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -212,14 +212,14 @@ func (c *Client) SendTick(clientTick uint32) error {
 func (c *Client) SendNameRequest(gid uint32) error {
 	packet, ok := BuildNameRequestPacketForClientDate(gid, c.clientDate)
 	if !ok {
-		log.Printf("skip CZ_REQNAME target=%d client_date=%d: unsupported packet profile", gid, c.clientDate)
+		glog.Warnf("skip CZ_REQNAME target=%d client_date=%d: unsupported packet profile", gid, c.clientDate)
 		return nil
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQNAME opcode=0x%04X len=%d target=%d client_date=%d", ID(packet), len(packet), gid, c.clientDate)
+		glog.Debugf("sent CZ_REQNAME opcode=0x%04X len=%d target=%d client_date=%d", ID(packet), len(packet), gid, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQNAME failed opcode=0x%04X len=%d target=%d client_date=%d: %v", ID(packet), len(packet), gid, c.clientDate, err)
+		glog.Warnf("send CZ_REQNAME failed opcode=0x%04X len=%d target=%d client_date=%d: %v", ID(packet), len(packet), gid, c.clientDate, err)
 	}
 	return err
 }
@@ -233,7 +233,7 @@ func (c *Client) SendMapServerEnter(accountID, charID, authCode, clientTick uint
 		Sex:        sex,
 	}, c.clientDate)
 	if c.trace {
-		log.Printf("sent CZ_ENTER2 opcode=0x%04X len=%d client_date=%d sex_offset=%d", ID(packet), len(packet), c.clientDate, len(packet)-1)
+		glog.Debugf("sent CZ_ENTER2 opcode=0x%04X len=%d client_date=%d sex_offset=%d", ID(packet), len(packet), c.clientDate, len(packet)-1)
 	}
 	return c.Send(packet)
 }
@@ -245,9 +245,9 @@ func (c *Client) SendWalkToXY(x, y int) error {
 	}
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQUEST_MOVE opcode=0x%04X dst=%d,%d client_date=%d", ID(packet), x, y, c.clientDate)
+		glog.Debugf("sent CZ_REQUEST_MOVE opcode=0x%04X dst=%d,%d client_date=%d", ID(packet), x, y, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQUEST_MOVE failed opcode=0x%04X len=%d dst=%d,%d client_date=%d: %v", ID(packet), len(packet), x, y, c.clientDate, err)
+		glog.Warnf("send CZ_REQUEST_MOVE failed opcode=0x%04X len=%d dst=%d,%d client_date=%d: %v", ID(packet), len(packet), x, y, c.clientDate, err)
 	}
 	return err
 }
@@ -256,9 +256,9 @@ func (c *Client) SendChangeDirection(headDir, dir uint8) error {
 	packet := BuildChangeDirectionPacketForClientDate(headDir, dir, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CHANGE_DIRECTION opcode=0x%04X head_dir=%d dir=%d client_date=%d", ID(packet), headDir, dir&7, c.clientDate)
+		glog.Debugf("sent CZ_CHANGE_DIRECTION opcode=0x%04X head_dir=%d dir=%d client_date=%d", ID(packet), headDir, dir&7, c.clientDate)
 	} else {
-		log.Printf("send CZ_CHANGE_DIRECTION failed opcode=0x%04X len=%d head_dir=%d dir=%d client_date=%d: %v", ID(packet), len(packet), headDir, dir&7, c.clientDate, err)
+		glog.Warnf("send CZ_CHANGE_DIRECTION failed opcode=0x%04X len=%d head_dir=%d dir=%d client_date=%d: %v", ID(packet), len(packet), headDir, dir&7, c.clientDate, err)
 	}
 	return err
 }
@@ -267,9 +267,9 @@ func (c *Client) SendActionRequest(targetGID uint32, action uint8) error {
 	packet := BuildActionRequestPacketForClientDate(targetGID, action, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQUEST_ACT opcode=0x%04X target=%d action=%d client_date=%d", ID(packet), targetGID, action, c.clientDate)
+		glog.Debugf("sent CZ_REQUEST_ACT opcode=0x%04X target=%d action=%d client_date=%d", ID(packet), targetGID, action, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQUEST_ACT failed opcode=0x%04X len=%d target=%d action=%d client_date=%d: %v", ID(packet), len(packet), targetGID, action, c.clientDate, err)
+		glog.Warnf("send CZ_REQUEST_ACT failed opcode=0x%04X len=%d target=%d action=%d client_date=%d: %v", ID(packet), len(packet), targetGID, action, c.clientDate, err)
 	}
 	return err
 }
@@ -278,9 +278,9 @@ func (c *Client) SendNPCContact(npcID uint32) error {
 	packet := BuildNPCContactPacket(npcID, 0)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CONTACTNPC opcode=0x%04X npc=%d client_date=%d", ID(packet), npcID, c.clientDate)
+		glog.Debugf("sent CZ_CONTACTNPC opcode=0x%04X npc=%d client_date=%d", ID(packet), npcID, c.clientDate)
 	} else {
-		log.Printf("send CZ_CONTACTNPC failed opcode=0x%04X npc=%d client_date=%d: %v", ID(packet), npcID, c.clientDate, err)
+		glog.Warnf("send CZ_CONTACTNPC failed opcode=0x%04X npc=%d client_date=%d: %v", ID(packet), npcID, c.clientDate, err)
 	}
 	return err
 }
@@ -289,9 +289,9 @@ func (c *Client) SendNPCNext(npcID uint32) error {
 	packet := BuildNPCNextPacket(npcID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_NEXT_SCRIPT opcode=0x%04X npc=%d client_date=%d", ID(packet), npcID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_NEXT_SCRIPT opcode=0x%04X npc=%d client_date=%d", ID(packet), npcID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_NEXT_SCRIPT failed opcode=0x%04X npc=%d client_date=%d: %v", ID(packet), npcID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_NEXT_SCRIPT failed opcode=0x%04X npc=%d client_date=%d: %v", ID(packet), npcID, c.clientDate, err)
 	}
 	return err
 }
@@ -300,9 +300,9 @@ func (c *Client) SendNPCClose(npcID uint32) error {
 	packet := BuildNPCClosePacket(npcID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CLOSE_DIALOG opcode=0x%04X npc=%d client_date=%d", ID(packet), npcID, c.clientDate)
+		glog.Debugf("sent CZ_CLOSE_DIALOG opcode=0x%04X npc=%d client_date=%d", ID(packet), npcID, c.clientDate)
 	} else {
-		log.Printf("send CZ_CLOSE_DIALOG failed opcode=0x%04X npc=%d client_date=%d: %v", ID(packet), npcID, c.clientDate, err)
+		glog.Warnf("send CZ_CLOSE_DIALOG failed opcode=0x%04X npc=%d client_date=%d: %v", ID(packet), npcID, c.clientDate, err)
 	}
 	return err
 }
@@ -311,9 +311,9 @@ func (c *Client) SendNPCMenuChoice(npcID uint32, choice uint8) error {
 	packet := BuildNPCMenuChoicePacket(npcID, choice)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CHOOSE_MENU opcode=0x%04X npc=%d choice=%d client_date=%d", ID(packet), npcID, choice, c.clientDate)
+		glog.Debugf("sent CZ_CHOOSE_MENU opcode=0x%04X npc=%d choice=%d client_date=%d", ID(packet), npcID, choice, c.clientDate)
 	} else {
-		log.Printf("send CZ_CHOOSE_MENU failed opcode=0x%04X npc=%d choice=%d client_date=%d: %v", ID(packet), npcID, choice, c.clientDate, err)
+		glog.Warnf("send CZ_CHOOSE_MENU failed opcode=0x%04X npc=%d choice=%d client_date=%d: %v", ID(packet), npcID, choice, c.clientDate, err)
 	}
 	return err
 }
@@ -322,9 +322,9 @@ func (c *Client) SendNPCNumberInput(npcID uint32, value int32) error {
 	packet := BuildNPCNumberInputPacket(npcID, value)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_INPUT_EDITDLG opcode=0x%04X npc=%d value=%d client_date=%d", ID(packet), npcID, value, c.clientDate)
+		glog.Debugf("sent CZ_INPUT_EDITDLG opcode=0x%04X npc=%d value=%d client_date=%d", ID(packet), npcID, value, c.clientDate)
 	} else {
-		log.Printf("send CZ_INPUT_EDITDLG failed opcode=0x%04X npc=%d value=%d client_date=%d: %v", ID(packet), npcID, value, c.clientDate, err)
+		glog.Warnf("send CZ_INPUT_EDITDLG failed opcode=0x%04X npc=%d value=%d client_date=%d: %v", ID(packet), npcID, value, c.clientDate, err)
 	}
 	return err
 }
@@ -333,9 +333,9 @@ func (c *Client) SendNPCStringInput(npcID uint32, value string) error {
 	packet := BuildNPCStringInputPacket(npcID, value)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_INPUT_EDITDLGSTR opcode=0x%04X npc=%d len=%d client_date=%d", ID(packet), npcID, len(value), c.clientDate)
+		glog.Debugf("sent CZ_INPUT_EDITDLGSTR opcode=0x%04X npc=%d len=%d client_date=%d", ID(packet), npcID, len(value), c.clientDate)
 	} else {
-		log.Printf("send CZ_INPUT_EDITDLGSTR failed opcode=0x%04X npc=%d len=%d client_date=%d: %v", ID(packet), npcID, len(value), c.clientDate, err)
+		glog.Warnf("send CZ_INPUT_EDITDLGSTR failed opcode=0x%04X npc=%d len=%d client_date=%d: %v", ID(packet), npcID, len(value), c.clientDate, err)
 	}
 	return err
 }
@@ -344,9 +344,9 @@ func (c *Client) SendStatusIncrease(statusID uint16) error {
 	packet := BuildStatusIncreasePacket(statusID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_STATUS_CHANGE opcode=0x%04X status=%d amount=1 client_date=%d", ID(packet), statusID, c.clientDate)
+		glog.Debugf("sent CZ_STATUS_CHANGE opcode=0x%04X status=%d amount=1 client_date=%d", ID(packet), statusID, c.clientDate)
 	} else {
-		log.Printf("send CZ_STATUS_CHANGE failed opcode=0x%04X len=%d status=%d client_date=%d: %v", ID(packet), len(packet), statusID, c.clientDate, err)
+		glog.Warnf("send CZ_STATUS_CHANGE failed opcode=0x%04X len=%d status=%d client_date=%d: %v", ID(packet), len(packet), statusID, c.clientDate, err)
 	}
 	return err
 }
@@ -355,9 +355,9 @@ func (c *Client) SendSkillLevelUp(skillID uint16) error {
 	packet := BuildSkillLevelUpPacket(skillID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_UPGRADE_SKILLLEVEL opcode=0x%04X skill=%d client_date=%d", ID(packet), skillID, c.clientDate)
+		glog.Debugf("sent CZ_UPGRADE_SKILLLEVEL opcode=0x%04X skill=%d client_date=%d", ID(packet), skillID, c.clientDate)
 	} else {
-		log.Printf("send CZ_UPGRADE_SKILLLEVEL failed opcode=0x%04X len=%d skill=%d client_date=%d: %v", ID(packet), len(packet), skillID, c.clientDate, err)
+		glog.Warnf("send CZ_UPGRADE_SKILLLEVEL failed opcode=0x%04X len=%d skill=%d client_date=%d: %v", ID(packet), len(packet), skillID, c.clientDate, err)
 	}
 	return err
 }
@@ -366,9 +366,9 @@ func (c *Client) SendRememberWarpPoint() error {
 	packet := BuildRememberWarpPointPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REMEMBER_WARPPOINT opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_REMEMBER_WARPPOINT opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_REMEMBER_WARPPOINT failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REMEMBER_WARPPOINT failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -377,9 +377,9 @@ func (c *Client) SendUseSkillToID(skillID, level uint16, targetID uint32) error 
 	packet := BuildUseSkillToIDPacketForClientDate(skillID, level, targetID, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_USE_SKILL opcode=0x%04X skill=%d level=%d target=%d client_date=%d", ID(packet), skillID, level, targetID, c.clientDate)
+		glog.Debugf("sent CZ_USE_SKILL opcode=0x%04X skill=%d level=%d target=%d client_date=%d", ID(packet), skillID, level, targetID, c.clientDate)
 	} else {
-		log.Printf("send CZ_USE_SKILL failed opcode=0x%04X len=%d skill=%d level=%d target=%d client_date=%d: %v", ID(packet), len(packet), skillID, level, targetID, c.clientDate, err)
+		glog.Warnf("send CZ_USE_SKILL failed opcode=0x%04X len=%d skill=%d level=%d target=%d client_date=%d: %v", ID(packet), len(packet), skillID, level, targetID, c.clientDate, err)
 	}
 	return err
 }
@@ -388,9 +388,9 @@ func (c *Client) SendUseSkillToGround(skillID, level uint16, x, y int) error {
 	packet := BuildUseSkillToGroundPacketForClientDate(skillID, level, x, y, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_USE_SKILL_TOGROUND opcode=0x%04X skill=%d level=%d dst=%d,%d client_date=%d", ID(packet), skillID, level, x, y, c.clientDate)
+		glog.Debugf("sent CZ_USE_SKILL_TOGROUND opcode=0x%04X skill=%d level=%d dst=%d,%d client_date=%d", ID(packet), skillID, level, x, y, c.clientDate)
 	} else {
-		log.Printf("send CZ_USE_SKILL_TOGROUND failed opcode=0x%04X len=%d skill=%d level=%d dst=%d,%d client_date=%d: %v", ID(packet), len(packet), skillID, level, x, y, c.clientDate, err)
+		glog.Warnf("send CZ_USE_SKILL_TOGROUND failed opcode=0x%04X len=%d skill=%d level=%d dst=%d,%d client_date=%d: %v", ID(packet), len(packet), skillID, level, x, y, c.clientDate, err)
 	}
 	return err
 }
@@ -399,9 +399,9 @@ func (c *Client) SendUseSkillToGroundWithText(skillID, level uint16, x, y int, t
 	packet := BuildUseSkillToGroundWithTextPacketForClientDate(skillID, level, x, y, text, c.clientDate)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_USE_SKILL_TOGROUND_WITHTALKBOX opcode=0x%04X skill=%d level=%d dst=%d,%d text_len=%d client_date=%d", ID(packet), skillID, level, x, y, len([]byte(text)), c.clientDate)
+		glog.Debugf("sent CZ_USE_SKILL_TOGROUND_WITHTALKBOX opcode=0x%04X skill=%d level=%d dst=%d,%d text_len=%d client_date=%d", ID(packet), skillID, level, x, y, len([]byte(text)), c.clientDate)
 	} else {
-		log.Printf("send CZ_USE_SKILL_TOGROUND_WITHTALKBOX failed opcode=0x%04X len=%d skill=%d level=%d dst=%d,%d text_len=%d client_date=%d: %v", ID(packet), len(packet), skillID, level, x, y, len([]byte(text)), c.clientDate, err)
+		glog.Warnf("send CZ_USE_SKILL_TOGROUND_WITHTALKBOX failed opcode=0x%04X len=%d skill=%d level=%d dst=%d,%d text_len=%d client_date=%d: %v", ID(packet), len(packet), skillID, level, x, y, len([]byte(text)), c.clientDate, err)
 	}
 	return err
 }
@@ -410,9 +410,9 @@ func (c *Client) SendChangeCart(cartNum uint16) error {
 	packet := BuildChangeCartPacket(cartNum)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_CHANGECART opcode=0x%04X cart=%d client_date=%d", ID(packet), cartNum, c.clientDate)
+		glog.Debugf("sent CZ_REQ_CHANGECART opcode=0x%04X cart=%d client_date=%d", ID(packet), cartNum, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_CHANGECART failed opcode=0x%04X len=%d cart=%d client_date=%d: %v", ID(packet), len(packet), cartNum, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_CHANGECART failed opcode=0x%04X len=%d cart=%d client_date=%d: %v", ID(packet), len(packet), cartNum, c.clientDate, err)
 	}
 	return err
 }
@@ -421,9 +421,9 @@ func (c *Client) SendSelectWarpPoint(skillID uint16, mapName string) error {
 	packet := BuildSelectWarpPointPacket(skillID, mapName)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_SELECT_WARPPOINT opcode=0x%04X skill=%d map=%q client_date=%d", ID(packet), skillID, mapName, c.clientDate)
+		glog.Debugf("sent CZ_SELECT_WARPPOINT opcode=0x%04X skill=%d map=%q client_date=%d", ID(packet), skillID, mapName, c.clientDate)
 	} else {
-		log.Printf("send CZ_SELECT_WARPPOINT failed opcode=0x%04X len=%d skill=%d map=%q client_date=%d: %v", ID(packet), len(packet), skillID, mapName, c.clientDate, err)
+		glog.Warnf("send CZ_SELECT_WARPPOINT failed opcode=0x%04X len=%d skill=%d map=%q client_date=%d: %v", ID(packet), len(packet), skillID, mapName, c.clientDate, err)
 	}
 	return err
 }
@@ -464,7 +464,7 @@ func (c *Client) readLoop(conn net.Conn) {
 		if n > 0 {
 			if c.trace {
 				headLen := min(n, 32)
-				log.Printf("network read n=%d head=%s", n, hex.EncodeToString(buf[:headLen]))
+				glog.Debugf("network read n=%d head=%s", n, hex.EncodeToString(buf[:headLen]))
 			}
 			packets, frameErr := c.framer.Push(buf[:n])
 			c.mu.Lock()
@@ -502,7 +502,7 @@ func (c *Client) writeLoop(conn net.Conn, sendCh <-chan outboundPacket) {
 		elapsed := time.Since(start)
 		if c.trace || queued > 2*time.Millisecond || elapsed > 2*time.Millisecond {
 			headLen := min(len(packet.data), 32)
-			log.Printf("network write opcode=0x%04X n=%d queued=%s elapsed=%s head=%s", ID(packet.data), len(packet.data), queued, elapsed, hex.EncodeToString(packet.data[:headLen]))
+			glog.Debugf("network write opcode=0x%04X n=%d queued=%s elapsed=%s head=%s", ID(packet.data), len(packet.data), queued, elapsed, hex.EncodeToString(packet.data[:headLen]))
 		}
 	}
 }

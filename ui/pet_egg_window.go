@@ -3,13 +3,13 @@ package ui
 import (
 	"fmt"
 	"image"
-	"log"
 	"sort"
 
 	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -136,15 +136,15 @@ func (w *PetEggWindow) hatchSelected(ctx Context) {
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("pet egg hatch failed: not connected")
+		glog.Warnf("pet egg hatch failed: not connected")
 		return
 	}
 	item := items[w.selectedRow]
 	if err := ctx.Network.SendSelectPetEgg(item.Index); err != nil {
-		log.Printf("pet egg hatch failed: %v", err)
+		glog.Warnf("pet egg hatch failed: %v", err)
 		return
 	}
-	log.Printf("pet egg hatch selected index=%d item=%d", item.Index, item.ItemID)
+	glog.Debugf("pet egg hatch selected index=%d item=%d", item.Index, item.ItemID)
 	w.Close()
 }
 

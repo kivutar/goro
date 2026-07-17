@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -63,9 +63,9 @@ func (c *Client) SendHotkey(index uint16, slot HotkeySlot) error {
 	packet := BuildHotkeyPacket(index, slot)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_SHORTCUT_KEY_CHANGE opcode=0x%04X index=%d type=%d id=%d level=%d client_date=%d", ID(packet), index, slot.Type, slot.ID, slot.Level, c.clientDate)
+		glog.Debugf("sent CZ_SHORTCUT_KEY_CHANGE opcode=0x%04X index=%d type=%d id=%d level=%d client_date=%d", ID(packet), index, slot.Type, slot.ID, slot.Level, c.clientDate)
 	} else {
-		log.Printf("send CZ_SHORTCUT_KEY_CHANGE failed opcode=0x%04X len=%d index=%d type=%d id=%d level=%d client_date=%d: %v", ID(packet), len(packet), index, slot.Type, slot.ID, slot.Level, c.clientDate, err)
+		glog.Warnf("send CZ_SHORTCUT_KEY_CHANGE failed opcode=0x%04X len=%d index=%d type=%d id=%d level=%d client_date=%d: %v", ID(packet), len(packet), index, slot.Type, slot.ID, slot.Level, c.clientDate, err)
 	}
 	return err
 }

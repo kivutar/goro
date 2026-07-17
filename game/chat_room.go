@@ -2,11 +2,11 @@ package game
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
@@ -45,7 +45,7 @@ func (m *WorldMode) createChatRoomFromWindow(ctx client.Context, action gameui.C
 	}
 	if err := ctx.Network.SendCreateChatRoom(room); err != nil {
 		m.ui.console.AddErrorMessage("Create chat room failed.")
-		log.Printf("chat room create failed title=%q limit=%d public=%t: %v", room.Title, room.Limit, room.Public, err)
+		glog.Warnf("chat room create failed title=%q limit=%d public=%t: %v", room.Title, room.Limit, room.Public, err)
 		return
 	}
 	m.pendingChatRoom = room
@@ -74,7 +74,7 @@ func (m *WorldMode) handleChatRoomCreateAck(ctx client.Context, ack network.Chat
 
 func (m *WorldMode) applyChatRoomBoard(ctx client.Context, board network.ChatRoomBoard) {
 	applyChatRoomBoardToWorld(ctx, board)
-	log.Printf("chat room board actor=%d room=%d title=%q count=%d limit=%d public=%t", board.OwnerID, board.RoomID, board.Title, board.Count, board.Limit, board.Public)
+	glog.Debugf("chat room board actor=%d room=%d title=%q count=%d limit=%d public=%t", board.OwnerID, board.RoomID, board.Title, board.Count, board.Limit, board.Public)
 }
 
 func applyChatRoomBoardToWorld(ctx client.Context, board network.ChatRoomBoard) {
@@ -105,7 +105,7 @@ func applyChatRoomBoardToWorld(ctx client.Context, board network.ChatRoomBoard) 
 
 func (m *WorldMode) applyChatRoomDestroy(ctx client.Context, destroy network.ChatRoomDestroy) {
 	applyChatRoomDestroyToWorld(ctx, destroy)
-	log.Printf("chat room board removed room=%d", destroy.RoomID)
+	glog.Debugf("chat room board removed room=%d", destroy.RoomID)
 }
 
 func applyChatRoomDestroyToWorld(ctx client.Context, destroy network.ChatRoomDestroy) {
@@ -146,7 +146,7 @@ func (m *WorldMode) handleChatRoomAction(ctx client.Context, action gameui.ChatR
 		}
 		if err := ctx.Network.SendExitChatRoom(); err != nil {
 			m.ui.console.AddErrorMessage("Leave chat room failed.")
-			log.Printf("chat room leave failed: %v", err)
+			glog.Warnf("chat room leave failed: %v", err)
 		}
 		return
 	}
@@ -168,7 +168,7 @@ func (m *WorldMode) handleChatRoomAction(ctx client.Context, action gameui.ChatR
 	if err := ctx.Network.SendGlobalChat(name, message); err != nil {
 		m.ui.chatRoom.AddError(ctx, "send failed: "+err.Error())
 		m.ui.console.AddErrorMessage("Chat room send failed.")
-		log.Printf("chat room send failed: %v", err)
+		glog.Warnf("chat room send failed: %v", err)
 	}
 }
 
@@ -186,7 +186,7 @@ func (m *WorldMode) requestChatRoomEnter(ctx client.Context, actor worldstate.Ac
 	}
 	if err := ctx.Network.SendEnterChatRoom(actor.ChatRoomID, ""); err != nil {
 		m.ui.console.AddErrorMessage("Enter chat room failed.")
-		log.Printf("chat room enter failed room=%d title=%q: %v", actor.ChatRoomID, actor.ChatRoomTitle, err)
+		glog.Warnf("chat room enter failed room=%d title=%q: %v", actor.ChatRoomID, actor.ChatRoomTitle, err)
 		return
 	}
 	m.pendingChatRoom = network.ChatRoomCreate{

@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"time"
 
 	"github.com/gogpu/ui/core/datatable"
@@ -148,7 +148,7 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 			w.closeBuyWindows(ctx)
 			return
 		}
-		log.Printf("shop buy failed result=%d", result.Result)
+		glog.Warnf("shop buy failed result=%d", result.Result)
 		w.refreshBuyWindow(ctx)
 		return
 	}
@@ -160,7 +160,7 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 		w.closeBuyWindows(ctx)
 		return
 	}
-	log.Printf("shop sell failed result=%d", result.Result)
+	glog.Warnf("shop sell failed result=%d", result.Result)
 }
 
 func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
@@ -948,7 +948,7 @@ func (w *ShopWindow) submit(ctx Context) {
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("shop sell failed: not connected")
+		glog.Warnf("shop sell failed: not connected")
 		return
 	}
 	items := make([]network.SellRequestItem, 0, len(w.cart))
@@ -956,7 +956,7 @@ func (w *ShopWindow) submit(ctx Context) {
 		items = append(items, network.SellRequestItem{Index: item.item.Index, Amount: item.amount})
 	}
 	if err := ctx.Network.SendShopSellItems(items); err != nil {
-		log.Printf("shop sell failed: %v", err)
+		glog.Warnf("shop sell failed: %v", err)
 		return
 	}
 	w.closePacketSent = true
@@ -967,11 +967,11 @@ func (w *ShopWindow) submitBuy(ctx Context) {
 		return
 	}
 	if ctx.Session != nil && w.total() > ctx.Session.Inventory.Zeny {
-		log.Printf("shop buy failed: not enough zeny")
+		glog.Warnf("shop buy failed: not enough zeny")
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("shop buy failed: not connected")
+		glog.Warnf("shop buy failed: not connected")
 		return
 	}
 	items := make([]network.BuyRequestItem, 0, len(w.buyCart))
@@ -979,7 +979,7 @@ func (w *ShopWindow) submitBuy(ctx Context) {
 		items = append(items, network.BuyRequestItem{ItemID: item.item.ItemID, Amount: item.amount})
 	}
 	if err := ctx.Network.SendShopBuyItems(items); err != nil {
-		log.Printf("shop buy failed: %v", err)
+		glog.Warnf("shop buy failed: %v", err)
 		return
 	}
 	w.closePacketSent = true
@@ -1007,11 +1007,11 @@ func (w *ShopWindow) cancel(ctx Context) {
 	if w.mode != shopModeNone && !w.closePacketSent && ctx.Network != nil {
 		if w.mode == shopModeBuy {
 			if err := ctx.Network.SendShopBuyItems(nil); err != nil {
-				log.Printf("send empty buy list on shop close failed: %v", err)
+				glog.Warnf("send empty buy list on shop close failed: %v", err)
 			}
 		} else {
 			if err := ctx.Network.SendShopSellItems(nil); err != nil {
-				log.Printf("send empty sell list on shop close failed: %v", err)
+				glog.Warnf("send empty sell list on shop close failed: %v", err)
 			}
 		}
 	}
@@ -1026,11 +1026,11 @@ func (w *ShopWindow) cancel(ctx Context) {
 
 func (w *ShopWindow) sendDealSelection(ctx Context, dealType uint8) {
 	if ctx.Network == nil {
-		log.Printf("shop deal selection failed: not connected")
+		glog.Warnf("shop deal selection failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendShopDealSelection(w.dealNPCID, dealType); err != nil {
-		log.Printf("shop deal selection failed: %v", err)
+		glog.Warnf("shop deal selection failed: %v", err)
 		return
 	}
 	w.closeDealWindow(ctx)

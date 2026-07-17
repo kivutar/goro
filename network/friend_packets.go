@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -217,9 +217,9 @@ func (c *Client) SendAddFriend(name string) error {
 	packet := BuildAddFriendPacket(name)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ADD_FRIENDS opcode=0x%04X name=%q client_date=%d", ID(packet), name, c.clientDate)
+		glog.Debugf("sent CZ_ADD_FRIENDS opcode=0x%04X name=%q client_date=%d", ID(packet), name, c.clientDate)
 	} else {
-		log.Printf("send CZ_ADD_FRIENDS failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
+		glog.Warnf("send CZ_ADD_FRIENDS failed opcode=0x%04X len=%d name=%q client_date=%d: %v", ID(packet), len(packet), name, c.clientDate, err)
 	}
 	return err
 }
@@ -228,9 +228,9 @@ func (c *Client) SendDeleteFriend(accountID, charID uint32) error {
 	packet := BuildDeleteFriendPacket(accountID, charID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_DELETE_FRIENDS opcode=0x%04X aid=%d gid=%d client_date=%d", ID(packet), accountID, charID, c.clientDate)
+		glog.Debugf("sent CZ_DELETE_FRIENDS opcode=0x%04X aid=%d gid=%d client_date=%d", ID(packet), accountID, charID, c.clientDate)
 	} else {
-		log.Printf("send CZ_DELETE_FRIENDS failed opcode=0x%04X len=%d aid=%d gid=%d client_date=%d: %v", ID(packet), len(packet), accountID, charID, c.clientDate, err)
+		glog.Warnf("send CZ_DELETE_FRIENDS failed opcode=0x%04X len=%d aid=%d gid=%d client_date=%d: %v", ID(packet), len(packet), accountID, charID, c.clientDate, err)
 	}
 	return err
 }
@@ -239,9 +239,9 @@ func (c *Client) SendFriendRequestAck(accountID, charID uint32, accepted bool) e
 	packet := BuildAckFriendRequestPacket(accountID, charID, accepted)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ACK_REQ_ADD_FRIENDS opcode=0x%04X aid=%d gid=%d accepted=%t client_date=%d", ID(packet), accountID, charID, accepted, c.clientDate)
+		glog.Debugf("sent CZ_ACK_REQ_ADD_FRIENDS opcode=0x%04X aid=%d gid=%d accepted=%t client_date=%d", ID(packet), accountID, charID, accepted, c.clientDate)
 	} else {
-		log.Printf("send CZ_ACK_REQ_ADD_FRIENDS failed opcode=0x%04X len=%d aid=%d gid=%d accepted=%t client_date=%d: %v", ID(packet), len(packet), accountID, charID, accepted, c.clientDate, err)
+		glog.Warnf("send CZ_ACK_REQ_ADD_FRIENDS failed opcode=0x%04X len=%d aid=%d gid=%d accepted=%t client_date=%d: %v", ID(packet), len(packet), accountID, charID, accepted, c.clientDate, err)
 	}
 	return err
 }

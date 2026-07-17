@@ -2,11 +2,11 @@ package ui
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -66,7 +66,7 @@ func (w *ChangeCartWindow) selectCart(ctx client.Context, cartNum int) {
 		return
 	}
 	if err := ctx.Network.SendChangeCart(uint16(cartNum)); err != nil {
-		log.Printf("change cart failed cart=%d: %v", cartNum, err)
+		glog.Warnf("change cart failed cart=%d: %v", cartNum, err)
 		w.status = fmt.Sprintf("Change failed: %v", err)
 		w.refresh(ctx)
 		return

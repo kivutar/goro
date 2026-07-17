@@ -2,11 +2,11 @@ package ui
 
 import (
 	"image/color"
-	"log"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -104,7 +104,7 @@ func (m *DeathModal) ReturnToSavePoint(ctx client.Context) {
 	}
 	if err := ctx.Network.SendRestart(network.RestartTypeRespawn); err != nil {
 		m.pending = DeathModalActionNone
-		log.Printf("death modal respawn failed: %v", err)
+		glog.Warnf("death modal respawn failed: %v", err)
 	}
 	m.refresh(ctx)
 }
@@ -118,7 +118,7 @@ func (m *DeathModal) RequestCharacterSelect(ctx client.Context) {
 	}
 	if err := ctx.Network.SendRestart(network.RestartTypeCharSelect); err != nil {
 		m.pending = DeathModalActionNone
-		log.Printf("death modal character select failed: %v", err)
+		glog.Warnf("death modal character select failed: %v", err)
 	}
 	m.refresh(ctx)
 }
@@ -135,7 +135,7 @@ func (m *DeathModal) ExitToWindows(ctx client.Context) {
 	}
 	if err := ctx.Network.SendQuitGame(); err != nil {
 		m.pending = DeathModalActionNone
-		log.Printf("death modal quit failed: %v", err)
+		glog.Warnf("death modal quit failed: %v", err)
 	}
 	m.refresh(ctx)
 }

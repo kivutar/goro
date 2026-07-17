@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 	"strings"
 )
 
@@ -217,9 +217,9 @@ func (c *Client) SendTradeRequest(targetID uint32) error {
 	packet := BuildTradeRequestPacket(targetID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_EXCHANGE_ITEM opcode=0x%04X target=%d client_date=%d", ID(packet), targetID, c.clientDate)
+		glog.Debugf("sent CZ_REQ_EXCHANGE_ITEM opcode=0x%04X target=%d client_date=%d", ID(packet), targetID, c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_EXCHANGE_ITEM failed opcode=0x%04X target=%d client_date=%d: %v", ID(packet), targetID, c.clientDate, err)
+		glog.Warnf("send CZ_REQ_EXCHANGE_ITEM failed opcode=0x%04X target=%d client_date=%d: %v", ID(packet), targetID, c.clientDate, err)
 	}
 	return err
 }
@@ -228,9 +228,9 @@ func (c *Client) SendTradeAck(accept bool) error {
 	packet := BuildTradeAckPacket(accept)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ACK_EXCHANGE_ITEM opcode=0x%04X accept=%t client_date=%d", ID(packet), accept, c.clientDate)
+		glog.Debugf("sent CZ_ACK_EXCHANGE_ITEM opcode=0x%04X accept=%t client_date=%d", ID(packet), accept, c.clientDate)
 	} else {
-		log.Printf("send CZ_ACK_EXCHANGE_ITEM failed opcode=0x%04X accept=%t client_date=%d: %v", ID(packet), accept, c.clientDate, err)
+		glog.Warnf("send CZ_ACK_EXCHANGE_ITEM failed opcode=0x%04X accept=%t client_date=%d: %v", ID(packet), accept, c.clientDate, err)
 	}
 	return err
 }
@@ -239,9 +239,9 @@ func (c *Client) SendTradeAddItem(index uint16, amount uint32) error {
 	packet := BuildTradeAddItemPacket(index, amount)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_ADD_EXCHANGE_ITEM opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
+		glog.Debugf("sent CZ_ADD_EXCHANGE_ITEM opcode=0x%04X index=%d amount=%d client_date=%d", ID(packet), index, amount, c.clientDate)
 	} else {
-		log.Printf("send CZ_ADD_EXCHANGE_ITEM failed opcode=0x%04X index=%d amount=%d client_date=%d: %v", ID(packet), index, amount, c.clientDate, err)
+		glog.Warnf("send CZ_ADD_EXCHANGE_ITEM failed opcode=0x%04X index=%d amount=%d client_date=%d: %v", ID(packet), index, amount, c.clientDate, err)
 	}
 	return err
 }
@@ -250,9 +250,9 @@ func (c *Client) SendTradeConclude() error {
 	packet := BuildTradeConcludePacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CONCLUDE_EXCHANGE_ITEM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_CONCLUDE_EXCHANGE_ITEM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_CONCLUDE_EXCHANGE_ITEM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
+		glog.Warnf("send CZ_CONCLUDE_EXCHANGE_ITEM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -261,9 +261,9 @@ func (c *Client) SendTradeCancel() error {
 	packet := BuildTradeCancelPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CANCEL_EXCHANGE_ITEM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_CANCEL_EXCHANGE_ITEM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_CANCEL_EXCHANGE_ITEM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
+		glog.Warnf("send CZ_CANCEL_EXCHANGE_ITEM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -272,9 +272,9 @@ func (c *Client) SendTradeCommit() error {
 	packet := BuildTradeCommitPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_EXEC_EXCHANGE_ITEM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_EXEC_EXCHANGE_ITEM opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_EXEC_EXCHANGE_ITEM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
+		glog.Warnf("send CZ_EXEC_EXCHANGE_ITEM failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
 	}
 	return err
 }

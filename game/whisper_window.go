@@ -1,10 +1,10 @@
 package game
 
 import (
-	"log"
 	"strings"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
@@ -33,7 +33,7 @@ func (m *WorldMode) sendWhisperWindowMessage(ctx client.Context, action gameui.W
 	if err := ctx.Network.SendWhisper(target, message); err != nil {
 		m.ui.whisperWindow.AddError(ctx, "send failed: "+err.Error())
 		m.ui.console.AddErrorMessage("send failed: %s", err)
-		log.Printf("whisper window send failed target=%q: %v", target, err)
+		glog.Warnf("whisper window send failed target=%q: %v", target, err)
 		return
 	}
 	m.ui.whisperWindow.AddOutgoing(ctx, message)

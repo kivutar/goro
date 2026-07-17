@@ -2,13 +2,13 @@ package game
 
 import (
 	"image/color"
-	"log"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -335,7 +335,7 @@ func (m *WorldMode) addItemUseEffect(ctx client.Context, ack network.UseItemAck)
 			targetID = 0
 		}
 		if m.addWorldEffect(ctx, effectID, targetID) {
-			log.Printf("item effect item=%d actor=%d effect=%d", ack.ItemID, targetID, effectID)
+			glog.Debugf("item effect item=%d actor=%d effect=%d", ack.ItemID, targetID, effectID)
 		}
 	}
 	for _, effectID := range casterEffectIDs {
@@ -344,7 +344,7 @@ func (m *WorldMode) addItemUseEffect(ctx client.Context, ack network.UseItemAck)
 			casterID = 0
 		}
 		if m.addWorldEffect(ctx, effectID, casterID) {
-			log.Printf("item caster effect item=%d actor=%d effect=%d", ack.ItemID, casterID, effectID)
+			glog.Debugf("item caster effect item=%d actor=%d effect=%d", ack.ItemID, casterID, effectID)
 		}
 	}
 }
@@ -357,22 +357,22 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 	m.startSkillNoDamageSourceAnimation(ctx, notify, now)
 	for _, effectID := range skillEffectIDs(notify.SkillID) {
 		if m.addWorldEffectBetweenAt(ctx, effectID, notify.TargetID, notify.SourceID, now) {
-			log.Printf("skill effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
+			glog.Debugf("skill effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
 		}
 	}
 	for _, effectID := range skillEffectOnCasterIDs(notify.SkillID) {
 		if m.addWorldEffectAt(ctx, effectID, notify.SourceID, now) {
-			log.Printf("skill caster effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
+			glog.Debugf("skill caster effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
 		}
 	}
 	for _, effectID := range skillSuccessEffectIDs(notify.SkillID) {
 		if m.addWorldEffectBetweenAt(ctx, effectID, notify.TargetID, notify.SourceID, now) {
-			log.Printf("skill success effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
+			glog.Debugf("skill success effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
 		}
 	}
 	for _, effectID := range skillSuccessEffectSelfIDs(notify.SkillID) {
 		if m.addWorldEffectAt(ctx, effectID, notify.SourceID, now) {
-			log.Printf("skill success self effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
+			glog.Debugf("skill success self effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
 		}
 	}
 }
@@ -497,7 +497,7 @@ func (m *WorldMode) applyGroundSkillNotify(ctx client.Context, notify network.Gr
 	now := time.Now()
 	for _, effectID := range effectIDs {
 		if m.addWorldEffectAtCellIfMissing(ctx, effectID, int(notify.X), int(notify.Y), now) {
-			log.Printf("ground skill effect skill=%d src=%d level=%d cell=%d,%d effect=%d", notify.SkillID, notify.SourceID, notify.Level, notify.X, notify.Y, effectID)
+			glog.Debugf("ground skill effect skill=%d src=%d level=%d cell=%d,%d effect=%d", notify.SkillID, notify.SourceID, notify.Level, notify.X, notify.Y, effectID)
 		}
 	}
 }
@@ -513,7 +513,7 @@ func (m *WorldMode) applySkillUnitEntry(ctx client.Context, entry network.SkillU
 	now := time.Now()
 	for _, effectID := range effectIDs {
 		if m.addWorldEffectAtCellLifetime(ctx, effectID, entry.ID, int(entry.X), int(entry.Y), now, skillUnitEffectFallbackDuration) {
-			log.Printf("skill unit effect unit=%d id=%d creator=%d cell=%d,%d effect=%d", entry.UnitID, entry.ID, entry.CreatorID, entry.X, entry.Y, effectID)
+			glog.Debugf("skill unit effect unit=%d id=%d creator=%d cell=%d,%d effect=%d", entry.UnitID, entry.ID, entry.CreatorID, entry.X, entry.Y, effectID)
 		}
 	}
 }
@@ -534,7 +534,7 @@ func (m *WorldMode) applySkillUnitLookChange(ctx client.Context, look network.Ac
 	now := time.Now()
 	for _, effectID := range effectIDs {
 		if m.addWorldEffectAtCellLifetime(ctx, effectID, look.ID, x, y, now, skillUnitEffectFallbackDuration) {
-			log.Printf("skill unit effect changed id=%d unit=%d cell=%d,%d effect=%d", look.ID, look.Value, x, y, effectID)
+			glog.Debugf("skill unit effect changed id=%d unit=%d cell=%d,%d effect=%d", look.ID, look.Value, x, y, effectID)
 		}
 	}
 	return true
@@ -545,7 +545,7 @@ func (m *WorldMode) applySkillUnitDisappear(disappear network.SkillUnitDisappear
 		return
 	}
 	if m.removeSkillUnitEffects(disappear.ID) {
-		log.Printf("skill unit effect removed id=%d", disappear.ID)
+		glog.Debugf("skill unit effect removed id=%d", disappear.ID)
 	}
 }
 
@@ -578,7 +578,7 @@ func (m *WorldMode) applySpecialEffectNotify(ctx client.Context, notify network.
 		return
 	}
 	if m.addWorldEffectIfMissing(ctx, effectID, notify.AID) {
-		log.Printf("special effect actor=%d special=%d effect=%d", notify.AID, notify.EffectID, effectID)
+		glog.Debugf("special effect actor=%d special=%d effect=%d", notify.AID, notify.EffectID, effectID)
 	}
 }
 
@@ -587,7 +587,7 @@ func (m *WorldMode) applySkillFailAck(ctx client.Context, ack network.SkillFailA
 		return
 	}
 	message := skillFailMessage(ack)
-	log.Printf("skill fail ack skill=%d num=%d item=%d result=%d cause=%d msg=%q", ack.SkillID, ack.Number, ack.ItemID, ack.Result, ack.Cause, message)
+	glog.Debugf("skill fail ack skill=%d num=%d item=%d result=%d cause=%d msg=%q", ack.SkillID, ack.Number, ack.ItemID, ack.Result, ack.Cause, message)
 	m.ui.console.AddErrorMessage("%s", message)
 }
 
@@ -834,11 +834,11 @@ func (m *WorldMode) addSkillCastEffects(ctx client.Context, skillID uint16, prop
 	if targetID == 0 && (cellX != 0 || cellY != 0) {
 		markerSize := skillCastGroundSampleSize(skillID)
 		if m.addWorldEffectAtCellDurationSizeIfMissing(ctx, effectGroundSample, 0, cellX, cellY, starts, duration, markerSize) {
-			log.Printf("skill cast ground marker source=%s skill=%d src=%d cell=%d,%d delay_ms=%d", source, skillID, sourceID, cellX, cellY, duration.Milliseconds())
+			glog.Debugf("skill cast ground marker source=%s skill=%d src=%d cell=%d,%d delay_ms=%d", source, skillID, sourceID, cellX, cellY, duration.Milliseconds())
 		}
 	}
 	if m.addWorldEffectBetweenAtDurationIfMissing(ctx, effectCastRing, sourceID, 0, starts, duration) {
-		log.Printf("skill cast circle source=%s skill=%d src=%d target=%d delay_ms=%d", source, skillID, sourceID, targetID, duration.Milliseconds())
+		glog.Debugf("skill cast circle source=%s skill=%d src=%d target=%d delay_ms=%d", source, skillID, sourceID, targetID, duration.Milliseconds())
 	}
 	if skillHidesCastAura(skillID) {
 		return
@@ -848,7 +848,7 @@ func (m *WorldMode) addSkillCastEffects(ctx client.Context, skillID uint16, prop
 		return
 	}
 	if m.addWorldEffectBetweenAtDurationIfMissing(ctx, effectID, sourceID, targetID, starts, duration) {
-		log.Printf("skill cast aura source=%s skill=%d src=%d target=%d property=%d effect=%d delay_ms=%d", source, skillID, sourceID, targetID, property, effectID, duration.Milliseconds())
+		glog.Debugf("skill cast aura source=%s skill=%d src=%d target=%d property=%d effect=%d delay_ms=%d", source, skillID, sourceID, targetID, property, effectID, duration.Milliseconds())
 	}
 }
 
@@ -1686,7 +1686,7 @@ func (m *WorldMode) effectFileTexture(manager *res.Manager, path string) *render
 	img, _, err := res.LoadImageExact(manager, candidates)
 	if err != nil {
 		m.textureMiss[key] = struct{}{}
-		log.Printf("effect texture missing path=%s: %v", path, err)
+		glog.Warnf("effect texture missing path=%s: %v", path, err)
 		return nil
 	}
 	texture := render.NewImageFromImage(res.ApplyEffectTransparency(img))

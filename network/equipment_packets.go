@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -116,9 +116,9 @@ func (c *Client) SendViewPlayerEquipment(targetID uint32) error {
 	packet := BuildViewPlayerEquipmentPacket(targetID)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_EQUIPWIN_MICROSCOPE opcode=0x%04X target=%d client_date=%d", ID(packet), targetID, c.clientDate)
+		glog.Debugf("sent CZ_EQUIPWIN_MICROSCOPE opcode=0x%04X target=%d client_date=%d", ID(packet), targetID, c.clientDate)
 	} else {
-		log.Printf("send CZ_EQUIPWIN_MICROSCOPE failed opcode=0x%04X target=%d client_date=%d: %v", ID(packet), targetID, c.clientDate, err)
+		glog.Warnf("send CZ_EQUIPWIN_MICROSCOPE failed opcode=0x%04X target=%d client_date=%d: %v", ID(packet), targetID, c.clientDate, err)
 	}
 	return err
 }
@@ -127,9 +127,9 @@ func (c *Client) SendRemoveOption() error {
 	packet := BuildRemoveOptionPacket()
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_REQ_CARTOFF opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+		glog.Debugf("sent CZ_REQ_CARTOFF opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
 	} else {
-		log.Printf("send CZ_REQ_CARTOFF failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
+		glog.Warnf("send CZ_REQ_CARTOFF failed opcode=0x%04X client_date=%d: %v", ID(packet), c.clientDate, err)
 	}
 	return err
 }
@@ -138,9 +138,9 @@ func (c *Client) SendShowEquipConfig(enabled bool) error {
 	packet := BuildShowEquipConfigPacket(enabled)
 	err := c.Send(packet)
 	if err == nil {
-		log.Printf("sent CZ_CONFIG opcode=0x%04X config=%d value=%t client_date=%d", ID(packet), ConfigOpenEquipmentWindow, enabled, c.clientDate)
+		glog.Debugf("sent CZ_CONFIG opcode=0x%04X config=%d value=%t client_date=%d", ID(packet), ConfigOpenEquipmentWindow, enabled, c.clientDate)
 	} else {
-		log.Printf("send CZ_CONFIG failed opcode=0x%04X config=%d value=%t client_date=%d: %v", ID(packet), ConfigOpenEquipmentWindow, enabled, c.clientDate, err)
+		glog.Warnf("send CZ_CONFIG failed opcode=0x%04X config=%d value=%t client_date=%d: %v", ID(packet), ConfigOpenEquipmentWindow, enabled, c.clientDate, err)
 	}
 	return err
 }

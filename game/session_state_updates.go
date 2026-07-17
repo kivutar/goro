@@ -2,7 +2,7 @@ package game
 
 import (
 	"github.com/kivutar/goro/client"
-	"log"
+	"github.com/kivutar/goro/glog"
 
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
@@ -50,7 +50,7 @@ func applyStatusSnapshot(ctx client.Context, snapshot network.StatusSnapshot) {
 	ctx.Session.Stats.Critical = snapshot.Critical
 	ctx.Session.Stats.ASPD = snapshot.ASPD
 	ctx.Session.Stats.ASPDBonus = snapshot.ASPDBonus
-	log.Printf("status snapshot points=%d str=%d agi=%d vit=%d int=%d dex=%d luk=%d", snapshot.Points, snapshot.Str, snapshot.Agi, snapshot.Vit, snapshot.Int, snapshot.Dex, snapshot.Luk)
+	glog.Debugf("status snapshot points=%d str=%d agi=%d vit=%d int=%d dex=%d luk=%d", snapshot.Points, snapshot.Str, snapshot.Agi, snapshot.Vit, snapshot.Int, snapshot.Dex, snapshot.Luk)
 }
 
 func setSessionStat(s *session.Session, statusID uint16, value int) {
@@ -111,7 +111,7 @@ func applySkillInfoList(ctx client.Context, list network.SkillInfoList) {
 		ctx.Session.Skills.List = append(ctx.Session.Skills.List, sessionSkillFromNetworkWithResources(ctx.Resources, skill))
 	}
 	refreshLocalPlayerMoveSpeed(ctx)
-	log.Printf("skill list received count=%d points=%d", len(ctx.Session.Skills.List), ctx.Session.Skills.Points)
+	glog.Debugf("skill list received count=%d points=%d", len(ctx.Session.Skills.List), ctx.Session.Skills.Points)
 }
 
 func applySkillInfoUpdate(ctx client.Context, update network.SkillInfoUpdate) {
@@ -120,7 +120,7 @@ func applySkillInfoUpdate(ctx client.Context, update network.SkillInfoUpdate) {
 	}
 	upsertSessionSkill(ctx.Session, sessionSkillFromNetworkWithResources(ctx.Resources, update.Skill))
 	refreshLocalPlayerMoveSpeed(ctx)
-	log.Printf("skill update id=%d level=%d sp=%d range=%d upgradable=%t", update.Skill.ID, update.Skill.Level, update.Skill.SPCost, update.Skill.Range, update.Skill.Upgradable)
+	glog.Debugf("skill update id=%d level=%d sp=%d range=%d upgradable=%t", update.Skill.ID, update.Skill.Level, update.Skill.SPCost, update.Skill.Range, update.Skill.Upgradable)
 }
 
 func upsertSessionSkill(s *session.Session, skill session.Skill) {

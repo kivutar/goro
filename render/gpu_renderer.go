@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/color"
-	"log"
 	"math"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/gogpu/gputypes"
 	"github.com/gogpu/wgpu"
 	"github.com/kivutar/goro/config"
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -444,7 +444,7 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) error {
 	world := r.buildWorldFrame(screen)
 	frame := r.buildFrame(screen)
 	if r.statsEnabled && time.Since(r.statsLast) >= time.Second {
-		log.Printf("render stats world_commands=%d world_mesh_commands=%d world_billboards=%d retained_world_meshes=%d world_batches=%d world_vertices=%d world_indices=%d commands=%d batches=%d vertices=%d indices=%d textures=%d bindgroups=%d", len(screen.worldCommands), len(screen.worldMeshes), len(screen.worldBillboards), len(r.worldMeshes), len(world.batches), len(world.floats)/worldVertexFloatCount, len(world.indices), len(screen.commands), len(frame.batches), len(frame.floats)/screenVertexFloatCount, len(frame.indices), len(r.textures), len(r.bindGroups))
+		glog.Debugf("render stats world_commands=%d world_mesh_commands=%d world_billboards=%d retained_world_meshes=%d world_batches=%d world_vertices=%d world_indices=%d commands=%d batches=%d vertices=%d indices=%d textures=%d bindgroups=%d", len(screen.worldCommands), len(screen.worldMeshes), len(screen.worldBillboards), len(r.worldMeshes), len(world.batches), len(world.floats)/worldVertexFloatCount, len(world.indices), len(screen.commands), len(frame.batches), len(frame.floats)/screenVertexFloatCount, len(frame.indices), len(r.textures), len(r.bindGroups))
 		r.statsLast = time.Now()
 	}
 	if r.worldDebug && time.Since(r.worldDebugLast) >= time.Second {
@@ -599,11 +599,11 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) error {
 
 func (r *gpuRenderer) logWorldDebug(screen *Frame) {
 	if screen == nil {
-		log.Printf("world debug empty camera=false commands=0")
+		glog.Debugf("world debug empty camera=false commands=0")
 		return
 	}
 	if !screen.camera.Enabled || len(screen.worldCommands) == 0 {
-		log.Printf("world debug empty camera=%t commands=%d", screen.camera.Enabled, len(screen.worldCommands))
+		glog.Debugf("world debug empty camera=%t commands=%d", screen.camera.Enabled, len(screen.worldCommands))
 		return
 	}
 	m := screen.camera.ViewProjection
@@ -638,11 +638,11 @@ func (r *gpuRenderer) logWorldDebug(screen *Frame) {
 		}
 	}
 	if count == 0 {
-		log.Printf("world debug no vertices commands=%d", len(screen.worldCommands))
+		glog.Debugf("world debug no vertices commands=%d", len(screen.worldCommands))
 		return
 	}
 	inv := 1 / float64(count)
-	log.Printf("world debug vertices=%d front=%d inside=%d ndc=(%.2f..%.2f, %.2f..%.2f, %.2f..%.2f) avg_rgba=(%.3f,%.3f,%.3f,%.3f)",
+	glog.Debugf("world debug vertices=%d front=%d inside=%d ndc=(%.2f..%.2f, %.2f..%.2f, %.2f..%.2f) avg_rgba=(%.3f,%.3f,%.3f,%.3f)",
 		count, front, inside, minX, maxX, minY, maxY, minZ, maxZ, sumR*inv, sumG*inv, sumB*inv, sumA*inv)
 }
 

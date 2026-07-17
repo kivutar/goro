@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -140,7 +140,7 @@ func (w *VendingWindow) ApplyPurchaseResult(ctx Context, result network.VendingP
 		w.closeBoth(ctx)
 		return
 	}
-	log.Printf("vending purchase failed index=%d amount=%d result=%d", result.Index, result.Amount, result.Result)
+	glog.Warnf("vending purchase failed index=%d amount=%d result=%d", result.Index, result.Amount, result.Result)
 	w.refresh(ctx)
 }
 
@@ -802,11 +802,11 @@ func (w *VendingWindow) submitOpen(ctx Context) {
 	w.shopName = shopName
 	items := make([]network.VendingOpenItem, 0, len(w.setupItems))
 	for _, item := range w.setupItems {
-		log.Printf("vending open item cart_index=%d item=%d amount=%d price=%d identified=%t damaged=%t", item.item.Index, item.item.ItemID, item.amount, item.price, item.item.Identified, item.item.Damaged)
+		glog.Debugf("vending open item cart_index=%d item=%d amount=%d price=%d identified=%t damaged=%t", item.item.Index, item.item.ItemID, item.amount, item.price, item.item.Identified, item.item.Damaged)
 		items = append(items, network.VendingOpenItem{Index: item.item.Index, Amount: item.amount, Price: item.price})
 	}
 	if err := ctx.Network.SendOpenVendingStore(shopName, items); err != nil {
-		log.Printf("open vending failed: %v", err)
+		glog.Warnf("open vending failed: %v", err)
 	}
 	w.mode = vendingModeNone
 	w.closeBoth(ctx)
@@ -828,7 +828,7 @@ func (w *VendingWindow) submitBuy(ctx Context) {
 		items = append(items, network.VendingPurchaseItem{Index: item.item.Index, Amount: item.amount})
 	}
 	if err := ctx.Network.SendVendingPurchase(w.ownerAID, items); err != nil {
-		log.Printf("vending purchase failed: %v", err)
+		glog.Warnf("vending purchase failed: %v", err)
 		return
 	}
 	w.mode = vendingModeNone
@@ -839,7 +839,7 @@ func (w *VendingWindow) submitBuy(ctx Context) {
 func (w *VendingWindow) closeOwnStore(ctx Context) {
 	if ctx.Network != nil {
 		if err := ctx.Network.SendCloseVendingStore(); err != nil {
-			log.Printf("close vending failed: %v", err)
+			glog.Warnf("close vending failed: %v", err)
 		}
 	}
 	w.mode = vendingModeNone
@@ -849,7 +849,7 @@ func (w *VendingWindow) closeOwnStore(ctx Context) {
 func (w *VendingWindow) cancel(ctx Context) {
 	if w.mode == vendingModeSetup && ctx.Network != nil {
 		if err := ctx.Network.SendCancelVendingStoreOpen(); err != nil {
-			log.Printf("cancel vending setup failed: %v", err)
+			glog.Warnf("cancel vending setup failed: %v", err)
 		}
 	}
 	w.mode = vendingModeNone

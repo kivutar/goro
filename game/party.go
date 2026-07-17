@@ -2,10 +2,10 @@ package game
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
@@ -18,12 +18,12 @@ func (m *WorldMode) sendPartyInvite(ctx client.Context, actorID uint32, name str
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("party invite failed target=%d name=%q: not connected", actorID, name)
+		glog.Warnf("party invite failed target=%d name=%q: not connected", actorID, name)
 		m.ui.console.AddErrorMessage("Party invitation failed: not connected.")
 		return
 	}
 	if err := ctx.Network.SendPartyInvite(actorID, name); err != nil {
-		log.Printf("party invite failed target=%d name=%q: %v", actorID, name, err)
+		glog.Warnf("party invite failed target=%d name=%q: %v", actorID, name, err)
 		m.ui.console.AddErrorMessage("Party invitation failed.")
 		return
 	}
@@ -62,7 +62,7 @@ func (m *WorldMode) createPartyFromWindow(ctx client.Context, action gameui.Part
 	}
 	if err := ctx.Network.SendMakeParty2(name, action.ItemPickup, action.ItemDivision); err != nil {
 		m.ui.console.AddErrorMessage("Create party failed.")
-		log.Printf("party create failed name=%q pickup=%d division=%d: %v", name, action.ItemPickup, action.ItemDivision, err)
+		glog.Warnf("party create failed name=%q pickup=%d division=%d: %v", name, action.ItemPickup, action.ItemDivision, err)
 		return
 	}
 	if ctx.Session != nil {
@@ -94,7 +94,7 @@ func (m *WorldMode) openExpelPartyMemberConfirm(ctx client.Context, member sessi
 		}
 		if err := ctx.Network.SendExpelPartyMember(member.AccountID, member.Name); err != nil {
 			m.ui.console.AddErrorMessage("Expel party member failed.")
-			log.Printf("party expel failed aid=%d name=%q: %v", member.AccountID, member.Name, err)
+			glog.Warnf("party expel failed aid=%d name=%q: %v", member.AccountID, member.Name, err)
 			return
 		}
 		m.ui.console.AddSystemMessage("Expel request sent for %s.", name)
@@ -105,19 +105,19 @@ func (m *WorldMode) openPartyInviteRequest(ctx client.Context, request network.P
 	name := partyDisplayName(request.Name)
 	m.ui.partyRequest.Open(ctx, "Party Invitation", fmt.Sprintf("%s has invited you to join a party.", name), func() {
 		if ctx.Network == nil {
-			log.Printf("party invite accept failed: not connected")
+			glog.Warnf("party invite accept failed: not connected")
 			return
 		}
 		if err := ctx.Network.SendPartyInviteAck(request.RequestID, true); err != nil {
-			log.Printf("party invite accept failed request=%d name=%q: %v", request.RequestID, request.Name, err)
+			glog.Warnf("party invite accept failed request=%d name=%q: %v", request.RequestID, request.Name, err)
 		}
 	}, func() {
 		if ctx.Network == nil {
-			log.Printf("party invite reject failed: not connected")
+			glog.Warnf("party invite reject failed: not connected")
 			return
 		}
 		if err := ctx.Network.SendPartyInviteAck(request.RequestID, false); err != nil {
-			log.Printf("party invite reject failed request=%d name=%q: %v", request.RequestID, request.Name, err)
+			glog.Warnf("party invite reject failed request=%d name=%q: %v", request.RequestID, request.Name, err)
 		}
 	})
 }
@@ -182,7 +182,7 @@ func applyPartyList(ctx client.Context, list network.PartyList) {
 		ctx.Session.Party.Members = append(ctx.Session.Party.Members, next)
 	}
 	syncLocalPartyVitals(ctx)
-	log.Printf("party list received name=%q members=%d", list.Name, len(list.Members))
+	glog.Debugf("party list received name=%q members=%d", list.Name, len(list.Members))
 }
 
 func applyPartyMemberJoin(ctx client.Context, member network.PartyMember) {
@@ -201,7 +201,7 @@ func applyPartyMemberJoin(ctx client.Context, member network.PartyMember) {
 	}
 	upsertPartyMember(&ctx.Session.Party, next)
 	syncLocalPartyVitals(ctx)
-	log.Printf("party member join aid=%d name=%q map=%q", next.AccountID, next.Name, next.MapName)
+	glog.Debugf("party member join aid=%d name=%q map=%q", next.AccountID, next.Name, next.MapName)
 }
 
 func applyPartyMemberLeave(ctx client.Context, left network.PartyMemberLeave) bool {
@@ -235,7 +235,7 @@ func applyPartyOption(ctx client.Context, option network.PartyOption) {
 		return
 	}
 	ctx.Session.Party.ExpShare = option.ExpOption
-	log.Printf("party option exp=%d", option.ExpOption)
+	glog.Debugf("party option exp=%d", option.ExpOption)
 }
 
 func applyPartyInviteConfig(ctx client.Context, config network.PartyInviteConfig) {
@@ -243,7 +243,7 @@ func applyPartyInviteConfig(ctx client.Context, config network.PartyInviteConfig
 		return
 	}
 	ctx.Session.Party.RefuseInvites = config.RefuseInvites
-	log.Printf("party invite config refuse_invites=%t", config.RefuseInvites)
+	glog.Debugf("party invite config refuse_invites=%t", config.RefuseInvites)
 }
 
 func applyPartyMemberHP(ctx client.Context, hp network.PartyMemberHP) {

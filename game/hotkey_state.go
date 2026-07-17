@@ -1,9 +1,8 @@
 package game
 
 import (
-	"log"
-
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 )
@@ -23,5 +22,5 @@ func applyHotkeyList(ctx client.Context, list network.HotkeyList) {
 	ctx.Session.Hotkeys.Slots = slots
 	ctx.Session.Hotkeys.Loaded = true
 	ctx.Session.Hotkeys.Version++
-	log.Printf("hotkey list received slots=%d", len(slots))
+	glog.Debugf("hotkey list received slots=%d", len(slots))
 }

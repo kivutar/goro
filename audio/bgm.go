@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"path/filepath"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/godexture/core/domain/media"
 	mp3format "github.com/godexture/format-mp3"
 	"github.com/godexture/sdk/engine"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/res"
 )
 
@@ -116,16 +116,16 @@ func (b *BGM) PlayMap(mapName string) (string, error) {
 		return "", nil
 	}
 	path := b.ResolveMapBGM(mapName)
-	log.Printf("bgm map request map=%s resolved=%s current=%s player=%t", mapName, path, b.current, b.player != nil)
+	glog.Debugf("bgm map request map=%s resolved=%s current=%s player=%t", mapName, path, b.current, b.player != nil)
 	if path == "" {
 		return "", nil
 	}
 	if sameAudioPath(path, b.current) && b.player != nil {
 		if !b.player.IsPlaying() {
-			log.Printf("bgm resume existing id=%d path=%s", b.playerID, b.current)
+			glog.Debugf("bgm resume existing id=%d path=%s", b.playerID, b.current)
 			b.player.Play()
 		} else {
-			log.Printf("bgm keep existing id=%d path=%s", b.playerID, b.current)
+			glog.Debugf("bgm keep existing id=%d path=%s", b.playerID, b.current)
 		}
 		return b.current, nil
 	}
@@ -174,7 +174,7 @@ func (b *BGM) Play(path string) error {
 	b.player = player
 	b.current = path
 	player.Play()
-	log.Printf("bgm playing id=%d path=%s source=%s decoder=%s bytes=%d pcm_len=%d sample_rate=%d volume=%.2f", b.playerID, path, source, decoder, len(data), len(pcm), b.sampleRate, b.bgmVolume)
+	glog.Debugf("bgm playing id=%d path=%s source=%s decoder=%s bytes=%d pcm_len=%d sample_rate=%d volume=%.2f", b.playerID, path, source, decoder, len(data), len(pcm), b.sampleRate, b.bgmVolume)
 	return nil
 }
 
@@ -638,13 +638,13 @@ func (b *BGM) ensureContext(preferredSampleRate int) *oto.Context {
 		Format:       oto.FormatSignedInt16LE,
 	})
 	if err != nil {
-		log.Printf("bgm create audio context failed sample_rate=%d: %v", preferredSampleRate, err)
+		glog.Warnf("bgm create audio context failed sample_rate=%d: %v", preferredSampleRate, err)
 		return nil
 	}
 	<-ready
 	b.context = context
 	b.sampleRate = preferredSampleRate
-	log.Printf("bgm created audio context sample_rate=%d", b.sampleRate)
+	glog.Debugf("bgm created audio context sample_rate=%d", b.sampleRate)
 	return b.context
 }
 
@@ -661,7 +661,7 @@ func (b *BGM) stopCurrent() {
 	if b.player == nil {
 		return
 	}
-	log.Printf("bgm stopping id=%d path=%s playing=%t", b.playerID, b.current, b.player.IsPlaying())
+	glog.Debugf("bgm stopping id=%d path=%s playing=%t", b.playerID, b.current, b.player.IsPlaying())
 	b.player.Pause()
 	b.player = nil
 }
@@ -730,13 +730,13 @@ func (b *BGM) ensureTable() {
 		"mp3nametable.txt",
 	})
 	if !ok {
-		log.Printf("bgm table not found, falling back to bgm\\01.mp3")
+		glog.Warnf("bgm table not found, falling back to bgm\\01.mp3")
 		return
 	}
 	for key, path := range ParseMP3NameTable(data) {
 		b.table[key] = path
 	}
-	log.Printf("bgm table loaded entries=%d", len(b.table))
+	glog.Debugf("bgm table loaded entries=%d", len(b.table))
 }
 
 func ParseMP3NameTable(data []byte) map[string]string {

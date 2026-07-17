@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"image"
-	"log"
 	"strings"
 	"time"
 
@@ -283,7 +283,7 @@ func (w *SkillWindow) skillList(ctx Context, assets AssetProvider, actions GameA
 			canStage: w.canStageSkill(ctx.Session, skill),
 			onStage: func(skill session.Skill) {
 				if !w.canStageSkill(ctx.Session, skill) {
-					log.Printf("skill level up ignored id=%d: no points or maxed", skill.ID)
+					glog.Debugf("skill level up ignored id=%d: no points or maxed", skill.ID)
 					return
 				}
 				w.stageSkill(skill.ID)
@@ -323,7 +323,7 @@ func (w *SkillWindow) refresh(ctx Context, actions GameActions) {
 
 func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session.Skill, mx, my int) {
 	if skill.Level <= 0 {
-		log.Printf("skill use ignored id=%d: not learned", skill.ID)
+		glog.Debugf("skill use ignored id=%d: not learned", skill.ID)
 		return
 	}
 	now := time.Now()
@@ -331,11 +331,11 @@ func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session
 		w.lastClick = 0
 		w.lastClickAt = time.Time{}
 		if actions == nil {
-			log.Printf("skill use failed id=%d: no game actions", skill.ID)
+			glog.Warnf("skill use failed id=%d: no game actions", skill.ID)
 			return
 		}
 		if err := actions.UseShortcutSkill(ctx, skill); err != nil {
-			log.Printf("skill use failed id=%d: %v", skill.ID, err)
+			glog.Warnf("skill use failed id=%d: %v", skill.ID, err)
 		}
 		return
 	}
@@ -473,13 +473,13 @@ func (w *SkillWindow) confirmPending(ctx Context) {
 		return
 	}
 	if ctx.Network == nil {
-		log.Printf("skill level up failed: not connected")
+		glog.Warnf("skill level up failed: not connected")
 		return
 	}
 	for _, skillID := range w.pendingOrder {
 		for i := 0; i < w.pending[skillID]; i++ {
 			if err := ctx.Network.SendSkillLevelUp(skillID); err != nil {
-				log.Printf("skill level up failed id=%d: %v", skillID, err)
+				glog.Warnf("skill level up failed id=%d: %v", skillID, err)
 				return
 			}
 		}

@@ -3,13 +3,13 @@ package ui
 import (
 	"fmt"
 	"image"
-	"log"
 	"strconv"
 	"strings"
 
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -102,11 +102,11 @@ func (w *TradeWindow) AcceptInventoryDrop(ctx Context, item session.InventoryIte
 	}
 	w.pending[item.Index] = item
 	if ctx.Network == nil {
-		log.Printf("trade add item failed index=%d item=%d: not connected", item.Index, item.ItemID)
+		glog.Warnf("trade add item failed index=%d item=%d: not connected", item.Index, item.ItemID)
 		return true
 	}
 	if err := ctx.Network.SendTradeAddItem(item.Index, amount); err != nil {
-		log.Printf("trade add item failed index=%d item=%d amount=%d: %v", item.Index, item.ItemID, amount, err)
+		glog.Warnf("trade add item failed index=%d item=%d amount=%d: %v", item.Index, item.ItemID, amount, err)
 		delete(w.pending, item.Index)
 	}
 	return true
@@ -116,7 +116,7 @@ func (w *TradeWindow) AddOwnItemAck(ctx Context, ack network.TradeAddItemAck) {
 	w.EnsureWindow(tradeWindowW, tradeWindowH)
 	if ack.Result != 0 {
 		delete(w.pending, ack.Index)
-		log.Printf("trade add item rejected index=%d result=%d", ack.Index, ack.Result)
+		glog.Warnf("trade add item rejected index=%d result=%d", ack.Index, ack.Result)
 		return
 	}
 	if ack.Index == 0 {
@@ -314,27 +314,27 @@ func (w *TradeWindow) conclude(ctx Context) {
 	zeny := parseTradeZeny(w.zenyInput)
 	if zeny > 0 && w.sendZeny == 0 {
 		if ctx.Network == nil {
-			log.Printf("trade add zeny failed amount=%d: not connected", zeny)
+			glog.Warnf("trade add zeny failed amount=%d: not connected", zeny)
 			return
 		}
 		if err := ctx.Network.SendTradeAddItem(0, zeny); err != nil {
-			log.Printf("trade add zeny failed amount=%d: %v", zeny, err)
+			glog.Warnf("trade add zeny failed amount=%d: %v", zeny, err)
 			return
 		}
 	}
 	if ctx.Network == nil {
-		log.Printf("trade conclude failed: not connected")
+		glog.Warnf("trade conclude failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendTradeConclude(); err != nil {
-		log.Printf("trade conclude failed: %v", err)
+		glog.Warnf("trade conclude failed: %v", err)
 	}
 }
 
 func (w *TradeWindow) cancel(ctx Context) {
 	if ctx.Network != nil && w.IsOpen() {
 		if err := ctx.Network.SendTradeCancel(); err != nil {
-			log.Printf("trade cancel failed: %v", err)
+			glog.Warnf("trade cancel failed: %v", err)
 		}
 	}
 	w.Close(ctx)
@@ -342,11 +342,11 @@ func (w *TradeWindow) cancel(ctx Context) {
 
 func (w *TradeWindow) commit(ctx Context) {
 	if ctx.Network == nil {
-		log.Printf("trade commit failed: not connected")
+		glog.Warnf("trade commit failed: not connected")
 		return
 	}
 	if err := ctx.Network.SendTradeCommit(); err != nil {
-		log.Printf("trade commit failed: %v", err)
+		glog.Warnf("trade commit failed: %v", err)
 	}
 }
 

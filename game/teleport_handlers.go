@@ -2,7 +2,7 @@ package game
 
 import (
 	"github.com/kivutar/goro/client"
-	"log"
+	"github.com/kivutar/goro/glog"
 
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
@@ -11,7 +11,7 @@ import (
 
 func (m *WorldMode) applyWarpPointList(ctx client.Context, list network.WarpPointList) {
 	if list.SkillID != gameui.TeleportSkillID && list.SkillID != gameui.WarpPortalSkillID {
-		log.Printf("warp point list ignored skill=%d maps=%v", list.SkillID, list.MapNames)
+		glog.Debugf("warp point list ignored skill=%d maps=%v", list.SkillID, list.MapNames)
 		return
 	}
 	skill, ok := skillByID(ctx.Session, list.SkillID)
@@ -26,7 +26,7 @@ func (m *WorldMode) applyWarpPointList(ctx client.Context, list network.WarpPoin
 		return
 	}
 	m.ui.teleportModal.OpenWarpPointList(list, skill)
-	log.Printf("warp point destination list skill=%d maps=%v", list.SkillID, list.MapNames)
+	glog.Debugf("warp point destination list skill=%d maps=%v", list.SkillID, list.MapNames)
 }
 
 func (m *WorldMode) applyRememberWarpPointAck(_ client.Context, ack network.RememberWarpPointAck) {
@@ -40,7 +40,7 @@ func (m *WorldMode) applyRememberWarpPointAck(_ client.Context, ack network.Reme
 	default:
 		m.ui.console.AddErrorMessage("Memo failed.")
 	}
-	log.Printf("remember warp point ack result=%d", ack.Result)
+	glog.Debugf("remember warp point ack result=%d", ack.Result)
 }
 
 func (m *WorldMode) autoSelectTeleportRandom(ctx client.Context, list network.WarpPointList) {
@@ -58,5 +58,5 @@ func (m *WorldMode) autoSelectTeleportRandom(ctx client.Context, list network.Wa
 		return
 	}
 	m.ui.teleportModal.Reset()
-	log.Printf("teleport random selected automatically skill=%d maps=%v", list.SkillID, list.MapNames)
+	glog.Debugf("teleport random selected automatically skill=%d maps=%v", list.SkillID, list.MapNames)
 }

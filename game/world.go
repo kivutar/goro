@@ -3,17 +3,17 @@ package game
 import (
 	"context"
 	"fmt"
-	"github.com/kivutar/goro/input"
 	"hash/fnv"
 	"image"
 	"image/color"
-	"log"
 	"math"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -327,7 +327,7 @@ func (m *WorldMode) Enter(ctx client.Context) {
 		}
 	} else {
 		m.shadowViewMiss = true
-		log.Printf("actor shadow resources unavailable: %s", status)
+		glog.Warnf("actor shadow resources unavailable: %s", status)
 	}
 	m.cartViews = make(map[int]*spriteView)
 	m.cartViewMiss = make(map[int]struct{})
@@ -338,10 +338,10 @@ func (m *WorldMode) Enter(ctx client.Context) {
 		}
 	} else {
 		m.cursorViewMiss = true
-		log.Printf("cursor resources unavailable: %s", status)
+		glog.Warnf("cursor resources unavailable: %s", status)
 	}
 	render.SetCursorMode(render.CursorModeHidden)
-	log.Printf("player sprite resources char_id=%d name=%s job=%d hair=%d weapon=%d shield=%d head_top=%d head_mid=%d head_low=%d body_pal=%d head_pal=%d hair_color=%d account_sex=%d %s", character.ID, character.Name, character.Job, character.Hair, character.Weapon, character.Shield, character.HeadTop, character.HeadMid, character.HeadLow, character.BodyPal, character.HeadPal, character.HairColor, ctx.Session.Sex, playerStatus)
+	glog.Debugf("player sprite resources char_id=%d name=%s job=%d hair=%d weapon=%d shield=%d head_top=%d head_mid=%d head_low=%d body_pal=%d head_pal=%d hair_color=%d account_sex=%d %s", character.ID, character.Name, character.Job, character.Hair, character.Weapon, character.Shield, character.HeadTop, character.HeadMid, character.HeadLow, character.BodyPal, character.HeadPal, character.HairColor, ctx.Session.Sex, playerStatus)
 	m.rebindPersistentUI(ctx)
 	if ctx.World.MapName == "" {
 		return
@@ -399,7 +399,7 @@ func (m *WorldMode) playMapBGM(ctx client.Context, rswName string) {
 	}
 	_, err := ctx.Audio.PlayMap(rswName)
 	if err != nil {
-		log.Printf("bgm failed map=%s: %v", rswName, err)
+		glog.Warnf("bgm failed map=%s: %v", rswName, err)
 		return
 	}
 }
@@ -437,94 +437,94 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if hotkeys, ok, err := network.ParseHotkeyList(pkt); err != nil {
-			log.Printf("parse hotkey list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse hotkey list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyHotkeyList(ctx, hotkeys)
 			m.ui.shortcutBar.SyncFromSession(ctx)
 			continue
 		}
 		if chat, ok, err := network.ParseChatMessage(pkt); err != nil {
-			log.Printf("parse chat message 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat message 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatMessage(ctx, chat, now)
 			continue
 		}
 		if whisper, ok, err := network.ParseWhisperMessage(pkt); err != nil {
-			log.Printf("parse whisper message 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse whisper message 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			addWhisperMessage(&m.ui.console, whisper)
 			m.addWhisperWindowIncoming(ctx, whisper)
 			continue
 		}
 		if ack, ok, err := network.ParseWhisperAck(pkt); err != nil {
-			log.Printf("parse whisper ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse whisper ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			addWhisperAck(&m.ui.console, ctx.Resources, ack)
 			m.addWhisperWindowAck(ctx, ack)
 			continue
 		}
 		if ack, ok, err := network.ParseWhisperIgnoreAck(pkt); err != nil {
-			log.Printf("parse whisper ignore ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse whisper ignore ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			addWhisperIgnoreAck(&m.ui.console, ack)
 			continue
 		}
 		if ack, ok, err := network.ParseChatRoomCreateAck(pkt); err != nil {
-			log.Printf("parse chat room create ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room create ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatRoomCreateAck(ctx, ack)
 			continue
 		}
 		if board, ok, err := network.ParseChatRoomBoard(pkt); err != nil {
-			log.Printf("parse chat room board 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room board 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyChatRoomBoard(ctx, board)
 			continue
 		}
 		if destroy, ok, err := network.ParseChatRoomDestroy(pkt); err != nil {
-			log.Printf("parse chat room destroy 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room destroy 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyChatRoomDestroy(ctx, destroy)
 			continue
 		}
 		if enter, ok, err := network.ParseChatRoomEnter(pkt); err != nil {
-			log.Printf("parse chat room enter 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room enter 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatRoomEnter(ctx, enter)
 			continue
 		}
 		if joined, ok, err := network.ParseChatRoomMemberJoin(pkt); err != nil {
-			log.Printf("parse chat room member join 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room member join 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatRoomMemberJoin(ctx, joined)
 			continue
 		}
 		if left, ok, err := network.ParseChatRoomMemberLeave(pkt); err != nil {
-			log.Printf("parse chat room member leave 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room member leave 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatRoomMemberLeave(ctx, left)
 			continue
 		}
 		if change, ok, err := network.ParseChatRoomChange(pkt); err != nil {
-			log.Printf("parse chat room change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatRoomChange(ctx, change)
 			continue
 		}
 		if role, ok, err := network.ParseChatRoomRoleChange(pkt); err != nil {
-			log.Printf("parse chat room role change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse chat room role change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleChatRoomRoleChange(ctx, role)
 			continue
 		}
 		if emotion, ok, err := network.ParseEmotionNotify(pkt); err != nil {
-			log.Printf("parse emotion 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse emotion 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyEmotionNotify(ctx, emotion)
 			continue
 		}
 		if change, ok, err := network.ParseMapChange(pkt); err != nil {
-			log.Printf("parse map change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse map change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.startMapFadeOut(change, time.Now())
 			return nil, nil
@@ -539,13 +539,13 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if ack, ok, err := network.ParseActorNameAck(pkt); err != nil {
-			log.Printf("parse actor name ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor name ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyActorNameAck(ctx, ack)
 			continue
 		}
 		if ack, ok, err := network.ParseRestartAck(pkt); err != nil {
-			log.Printf("parse restart ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse restart ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if m.ui.deathModal.ApplyRestartAck(ack) {
 				return m.nextCharacterSelectMode(ctx), nil
@@ -556,33 +556,33 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if ack, ok, err := network.ParseQuitGameAck(pkt); err != nil {
-			log.Printf("parse quit game ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse quit game ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyQuitGameAck(ctx, ack)
 			continue
 		}
 		if dialog, ok, err := network.ParseNPCDialog(pkt); err != nil {
-			log.Printf("parse npc dialog 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse npc dialog 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.npcDialog.Apply(dialog)
 			continue
 		}
 		if ack, ok, err := network.ParseSelfMoveAck(pkt); err != nil {
-			log.Printf("parse self move ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse self move ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applySelfMoveAck(ctx, ack)
 			m.clearLocalActorAction(ctx)
-			log.Printf("walk ack from=%d,%d to=%d,%d tick=%d", ack.FromX, ack.FromY, ack.ToX, ack.ToY, ack.ServerTick)
+			glog.Debugf("walk ack from=%d,%d to=%d,%d tick=%d", ack.FromX, ack.FromY, ack.ToX, ack.ToY, ack.ServerTick)
 			m.continuePendingAttack(ctx, "walk ack")
 			m.continuePendingPickup(ctx, "walk ack")
 			m.skills().ContinuePendingTarget(ctx, "walk ack")
 			continue
 		}
 		if position, ok, err := network.ParseActorSetPosition(pkt); err != nil {
-			log.Printf("parse actor set position 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor set position 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if isLocalActor(ctx, position.ID) {
-				log.Printf("local position fix id=%d x=%d y=%d", position.ID, position.X, position.Y)
+				glog.Debugf("local position fix id=%d x=%d y=%d", position.ID, position.X, position.Y)
 			}
 			applyActorSetPosition(ctx, position)
 			if isLocalActor(ctx, position.ID) {
@@ -593,33 +593,33 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if position, ok, err := network.ParseActorJumpPosition(pkt); err != nil {
-			log.Printf("parse actor jump position 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor jump position 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if isLocalActor(ctx, position.ID) {
-				log.Printf("local jump position id=%d x=%d y=%d", position.ID, position.X, position.Y)
+				glog.Debugf("local jump position id=%d x=%d y=%d", position.ID, position.X, position.Y)
 			}
 			applyActorJumpPosition(ctx, position)
 			continue
 		}
 		if item, ok, err := network.ParseFloorItemEntry(pkt); err != nil {
-			log.Printf("parse floor item entry 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse floor item entry 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyFloorItemEntry(ctx, item)
 			continue
 		}
 		if disappear, ok, err := network.ParseFloorItemDisappear(pkt); err != nil {
-			log.Printf("parse floor item disappear 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse floor item disappear 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyFloorItemDisappear(ctx, disappear)
 			continue
 		}
 		if pickup, ok, err := network.ParseItemPickupAck(pkt); err != nil {
-			log.Printf("parse item pickup ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse item pickup ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyItemPickupAck(ctx, pickup)
 			if pickup.Result == 0 {
 				message := formatPickupConsoleMessage(ctx.Resources, pickup)
-				log.Printf("console pickup message item_id=%d amount=%d text=%q", pickup.ItemID, pickup.Amount, message)
+				glog.Debugf("console pickup message item_id=%d amount=%d text=%q", pickup.ItemID, pickup.Amount, message)
 				m.ui.console.AddBlueMessage("%s", message)
 			} else {
 				m.ui.console.AddErrorMessage("Pickup failed item %d result=%d", pickup.ItemID, pickup.Result)
@@ -627,136 +627,136 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if useAck, ok, err := network.ParseUseItemAck(pkt); err != nil {
-			log.Printf("parse use item ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse use item ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("use item ack index=%d item=%d aid=%d amount=%d result=%d", useAck.Index, useAck.ItemID, useAck.AID, useAck.Amount, useAck.Result)
+			glog.Debugf("use item ack index=%d item=%d aid=%d amount=%d result=%d", useAck.Index, useAck.ItemID, useAck.AID, useAck.Amount, useAck.Result)
 			m.addItemUseEffect(ctx, useAck)
 			applyUseItemAck(ctx, useAck)
 			if useAck.Result != 0 && useAck.Amount == 0 && m.ui.shortcutBar.ClearDepletedItem(ctx, useAck.Index, useAck.ItemID) {
-				log.Printf("shortcut item depleted index=%d item=%d", useAck.Index, useAck.ItemID)
+				glog.Debugf("shortcut item depleted index=%d item=%d", useAck.Index, useAck.ItemID)
 			}
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if _, ok, err := network.ParsePetCaptureStart(pkt); err != nil {
-			log.Printf("parse pet capture start 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet capture start 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.startPetCapture(ctx)
 			continue
 		}
 		if petCapture, ok, err := network.ParsePetCaptureResult(pkt); err != nil {
-			log.Printf("parse pet capture result 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet capture result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyPetCaptureResult(ctx, petCapture)
 			continue
 		}
 		if petProperty, ok, err := network.ParsePetProperty(pkt); err != nil {
-			log.Printf("parse pet property 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet property 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyPetProperty(ctx, petProperty)
 			continue
 		}
 		if petFeed, ok, err := network.ParsePetFeedResult(pkt); err != nil {
-			log.Printf("parse pet feed 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet feed 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyPetFeedResult(ctx, petFeed)
 			continue
 		}
 		if petState, ok, err := network.ParsePetStateChange(pkt); err != nil {
-			log.Printf("parse pet state 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet state 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyPetStateChange(ctx, petState)
 			continue
 		}
 		if petEggs, ok, err := network.ParsePetEggList(pkt); err != nil {
-			log.Printf("parse pet egg list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet egg list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyPetEggList(ctx, petEggs)
 			continue
 		}
 		if petAction, ok, err := network.ParsePetAction(pkt); err != nil {
-			log.Printf("parse pet action 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse pet action 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyPetAction(ctx, petAction)
 			continue
 		}
 		if identifyList, ok, err := network.ParseItemIdentifyList(pkt); err != nil {
-			log.Printf("parse item identify list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse item identify list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("item identify list indexes=%v", identifyList.Indexes)
+			glog.Debugf("item identify list indexes=%v", identifyList.Indexes)
 			m.ui.identifyWindow.OpenList(ctx, identifyList)
 			continue
 		}
 		if identifyAck, ok, err := network.ParseItemIdentifyAck(pkt); err != nil {
-			log.Printf("parse item identify ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse item identify ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("item identify ack index=%d success=%v", identifyAck.Index, identifyAck.Success)
+			glog.Debugf("item identify ack index=%d success=%v", identifyAck.Index, identifyAck.Success)
 			applyItemIdentifyAck(ctx, identifyAck)
 			m.ui.identifyWindow.ApplyAck(ctx, identifyAck)
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if arrowList, ok, err := network.ParseMakingArrowList(pkt); err != nil {
-			log.Printf("parse making arrow list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse making arrow list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("making arrow list items=%v", arrowList.ItemIDs)
+			glog.Debugf("making arrow list items=%v", arrowList.ItemIDs)
 			m.ui.makingArrow.OpenList(ctx, arrowList)
 			continue
 		}
 		if compositionList, ok, err := network.ParseItemCompositionList(pkt); err != nil {
-			log.Printf("parse item composition list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse item composition list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("item composition list indexes=%v", compositionList.Indexes)
+			glog.Debugf("item composition list indexes=%v", compositionList.Indexes)
 			m.ui.cardWindow.OpenList(ctx, m.ui.inventoryBag.PendingCardIndex(), compositionList)
 			continue
 		}
 		if compositionAck, ok, err := network.ParseItemCompositionAck(pkt); err != nil {
-			log.Printf("parse item composition ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse item composition ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("item composition ack equip_index=%d card_index=%d success=%v", compositionAck.EquipIndex, compositionAck.CardIndex, compositionAck.Success)
+			glog.Debugf("item composition ack equip_index=%d card_index=%d success=%v", compositionAck.EquipIndex, compositionAck.CardIndex, compositionAck.Success)
 			applyItemCompositionAck(ctx, compositionAck)
 			m.ui.cardWindow.ApplyAck(ctx, compositionAck)
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if items, ok, err := network.ParseInventoryItemList(pkt); err != nil {
-			log.Printf("parse inventory item list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse inventory item list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyInventoryItemList(ctx, items)
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if itemDelete, ok, err := network.ParseInventoryItemDelete(pkt); err != nil {
-			log.Printf("parse inventory item delete 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse inventory item delete 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyInventoryItemDelete(ctx, itemDelete)
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if equipAck, ok, err := network.ParseInventoryEquipAck(pkt); err != nil {
-			log.Printf("parse inventory equip ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse inventory equip ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyInventoryEquipAck(ctx, equipAck)
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if arrow, ok, err := network.ParseEquippedArrow(pkt); err != nil {
-			log.Printf("parse equipped arrow 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse equipped arrow 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("equipped arrow index=%d", arrow.Index)
+			glog.Debugf("equipped arrow index=%d", arrow.Index)
 			applyEquippedArrow(ctx, arrow)
 			m.ui.inventoryBag.ClampScroll(ctx.Session)
 			continue
 		}
 		if storageItems, ok, err := network.ParseStorageItemList(pkt); err != nil {
-			log.Printf("parse storage item list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse storage item list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyStorageItemList(ctx, storageItems)
 			m.ui.storageWindow.OpenWindow(ctx)
 			continue
 		}
 		if cartItems, ok, err := network.ParseCartItemList(pkt); err != nil {
-			log.Printf("parse cart item list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse cart item list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyCartItemList(ctx, cartItems)
 			m.ui.cartWindow.ClampScroll(ctx.Session)
@@ -764,14 +764,14 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if storageAmount, ok, err := network.ParseStorageAmount(pkt); err != nil {
-			log.Printf("parse storage amount 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse storage amount 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyStorageAmount(ctx, storageAmount)
 			m.ui.storageWindow.OpenWindow(ctx)
 			continue
 		}
 		if cartAmount, ok, err := network.ParseCartAmount(pkt); err != nil {
-			log.Printf("parse cart amount 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse cart amount 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyCartAmount(ctx, cartAmount)
 			m.ui.cartWindow.ClampScroll(ctx.Session)
@@ -779,32 +779,32 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if friends, ok, err := network.ParseFriendsList(pkt); err != nil {
-			log.Printf("parse friends list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse friends list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyFriendsList(ctx, friends)
 			continue
 		}
 		if friendState, ok, err := network.ParseFriendState(pkt); err != nil {
-			log.Printf("parse friend state 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse friend state 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyFriendState(ctx, friendState)
 			continue
 		}
 		if friendRequest, ok, err := network.ParseFriendRequest(pkt); err != nil {
-			log.Printf("parse friend request 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse friend request 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.openFriendRequest(ctx, friendRequest)
 			continue
 		}
 		if friendAdded, ok, err := network.ParseFriendAddResult(pkt); err != nil {
-			log.Printf("parse friend add result 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse friend add result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyFriendAddResult(ctx, friendAdded)
 			m.addFriendResultMessage(friendAdded)
 			continue
 		}
 		if friendDeleted, ok, err := network.ParseFriendDelete(pkt); err != nil {
-			log.Printf("parse friend delete 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse friend delete 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if friend, removed := applyFriendDelete(ctx, friendDeleted); removed {
 				name := friend.Name
@@ -816,94 +816,94 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if partyCreate, ok, err := network.ParsePartyCreateResult(pkt); err != nil {
-			log.Printf("parse party create result 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party create result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handlePartyCreateResult(ctx, partyCreate)
 			continue
 		}
 		if partyList, ok, err := network.ParsePartyList(pkt); err != nil {
-			log.Printf("parse party list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyList(ctx, partyList)
 			continue
 		}
 		if partyInvite, ok, err := network.ParsePartyInviteRequest(pkt); err != nil {
-			log.Printf("parse party invite request 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party invite request 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.openPartyInviteRequest(ctx, partyInvite)
 			continue
 		}
 		if partyInviteAnswer, ok, err := network.ParsePartyInviteAnswer(pkt); err != nil {
-			log.Printf("parse party invite answer 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party invite answer 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handlePartyInviteAnswer(partyInviteAnswer)
 			continue
 		}
 		if partyOption, ok, err := network.ParsePartyOption(pkt); err != nil {
-			log.Printf("parse party option 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party option 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyOption(ctx, partyOption)
 			continue
 		}
 		if partyConfig, ok, err := network.ParsePartyInviteConfig(pkt); err != nil {
-			log.Printf("parse party invite config 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party invite config 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyInviteConfig(ctx, partyConfig)
 			m.ui.partySettings.Rebind(ctx)
 			continue
 		}
 		if guildBelonging, ok, err := network.ParseGuildBelonging(pkt); err != nil {
-			log.Printf("parse guild belonging 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild belonging 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyLocalGuildInfo(ctx, guildBelonging.GuildID, guildBelonging.EmblemVersion, guildBelonging.GuildName)
 			m.requestActorGuildEmblem(ctx, guildBelonging.GuildID, guildBelonging.EmblemVersion)
 			continue
 		}
 		if guildInfo, ok, err := network.ParseGuildInfo(pkt); err != nil {
-			log.Printf("parse guild info 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild info 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyLocalGuildInfo(ctx, guildInfo.GuildID, guildInfo.EmblemVersion, guildInfo.GuildName)
 			m.requestActorGuildEmblem(ctx, guildInfo.GuildID, guildInfo.EmblemVersion)
 			continue
 		}
 		if guildEmblem, ok, err := network.ParseGuildEmblemImage(pkt); err != nil {
-			log.Printf("parse guild emblem 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild emblem 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyGuildEmblemImage(ctx, guildEmblem)
 			continue
 		}
 		if guildEmblemChange, ok, err := network.ParseGuildEmblemChange(pkt); err != nil {
-			log.Printf("parse guild emblem change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild emblem change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyGuildEmblemChange(ctx, guildEmblemChange)
 			continue
 		}
 		if guildCreate, ok, err := network.ParseGuildCreationResult(pkt); err != nil {
-			log.Printf("parse guild create result 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild create result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleGuildCreationResult(ctx, guildCreate)
 			continue
 		}
 		if guildInvite, ok, err := network.ParseGuildInviteRequest(pkt); err != nil {
-			log.Printf("parse guild invite request 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild invite request 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.openGuildInviteRequest(ctx, guildInvite)
 			continue
 		}
 		if guildInviteAck, ok, err := network.ParseGuildInviteAck(pkt); err != nil {
-			log.Printf("parse guild invite ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse guild invite ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleGuildInviteAck(guildInviteAck)
 			continue
 		}
 		if partyMember, ok, err := network.ParsePartyMemberJoin(pkt); err != nil {
-			log.Printf("parse party member join 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party member join 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyMemberJoin(ctx, partyMember)
 			continue
 		}
 		if partyLeave, ok, err := network.ParsePartyMemberLeave(pkt); err != nil {
-			log.Printf("parse party member leave 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party member leave 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if !applyPartyMemberLeave(ctx, partyLeave) {
 				m.ui.console.AddErrorMessage("Cannot leave party on this map.")
@@ -911,31 +911,31 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if partyHP, ok, err := network.ParsePartyMemberHP(pkt); err != nil {
-			log.Printf("parse party member hp 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party member hp 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyMemberHP(ctx, partyHP)
 			continue
 		}
 		if partyPosition, ok, err := network.ParsePartyMemberPosition(pkt); err != nil {
-			log.Printf("parse party member position 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party member position 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyMemberPosition(ctx, partyPosition)
 			continue
 		}
 		if partyChat, ok, err := network.ParsePartyChat(pkt); err != nil {
-			log.Printf("parse party chat 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse party chat 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyPartyChat(ctx, partyChat, &m.ui.console)
 			continue
 		}
 		if tradeRequest, ok, err := network.ParseTradeRequest(pkt); err != nil {
-			log.Printf("parse trade request 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse trade request 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.openTradeRequest(ctx, tradeRequest)
 			continue
 		}
 		if showEquip, ok, err := network.ParseShowEquipConfig(pkt); err != nil {
-			log.Printf("parse show equip config 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse show equip config 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if ctx.Session != nil {
 				ctx.Session.ShowEquip = showEquip
@@ -943,7 +943,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if lessEffects, ok, err := network.ParseLessEffect(pkt); err != nil {
-			log.Printf("parse less effect 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse less effect 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if ctx.Session != nil {
 				ctx.Session.LessEffects = lessEffects
@@ -951,31 +951,31 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if viewedEquip, ok, err := network.ParseViewedEquipment(pkt); err != nil {
-			log.Printf("parse viewed equipment 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse viewed equipment 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.viewEquipWindow.Open(ctx, viewedEquip, m)
 			continue
 		}
 		if tradeResponse, ok, err := network.ParseTradeResponse(pkt); err != nil {
-			log.Printf("parse trade response 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse trade response 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleTradeResponse(ctx, tradeResponse)
 			continue
 		}
 		if tradeItem, ok, err := network.ParseTradeItem(pkt); err != nil {
-			log.Printf("parse trade item 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse trade item 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.tradeWindow.AddReceivedItem(ctx, tradeItem)
 			continue
 		}
 		if tradeAck, ok, err := network.ParseTradeAddItemAck(pkt); err != nil {
-			log.Printf("parse trade add item ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse trade add item ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.tradeWindow.AddOwnItemAck(ctx, tradeAck)
 			continue
 		}
 		if tradeConclude, ok, err := network.ParseTradeConclude(pkt); err != nil {
-			log.Printf("parse trade conclude 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse trade conclude 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.tradeWindow.SetConcluded(ctx, tradeConclude.Other)
 			continue
@@ -986,7 +986,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if tradeExec, ok, err := network.ParseTradeExec(pkt); err != nil {
-			log.Printf("parse trade exec 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse trade exec 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.handleTradeExec(ctx, tradeExec)
 			continue
@@ -996,7 +996,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if storageItem, ok, err := network.ParseStorageItemAdded(pkt); err != nil {
-			log.Printf("parse storage item added 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse storage item added 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyStorageItemAdded(ctx, storageItem)
 			m.ui.storageWindow.OpenWindow(ctx)
@@ -1005,9 +1005,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if cartItem, ok, err := network.ParseCartItemAdded(pkt); err != nil {
-			log.Printf("parse cart item added 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse cart item added 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("cart item added index=%d item=%d amount=%d", cartItem.Index, cartItem.ItemID, cartItem.Amount)
+			glog.Debugf("cart item added index=%d item=%d amount=%d", cartItem.Index, cartItem.ItemID, cartItem.Amount)
 			applyCartItemAdded(ctx, cartItem)
 			m.ui.cartWindow.ClampScroll(ctx.Session)
 			m.ui.cartWindow.Refresh(ctx, &m.ui.itemInfoWindow)
@@ -1015,23 +1015,23 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if ack, ok, err := network.ParseCartAddAck(pkt); err != nil {
-			log.Printf("parse cart add ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse cart add ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			switch ack.Result {
 			case 0:
 				m.ui.console.AddErrorMessage("Cart is overweight.")
-				log.Printf("cart add rejected result=%d reason=weight", ack.Result)
+				glog.Warnf("cart add rejected result=%d reason=weight", ack.Result)
 			case 1:
 				m.ui.console.AddErrorMessage("Cart has too many items.")
-				log.Printf("cart add rejected result=%d reason=count", ack.Result)
+				glog.Warnf("cart add rejected result=%d reason=count", ack.Result)
 			default:
 				m.ui.console.AddErrorMessage("Cart add failed.")
-				log.Printf("cart add rejected result=%d", ack.Result)
+				glog.Warnf("cart add rejected result=%d", ack.Result)
 			}
 			continue
 		}
 		if storageItem, ok, err := network.ParseStorageItemRemoved(pkt); err != nil {
-			log.Printf("parse storage item removed 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse storage item removed 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyStorageItemRemoved(ctx, storageItem)
 			m.ui.storageWindow.ClampScroll(ctx.Session)
@@ -1039,7 +1039,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if cartItem, ok, err := network.ParseCartItemRemoved(pkt); err != nil {
-			log.Printf("parse cart item removed 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse cart item removed 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyCartItemRemoved(ctx, cartItem)
 			m.ui.cartWindow.ClampScroll(ctx.Session)
@@ -1047,26 +1047,26 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if vendOpen, ok, err := network.ParseVendingOpenRequest(pkt); err != nil {
-			log.Printf("parse vending open request 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse vending open request 0x%04X: %v", pkt.ID, err)
 		} else if ok {
-			log.Printf("vending open request max_items=%d", vendOpen.MaxItems)
+			glog.Debugf("vending open request max_items=%d", vendOpen.MaxItems)
 			m.ui.vendingWindow.OpenSetup(ctx, vendOpen)
 			continue
 		}
 		if board, ok, err := network.ParseVendingBoard(pkt); err != nil {
-			log.Printf("parse vending board 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse vending board 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyVendingBoard(ctx, board)
 			continue
 		}
 		if board, ok, err := network.ParseVendingBoardDisappear(pkt); err != nil {
-			log.Printf("parse vending board disappear 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse vending board disappear 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyVendingBoardDisappear(ctx, board)
 			continue
 		}
 		if vendList, ok, err := network.ParseVendingItemList(pkt); err != nil {
-			log.Printf("parse vending item list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse vending item list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if vendList.Own {
 				m.ui.vendingWindow.ApplyOwnList(ctx, vendList)
@@ -1076,13 +1076,13 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if vendResult, ok, err := network.ParseVendingPurchaseResult(pkt); err != nil {
-			log.Printf("parse vending purchase result 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse vending purchase result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.vendingWindow.ApplyPurchaseResult(ctx, vendResult)
 			continue
 		}
 		if sold, ok, err := network.ParseVendingSoldItem(pkt); err != nil {
-			log.Printf("parse vending sold item 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse vending sold item 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.vendingWindow.ApplySoldItem(ctx, sold)
 			continue
@@ -1098,25 +1098,25 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if deal, ok, err := network.ParseShopDealSelection(pkt); err != nil {
-			log.Printf("parse shop deal selection 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse shop deal selection 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.shopWindow.OpenDeal(deal, ctx)
 			continue
 		}
 		if sellList, ok, err := network.ParseShopSellList(pkt); err != nil {
-			log.Printf("parse shop sell list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse shop sell list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.shopWindow.OpenSell(sellList, ctx)
 			continue
 		}
 		if buyList, ok, err := network.ParseShopBuyList(pkt); err != nil {
-			log.Printf("parse shop buy list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse shop buy list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.shopWindow.OpenBuy(buyList, ctx)
 			continue
 		}
 		if result, ok, err := network.ParseShopResult(pkt); err != nil {
-			log.Printf("parse shop result 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse shop result 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.shopWindow.ApplyResult(ctx, result)
 			if result.Sell && result.Result == 0 {
@@ -1125,7 +1125,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if vanish, ok, err := network.ParseActorVanish(pkt); err != nil {
-			log.Printf("parse actor vanish 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor vanish 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyActorVanish(ctx, vanish)
 			if m.pendingAttack.targetID == vanish.ID {
@@ -1140,7 +1140,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if look, ok, err := network.ParseActorLookChange(pkt); err != nil {
-			log.Printf("parse actor look change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor look change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			if m.applySkillUnitLookChange(ctx, look) {
 				continue
@@ -1148,150 +1148,150 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			if applyActorLookChange(ctx, look) {
 				if view, status := loadPlayerHumanoidSpriteView(ctx.Resources, ctx.Session.SelectedCharacter(), ctx.Session.Sex); view != nil {
 					m.playerView = view
-					log.Printf("player sprite changed type=%d value=%d %s", look.Type, look.Value, status)
+					glog.Debugf("player sprite changed type=%d value=%d %s", look.Type, look.Value, status)
 				} else {
 					m.playerView = nil
-					log.Printf("player sprite reload failed after look change type=%d value=%d: %s", look.Type, look.Value, status)
+					glog.Warnf("player sprite reload failed after look change type=%d value=%d: %s", look.Type, look.Value, status)
 				}
 			}
 			continue
 		}
 		if direction, ok, err := network.ParseActorDirectionChange(pkt); err != nil {
-			log.Printf("parse actor direction change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor direction change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyActorDirectionChange(ctx, direction)
 			continue
 		}
 		if state, ok, err := network.ParseActorStateChange(pkt); err != nil {
-			log.Printf("parse actor state change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor state change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyActorStateChange(ctx, state)
 			continue
 		}
 		if bladeStop, ok, err := network.ParseActorBladeStop(pkt); err != nil {
-			log.Printf("parse actor blade stop 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor blade stop 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyActorBladeStop(ctx, bladeStop)
 			continue
 		}
 		if action, ok, err := network.ParseActorActionNotify(pkt); err != nil {
-			log.Printf("parse actor action 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor action 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyActorActionNotify(ctx, action)
 			continue
 		}
 		if life, ok, err := network.ParseActorHPUpdate(pkt); err != nil {
-			log.Printf("parse actor hp 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor hp 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyActorHPUpdate(life)
 			continue
 		}
 		if snapshot, ok, err := network.ParseStatusSnapshot(pkt); err != nil {
-			log.Printf("parse status snapshot 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse status snapshot 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applyStatusSnapshot(ctx, snapshot)
 			continue
 		}
 		if ack, ok, err := network.ParseStatusChangeAck(pkt); err != nil {
-			log.Printf("parse status change ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse status change ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.ui.statsWindow.ApplyStatusChangeAck(ctx, ack)
 			continue
 		}
 		if statusEffect, ok, err := network.ParseStatusEffectChange(pkt); err != nil {
-			log.Printf("parse status effect change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse status effect change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyStatusEffectChange(ctx, statusEffect)
 			continue
 		}
 		if list, ok, err := network.ParseSkillInfoList(pkt); err != nil {
-			log.Printf("parse skill list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applySkillInfoList(ctx, list)
 			m.ui.skillWindow.ClampScroll(ctx.Session)
 			continue
 		}
 		if update, ok, err := network.ParseSkillInfoUpdate(pkt); err != nil {
-			log.Printf("parse skill update 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill update 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			applySkillInfoUpdate(ctx, update)
 			m.ui.skillWindow.ClampScroll(ctx.Session)
 			continue
 		}
 		if auto, ok, err := network.ParseAutoRunSkill(pkt); err != nil {
-			log.Printf("parse auto-run skill 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse auto-run skill 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.skills().ApplyAutoRun(ctx, auto)
 			continue
 		}
 		if warpList, ok, err := network.ParseWarpPointList(pkt); err != nil {
-			log.Printf("parse warp point list 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse warp point list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyWarpPointList(ctx, warpList)
 			continue
 		}
 		if memo, ok, err := network.ParseRememberWarpPointAck(pkt); err != nil {
-			log.Printf("parse remember warp point ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse remember warp point ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyRememberWarpPointAck(ctx, memo)
 			continue
 		}
 		if fail, ok, err := network.ParseSkillFailAck(pkt); err != nil {
-			log.Printf("parse skill fail ack 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill fail ack 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applySkillFailAck(ctx, fail)
 			continue
 		}
 		if cast, ok, err := network.ParseSkillCastNotify(pkt); err != nil {
-			log.Printf("parse skill cast 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill cast 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applySkillCastNotify(ctx, cast)
 			continue
 		}
 		if groundSkill, ok, err := network.ParseGroundSkillNotify(pkt); err != nil {
-			log.Printf("parse ground skill 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse ground skill 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyGroundSkillNotify(ctx, groundSkill)
 			continue
 		}
 		if skillUnit, ok, err := network.ParseSkillUnitEntry(pkt); err != nil {
-			log.Printf("parse skill unit 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill unit 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applySkillUnitEntry(ctx, skillUnit)
 			continue
 		}
 		if skillUnit, ok, err := network.ParseSkillUnitDisappear(pkt); err != nil {
-			log.Printf("parse skill unit disappear 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill unit disappear 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applySkillUnitDisappear(skillUnit)
 			continue
 		}
 		if effect, ok, err := network.ParseSpecialEffectNotify(pkt); err != nil {
-			log.Printf("parse special effect 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse special effect 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applySpecialEffectNotify(ctx, effect)
 			continue
 		}
 		if skill, ok, err := network.ParseSkillNoDamageNotify(pkt); err != nil {
-			log.Printf("parse skill nodamage 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse skill nodamage 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applySkillNoDamageNotify(ctx, skill)
 			continue
 		}
 		if failure, ok, err := network.ParseAttackFailureForDistance(pkt); err != nil {
-			log.Printf("parse attack distance failure 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse attack distance failure 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyAttackFailureForDistance(ctx, failure)
 			continue
 		}
 		if recovery, ok, err := network.ParseRecovery(pkt); err != nil {
-			log.Printf("parse recovery 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse recovery 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyRecovery(ctx, recovery)
 			continue
 		}
 		if change, ok, err := network.ParseParameterChange(pkt); err != nil {
-			log.Printf("parse parameter change 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse parameter change 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.applyParameterChange(ctx, change)
 			if change.VarID == network.StatusHP {
@@ -1300,7 +1300,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			continue
 		}
 		if entry, ok, err := network.ParseActorEntry(pkt); err != nil {
-			log.Printf("parse actor entry 0x%04X: %v", pkt.ID, err)
+			glog.Errorf("parse actor entry 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			m.clearActorDeath(entry.ID)
 			m.upsertNetworkActor(ctx, entry)
@@ -1312,7 +1312,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	for _, err := range networkErrors {
-		log.Printf("network frame error: %v", err)
+		glog.Errorf("network frame error: %v", err)
 	}
 
 	m.updatePendingAttack(ctx, "update", false)
@@ -1533,7 +1533,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 				m.ui.console.AddErrorMessage("Leave party failed: not connected.")
 			} else if err := ctx.Network.SendLeaveParty(); err != nil {
 				m.ui.console.AddErrorMessage("Leave party failed.")
-				log.Printf("leave party failed: %v", err)
+				glog.Warnf("leave party failed: %v", err)
 			}
 		case gameui.FriendsWindowActionFriendWhisper:
 			m.ui.whisperWindow.Open(ctx, action.Friend.Name)
@@ -1547,7 +1547,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 				m.ui.console.AddErrorMessage("Block whisper failed: not connected.")
 			} else if err := ctx.Network.SendWhisperIgnore(name, false); err != nil {
 				m.ui.console.AddErrorMessage("Block whisper failed.")
-				log.Printf("block whisper failed name=%q: %v", name, err)
+				glog.Warnf("block whisper failed name=%q: %v", name, err)
 			}
 		case gameui.FriendsWindowActionPartyMemberInfo:
 			m.openPartyMemberInfo(ctx, action.PartyMember)
@@ -1592,35 +1592,35 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		playerX, playerY := currentPlayerCell(ctx, now)
 		if actor, ok := m.hoveredVendingBoard(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now); ok {
-			log.Printf("click vending target mouse=%d,%d id=%d name=%q shop=%q player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.VendingName, playerX, playerY, actor.X, actor.Y)
+			glog.Debugf("click vending target mouse=%d,%d id=%d name=%q shop=%q player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.VendingName, playerX, playerY, actor.X, actor.Y)
 			m.requestVendingList(ctx, actor, "click")
 			return nil, nil
 		}
 		if actor, ok := m.hoveredChatRoomBoard(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now); ok {
-			log.Printf("click chat room target mouse=%d,%d id=%d name=%q room=%d title=%q player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.ChatRoomID, actor.ChatRoomTitle, playerX, playerY, actor.X, actor.Y)
+			glog.Debugf("click chat room target mouse=%d,%d id=%d name=%q room=%d title=%q player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.ChatRoomID, actor.ChatRoomTitle, playerX, playerY, actor.X, actor.Y)
 			m.requestChatRoomEnter(ctx, actor)
 			return nil, nil
 		}
 		if item, ok := clickedGroundItem(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now); ok {
-			log.Printf("click pickup target mouse=%d,%d id=%d item_id=%d amount=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, item.ID, item.ItemID, item.Amount, playerX, playerY, item.X, item.Y)
+			glog.Debugf("click pickup target mouse=%d,%d id=%d item_id=%d amount=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, item.ID, item.ItemID, item.Amount, playerX, playerY, item.X, item.Y)
 			m.clearLockedAttack()
 			m.clearAttackFocus()
 			m.requestPickup(ctx, item, "click")
 			return nil, nil
 		}
 		if actor, ok := clickedAttackTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorDeaths); ok {
-			log.Printf("click attack target mouse=%d,%d id=%d name=%q job=%d object_type=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.Job, actor.ObjectType, playerX, playerY, actor.X, actor.Y)
+			glog.Debugf("click attack target mouse=%d,%d id=%d name=%q job=%d object_type=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.Job, actor.ObjectType, playerX, playerY, actor.X, actor.Y)
 			m.requestAttack(ctx, actor, "click")
 			return nil, nil
 		}
 		if actor, ok := clickedTalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorDeaths); ok {
-			log.Printf("click npc talk target mouse=%d,%d id=%d name=%q job=%d object_type=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.Job, actor.ObjectType, playerX, playerY, actor.X, actor.Y)
+			glog.Debugf("click npc talk target mouse=%d,%d id=%d name=%q job=%d object_type=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.Job, actor.ObjectType, playerX, playerY, actor.X, actor.Y)
 			m.clearAttackFocus()
 			m.requestNPCTalk(ctx, actor, "click")
 			return nil, nil
 		}
 		if targetX, targetY, ok := clickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); ok {
-			log.Printf("click walk target mouse=%d,%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, playerX, playerY, targetX, targetY)
+			glog.Debugf("click walk target mouse=%d,%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, playerX, playerY, targetX, targetY)
 			m.clearLockedAttack()
 			m.clearAttackFocus()
 			if shouldUseTurnOnlyGroundClick(ctx) {
@@ -1696,7 +1696,7 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 	m.clearLocalDeathState(ctx)
 	currentMap := ctx.World.MapName
 	reuseLoadedMap := !change.ServerMove && sameLoadedMap(ctx, change.MapName)
-	log.Printf("map change current=%s target=%s x=%d y=%d server_move=%t addr=%s port=%d reuse_loaded=%t", currentMap, change.MapName, change.X, change.Y, change.ServerMove, change.Address, change.Port, reuseLoadedMap)
+	glog.Debugf("map change current=%s target=%s x=%d y=%d server_move=%t addr=%s port=%d reuse_loaded=%t", currentMap, change.MapName, change.X, change.Y, change.ServerMove, change.Address, change.Port, reuseLoadedMap)
 	ctx.World.MapName = change.MapName
 	ctx.Session.Zone.MapName = change.MapName
 	applyWarpPosition(ctx, change.X, change.Y)
@@ -1709,7 +1709,7 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 		m.camera.Update(ctx, time.Now())
 		if ctx.Network != nil {
 			if err := ctx.Network.SendLoadEndAck(); err != nil {
-				log.Printf("same-map warp load ack failed map=%s x=%d y=%d: %v", change.MapName, change.X, change.Y, err)
+				glog.Warnf("same-map warp load ack failed map=%s x=%d y=%d: %v", change.MapName, change.X, change.Y, err)
 			} else {
 				m.tickCooldown = 1
 			}
@@ -1723,12 +1723,12 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 		err := ctx.Network.Connect(dialCtx, change.Address, int(change.Port))
 		cancel()
 		if err != nil {
-			log.Printf("map reconnect failed map=%s addr=%s port=%d: %v", change.MapName, change.Address, change.Port, err)
+			glog.Warnf("map reconnect failed map=%s addr=%s port=%d: %v", change.MapName, change.Address, change.Port, err)
 			openConnectionFailedDialog(ctx, &m.ui.disconnectDialog)
 			return nil
 		}
 		if err := ctx.Network.SendMapServerEnter(ctx.Session.AccountID, ctx.Session.CharID, ctx.Session.AuthCode, uint32(time.Now().UnixMilli()), ctx.Session.Sex); err != nil {
-			log.Printf("map re-enter failed map=%s addr=%s port=%d: %v", change.MapName, change.Address, change.Port, err)
+			glog.Warnf("map re-enter failed map=%s addr=%s port=%d: %v", change.MapName, change.Address, change.Port, err)
 			message := disconnectMessageText(ctx.Resources, disconnectMessage{2, "Disconnected from Server."})
 			openDisconnectDialog(ctx, &m.ui.disconnectDialog, message)
 			return nil
@@ -1816,7 +1816,7 @@ func (m *WorldMode) requestNPCTalk(ctx client.Context, actor worldstate.Actor, s
 		m.setWalkCooldown(walkRequestCooldown)
 	} else {
 		playerX, playerY := currentPlayerCell(ctx, time.Now())
-		log.Printf("%s npc talk failed target=%d player=%d,%d target=%d,%d: %v", source, actor.ID, playerX, playerY, actor.X, actor.Y, err)
+		glog.Warnf("%s npc talk failed target=%d player=%d,%d target=%d,%d: %v", source, actor.ID, playerX, playerY, actor.X, actor.Y, err)
 		m.setWalkCooldown(walkErrorCooldown)
 	}
 }
