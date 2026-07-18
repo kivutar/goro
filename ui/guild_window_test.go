@@ -41,35 +41,31 @@ func TestGuildSkillTooltipHidesWhenCursorLeavesTable(t *testing.T) {
 
 func TestGuildSkillTooltipAreaUsesInputCursorPosition(t *testing.T) {
 	window := &GuildWindow{}
-	ctx := Context{Input: &input.State{MouseX: 100, MouseY: 120}}
-	row := window.guildSkillTooltipArea(ctx, session.Skill{ID: db.SkillGdApproval, Name: "Approval", Level: 1}, nil)
-	hover := row.(*guildSkillTooltipWidget).onHover
+	ctx := Context{
+		Input: &input.State{MouseX: 100, MouseY: 120},
+		Session: &session.Session{
+			Guild: session.Guild{
+				Skills: []session.Skill{{ID: db.SkillGdApproval, Name: "Approval", Level: 1}},
+			},
+		},
+	}
+	tree := window.skillsTab(ctx)
+	uiCtx := widget.NewContext()
+	tree.Layout(uiCtx, geometry.Tight(geometry.Sz(guildTableViewportW, 100)))
+	tree.(interface{ SetBounds(geometry.Rect) }).SetBounds(geometry.NewRect(0, 0, guildTableViewportW, 100))
 
-	hover(300, 120)
+	tree.Event(uiCtx, event.NewMouseEvent(
+		event.MouseMove,
+		event.ButtonNone,
+		0,
+		geometry.Pt(guildTablePadding+10, guildTablePadding+30),
+		geometry.Pt(300, 120),
+		0,
+	))
 
 	const tooltipW = 292
 	if got, want := window.tooltip.centerX, 100+16+tooltipW/2; got != want {
 		t.Fatalf("tooltip centerX = %d, want %d", got, want)
-	}
-}
-
-func TestGuildSkillTooltipWidgetForwardsLocalMousePosition(t *testing.T) {
-	child := &guildSkillEventProbe{}
-	child.SetBounds(geometry.NewRect(0, 0, 100, 32))
-	wrapper := &guildSkillTooltipWidget{child: child}
-	wrapper.SetBounds(geometry.NewRect(20, 30, 100, 32))
-
-	wrapper.Event(widget.NewContext(), event.NewMouseEvent(
-		event.MousePress,
-		event.ButtonLeft,
-		0,
-		geometry.Pt(25, 36),
-		geometry.Pt(25, 36),
-		0,
-	))
-
-	if child.position != geometry.Pt(5, 6) {
-		t.Fatalf("child position = %v, want 5,6", child.position)
 	}
 }
 
@@ -87,24 +83,4 @@ func TestGuildSkillLevelUpStaysPendingUntilConfirm(t *testing.T) {
 	if got := action.LevelUpSkillIDs; len(got) != 2 || got[0] != db.SkillGdApproval || got[1] != db.SkillGdApproval {
 		t.Fatalf("level up ids = %v", got)
 	}
-}
-
-type guildSkillEventProbe struct {
-	widget.WidgetBase
-	position geometry.Point
-}
-
-func (p *guildSkillEventProbe) Layout(widget.Context, geometry.Constraints) geometry.Size {
-	return geometry.Sz(100, 32)
-}
-
-func (p *guildSkillEventProbe) Draw(widget.Context, widget.Canvas) {}
-
-func (p *guildSkillEventProbe) Event(_ widget.Context, e event.Event) bool {
-	mouse, ok := e.(*event.MouseEvent)
-	if !ok {
-		return false
-	}
-	p.position = mouse.Position
-	return true
 }

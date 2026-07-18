@@ -45,6 +45,9 @@ type tableViewConfig struct {
 	buildCell    func(TableViewCellContext) widget.Widget
 	onRowClick   func(int)
 	onRowEvent   func(int, event.Event) bool
+
+	invalidateHover      bool
+	dispatchHoverToCells bool
 }
 
 type TableViewWidget struct {
@@ -68,11 +71,13 @@ type TableViewWidget struct {
 
 func TableView(opts ...TableViewOption) *TableViewWidget {
 	cfg := tableViewConfig{
-		rowHeight:    32,
-		headerHeight: Default.Typography.TextSize + TableHeaderPadY*2,
-		showHeader:   true,
-		stickyHeader: true,
-		emptyText:    "No rows",
+		rowHeight:            32,
+		headerHeight:         Default.Typography.TextSize + TableHeaderPadY*2,
+		showHeader:           true,
+		stickyHeader:         true,
+		emptyText:            "No rows",
+		invalidateHover:      true,
+		dispatchHoverToCells: true,
 	}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -149,6 +154,14 @@ func TableViewOnRowClick(onClick func(int)) TableViewOption {
 
 func TableViewOnRowEvent(onEvent func(int, event.Event) bool) TableViewOption {
 	return func(c *tableViewConfig) { c.onRowEvent = onEvent }
+}
+
+func TableViewInvalidateHover(invalidate bool) TableViewOption {
+	return func(c *tableViewConfig) { c.invalidateHover = invalidate }
+}
+
+func TableViewDispatchHoverToCells(dispatch bool) TableViewOption {
+	return func(c *tableViewConfig) { c.dispatchHoverToCells = dispatch }
 }
 
 func (w *TableViewWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
@@ -473,6 +486,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 	}
 	table := b.table
 	table.setContentWidth(table.safeBodyWidth())
+	hoverEvent := isTableViewHoverEvent(mouse)
 
 	outsideContentX := mouse.Position.X < 0 || mouse.Position.X >= table.contentW
 	row := -1
@@ -508,6 +522,12 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 		return false
 	}
 	if row < 0 {
+		return false
+	}
+	if hoverEvent && !table.cfg.dispatchHoverToCells {
+		if table.cfg.onRowEvent != nil {
+			return table.cfg.onRowEvent(row, mouse)
+		}
 		return false
 	}
 	consumed := b.dispatchRowEvent(ctx, row, mouse)
@@ -768,12 +788,24 @@ func (w *TableViewWidget) buildRow(row int) widget.Widget {
 		CrossAlign(primitives.CrossAxisStretch)
 }
 
+func isTableViewHoverEvent(mouse *event.MouseEvent) bool {
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseMove, event.MouseDrag:
+		return true
+	default:
+		return false
+	}
+}
+
 func (w *TableViewWidget) setHoveredRow(ctx widget.Context, row int) {
 	if w.hoveredRow == row {
 		return
 	}
 	previous := w.hoveredRow
 	w.hoveredRow = row
+	if !w.cfg.invalidateHover {
+		return
+	}
 	w.invalidateHoverRow(ctx, previous)
 	w.invalidateHoverRow(ctx, row)
 }

@@ -287,6 +287,90 @@ func TestTableViewHoverInvalidatesOnlyChangedRows(t *testing.T) {
 	}
 }
 
+func TestTableViewCanDisableHoverInvalidation(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewHeaderHeight(10),
+		TableViewInvalidateHover(false),
+	)
+	ctx := widget.NewContext()
+	invalidations := 0
+	ctx.SetOnInvalidateRect(func(geometry.Rect) {
+		invalidations++
+	})
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 70)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 70))
+	table.body.layoutRow(ctx, 0)
+	widget.ClearRedrawInTree(table)
+
+	table.setHoveredRow(ctx, 0)
+
+	if table.hoveredRow != 0 {
+		t.Fatalf("hovered row = %d, want 0", table.hoveredRow)
+	}
+	if invalidations != 0 {
+		t.Fatalf("hover invalidations = %d, want 0", invalidations)
+	}
+	if table.body.rows[0].NeedsRedraw() {
+		t.Fatal("row should stay clean when hover invalidation is disabled")
+	}
+}
+
+func TestTableViewCanSkipCellHoverDispatch(t *testing.T) {
+	probe := &tableViewHoverProbe{}
+	var rowEvents []event.MouseEventType
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewHeaderHeight(10),
+		TableViewInvalidateHover(false),
+		TableViewDispatchHoverToCells(false),
+		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
+			return probe
+		}),
+		TableViewOnRowEvent(func(row int, e event.Event) bool {
+			mouse, ok := e.(*event.MouseEvent)
+			if ok && row == 0 {
+				rowEvents = append(rowEvents, mouse.MouseType)
+			}
+			return false
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 70)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 70))
+
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseMove,
+		event.ButtonNone,
+		0,
+		geometry.Pt(8, 18),
+		geometry.Pt(8, 18),
+		0,
+	))
+	table.Event(ctx, event.NewMouseEvent(
+		event.MousePress,
+		event.ButtonLeft,
+		0,
+		geometry.Pt(8, 18),
+		geometry.Pt(8, 18),
+		0,
+	))
+
+	if probe.moves != 0 {
+		t.Fatalf("cell mouse moves = %d, want 0", probe.moves)
+	}
+	if !probe.pressed {
+		t.Fatal("cell mouse press should still be dispatched")
+	}
+	if len(rowEvents) != 1 || rowEvents[0] != event.MouseMove {
+		t.Fatalf("row events = %v, want [MouseMove]", rowEvents)
+	}
+}
+
 type tableViewLayoutProbe struct {
 	widget.WidgetBase
 	layouts int
@@ -334,6 +418,39 @@ func (p *tableViewProbe) Children() []widget.Widget {
 }
 
 var _ widget.Widget = (*tableViewProbe)(nil)
+
+type tableViewHoverProbe struct {
+	widget.WidgetBase
+	moves   int
+	pressed bool
+}
+
+func (p *tableViewHoverProbe) Layout(widget.Context, geometry.Constraints) geometry.Size {
+	return geometry.Sz(20, 20)
+}
+
+func (p *tableViewHoverProbe) Draw(widget.Context, widget.Canvas) {}
+
+func (p *tableViewHoverProbe) Event(_ widget.Context, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseMove:
+		p.moves++
+	case event.MousePress:
+		p.pressed = true
+		return true
+	}
+	return false
+}
+
+func (p *tableViewHoverProbe) Children() []widget.Widget {
+	return nil
+}
+
+var _ widget.Widget = (*tableViewHoverProbe)(nil)
 
 func TestTableViewAllowsEmptyCellBuilder(t *testing.T) {
 	table := TableView(
