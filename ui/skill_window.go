@@ -27,8 +27,9 @@ const (
 	skillWindowPad    = 12
 	skillRowH         = 32
 	skillIconSize     = 24
-	skillHeaderH      = 52
-	skillListH        = skillWindowHeight - ROWindowTitleHeight - skillHeaderH - ROWindowFooterHeight
+	skillHeaderH      = 14
+	skillContentGap   = 5
+	skillListH        = skillWindowHeight - ROWindowTitleHeight - ROWindowFooterHeight - skillWindowPad*2 - skillHeaderH - skillContentGap
 )
 
 type SkillWindow struct {
@@ -215,7 +216,6 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 		Size(skillWindowWidth, skillWindowHeight),
 		Content(
 			primitives.Box(
-				rotheme.Text(fmt.Sprintf("Skill Points : %d", maxInt(0, sessionSkillPoints(ctx.Session)-w.pendingCount()))),
 				w.skillHeader(),
 				primitives.Box(
 					scrollview.New(
@@ -230,9 +230,10 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 					Height(skillListH),
 			).
 				Padding(skillWindowPad).
-				Gap(5),
+				Gap(skillContentGap),
 		),
 		Footer(
+			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, sessionSkillPoints(ctx.Session)-w.pendingCount()))),
 			primitives.Expanded(primitives.Box()),
 			rotheme.Button("Reset", func() {
 				w.clearPending()
@@ -377,7 +378,7 @@ func (w *SkillWindow) skillAtMouse(ctx Context, mouseX, mouseY int) (session.Ski
 }
 
 func (w *SkillWindow) skillListOrigin() (int, int) {
-	return w.x + skillWindowPad, w.y + ROWindowTitleHeight + skillWindowPad + 14 + 5 + 14 + 5
+	return w.x + skillWindowPad, w.y + ROWindowTitleHeight + skillWindowPad + skillHeaderH + skillContentGap
 }
 
 func (w *SkillWindow) hideTooltip() {

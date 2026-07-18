@@ -271,7 +271,7 @@ func (w *GuildWindow) tabFooter(ctx Context) []widget.Widget {
 		}
 	case guildWindowTabSkills:
 		return []widget.Widget{
-			guildSkillFooterLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, guild.SkillPoints-w.skillPendingCount()))),
+			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, guild.SkillPoints-w.skillPendingCount()))),
 			primitives.Expanded(primitives.Box()),
 			rotheme.Button("Reset", func() {
 				w.clearGuildSkillPending()
@@ -284,14 +284,6 @@ func (w *GuildWindow) tabFooter(ctx Context) []widget.Widget {
 	default:
 		return nil
 	}
-}
-
-func guildSkillFooterLabel(text string) widget.Widget {
-	return primitives.Box(
-		rotheme.Text(text),
-	).
-		Height(rotheme.Default.Typography.TextSize + rotheme.ButtonPaddingY*2).
-		PaddingTop(rotheme.ButtonPaddingY)
 }
 
 func (w *GuildWindow) membersTab(ctx Context) widget.Widget {

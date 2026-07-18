@@ -141,6 +141,14 @@ func Footer(children ...widget.Widget) WindowOption {
 	}
 }
 
+func footerLabel(text string) widget.Widget {
+	return primitives.Box(
+		rotheme.Text(text),
+	).
+		Height(rotheme.Default.Typography.TextSize + rotheme.ButtonPaddingY*2).
+		PaddingTop(rotheme.ButtonPaddingY)
+}
+
 func Size(width, height float32) WindowOption {
 	return func(cfg *windowConfig) {
 		cfg.width = width
