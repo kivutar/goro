@@ -220,6 +220,8 @@ func (w *StorageWindow) storageTableWidget(ctx Context) *rotheme.TableViewWidget
 		rotheme.TableViewEmptyText("No items"),
 		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
 		rotheme.TableViewSelectedRow(w.ensureSelectedRowSignal()),
+		rotheme.TableViewInvalidateHover(false),
+		rotheme.TableViewDispatchHoverToCells(false),
 		rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
 			if cell.Row < 0 || cell.Row >= len(rows) {
 				return primitives.Box()
