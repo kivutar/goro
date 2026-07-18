@@ -34,7 +34,7 @@ type StorageWindow struct {
 	scrollY           state.Signal[float32]
 	selectedRow       int
 	selectedRowSignal state.Signal[int]
-	snapshot          string
+	snapshot          uint64
 	itemInfo          *ItemInfoWindow
 	lastClickItem     uint16
 	lastClickAt       time.Time
@@ -325,12 +325,15 @@ func (w *StorageWindow) withdraw(ctx Context, item session.InventoryItem) {
 }
 
 func (w *StorageWindow) ClampScroll(s *session.Session) {
-	items := sortedStorageItems(s)
-	if w.selectedRow >= len(items) {
+	itemCount := 0
+	if s != nil {
+		itemCount = len(s.Storage.Items)
+	}
+	if w.selectedRow >= itemCount {
 		w.setSelectedRow(-1)
 	}
 	scroll := w.ensureScrollSignal()
-	maxScroll := float32(maxInt(0, len(items)-storageRows) * storageRowH)
+	maxScroll := float32(maxInt(0, itemCount-storageRows) * storageRowH)
 	switch value := scroll.Get(); {
 	case value < 0:
 		scroll.Set(0)
@@ -399,11 +402,48 @@ func (w *StorageWindow) markIconMiss(key storageItemIconKey) {
 	w.iconMiss[key] = struct{}{}
 }
 
-func (w *StorageWindow) storageSnapshot(s *session.Session) string {
+func (w *StorageWindow) storageSnapshot(s *session.Session) uint64 {
 	if s == nil {
-		return ""
+		return 0
 	}
-	return fmt.Sprintf("%d/%d:%v", s.Storage.Amount, s.Storage.MaxAmount, sortedStorageItems(s))
+	hash := storageSnapshotMix(storageSnapshotSeed, uint64(s.Storage.Amount))
+	hash = storageSnapshotMix(hash, uint64(s.Storage.MaxAmount))
+	hash = storageSnapshotMix(hash, uint64(len(s.Storage.Items)))
+	for _, item := range s.Storage.Items {
+		hash = storageSnapshotItem(hash, item)
+	}
+	return hash
+}
+
+const storageSnapshotSeed = uint64(1469598103934665603)
+
+func storageSnapshotMix(hash, value uint64) uint64 {
+	hash ^= value + 0x9e3779b97f4a7c15 + (hash << 6) + (hash >> 2)
+	return hash
+}
+
+func storageSnapshotItem(hash uint64, item session.InventoryItem) uint64 {
+	hash = storageSnapshotMix(hash, uint64(item.Index))
+	hash = storageSnapshotMix(hash, uint64(item.ItemID))
+	hash = storageSnapshotMix(hash, uint64(item.Type))
+	hash = storageSnapshotMix(hash, uint64(item.Location))
+	hash = storageSnapshotMix(hash, storageBoolSnapshot(item.Identified))
+	hash = storageSnapshotMix(hash, uint64(item.Amount))
+	hash = storageSnapshotMix(hash, storageBoolSnapshot(item.Equip))
+	hash = storageSnapshotMix(hash, storageBoolSnapshot(item.Equipped))
+	hash = storageSnapshotMix(hash, storageBoolSnapshot(item.Damaged))
+	hash = storageSnapshotMix(hash, uint64(item.Refine))
+	for _, card := range item.Cards {
+		hash = storageSnapshotMix(hash, uint64(card))
+	}
+	return hash
+}
+
+func storageBoolSnapshot(value bool) uint64 {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func (w *StorageWindow) storageCountText(s *session.Session) string {

@@ -54,14 +54,46 @@ func (w *tableCellWidget) Draw(_ widget.Context, canvas widget.Canvas) {
 	if !w.IsVisible() {
 		return
 	}
-	bounds := w.Bounds()
+	w.simpleCell().draw(canvas, w.Bounds())
+}
+
+func (w *tableCellWidget) simpleCell() tableViewSimpleCell {
+	return tableViewSimpleCell{
+		text:    w.text,
+		icon:    w.icon,
+		align:   w.align,
+		color:   w.color,
+		visible: w.IsVisible(),
+	}
+}
+
+type tableViewSimpleCell struct {
+	text    string
+	icon    image.Image
+	align   widget.TextAlign
+	color   widget.Color
+	visible bool
+}
+
+func asTableViewSimpleCell(w widget.Widget) (tableViewSimpleCell, bool) {
+	cell, ok := w.(*tableCellWidget)
+	if !ok {
+		return tableViewSimpleCell{}, false
+	}
+	return cell.simpleCell(), true
+}
+
+func (c tableViewSimpleCell) draw(canvas widget.Canvas, bounds geometry.Rect) {
+	if !c.visible {
+		return
+	}
 	textBounds := bounds
-	if w.icon != nil {
-		iconBounds := w.icon.Bounds()
+	if c.icon != nil {
+		iconBounds := c.icon.Bounds()
 		iconW := float32(iconBounds.Dx())
 		iconH := float32(iconBounds.Dy())
 		iconY := bounds.Min.Y + (bounds.Height()-iconH)/2
-		canvas.DrawImage(w.icon, geometry.Pt(bounds.Min.X+6, iconY))
+		canvas.DrawImage(c.icon, geometry.Pt(bounds.Min.X+6, iconY))
 		textBounds.Min.X += iconW + 12
 	}
 	textBounds.Min.X += TableCellPadX
@@ -74,7 +106,7 @@ func (w *tableCellWidget) Draw(_ widget.Context, canvas widget.Canvas) {
 		textHeight = textBounds.Height()
 	}
 	textY := textBounds.Min.Y + (textBounds.Height()-textHeight)/2
-	DrawText(canvas, w.text, geometry.NewRect(textBounds.Min.X, textY, textBounds.Width(), textHeight), Default.Typography.TextSize, w.color, false, w.align)
+	DrawText(canvas, c.text, geometry.NewRect(textBounds.Min.X, textY, textBounds.Width(), textHeight), Default.Typography.TextSize, c.color, false, c.align)
 }
 
 func (w *tableCellWidget) Event(widget.Context, event.Event) bool {

@@ -236,9 +236,6 @@ func (w *TableViewWidget) Children() []widget.Widget {
 
 func (w *TableViewWidget) Mount(ctx widget.Context) {
 	w.mountCtx = ctx
-	if w.scroll != nil {
-		w.scroll.Mount(ctx)
-	}
 	if w.body != nil {
 		w.body.mountRows(ctx)
 	}
@@ -249,9 +246,6 @@ func (w *TableViewWidget) Unmount() {
 		w.body.clearRows()
 	}
 	w.mountCtx = nil
-	if w.scroll != nil {
-		w.scroll.Unmount()
-	}
 }
 
 func (w *TableViewWidget) updateScrollBounds() {
@@ -639,8 +633,8 @@ func (b *tableViewBody) ensureRow(row int) *tableViewRowWidget {
 	child := &tableViewRowWidget{
 		table: b.table,
 		row:   row,
-		child: b.table.buildRow(row),
 	}
+	child.child, child.simpleCells = b.table.buildRow(row)
 	child.SetVisible(true)
 	child.SetEnabled(true)
 	setParent(child.child, child)
@@ -680,6 +674,7 @@ type tableViewRowWidget struct {
 	table        *TableViewWidget
 	row          int
 	child        widget.Widget
+	simpleCells  []tableViewSimpleCell
 	layoutWidth  float32
 	layoutHeight float32
 	layoutValid  bool
@@ -710,6 +705,10 @@ func (r *tableViewRowWidget) ensureLayout(ctx widget.Context, width, height floa
 func (r *tableViewRowWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 	bounds := r.Bounds()
 	canvas.DrawRect(bounds, r.background())
+	if len(r.simpleCells) > 0 {
+		r.drawSimpleCells(canvas, bounds)
+		return
+	}
 	if r.child == nil {
 		return
 	}
@@ -717,6 +716,18 @@ func (r *tableViewRowWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 	widget.StampScreenOrigin(r.child, canvas)
 	widget.DrawChild(r.child, ctx, canvas)
 	canvas.PopTransform()
+}
+
+func (r *tableViewRowWidget) drawSimpleCells(canvas widget.Canvas, bounds geometry.Rect) {
+	x := bounds.Min.X
+	for i, cell := range r.simpleCells {
+		if i >= len(r.table.colWidths) {
+			break
+		}
+		width := r.table.colWidths[i]
+		cell.draw(canvas, geometry.NewRect(x, bounds.Min.Y, width, bounds.Height()))
+		x += width
+	}
 }
 
 func (r *tableViewRowWidget) Event(ctx widget.Context, e event.Event) bool {
@@ -756,33 +767,60 @@ func (r *tableViewRowWidget) background() widget.Color {
 	return colors.Row
 }
 
-func (w *TableViewWidget) buildRow(row int) widget.Widget {
-	cells := make([]widget.Widget, 0, len(w.cfg.columns))
+func (w *TableViewWidget) buildRow(row int) (widget.Widget, []tableViewSimpleCell) {
+	children := make([]widget.Widget, 0, len(w.cfg.columns))
+	widths := make([]float32, 0, len(w.cfg.columns))
+	simpleCells := make([]tableViewSimpleCell, 0, len(w.cfg.columns))
+	simpleOnly := true
+
 	for i, col := range w.cfg.columns {
 		width := float32(0)
 		if i < len(w.colWidths) {
 			width = w.colWidths[i]
 		}
-		var child widget.Widget
-		if w.cfg.buildCell != nil {
-			child = w.cfg.buildCell(TableViewCellContext{
-				Row:         row,
-				ColumnIndex: i,
-				Column:      col,
-				Width:       width,
-				Height:      w.cfg.rowHeight,
-			})
+		child := w.buildCell(row, i, col, width)
+		children = append(children, child)
+		widths = append(widths, width)
+		if simpleOnly {
+			if simpleCell, ok := asTableViewSimpleCell(child); ok {
+				simpleCells = append(simpleCells, simpleCell)
+			} else {
+				simpleOnly = false
+			}
 		}
-		if child == nil {
-			child = primitives.Box()
-		}
+	}
+
+	if simpleOnly {
+		return nil, simpleCells
+	}
+
+	cells := make([]widget.Widget, 0, len(w.cfg.columns))
+	for i, child := range children {
+		width := widths[i]
 		cells = append(cells,
 			newTableViewCellWidget(child, width, w.cfg.rowHeight),
 		)
 	}
 	return primitives.HBox(cells...).
 		Height(w.cfg.rowHeight).
-		CrossAlign(primitives.CrossAxisStretch)
+		CrossAlign(primitives.CrossAxisStretch), nil
+}
+
+func (w *TableViewWidget) buildCell(row, columnIndex int, col TableViewColumn, width float32) widget.Widget {
+	var child widget.Widget
+	if w.cfg.buildCell != nil {
+		child = w.cfg.buildCell(TableViewCellContext{
+			Row:         row,
+			ColumnIndex: columnIndex,
+			Column:      col,
+			Width:       width,
+			Height:      w.cfg.rowHeight,
+		})
+	}
+	if child == nil {
+		child = primitives.Box()
+	}
+	return child
 }
 
 type tableViewCellWidget struct {

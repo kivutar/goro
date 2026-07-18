@@ -1,6 +1,7 @@
 package rotheme
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -407,6 +408,32 @@ func TestTableTextCellDrawsTextVerticallyCentered(t *testing.T) {
 	}
 }
 
+func TestTableViewUsesSimpleCellFastPath(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(32),
+		TableViewShowHeader(false),
+		TableViewBuildCell(func(cell TableViewCellContext) widget.Widget {
+			return TableTextCell("Row", cell.Width, cell.Height, widget.TextAlignLeft)
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 40)))
+	table.body.layoutRow(ctx, 0)
+
+	row := table.body.rows[0]
+	if row == nil {
+		t.Fatal("row was not built")
+	}
+	if row.child != nil {
+		t.Fatal("simple table cell built a widget row; want direct-paint fast path")
+	}
+	if got, want := len(row.simpleCells), 1; got != want {
+		t.Fatalf("simple cells = %d, want %d", got, want)
+	}
+}
+
 type tableViewLayoutProbe struct {
 	widget.WidgetBase
 	layouts int
@@ -548,6 +575,29 @@ func TestTableViewMountsAndUnmountsLazyCellWidgets(t *testing.T) {
 	}
 }
 
+func TestTableViewMountSubscribesScrollSignalOnce(t *testing.T) {
+	scrollY := &tableViewCountingSignal{}
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "field", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewScrollYSignal(scrollY),
+	)
+	ctx := widget.NewContext()
+	ctx.SetScheduler(tableViewSchedulerProbe{})
+
+	widget.MountTree(table, ctx)
+
+	if got, want := scrollY.subscriptions, 1; got != want {
+		t.Fatalf("scroll signal subscriptions = %d, want %d", got, want)
+	}
+
+	widget.UnmountTree(table)
+
+	if got, want := scrollY.unsubscriptions, 1; got != want {
+		t.Fatalf("scroll signal unsubscriptions = %d, want %d", got, want)
+	}
+}
+
 type tableViewLifecycleProbe struct {
 	widget.WidgetBase
 	mounts   int
@@ -580,6 +630,59 @@ var (
 	_ widget.Widget    = (*tableViewLifecycleProbe)(nil)
 	_ widget.Lifecycle = (*tableViewLifecycleProbe)(nil)
 )
+
+type tableViewSchedulerProbe struct{}
+
+func (tableViewSchedulerProbe) MarkDirty(widget.Widget) {}
+
+type tableViewCountingSignal struct {
+	value           float32
+	subscriptions   int
+	unsubscriptions int
+	callbacks       []func(float32)
+}
+
+func (s *tableViewCountingSignal) Get() float32 {
+	return s.value
+}
+
+func (s *tableViewCountingSignal) Set(value float32) {
+	s.value = value
+	var callbacks []func(float32)
+	callbacks = append(callbacks, s.callbacks...)
+	for _, callback := range callbacks {
+		if callback != nil {
+			callback(value)
+		}
+	}
+}
+
+func (s *tableViewCountingSignal) Update(fn func(float32) float32) {
+	s.Set(fn(s.value))
+}
+
+func (s *tableViewCountingSignal) AsReadonly() state.ReadonlySignal[float32] {
+	return s
+}
+
+func (s *tableViewCountingSignal) Subscribe(_ context.Context, fn func(float32)) state.Unsubscribe {
+	return s.SubscribeForever(fn)
+}
+
+func (s *tableViewCountingSignal) SubscribeForever(fn func(float32)) state.Unsubscribe {
+	index := len(s.callbacks)
+	s.callbacks = append(s.callbacks, fn)
+	s.subscriptions++
+	active := true
+	return func() {
+		if !active {
+			return
+		}
+		active = false
+		s.callbacks[index] = nil
+		s.unsubscriptions++
+	}
+}
 
 func TestTableViewRowEventCapturesDragAfterPress(t *testing.T) {
 	var got []event.MouseEventType

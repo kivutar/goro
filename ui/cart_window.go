@@ -28,7 +28,7 @@ type CartWindow struct {
 	Window
 	scrollY       state.Signal[float32]
 	selectedRow   int
-	snapshot      string
+	snapshot      uint64
 	itemInfo      *ItemInfoWindow
 	lastClickItem uint16
 	lastClickAt   time.Time
@@ -312,12 +312,15 @@ func (w *CartWindow) Rebind(ctx Context, itemInfo *ItemInfoWindow) {
 }
 
 func (w *CartWindow) ClampScroll(s *session.Session) {
-	items := sortedCartItems(s)
-	if w.selectedRow >= len(items) {
+	itemCount := 0
+	if s != nil {
+		itemCount = len(s.Cart.Items)
+	}
+	if w.selectedRow >= itemCount {
 		w.selectedRow = -1
 	}
 	scroll := w.ensureScrollSignal()
-	maxScroll := float32(maxInt(0, len(items)-cartRows) * storageRowH)
+	maxScroll := float32(maxInt(0, itemCount-cartRows) * storageRowH)
 	switch value := scroll.Get(); {
 	case value < 0:
 		scroll.Set(0)
@@ -407,11 +410,19 @@ func (w *CartWindow) itemAt(s *session.Session, mx, my int) (session.InventoryIt
 	return items[row], row, true
 }
 
-func (w *CartWindow) cartSnapshot(s *session.Session) string {
+func (w *CartWindow) cartSnapshot(s *session.Session) uint64 {
 	if s == nil {
-		return ""
+		return 0
 	}
-	return fmt.Sprintf("%d/%d:%d/%d:%v", s.Cart.Amount, s.Cart.MaxAmount, s.Cart.Weight, s.Cart.MaxWeight, sortedCartItems(s))
+	hash := storageSnapshotMix(storageSnapshotSeed, uint64(s.Cart.Amount))
+	hash = storageSnapshotMix(hash, uint64(s.Cart.MaxAmount))
+	hash = storageSnapshotMix(hash, uint64(s.Cart.Weight))
+	hash = storageSnapshotMix(hash, uint64(s.Cart.MaxWeight))
+	hash = storageSnapshotMix(hash, uint64(len(s.Cart.Items)))
+	for _, item := range s.Cart.Items {
+		hash = storageSnapshotItem(hash, item)
+	}
+	return hash
 }
 
 func (w *CartWindow) cartCountText(s *session.Session) string {
