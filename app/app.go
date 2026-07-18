@@ -52,7 +52,7 @@ func New(cfg config.Config) (*Game, error) {
 		session:  session.New(),
 		world:    world.New(),
 		network:  network.NewClient(cfg.Packet.ClientDate, cfg.Network.Trace),
-		audio:    gameaudio.NewBGM(resource, cfg.Audio.BGM, cfg.Audio.BGMVolume, cfg.Audio.SFXVolume),
+		audio:    gameaudio.NewBGM(resource, cfg.Audio.BGM, cfg.Audio.BGMVolume, cfg.Audio.SFXVolume, cfg.Audio.Disabled),
 		runtime:  newRuntimeSettings(cfg.Window.Fullscreen, cfg.Render.VSync, cfg.Render.FPS),
 		ui:       gameui.NewManager(),
 		started:  time.Now(),

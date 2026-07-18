@@ -7,12 +7,14 @@ import "github.com/kivutar/goro/res"
 type BGM struct {
 	bgmVolume float64
 	sfxVolume float64
+	disabled  bool
 }
 
-func NewBGM(_ *res.Manager, _ bool, bgmVolume, sfxVolume float64) *BGM {
+func NewBGM(_ *res.Manager, _ bool, bgmVolume, sfxVolume float64, disabled bool) *BGM {
 	return &BGM{
 		bgmVolume: clampVolume(bgmVolume),
 		sfxVolume: clampVolume(sfxVolume),
+		disabled:  disabled,
 	}
 }
 

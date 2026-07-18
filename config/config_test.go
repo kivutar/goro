@@ -87,6 +87,7 @@ file = ./ignored.log
 		"--width", "1280",
 		"--fullscreen=false",
 		"--bgm=true",
+		"--no-audio=true",
 		"--bgm-volume", "0.75",
 		"--sfx-volume", "0.85",
 		"--graphics-api", "vulkan",
@@ -116,7 +117,7 @@ file = ./ignored.log
 	if cfg.Login.CharSlot != 3 {
 		t.Fatalf("login char slot = %d, want 3", cfg.Login.CharSlot)
 	}
-	if !cfg.Audio.BGM || cfg.Audio.BGMVolume != 0.75 || cfg.Audio.SFXVolume != 0.85 {
+	if !cfg.Audio.Disabled || !cfg.Audio.BGM || cfg.Audio.BGMVolume != 0.75 || cfg.Audio.SFXVolume != 0.85 {
 		t.Fatalf("unexpected audio config: %#v", cfg.Audio)
 	}
 	if cfg.Render.GraphicsAPI != "vulkan" || cfg.Render.VSync || !cfg.Render.FPS || cfg.Render.NoUI {

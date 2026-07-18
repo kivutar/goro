@@ -36,14 +36,16 @@ type BGM struct {
 	bgmVolume  float64
 	sfxVolume  float64
 	sfxPlayers []*oto.Player
+	disabled   bool
 }
 
-func NewBGM(resources *res.Manager, enabled bool, bgmVolume, sfxVolume float64) *BGM {
+func NewBGM(resources *res.Manager, enabled bool, bgmVolume, sfxVolume float64, disabled bool) *BGM {
 	return &BGM{
 		resources: resources,
-		enabled:   enabled,
+		enabled:   enabled && !disabled,
 		bgmVolume: clampVolume(bgmVolume),
 		sfxVolume: clampVolume(sfxVolume),
+		disabled:  disabled,
 	}
 }
 
@@ -55,7 +57,7 @@ func (b *BGM) Enabled() bool {
 }
 
 func (b *BGM) SetEnabled(enabled bool) {
-	if b == nil || b.enabled == enabled {
+	if b == nil || b.disabled || b.enabled == enabled {
 		return
 	}
 	b.enabled = enabled
@@ -183,7 +185,7 @@ func (b *BGM) PlaySFX(path string) (string, error) {
 }
 
 func (b *BGM) PlaySFXVolume(path string, volume float64) (string, error) {
-	if b == nil {
+	if b == nil || b.disabled || b.sfxVolume <= 0 || volume <= 0 {
 		return "", nil
 	}
 	path = normalizeSFXPath(path)

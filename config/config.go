@@ -46,6 +46,7 @@ type LoginConfig struct {
 }
 
 type AudioConfig struct {
+	Disabled  bool
 	BGM       bool
 	BGMVolume float64
 	SFXVolume float64
@@ -294,6 +295,7 @@ func applyCLI(cfg *Config, args []string) error {
 	fs.BoolVar(&cfg.Login.AutoLogin, "autologin", cfg.Login.AutoLogin, "attempt login automatically")
 	fs.IntVar(&cfg.Login.CharSlot, "char-slot", cfg.Login.CharSlot, "character slot to select after autologin, 0 to 8")
 	fs.BoolVar(&cfg.Audio.BGM, "bgm", cfg.Audio.BGM, "enable BGM")
+	fs.BoolVar(&cfg.Audio.Disabled, "no-audio", cfg.Audio.Disabled, "disable all audio output")
 	fs.Float64Var(&cfg.Audio.BGMVolume, "bgm-volume", cfg.Audio.BGMVolume, "BGM volume from 0 to 1")
 	fs.Float64Var(&cfg.Audio.SFXVolume, "sfx-volume", cfg.Audio.SFXVolume, "SFX volume from 0 to 1")
 	fs.StringVar(&cfg.Render.GraphicsAPI, "graphics-api", cfg.Render.GraphicsAPI, "graphics API: auto, vulkan, dx12, metal, gles, software")
@@ -380,6 +382,8 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		return setInt(value, &cfg.Login.CharSlot)
 	case "audio.bgm":
 		return setBool(value, &cfg.Audio.BGM)
+	case "audio.noaudio":
+		return setBool(value, &cfg.Audio.Disabled)
 	case "audio.bgmvolume":
 		return setFloat(value, &cfg.Audio.BGMVolume)
 	case "audio.sfxvolume":

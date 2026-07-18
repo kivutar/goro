@@ -81,6 +81,7 @@ Useful options:
 --fullscreen
 --bgm=false
 --bgm-volume 0.35
+--no-audio # disable BGM and SFX output entirely (useful for profiling)
 --graphics-api gles # fallback if Vulkan is unavailable
 --vsync=false # unlock fps
 --username <username> # prefill the username in login window
