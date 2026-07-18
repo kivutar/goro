@@ -391,49 +391,6 @@ func TestTableViewCentersCellWidgetVertically(t *testing.T) {
 	}
 }
 
-func TestTableTextCellDrawsTextVerticallyCentered(t *testing.T) {
-	cell := TableTextCell("Qty", 76, 32, widget.TextAlignRight)
-	ctx := widget.NewContext()
-	cell.Layout(ctx, geometry.Tight(geometry.Sz(76, 32)))
-	cell.(interface{ SetBounds(geometry.Rect) }).SetBounds(geometry.NewRect(0, 0, 76, 32))
-	canvas := &tableViewHeaderCanvas{}
-
-	cell.Draw(ctx, canvas)
-
-	if len(canvas.texts) != 1 {
-		t.Fatalf("drawn texts = %d, want 1", len(canvas.texts))
-	}
-	if got := canvas.texts[0].bounds.Min.Y; got <= 4 {
-		t.Fatalf("text y = %.1f, want vertically centered away from top", got)
-	}
-}
-
-func TestTableViewUsesSimpleCellFastPath(t *testing.T) {
-	table := TableView(
-		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
-		TableViewRowCount(1),
-		TableViewRowHeight(32),
-		TableViewShowHeader(false),
-		TableViewBuildCell(func(cell TableViewCellContext) widget.Widget {
-			return TableTextCell("Row", cell.Width, cell.Height, widget.TextAlignLeft)
-		}),
-	)
-	ctx := widget.NewContext()
-	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 40)))
-	table.body.layoutRow(ctx, 0)
-
-	row := table.body.rows[0]
-	if row == nil {
-		t.Fatal("row was not built")
-	}
-	if row.child != nil {
-		t.Fatal("simple table cell built a widget row; want direct-paint fast path")
-	}
-	if got, want := len(row.simpleCells), 1; got != want {
-		t.Fatalf("simple cells = %d, want %d", got, want)
-	}
-}
-
 func TestTableViewBuildSimpleCellDrawsWithoutRowWidgets(t *testing.T) {
 	calls := 0
 	table := TableView(
@@ -463,6 +420,9 @@ func TestTableViewBuildSimpleCellDrawsWithoutRowWidgets(t *testing.T) {
 	}
 	if len(canvas.texts) != 1 {
 		t.Fatalf("drawn texts = %d, want 1", len(canvas.texts))
+	}
+	if got := canvas.texts[0].bounds.Min.Y; got <= 4 {
+		t.Fatalf("text y = %.1f, want vertically centered away from top", got)
 	}
 }
 
