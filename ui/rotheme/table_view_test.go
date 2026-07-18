@@ -1,0 +1,390 @@
+package rotheme
+
+import (
+	"image"
+	"testing"
+
+	"github.com/gogpu/gg/scene"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/state"
+	"github.com/gogpu/ui/widget"
+)
+
+func TestTableViewDefaultHeaderHeightUsesPadding(t *testing.T) {
+	table := TableView()
+	want := Default.Typography.TextSize + TableHeaderPadY*2
+	if table.cfg.headerHeight != want {
+		t.Fatalf("default header height = %.1f, want %.1f", table.cfg.headerHeight, want)
+	}
+}
+
+func TestTableViewStickyHeaderKeepsScrollBodyBelowHeader(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 100}}),
+		TableViewRowCount(10),
+		TableViewRowHeight(10),
+		TableViewHeaderHeight(16),
+	)
+	table.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(120, 80)))
+	table.SetBounds(geometry.NewRect(0, 0, 120, 80))
+	table.updateScrollBounds()
+
+	bounds := table.scroll.Bounds()
+	if bounds.Min.Y != 16 || bounds.Height() != 64 {
+		t.Fatalf("scroll bounds = %v, want y=16 height=64", bounds)
+	}
+}
+
+func TestTableViewHeaderDrawsAcrossScrollbarGutter(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Title: "Name", Width: 100}}),
+	)
+	canvas := &tableViewHeaderCanvas{}
+	table.drawHeader(canvas, geometry.NewRect(0, 0, 120, 20), 100)
+
+	if len(canvas.rects) == 0 || canvas.rects[0].Width() != 120 {
+		t.Fatalf("header rects = %v, want first rect width 120", canvas.rects)
+	}
+	if len(canvas.lines) == 0 || canvas.lines[0].to.X != 120 {
+		t.Fatalf("header lines = %v, want line ending at x=120", canvas.lines)
+	}
+	if len(canvas.texts) == 0 || canvas.texts[0].bounds.Min.Y != TableHeaderPadY {
+		t.Fatalf("header texts = %v, want top padding %.1f", canvas.texts, TableHeaderPadY)
+	}
+}
+
+type tableViewHeaderCanvas struct {
+	rects []geometry.Rect
+	lines []struct {
+		from geometry.Point
+		to   geometry.Point
+	}
+	texts []struct {
+		text   string
+		bounds geometry.Rect
+	}
+}
+
+func (c *tableViewHeaderCanvas) Clear(widget.Color) {}
+
+func (c *tableViewHeaderCanvas) DrawRect(r geometry.Rect, _ widget.Color) {
+	c.rects = append(c.rects, r)
+}
+
+func (c *tableViewHeaderCanvas) FillRectDirect(geometry.Rect, widget.Color) {}
+
+func (c *tableViewHeaderCanvas) StrokeRect(geometry.Rect, widget.Color, float32) {}
+
+func (c *tableViewHeaderCanvas) DrawRoundRect(geometry.Rect, widget.Color, float32) {}
+
+func (c *tableViewHeaderCanvas) StrokeRoundRect(geometry.Rect, widget.Color, float32, float32) {}
+
+func (c *tableViewHeaderCanvas) DrawCircle(geometry.Point, float32, widget.Color) {}
+
+func (c *tableViewHeaderCanvas) StrokeCircle(geometry.Point, float32, widget.Color, float32) {}
+
+func (c *tableViewHeaderCanvas) StrokeArc(geometry.Point, float32, float64, float64, widget.Color, float32) {
+}
+
+func (c *tableViewHeaderCanvas) DrawLine(from, to geometry.Point, _ widget.Color, _ float32) {
+	c.lines = append(c.lines, struct {
+		from geometry.Point
+		to   geometry.Point
+	}{from: from, to: to})
+}
+
+func (c *tableViewHeaderCanvas) DrawText(text string, bounds geometry.Rect, _ float32, _ widget.Color, _ bool, _ widget.TextAlign) {
+	c.texts = append(c.texts, struct {
+		text   string
+		bounds geometry.Rect
+	}{text: text, bounds: bounds})
+}
+
+func (c *tableViewHeaderCanvas) MeasureText(string, float32, bool) float32 { return 0 }
+
+func (c *tableViewHeaderCanvas) DrawImage(image.Image, geometry.Point) {}
+
+func (c *tableViewHeaderCanvas) PushClip(geometry.Rect) {}
+
+func (c *tableViewHeaderCanvas) PushClipRoundRect(geometry.Rect, float32) {}
+
+func (c *tableViewHeaderCanvas) PopClip() {}
+
+func (c *tableViewHeaderCanvas) PushTransform(geometry.Point) {}
+
+func (c *tableViewHeaderCanvas) PopTransform() {}
+
+func (c *tableViewHeaderCanvas) TransformOffset() geometry.Point { return geometry.Point{} }
+
+func (c *tableViewHeaderCanvas) ScreenOriginBase() geometry.Point { return geometry.Point{} }
+
+func (c *tableViewHeaderCanvas) ClipBounds() geometry.Rect { return geometry.Rect{} }
+
+func (c *tableViewHeaderCanvas) ReplayScene(*scene.Scene) {}
+
+var _ widget.Canvas = (*tableViewHeaderCanvas)(nil)
+
+func TestTableViewReusesScrollSignalAcrossRebuild(t *testing.T) {
+	scrollY := state.NewSignal[float32](32)
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 100}}),
+		TableViewRowCount(20),
+		TableViewRowHeight(10),
+		TableViewScrollYSignal(scrollY),
+	)
+	table.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(120, 80)))
+
+	rebuilt := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 100}}),
+		TableViewRowCount(20),
+		TableViewRowHeight(10),
+		TableViewScrollYSignal(scrollY),
+	)
+	rebuilt.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(120, 80)))
+
+	if _, got := rebuilt.scroll.ScrollOffset(); got != 32 {
+		t.Fatalf("scrollY after rebuild = %.1f, want 32.0", got)
+	}
+}
+
+func TestTableViewDispatchesMouseEventsToCellWidgets(t *testing.T) {
+	probe := &tableViewProbe{}
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "action", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewHeaderHeight(10),
+		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
+			return probe
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(80, 60)))
+	table.SetBounds(geometry.NewRect(0, 0, 80, 60))
+
+	consumed := table.Event(ctx, event.NewMouseEvent(
+		event.MousePress,
+		event.ButtonLeft,
+		0,
+		geometry.Pt(8, 18),
+		geometry.Pt(8, 18),
+		0,
+	))
+
+	if !consumed {
+		t.Fatal("mouse press was not consumed by cell widget")
+	}
+	if !probe.pressed {
+		t.Fatal("cell widget did not receive mouse press")
+	}
+}
+
+func TestTableViewMouseMoveDoesNotRelayoutCachedRow(t *testing.T) {
+	probe := &tableViewLayoutProbe{}
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewHeaderHeight(10),
+		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
+			return probe
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 80)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 80))
+	table.body.layoutRow(ctx, 0)
+
+	if probe.layouts != 1 {
+		t.Fatalf("initial layouts = %d, want 1", probe.layouts)
+	}
+
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseMove,
+		event.ButtonNone,
+		0,
+		geometry.Pt(8, 18),
+		geometry.Pt(8, 18),
+		0,
+	))
+
+	if probe.layouts != 1 {
+		t.Fatalf("layouts after mouse move = %d, want 1", probe.layouts)
+	}
+}
+
+type tableViewLayoutProbe struct {
+	widget.WidgetBase
+	layouts int
+}
+
+func (p *tableViewLayoutProbe) Layout(widget.Context, geometry.Constraints) geometry.Size {
+	p.layouts++
+	return geometry.Sz(20, 20)
+}
+
+func (p *tableViewLayoutProbe) Draw(widget.Context, widget.Canvas) {}
+
+func (p *tableViewLayoutProbe) Event(widget.Context, event.Event) bool {
+	return false
+}
+
+func (p *tableViewLayoutProbe) Children() []widget.Widget {
+	return nil
+}
+
+var _ widget.Widget = (*tableViewLayoutProbe)(nil)
+
+type tableViewProbe struct {
+	widget.WidgetBase
+	pressed bool
+}
+
+func (p *tableViewProbe) Layout(widget.Context, geometry.Constraints) geometry.Size {
+	return geometry.Sz(20, 20)
+}
+
+func (p *tableViewProbe) Draw(widget.Context, widget.Canvas) {}
+
+func (p *tableViewProbe) Event(_ widget.Context, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if ok && mouse.MouseType == event.MousePress {
+		p.pressed = true
+		return true
+	}
+	return false
+}
+
+func (p *tableViewProbe) Children() []widget.Widget {
+	return nil
+}
+
+var _ widget.Widget = (*tableViewProbe)(nil)
+
+func TestTableViewAllowsEmptyCellBuilder(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "blank", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
+			return primitives.Box()
+		}),
+	)
+	table.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(80, 60)))
+}
+
+func TestTableViewMountsAndUnmountsLazyCellWidgets(t *testing.T) {
+	probe := &tableViewLifecycleProbe{}
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "field", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
+			return probe
+		}),
+	)
+	ctx := widget.NewContext()
+
+	widget.MountTree(table, ctx)
+	table.Layout(ctx, geometry.Tight(geometry.Sz(80, 60)))
+	table.body.layoutRow(ctx, 0)
+
+	if probe.mounts != 1 || !probe.IsMounted() {
+		t.Fatalf("lazy cell mounts = %d mounted=%v, want mounts=1 mounted=true", probe.mounts, probe.IsMounted())
+	}
+
+	table.body.clearRows()
+
+	if probe.unmounts != 1 || probe.IsMounted() {
+		t.Fatalf("lazy cell unmounts = %d mounted=%v, want unmounts=1 mounted=false", probe.unmounts, probe.IsMounted())
+	}
+}
+
+type tableViewLifecycleProbe struct {
+	widget.WidgetBase
+	mounts   int
+	unmounts int
+}
+
+func (p *tableViewLifecycleProbe) Layout(widget.Context, geometry.Constraints) geometry.Size {
+	return geometry.Sz(20, 20)
+}
+
+func (p *tableViewLifecycleProbe) Draw(widget.Context, widget.Canvas) {}
+
+func (p *tableViewLifecycleProbe) Event(widget.Context, event.Event) bool {
+	return false
+}
+
+func (p *tableViewLifecycleProbe) Children() []widget.Widget {
+	return nil
+}
+
+func (p *tableViewLifecycleProbe) Mount(widget.Context) {
+	p.mounts++
+}
+
+func (p *tableViewLifecycleProbe) Unmount() {
+	p.unmounts++
+}
+
+var (
+	_ widget.Widget    = (*tableViewLifecycleProbe)(nil)
+	_ widget.Lifecycle = (*tableViewLifecycleProbe)(nil)
+)
+
+func TestTableViewRowEventCapturesDragAfterPress(t *testing.T) {
+	var got []event.MouseEventType
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewOnRowEvent(func(row int, e event.Event) bool {
+			mouse, ok := e.(*event.MouseEvent)
+			if !ok || row != 0 {
+				return false
+			}
+			got = append(got, mouse.MouseType)
+			return true
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 80)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 80))
+
+	table.Event(ctx, event.NewMouseEvent(
+		event.MousePress,
+		event.ButtonLeft,
+		event.ButtonStateLeft,
+		geometry.Pt(8, 32),
+		geometry.Pt(8, 32),
+		0,
+	))
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseDrag,
+		event.ButtonLeft,
+		event.ButtonStateLeft,
+		geometry.Pt(8, 70),
+		geometry.Pt(8, 70),
+		0,
+	))
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseRelease,
+		event.ButtonLeft,
+		0,
+		geometry.Pt(8, 70),
+		geometry.Pt(8, 70),
+		0,
+	))
+
+	want := []event.MouseEventType{event.MousePress, event.MouseDrag, event.MouseRelease}
+	if len(got) != len(want) {
+		t.Fatalf("row events = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("row events = %v, want %v", got, want)
+		}
+	}
+}

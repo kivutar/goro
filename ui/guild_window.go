@@ -15,6 +15,7 @@ import (
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/render"
@@ -30,6 +31,7 @@ const (
 	guildWindowTabWidth  = 64
 	guildEmblemSize      = 24
 	guildTablePadding    = 7
+	guildTableViewportW  = guildWindowWidth - guildTablePadding*2
 	guildTableWidth      = guildWindowWidth - guildTablePadding*2 - ROScrollbarGutter
 	guildSkillRowHeight  = 32
 	guildSkillIconSize   = 24
@@ -48,6 +50,7 @@ type GuildWindow struct {
 	skillMiss      map[uint16]struct{}
 	skillPending   map[uint16]int
 	skillOrder     []uint16
+	skillScrollY   state.Signal[float32]
 	tooltip        tooltipState
 }
 
@@ -676,65 +679,61 @@ func guildRightLabel(enabled bool) string {
 
 func (w *GuildWindow) skillsTab(ctx Context) widget.Widget {
 	guild := guildSessionInfo(ctx.Session)
-	rows := make([]widget.Widget, 0, len(guild.Skills)+1)
-	rows = append(rows, guildSkillHeaderRow())
-	if len(guild.Skills) == 0 {
-		rows = append(rows,
-			primitives.Box(rotheme.Text("No guild skills loaded.").Color(rotheme.Default.Colors.MutedText)).
-				Height(guildSkillRowHeight).
-				Width(guildTableWidth).
-				PaddingXY(6, 6).
-				Background(rotheme.Default.Colors.WindowBody),
-		)
-	}
-	for i, skill := range guild.Skills {
-		display := w.guildSkillWithPending(skill)
-		rows = append(rows, w.guildSkillRow(ctx, display, guild, i%2 == 0))
-	}
 	return primitives.Box(
-		scrollview.New(
-			primitives.Box(rows...),
-			scrollview.DirectionOpt(scrollview.Vertical),
-			scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
-			scrollview.ScrollStep(guildSkillRowHeight),
+		rotheme.TableView(
+			rotheme.TableViewColumns(guildSkillTableColumns),
+			rotheme.TableViewRowCount(len(guild.Skills)),
+			rotheme.TableViewRowHeight(guildSkillRowHeight),
+			rotheme.TableViewEmptyText("No guild skills loaded."),
+			rotheme.TableViewScrollYSignal(w.ensureGuildSkillScrollSignal()),
+			rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
+				if cell.Row < 0 || cell.Row >= len(guild.Skills) {
+					return primitives.Box()
+				}
+				return w.guildSkillCell(ctx, w.guildSkillWithPending(guild.Skills[cell.Row]), guild, cell)
+			}),
 		),
 	).
 		PaddingXY(guildTablePadding, guildTablePadding).
-		Background(rotheme.Default.Colors.WindowBody)
+		Background(rotheme.Default.Colors.WindowBody).
+		CrossAlign(primitives.CrossAxisStretch)
 }
 
-func (w *GuildWindow) guildSkillRow(ctx Context, skill session.Skill, guild session.Guild, dark bool) widget.Widget {
-	bg := rotheme.Default.Colors.WindowBody
-	if dark {
-		bg = rotheme.Default.Colors.PanelBody
-	}
-	return primitives.HBox(
-		primitives.Expanded(
-			w.guildSkillTooltipArea(ctx, skill,
+var guildSkillTableColumns = []rotheme.TableViewColumn{
+	{Key: "kind", Width: 48},
+	{Key: "name", Title: "Name", Width: 234},
+	{Key: "level", Title: "Lv", Width: 40},
+	{Key: "fill", Flex: 1},
+	{Key: "levelup", Width: 22},
+}
+
+func (w *GuildWindow) guildSkillCell(ctx Context, skill session.Skill, guild session.Guild, cell rotheme.TableViewCellContext) widget.Widget {
+	switch cell.Column.Key {
+	case "kind":
+		return w.guildSkillTooltipArea(ctx, skill,
+			primitives.HBox(
+				guildSkillIconCell(w.guildSkillIcon(ctx, skill)),
 				primitives.HBox(
-					guildSkillIconCell(w.guildSkillIcon(ctx, skill)),
-					primitives.HBox(
-						rotheme.Text(guildSkillTypeLabel(skill)).
-							Color(guildSkillTypeColor(skill)).
-							Align(widget.TextAlignLeft),
-					).
-						Width(16).
-						Height(guildSkillRowHeight).
-						CrossAlign(primitives.CrossAxisCenter),
-					guildSkillTextCell(trimRunes(skillDisplayName(ctx.Resources, skill), 28), 234),
-					guildSkillTextCell(guildSkillLevelText(skill), 40),
-					primitives.Expanded(primitives.Box()),
+					rotheme.Text(guildSkillTypeLabel(skill)).
+						Color(guildSkillTypeColor(skill)).
+						Align(widget.TextAlignLeft),
 				).
+					Width(16).
 					Height(guildSkillRowHeight).
 					CrossAlign(primitives.CrossAxisCenter),
-			),
-		),
-		w.guildSkillLevelUpCell(skill, guild),
-	).
-		Width(guildTableWidth).
-		Height(guildSkillRowHeight).
-		CrossAlign(primitives.CrossAxisCenter).
-		Background(bg)
+			).
+				Height(guildSkillRowHeight).
+				CrossAlign(primitives.CrossAxisCenter),
+		)
+	case "name":
+		return w.guildSkillTooltipArea(ctx, skill, guildSkillTextCell(trimRunes(skillDisplayName(ctx.Resources, skill), 28), cell.Width))
+	case "level":
+		return w.guildSkillTooltipArea(ctx, skill, guildSkillTextCell(guildSkillLevelText(skill), cell.Width))
+	case "levelup":
+		return w.guildSkillLevelUpCell(skill, guild)
+	default:
+		return primitives.Box()
+	}
 }
 
 func (w *GuildWindow) guildSkillTooltipArea(ctx Context, skill session.Skill, content widget.Widget) widget.Widget {
@@ -750,18 +749,6 @@ func (w *GuildWindow) guildSkillTooltipArea(ctx Context, skill session.Skill, co
 			w.hideTooltip()
 		},
 	}
-}
-
-func guildSkillHeaderRow() widget.Widget {
-	return primitives.HBox(
-		primitives.Box().Width(48),
-		primitives.Box(rotheme.Text("Name").Color(rotheme.Default.Colors.MutedText)).Width(234),
-		primitives.Box(rotheme.Text("Lv").Color(rotheme.Default.Colors.MutedText)).Width(40),
-		primitives.Expanded(primitives.Box()),
-		primitives.Box().Width(22),
-	).
-		Width(guildTableWidth).
-		Height(16)
 }
 
 func guildSkillTextCell(text string, width float32) widget.Widget {
@@ -934,7 +921,14 @@ func (w *GuildWindow) guildSkillTableBounds() (int, int, int, int) {
 	if height < 0 {
 		height = 0
 	}
-	return x, y, guildTableWidth, height
+	return x, y, guildTableViewportW, height
+}
+
+func (w *GuildWindow) ensureGuildSkillScrollSignal() state.Signal[float32] {
+	if w.skillScrollY == nil {
+		w.skillScrollY = state.NewSignal[float32](0)
+	}
+	return w.skillScrollY
 }
 
 type guildSkillTooltipWidget struct {
