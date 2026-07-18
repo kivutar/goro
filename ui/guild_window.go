@@ -729,8 +729,8 @@ func (w *GuildWindow) guildSkillCell(ctx Context, skill session.Skill, guild ses
 		return primitives.HBox(
 			guildSkillIconCell(w.guildSkillIcon(ctx, skill)),
 			primitives.HBox(
-				rotheme.Text(guildSkillTypeLabel(skill)).
-					Color(guildSkillTypeColor(skill)).
+				rotheme.Text(skillTypeLabel(skill)).
+					Color(skillTypeColor(skill)).
 					Align(widget.TextAlignLeft),
 			).
 				Width(16).
@@ -928,20 +928,6 @@ func (w *GuildWindow) ensureGuildSkillScrollSignal() state.Signal[float32] {
 		w.skillScrollY = state.NewSignal[float32](0)
 	}
 	return w.skillScrollY
-}
-
-func guildSkillTypeLabel(skill session.Skill) string {
-	if skill.Type == 0 {
-		return "P"
-	}
-	return "A"
-}
-
-func guildSkillTypeColor(skill session.Skill) widget.Color {
-	if skill.Type == 0 {
-		return widget.RGBA8(34, 142, 158, 255)
-	}
-	return widget.RGBA8(44, 92, 184, 255)
 }
 
 func (w *GuildWindow) historyTab(ctx Context) widget.Widget {

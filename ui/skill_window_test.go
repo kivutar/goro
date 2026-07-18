@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
@@ -142,6 +144,70 @@ func TestSkillWindowDoubleClickUsesSharedSkillController(t *testing.T) {
 	window.pressSkill(ctx, mode, skill, 20, 30)
 	if mode.used.ID != 6 || mode.used.Level != 2 {
 		t.Fatalf("used skill = %+v, want provoke level 2", mode.used)
+	}
+}
+
+func TestSkillWindowSkillAtMouseUsesTableViewBody(t *testing.T) {
+	s := &session.Session{
+		Skills: session.Skills{
+			List: []session.Skill{
+				{ID: 1},
+				{ID: 2},
+			},
+		},
+	}
+	window := &SkillWindow{}
+	window.EnsureWindow(skillWindowWidth, skillWindowHeight)
+	window.x = 20
+	window.y = 30
+	ctx := Context{Session: s}
+
+	if _, ok := window.skillAtMouse(ctx, window.x+8, window.y+ROWindowTitleHeight+skillHeaderH-1); ok {
+		t.Fatal("header should not hit a skill row")
+	}
+
+	skill, ok := window.skillAtMouse(ctx, window.x+8, window.y+ROWindowTitleHeight+skillHeaderH+1)
+	if !ok || skill.ID != 1 {
+		t.Fatalf("skill at top row = %+v, %v; want id 1", skill, ok)
+	}
+
+	window.ensureScrollSignal().Set(skillRowH)
+	skill, ok = window.skillAtMouse(ctx, window.x+8, window.y+ROWindowTitleHeight+skillHeaderH+1)
+	if !ok || skill.ID != 2 {
+		t.Fatalf("skill at scrolled top row = %+v, %v; want id 2", skill, ok)
+	}
+}
+
+func TestSkillWindowTablePlusStagesSkill(t *testing.T) {
+	skill := session.Skill{ID: db.SkillSMBash, Level: 1, MaxLevel: 10, Upgradable: true}
+	s := &session.Session{Skills: session.Skills{Points: 1}}
+	window := &SkillWindow{}
+	bounds := skillTableLevelUpButtonBounds(0)
+
+	consumed := window.handleSkillTableRowEvent(
+		nil,
+		Context{Session: s},
+		nil,
+		[]session.Skill{skill},
+		0,
+		event.NewMouseEvent(
+			event.MousePress,
+			event.ButtonLeft,
+			event.ButtonStateLeft,
+			geometry.Pt(bounds.Min.X+1, bounds.Min.Y+1),
+			geometry.Pt(100, 120),
+			0,
+		),
+	)
+
+	if !consumed {
+		t.Fatal("plus press was not consumed")
+	}
+	if got := window.pendingFor(skill.ID); got != 1 {
+		t.Fatalf("pending skill levels = %d, want 1", got)
+	}
+	if !window.dirty {
+		t.Fatal("plus press should mark the window dirty")
 	}
 }
 

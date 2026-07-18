@@ -46,6 +46,7 @@ type tableViewConfig struct {
 	buildSimpleCell func(TableViewCellContext) TableViewSimpleCell
 	onRowClick      func(int)
 	onRowEvent      func(int, event.Event) bool
+	onRowEventCtx   func(widget.Context, int, event.Event) bool
 
 	invalidateHover      bool
 	dispatchHoverToCells bool
@@ -159,6 +160,10 @@ func TableViewOnRowClick(onClick func(int)) TableViewOption {
 
 func TableViewOnRowEvent(onEvent func(int, event.Event) bool) TableViewOption {
 	return func(c *tableViewConfig) { c.onRowEvent = onEvent }
+}
+
+func TableViewOnRowEventWithContext(onEvent func(widget.Context, int, event.Event) bool) TableViewOption {
+	return func(c *tableViewConfig) { c.onRowEventCtx = onEvent }
 }
 
 func TableViewInvalidateHover(invalidate bool) TableViewOption {
@@ -394,6 +399,16 @@ func (w *TableViewWidget) selected(row int) bool {
 	return w.cfg.selectedRow != nil && w.cfg.selectedRow.Get() == row
 }
 
+func (w *TableViewWidget) callRowEvent(ctx widget.Context, row int, e event.Event) bool {
+	if w.cfg.onRowEventCtx != nil {
+		return w.cfg.onRowEventCtx(ctx, row, e)
+	}
+	if w.cfg.onRowEvent != nil {
+		return w.cfg.onRowEvent(row, e)
+	}
+	return false
+}
+
 func tableViewColors() struct {
 	Body     widget.Color
 	Header   widget.Color
@@ -513,7 +528,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 			}
 			return true
 		}
-		if table.cfg.onRowEvent != nil && table.cfg.onRowEvent(table.pressedRow, mouse) {
+		if table.callRowEvent(ctx, table.pressedRow, mouse) {
 			if mouse.MouseType == event.MouseRelease {
 				table.pressedRow = -1
 			}
@@ -531,10 +546,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 		return false
 	}
 	if hoverEvent && !table.cfg.dispatchHoverToCells {
-		if table.cfg.onRowEvent != nil {
-			return table.cfg.onRowEvent(row, mouse)
-		}
-		return false
+		return table.callRowEvent(ctx, row, mouse)
 	}
 	if table.cfg.buildSimpleCell == nil {
 		consumed := b.dispatchRowEvent(ctx, row, mouse)
@@ -546,7 +558,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 		}
 	}
 
-	if table.cfg.onRowEvent != nil && table.cfg.onRowEvent(row, mouse) {
+	if table.callRowEvent(ctx, row, mouse) {
 		if mouse.MouseType == event.MousePress {
 			table.pressedRow = row
 		}

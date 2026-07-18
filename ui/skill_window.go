@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogpu/ui/core/scrollview"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
@@ -27,8 +26,8 @@ const (
 	skillRowH         = 32
 	skillIconSize     = 24
 	skillHeaderH      = 24
-	skillHeaderPadY   = 5
-	skillListH        = skillWindowHeight - ROWindowTitleHeight - ROWindowFooterHeight - skillHeaderH
+	skillTableViewH   = skillWindowHeight - ROWindowTitleHeight - ROWindowFooterHeight
+	skillTableBodyH   = skillTableViewH - skillHeaderH
 )
 
 type SkillWindow struct {
@@ -53,26 +52,6 @@ type SkillWindow struct {
 	lastIconAssets bool
 	assets         AssetProvider
 	actions        GameActions
-}
-
-type skillRowWidgetConfig struct {
-	skill       session.Skill
-	display     session.Skill
-	icon        image.Image
-	name        string
-	row         int
-	canStage    bool
-	onStage     func(session.Skill)
-	onPress     func(session.Skill, int, int)
-	onHover     func(session.Skill, int, int)
-	onHoverExit func()
-	isHovered   func(session.Skill) bool
-}
-
-type skillRowWidget struct {
-	widget.WidgetBase
-	cfg     skillRowWidgetConfig
-	hovered bool
 }
 
 func (w *SkillWindow) Toggle(ctx Context) {
@@ -215,20 +194,10 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 		Size(skillWindowWidth, skillWindowHeight),
 		Content(
 			primitives.Box(
-				w.skillHeader(),
-				primitives.Box(
-					scrollview.New(
-						primitives.Box(w.skillList(ctx, assets, actions)).
-							PaddingRight(ROScrollbarGutter),
-						scrollview.DirectionOpt(scrollview.Vertical),
-						scrollview.ScrollYSignal(w.ensureScrollSignal()),
-						scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
-						scrollview.ScrollStep(skillRowH),
-					),
-				).
-					Height(skillListH),
+				w.skillTableWidget(ctx, assets, actions),
 			).
-				CrossAlign(primitives.CrossAxisStretch),
+				Height(skillTableViewH).
+				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
 			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, sessionSkillPoints(ctx.Session)-w.pendingCount()))),
@@ -245,64 +214,109 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 	)
 }
 
-func (w *SkillWindow) skillHeader() widget.Widget {
-	return primitives.HBox(
-		primitives.Box().Width(38),
-		primitives.Box(rotheme.Text("Name").Color(rotheme.Default.Colors.MutedText)).Width(154),
-		primitives.Box(rotheme.Text("Lv").Color(rotheme.Default.Colors.MutedText)).Width(40),
-		primitives.Box(rotheme.Text("SP").Color(rotheme.Default.Colors.MutedText)).Width(38),
-		primitives.Box(rotheme.Text("Range").Color(rotheme.Default.Colors.MutedText)).Width(56),
-	).
-		Height(skillHeaderH).
-		PaddingXY(0, skillHeaderPadY)
+func (w *SkillWindow) skillTableWidget(ctx Context, assets AssetProvider, actions GameActions) *rotheme.TableViewWidget {
+	skills := w.visibleSkills(ctx)
+	return rotheme.TableView(
+		rotheme.TableViewColumns(skillTableColumns),
+		rotheme.TableViewRowCount(len(skills)),
+		rotheme.TableViewRowHeight(skillRowH),
+		rotheme.TableViewHeaderHeight(skillHeaderH),
+		rotheme.TableViewEmptyText("No skills received from server yet."),
+		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
+		rotheme.TableViewInvalidateHover(false),
+		rotheme.TableViewDispatchHoverToCells(false),
+		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+			if cell.Row < 0 || cell.Row >= len(skills) {
+				return rotheme.TableViewSimpleCell{Hidden: true}
+			}
+			return w.skillTableCell(ctx, assets, skills[cell.Row], cell)
+		}),
+		rotheme.TableViewOnRowEventWithContext(func(widgetCtx widget.Context, row int, e event.Event) bool {
+			return w.handleSkillTableRowEvent(widgetCtx, ctx, actions, skills, row, e)
+		}),
+	)
 }
 
-func (w *SkillWindow) skillList(ctx Context, assets AssetProvider, actions GameActions) widget.Widget {
-	skills := w.visibleSkills(ctx)
-	if len(skills) == 0 {
-		return primitives.Box(
-			rotheme.Text("No skills received from server yet.").
-				Color(rotheme.Default.Colors.MutedText),
-		).Padding(8)
+func (w *SkillWindow) skillTableCell(ctx Context, assets AssetProvider, skill session.Skill, cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+	display := w.skillWithPending(skill)
+	nameColor := rotheme.Default.Colors.Text
+	if display.Level <= 0 {
+		nameColor = rotheme.Default.Colors.MutedText
 	}
-	rows := make([]widget.Widget, 0, len(skills))
-	for row, skill := range skills {
+	switch cell.Column.Key {
+	case "icon":
+		return rotheme.TableViewSimpleCell{Icon: w.skillIconImage(ctx, assets, skill)}
+	case "type":
+		return rotheme.TableViewSimpleCell{
+			Text:  skillTypeLabel(display),
+			Color: skillTypeColor(display),
+		}
+	case "name":
+		return rotheme.TableViewSimpleCell{
+			Text:  trimRunes(skillDisplayName(ctx.Resources, display), 18),
+			Color: nameColor,
+		}
+	case "level":
+		return rotheme.TableViewSimpleCell{
+			Text:  fmt.Sprintf("%d", display.Level),
+			Color: nameColor,
+		}
+	case "sp":
+		return rotheme.TableViewSimpleCell{
+			Text:  fmt.Sprintf("%d", display.SPCost),
+			Color: rotheme.Default.Colors.MutedText,
+		}
+	case "range":
+		return rotheme.TableViewSimpleCell{
+			Text:  fmt.Sprintf("%d", display.Range),
+			Color: rotheme.Default.Colors.MutedText,
+		}
+	case "levelup":
+		return rotheme.TableViewIconButtonCell(rotheme.IconButtonPlus, !w.canStageSkill(ctx.Session, skill))
+	default:
+		return rotheme.TableViewSimpleCell{Hidden: true}
+	}
+}
+
+func (w *SkillWindow) handleSkillTableRowEvent(widgetCtx widget.Context, ctx Context, actions GameActions, skills []session.Skill, row int, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok || row < 0 || row >= len(skills) {
+		return false
+	}
+	skill := skills[row]
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseMove, event.MouseDrag:
 		display := w.skillWithPending(skill)
-		rows = append(rows, newSkillRowWidget(skillRowWidgetConfig{
-			skill:    skill,
-			display:  display,
-			icon:     w.skillIconImage(ctx, assets, skill),
-			name:     skillDisplayName(ctx.Resources, display),
-			row:      row,
-			canStage: w.canStageSkill(ctx.Session, skill),
-			onStage: func(skill session.Skill) {
-				if !w.canStageSkill(ctx.Session, skill) {
-					glog.Debugf("skill level up ignored id=%d: no points or maxed", skill.ID)
-					return
-				}
-				w.stageSkill(skill.ID)
-				w.dirty = true
-			},
-			onPress: func(skill session.Skill, mx, my int) {
-				w.pressSkill(ctx, actions, skill, mx, my)
-			},
-			onHover: func(skill session.Skill, mx, my int) {
-				w.hoveredSkill = skill
-				w.hasHover = true
-				w.hoverX = mx
-				w.hoverY = my
-				w.showTooltip(ctx, skill, mx, my)
-			},
-			onHoverExit: func() {
-				w.hasHover = false
-				w.hideTooltip()
-			},
-			isHovered: func(skill session.Skill) bool {
-				return w.hasHover && w.hoveredSkill.ID == skill.ID
-			},
-		}))
+		if display.Level > 0 || w.canStageSkill(ctx.Session, skill) {
+			widgetCtx.SetCursor(widget.CursorPointer)
+		}
+		mx, my := int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y)
+		if ctx.Input != nil {
+			mx, my = ctx.Input.MouseX, ctx.Input.MouseY
+		}
+		w.hoveredSkill = skill
+		w.hasHover = true
+		w.hoverX = mx
+		w.hoverY = my
+		w.showTooltip(ctx, skill, mx, my)
+		return false
+	case event.MousePress:
+		if mouse.Button != event.ButtonLeft {
+			return false
+		}
+		if skillTableLevelUpButtonBounds(row).Contains(mouse.Position) {
+			if !w.canStageSkill(ctx.Session, skill) {
+				glog.Debugf("skill level up ignored id=%d: no points or maxed", skill.ID)
+				return true
+			}
+			w.stageSkill(skill.ID)
+			w.dirty = true
+			return true
+		}
+		w.pressSkill(ctx, actions, skill, int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y))
+		return true
 	}
-	return primitives.Box(rows...)
+	return false
 }
 
 func (w *SkillWindow) refresh(ctx Context, actions GameActions) {
@@ -365,8 +379,8 @@ func (w *SkillWindow) updateTooltipHover(ctx Context) {
 }
 
 func (w *SkillWindow) skillAtMouse(ctx Context, mouseX, mouseY int) (session.Skill, bool) {
-	x, y := w.skillListOrigin()
-	if !pointInRect(mouseX, mouseY, x, y, scrollbarSafeIntWidth(skillWindowWidth), skillListH) {
+	x, y := w.skillTableBodyOrigin()
+	if !pointInRect(mouseX, mouseY, x, y, scrollbarSafeIntWidth(skillWindowWidth), skillTableBodyH) {
 		return session.Skill{}, false
 	}
 	row := int((float32(mouseY-y) + w.ensureScrollSignal().Get()) / skillRowH)
@@ -377,7 +391,7 @@ func (w *SkillWindow) skillAtMouse(ctx Context, mouseX, mouseY int) (session.Ski
 	return skills[row], true
 }
 
-func (w *SkillWindow) skillListOrigin() (int, int) {
+func (w *SkillWindow) skillTableBodyOrigin() (int, int) {
 	return w.x, w.y + ROWindowTitleHeight + skillHeaderH
 }
 
@@ -486,7 +500,7 @@ func (w *SkillWindow) clampScroll(ctx Context) {
 }
 
 func (w *SkillWindow) clampScrollCount(skillCount int) {
-	maxScroll := float32(maxInt(0, skillCount*skillRowH-skillListH))
+	maxScroll := float32(maxInt(0, skillCount*skillRowH-skillTableBodyH))
 	scroll := w.ensureScrollSignal()
 	switch value := scroll.Get(); {
 	case value < 0:
@@ -584,104 +598,45 @@ func skillDefaultPosition(ctx Context) (int, int) {
 	return maxInt(8, x), maxInt(8, y)
 }
 
-func newSkillRowWidget(cfg skillRowWidgetConfig) *skillRowWidget {
-	w := &skillRowWidget{cfg: cfg}
-	w.SetVisible(true)
-	w.SetEnabled(true)
-	return w
+var skillTableColumns = []rotheme.TableViewColumn{
+	{Key: "icon", Width: 34},
+	{Key: "type", Width: 16},
+	{Key: "name", Title: "Name", Width: 142},
+	{Key: "level", Title: "Lv", Width: 40},
+	{Key: "sp", Title: "SP", Width: 38},
+	{Key: "range", Title: "Range", Width: 56},
+	{Key: "levelup", Width: 22},
+	{Key: "fill", Flex: 1},
 }
 
-func (w *skillRowWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	width := constraints.BiggestFinite(scrollbarSafeWidth(skillWindowWidth), skillRowH).Width
-	size := constraints.Constrain(geometry.Sz(width, skillRowH))
-	w.SetBounds(geometry.FromPointSize(w.Position(), size))
-	return size
+func skillTableLevelUpButtonBounds(row int) geometry.Rect {
+	x := float32(0)
+	for _, col := range skillTableColumns {
+		if col.Key == "levelup" {
+			return geometry.NewRect(
+				x+(col.Width-rotheme.IconButtonSize)/2,
+				float32(row)*skillRowH+(skillRowH-rotheme.IconButtonSize)/2,
+				rotheme.IconButtonSize,
+				rotheme.IconButtonSize,
+			)
+		}
+		x += col.Width
+	}
+	return geometry.Rect{}
 }
 
-func (w *skillRowWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
-	bounds := w.Bounds()
-	hovered := w.hovered
-	if w.cfg.isHovered != nil {
-		hovered = w.cfg.isHovered(w.cfg.skill)
+func skillTypeLabel(skill session.Skill) string {
+	if skill.Type == 0 {
+		return "P"
 	}
-	fill := widget.RGBA8(246, 249, 253, 255)
-	if w.cfg.row%2 == 1 {
-		fill = rotheme.Default.Colors.PanelBody
-	}
-	if hovered {
-		fill = rotheme.Default.Colors.ButtonHover
-	}
-	canvas.DrawRect(geometry.NewRect(bounds.Min.X, bounds.Min.Y, bounds.Width(), bounds.Height()-2), fill)
-	if w.cfg.icon != nil {
-		iconBounds := w.cfg.icon.Bounds()
-		iconW := float32(iconBounds.Dx())
-		iconH := float32(iconBounds.Dy())
-		canvas.DrawImage(w.cfg.icon, geometry.Pt(bounds.Min.X+4+(skillIconSize-iconW)/2, bounds.Min.Y+4+(skillIconSize-iconH)/2))
-	}
-	typeColor := widget.RGBA8(34, 142, 158, 255)
-	typeLabel := "P"
-	if w.cfg.display.Type != 0 {
-		typeColor = widget.RGBA8(44, 92, 184, 255)
-		typeLabel = "A"
-	}
-	nameColor := rotheme.Default.Colors.Text
-	if w.cfg.display.Level <= 0 {
-		nameColor = rotheme.Default.Colors.MutedText
-	}
-	rotheme.DrawText(canvas, typeLabel, geometry.NewRect(bounds.Min.X+34, bounds.Min.Y+8, 12, 14), rotheme.Default.Typography.TextSize, typeColor, false, widget.TextAlignLeft)
-	rotheme.DrawText(canvas, trimRunes(w.cfg.name, 18), geometry.NewRect(bounds.Min.X+50, bounds.Min.Y+8, 142, 14), rotheme.Default.Typography.TextSize, nameColor, false, widget.TextAlignLeft)
-	rotheme.DrawText(canvas, fmt.Sprintf("%d", w.cfg.display.Level), geometry.NewRect(bounds.Min.X+192, bounds.Min.Y+8, 34, 14), rotheme.Default.Typography.TextSize, nameColor, false, widget.TextAlignLeft)
-	rotheme.DrawText(canvas, fmt.Sprintf("%d", w.cfg.display.SPCost), geometry.NewRect(bounds.Min.X+232, bounds.Min.Y+8, 36, 14), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignLeft)
-	rotheme.DrawText(canvas, fmt.Sprintf("%d", w.cfg.display.Range), geometry.NewRect(bounds.Min.X+282, bounds.Min.Y+8, 34, 14), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignLeft)
-	rotheme.DrawIconButton(canvas, w.plusBounds(), rotheme.IconButtonPlus, hovered, !w.cfg.canStage)
+	return "A"
 }
 
-func (w *skillRowWidget) Event(ctx widget.Context, e event.Event) bool {
-	ev, ok := e.(*event.MouseEvent)
-	if !ok {
-		return false
+func skillTypeColor(skill session.Skill) widget.Color {
+	if skill.Type == 0 {
+		return widget.RGBA8(34, 142, 158, 255)
 	}
-	switch ev.MouseType {
-	case event.MouseEnter, event.MouseMove, event.MouseDrag:
-		w.hovered = true
-		if w.cfg.display.Level > 0 || w.cfg.canStage {
-			ctx.SetCursor(widget.CursorPointer)
-		}
-		if w.cfg.onHover != nil {
-			w.cfg.onHover(w.cfg.skill, int(ev.GlobalPosition.X), int(ev.GlobalPosition.Y))
-		}
-		return false
-	case event.MouseLeave:
-		w.hovered = false
-		if w.cfg.onHoverExit != nil {
-			w.cfg.onHoverExit()
-		}
-		return false
-	case event.MousePress:
-		if ev.Button != event.ButtonLeft {
-			return false
-		}
-		if w.plusBounds().Contains(ev.Position) {
-			if w.cfg.onStage != nil && w.cfg.canStage {
-				w.cfg.onStage(w.cfg.skill)
-			}
-			return true
-		}
-		if w.cfg.onPress != nil {
-			w.cfg.onPress(w.cfg.skill, int(ev.GlobalPosition.X), int(ev.GlobalPosition.Y))
-		}
-		return true
-	}
-	return false
-}
-
-func (w *skillRowWidget) Children() []widget.Widget {
-	return nil
-}
-
-func (w *skillRowWidget) plusBounds() geometry.Rect {
-	bounds := w.Bounds()
-	return geometry.NewRect(bounds.Max.X-rotheme.IconButtonSize-7, bounds.Min.Y+7, rotheme.IconButtonSize, rotheme.IconButtonSize)
+	return widget.RGBA8(44, 92, 184, 255)
 }
 
 func sessionSkills(s *session.Session) []session.Skill {

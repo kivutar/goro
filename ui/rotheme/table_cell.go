@@ -31,11 +31,14 @@ type tableCellWidget struct {
 }
 
 type TableViewSimpleCell struct {
-	Text   string
-	Icon   image.Image
-	Align  widget.TextAlign
-	Color  widget.Color
-	Hidden bool
+	Text               string
+	Icon               image.Image
+	Align              widget.TextAlign
+	Color              widget.Color
+	Hidden             bool
+	IconButton         IconButtonKind
+	HasIconButton      bool
+	IconButtonDisabled bool
 }
 
 func (c TableViewSimpleCell) simpleCell() tableViewSimpleCell {
@@ -44,11 +47,22 @@ func (c TableViewSimpleCell) simpleCell() tableViewSimpleCell {
 		color = Default.Colors.Text
 	}
 	return tableViewSimpleCell{
-		text:    c.Text,
-		icon:    c.Icon,
-		align:   c.Align,
-		color:   color,
-		visible: !c.Hidden,
+		text:               c.Text,
+		icon:               c.Icon,
+		align:              c.Align,
+		color:              color,
+		visible:            !c.Hidden,
+		iconButton:         c.IconButton,
+		hasIconButton:      c.HasIconButton,
+		iconButtonDisabled: c.IconButtonDisabled,
+	}
+}
+
+func TableViewIconButtonCell(kind IconButtonKind, disabled bool) TableViewSimpleCell {
+	return TableViewSimpleCell{
+		IconButton:         kind,
+		HasIconButton:      true,
+		IconButtonDisabled: disabled,
 	}
 }
 
@@ -90,11 +104,14 @@ func (w *tableCellWidget) simpleCell() tableViewSimpleCell {
 }
 
 type tableViewSimpleCell struct {
-	text    string
-	icon    image.Image
-	align   widget.TextAlign
-	color   widget.Color
-	visible bool
+	text               string
+	icon               image.Image
+	align              widget.TextAlign
+	color              widget.Color
+	visible            bool
+	iconButton         IconButtonKind
+	hasIconButton      bool
+	iconButtonDisabled bool
 }
 
 func asTableViewSimpleCell(w widget.Widget) (tableViewSimpleCell, bool) {
@@ -107,6 +124,23 @@ func asTableViewSimpleCell(w widget.Widget) (tableViewSimpleCell, bool) {
 
 func (c tableViewSimpleCell) draw(canvas widget.Canvas, bounds geometry.Rect) {
 	if !c.visible {
+		return
+	}
+	if c.hasIconButton {
+		size := IconButtonSize
+		if size > bounds.Width() {
+			size = bounds.Width()
+		}
+		if size > bounds.Height() {
+			size = bounds.Height()
+		}
+		buttonBounds := geometry.NewRect(
+			bounds.Min.X+(bounds.Width()-size)/2,
+			bounds.Min.Y+(bounds.Height()-size)/2,
+			size,
+			size,
+		)
+		DrawIconButton(canvas, buttonBounds, c.iconButton, false, c.iconButtonDisabled)
 		return
 	}
 	textBounds := bounds

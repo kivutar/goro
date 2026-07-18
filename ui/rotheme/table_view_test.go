@@ -466,6 +466,30 @@ func TestTableViewBuildSimpleCellDrawsWithoutRowWidgets(t *testing.T) {
 	}
 }
 
+func TestTableViewBuildSimpleCellDrawsIconButtonWithoutRowWidgets(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "action", Width: 24}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(32),
+		TableViewShowHeader(false),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			return TableViewIconButtonCell(IconButtonPlus, false)
+		}),
+	)
+	ctx := widget.NewContext()
+	canvas := &tableViewHeaderCanvas{}
+	table.Layout(ctx, geometry.Tight(geometry.Sz(40, 40)))
+	table.SetBounds(geometry.NewRect(0, 0, 40, 40))
+	table.Draw(ctx, canvas)
+
+	if got := len(table.body.rows); got != 0 {
+		t.Fatalf("cached row widgets = %d, want 0", got)
+	}
+	if len(canvas.lines) < 2 {
+		t.Fatalf("drawn icon lines = %d, want at least 2", len(canvas.lines))
+	}
+}
+
 func TestTableViewBuildSimpleCellHandlesRowClick(t *testing.T) {
 	clicked := -1
 	selected := state.NewSignal[int](-1)
@@ -842,5 +866,37 @@ func TestTableViewRowEventCapturesDragAfterPress(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("row events = %v, want %v", got, want)
 		}
+	}
+}
+
+func TestTableViewRowEventWithContextCanSetCursor(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewShowHeader(false),
+		TableViewDispatchHoverToCells(false),
+		TableViewOnRowEventWithContext(func(ctx widget.Context, row int, e event.Event) bool {
+			if row == 0 {
+				ctx.SetCursor(widget.CursorPointer)
+			}
+			return false
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 80)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 80))
+
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseMove,
+		0,
+		0,
+		geometry.Pt(8, 8),
+		geometry.Pt(8, 8),
+		0,
+	))
+
+	if ctx.Cursor() != widget.CursorPointer {
+		t.Fatalf("cursor = %v, want %v", ctx.Cursor(), widget.CursorPointer)
 	}
 }
