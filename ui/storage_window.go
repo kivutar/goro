@@ -6,8 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/gogpu/ui/core/datatable"
-	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -22,7 +20,6 @@ import (
 const (
 	storageWindowWidth  = 312
 	storageWindowTitleH = ROWindowTitleHeight
-	storageTableHeaderH = 36
 	storageRowH         = 32
 	storageRows         = 9
 	storageTableViewH   = storageRows * storageRowH
@@ -495,10 +492,6 @@ func storageDefaultPosition(ctx Context) (int, int) {
 	return maxInt(8, width-storageWindowWidth-24), 118
 }
 
-func storageTableHeight() float32 {
-	return storageTableHeaderH + storageRows*storageRowH
-}
-
 func storageTableViewHeight() float32 {
 	return storageTableViewH
 }
@@ -520,18 +513,6 @@ func storageTableViewRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount int,
 	return row, true
 }
 
-func storageTableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount int, scrollY float32) (int, bool) {
-	if !pointInRect(mx, my, tableX, tableY+storageTableHeaderH, scrollbarSafeIntWidth(tableW), tableH-storageTableHeaderH) {
-		return 0, false
-	}
-	localY := float32(my-tableY) - storageTableHeaderH + scrollY
-	row := int(localY / float32(storageRowH))
-	if row < 0 || row >= rowCount {
-		return 0, false
-	}
-	return row, true
-}
-
 func sortedStorageItems(s *session.Session) []session.InventoryItem {
 	if s == nil || len(s.Storage.Items) == 0 {
 		return nil
@@ -541,54 +522,4 @@ func sortedStorageItems(s *session.Session) []session.InventoryItem {
 		return items[i].Index < items[j].Index
 	})
 	return items
-}
-
-type storageTablePainter struct {
-	datatable.DefaultPainter
-	icons []image.Image
-}
-
-func (p storageTablePainter) PaintHeader(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderPaintState) {
-	if bounds.IsEmpty() {
-		return
-	}
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-}
-
-func (p storageTablePainter) PaintHeaderCell(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderCellPaintState) {
-}
-
-func (p storageTablePainter) PaintRow(canvas widget.Canvas, s datatable.RowPaintState) {
-	fill := widget.RGBA8(246, 249, 253, 255)
-	if s.RowIndex%2 == 1 {
-		fill = rotheme.Default.Colors.PanelBody
-	}
-	if s.Hovered {
-		fill = rotheme.Default.Colors.ButtonHover
-	}
-	if s.Selected {
-		fill = rotheme.Default.Colors.ButtonDown
-	}
-	canvas.DrawRect(scrollbarSafeRect(s.Bounds), fill)
-}
-
-func (p storageTablePainter) PaintCell(canvas widget.Canvas, s datatable.CellPaintState) {
-	color := rotheme.Default.Colors.Text
-	if s.ColIndex == 1 {
-		color = rotheme.Default.Colors.MutedText
-	}
-	textBounds := geometry.NewRect(s.Bounds.Min.X+4, s.Bounds.Min.Y+4, s.Bounds.Width()-8, s.Bounds.Height()-8)
-	if s.ColIndex == 0 && s.RowIndex >= 0 && s.RowIndex < len(p.icons) && p.icons[s.RowIndex] != nil {
-		icon := p.icons[s.RowIndex]
-		iconBounds := icon.Bounds()
-		iconW := float32(iconBounds.Dx())
-		iconH := float32(iconBounds.Dy())
-		canvas.DrawImage(icon, geometry.Pt(s.Bounds.Min.X+6, s.Bounds.Min.Y+(s.Bounds.Height()-iconH)/2))
-		textBounds = geometry.NewRect(s.Bounds.Min.X+iconW+12, s.Bounds.Min.Y+4, s.Bounds.Width()-iconW-16, s.Bounds.Height()-8)
-	}
-	rotheme.DrawText(canvas, s.Value, textBounds, rotheme.Default.Typography.TextSize, color, false, s.Align)
-}
-
-func (p storageTablePainter) PaintEmptyState(canvas widget.Canvas, bounds geometry.Rect) {
-	rotheme.DrawText(canvas, "No items", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
 }

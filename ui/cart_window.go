@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -20,8 +19,9 @@ import (
 
 const (
 	cartWindowWidth  = storageWindowWidth
+	cartTableHeaderH = 36
 	cartRows         = storageRows
-	cartWindowHeight = ROWindowTitleHeight + storageTableHeaderH + cartRows*storageRowH + ROWindowFooterHeight
+	cartWindowHeight = ROWindowTitleHeight + cartTableHeaderH + cartRows*storageRowH + ROWindowFooterHeight
 )
 
 type CartWindow struct {
@@ -189,7 +189,7 @@ func (w *CartWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Wi
 		Size(cartWindowWidth, cartWindowHeight),
 		Content(
 			primitives.Box(w.cartTableWidget(ctx)).
-				Height(storageTableHeight()).
+				Height(cartTableHeight()).
 				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
@@ -200,30 +200,42 @@ func (w *CartWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Wi
 	)
 }
 
-func (w *CartWindow) cartTableWidget(ctx Context) *datatable.Widget {
+func (w *CartWindow) cartTableWidget(ctx Context) *rotheme.TableViewWidget {
 	items := sortedCartItems(ctx.Session)
 	rows := w.cartRows(ctx, items)
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(236)},
-			{Key: "amount", Title: "Qty", Width: 76, Align: widget.TextAlignRight},
-		}),
-		datatable.RowCount(len(rows)),
-		datatable.RowHeight(storageRowH),
-		datatable.ScrollYSignal(w.ensureScrollSignal()),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.selectedRow),
-		datatable.PainterOpt(storageTablePainter{icons: w.cartItemIcons(ctx, items)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(rows) {
-				return ""
+	icons := w.cartItemIcons(ctx, items)
+	return rotheme.TableView(
+		rotheme.TableViewColumns(storageTableColumns),
+		rotheme.TableViewRowCount(len(rows)),
+		rotheme.TableViewRowHeight(storageRowH),
+		rotheme.TableViewHeaderHeight(cartTableHeaderH),
+		rotheme.TableViewEmptyText("No items"),
+		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
+		rotheme.TableViewSelectedRow(state.NewSignal[int](w.selectedRow)),
+		rotheme.TableViewInvalidateHover(false),
+		rotheme.TableViewDispatchHoverToCells(false),
+		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+			if cell.Row < 0 || cell.Row >= len(rows) {
+				return rotheme.TableViewSimpleCell{Hidden: true}
 			}
-			if col == "amount" {
-				return rows[row].amount
+			switch cell.Column.Key {
+			case "item":
+				var icon image.Image
+				if cell.Row < len(icons) {
+					icon = icons[cell.Row]
+				}
+				return rotheme.TableViewSimpleCell{Icon: icon, Text: rows[cell.Row].name}
+			case "amount":
+				return rotheme.TableViewSimpleCell{
+					Text:  rows[cell.Row].amount,
+					Align: widget.TextAlignRight,
+					Color: rotheme.Default.Colors.MutedText,
+				}
+			default:
+				return rotheme.TableViewSimpleCell{Hidden: true}
 			}
-			return rows[row].name
 		}),
-		datatable.OnRowSelect(func(row int) {
+		rotheme.TableViewOnRowClick(func(row int) {
 			if row >= 0 && row < len(rows) {
 				w.selectedRow = row
 			}
@@ -399,7 +411,7 @@ func (w *CartWindow) ensureScrollSignal() state.Signal[float32] {
 func (w *CartWindow) itemAt(s *session.Session, mx, my int) (session.InventoryItem, int, bool) {
 	tableX := w.x
 	tableY := w.y + ROWindowTitleHeight
-	row, ok := storageTableRowAt(mx, my, tableX, tableY, cartWindowWidth, int(storageTableHeight()), len(sortedCartItems(s)), w.ensureScrollSignal().Get())
+	row, ok := cartTableRowAt(mx, my, tableX, tableY, cartWindowWidth, int(cartTableHeight()), len(sortedCartItems(s)), w.ensureScrollSignal().Get())
 	if !ok {
 		return session.InventoryItem{}, 0, false
 	}
@@ -437,6 +449,22 @@ func (w *CartWindow) cartWeightText(s *session.Session) string {
 		return "Weight: 0/0"
 	}
 	return fmt.Sprintf("Weight: %.1f/%.1f", float64(s.Cart.Weight)/10, float64(s.Cart.MaxWeight)/10)
+}
+
+func cartTableHeight() float32 {
+	return cartTableHeaderH + cartRows*storageRowH
+}
+
+func cartTableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount int, scrollY float32) (int, bool) {
+	if !pointInRect(mx, my, tableX, tableY+cartTableHeaderH, scrollbarSafeIntWidth(tableW), tableH-cartTableHeaderH) {
+		return 0, false
+	}
+	localY := float32(my-tableY) - cartTableHeaderH + scrollY
+	row := int(localY / float32(storageRowH))
+	if row < 0 || row >= rowCount {
+		return 0, false
+	}
+	return row, true
 }
 
 func cartDefaultPosition(ctx Context) (int, int) {

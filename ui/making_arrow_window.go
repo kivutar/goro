@@ -4,8 +4,6 @@ import (
 	"image"
 	"time"
 
-	"github.com/gogpu/ui/core/datatable"
-	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -95,29 +93,19 @@ func (w *MakingArrowWindow) widgetTree(ctx Context) widget.Widget {
 	)
 }
 
-func (w *MakingArrowWindow) tableWidget(ctx Context) *datatable.Widget {
+func (w *MakingArrowWindow) tableWidget(ctx Context) *rotheme.TableViewWidget {
 	ids := append([]uint16(nil), w.itemIDs...)
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(makingArrowWindowWidth)},
-		}),
-		datatable.RowCount(len(ids)),
-		datatable.RowHeight(makingArrowRowH),
-		datatable.ScrollYSignal(w.ensureScrollSignal()),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.selectedRow),
-		datatable.PainterOpt(makingArrowTablePainter{icons: w.itemIcons(ctx, ids)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(ids) {
-				return ""
-			}
-			return inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: ids[row], Identified: true})
-		}),
-		datatable.OnRowSelect(func(row int) {
-			if row >= 0 && row < len(ids) {
-				w.selectedRow = row
-			}
-		}),
+	return itemTableView(
+		w.itemTableRows(ctx, ids),
+		"Item",
+		makingArrowRowH,
+		makingArrowTableHeaderH,
+		"No arrow materials",
+		w.ensureScrollSignal(),
+		w.selectedRow,
+		func(row int) {
+			w.selectedRow = row
+		},
 	)
 }
 
@@ -184,12 +172,15 @@ func (w *MakingArrowWindow) cancel(ctx Context) {
 	w.Close()
 }
 
-func (w *MakingArrowWindow) itemIcons(ctx Context, itemIDs []uint16) []image.Image {
-	icons := make([]image.Image, len(itemIDs))
+func (w *MakingArrowWindow) itemTableRows(ctx Context, itemIDs []uint16) []itemTableRow {
+	rows := make([]itemTableRow, len(itemIDs))
 	for i, itemID := range itemIDs {
-		icons[i] = w.itemIconImage(ctx.Resources, itemID)
+		rows[i] = itemTableRow{
+			name: inventoryItemDisplayName(ctx.Resources, session.InventoryItem{ItemID: itemID, Identified: true}),
+			icon: w.itemIconImage(ctx.Resources, itemID),
+		}
 	}
-	return icons
+	return rows
 }
 
 func (w *MakingArrowWindow) itemIconImage(manager *res.Manager, itemID uint16) image.Image {
@@ -252,50 +243,4 @@ func (w *MakingArrowWindow) ensureScrollSignal() state.Signal[float32] {
 
 func makingArrowTableHeight() float32 {
 	return makingArrowTableHeaderH + makingArrowRows*makingArrowRowH
-}
-
-type makingArrowTablePainter struct {
-	datatable.DefaultPainter
-	icons []image.Image
-}
-
-func (p makingArrowTablePainter) PaintHeader(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderPaintState) {
-	if bounds.IsEmpty() {
-		return
-	}
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-}
-
-func (p makingArrowTablePainter) PaintHeaderCell(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderCellPaintState) {
-}
-
-func (p makingArrowTablePainter) PaintRow(canvas widget.Canvas, s datatable.RowPaintState) {
-	fill := widget.RGBA8(246, 249, 253, 255)
-	if s.RowIndex%2 == 1 {
-		fill = rotheme.Default.Colors.PanelBody
-	}
-	if s.Hovered {
-		fill = rotheme.Default.Colors.ButtonHover
-	}
-	if s.Selected {
-		fill = rotheme.Default.Colors.ButtonDown
-	}
-	canvas.DrawRect(scrollbarSafeRect(s.Bounds), fill)
-}
-
-func (p makingArrowTablePainter) PaintCell(canvas widget.Canvas, s datatable.CellPaintState) {
-	textBounds := geometry.NewRect(s.Bounds.Min.X+4, s.Bounds.Min.Y+4, s.Bounds.Width()-8, s.Bounds.Height()-8)
-	if s.RowIndex >= 0 && s.RowIndex < len(p.icons) && p.icons[s.RowIndex] != nil {
-		icon := p.icons[s.RowIndex]
-		iconBounds := icon.Bounds()
-		iconW := float32(iconBounds.Dx())
-		iconH := float32(iconBounds.Dy())
-		canvas.DrawImage(icon, geometry.Pt(s.Bounds.Min.X+6, s.Bounds.Min.Y+(s.Bounds.Height()-iconH)/2))
-		textBounds = geometry.NewRect(s.Bounds.Min.X+iconW+12, s.Bounds.Min.Y+4, s.Bounds.Width()-iconW-16, s.Bounds.Height()-8)
-	}
-	rotheme.DrawText(canvas, s.Value, textBounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, s.Align)
-}
-
-func (p makingArrowTablePainter) PaintEmptyState(canvas widget.Canvas, bounds geometry.Rect) {
-	rotheme.DrawText(canvas, "No arrow materials", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
 }

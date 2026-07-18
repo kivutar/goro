@@ -5,7 +5,6 @@ import (
 	"image"
 	"sort"
 
-	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -99,27 +98,19 @@ func (w *PetEggWindow) widgetTree(ctx Context) widget.Widget {
 	)
 }
 
-func (w *PetEggWindow) tableWidget(ctx Context) *datatable.Widget {
+func (w *PetEggWindow) tableWidget(ctx Context) *rotheme.TableViewWidget {
 	items := w.items(ctx.Session)
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Pet Egg", Width: scrollbarSafeWidth(petEggWindowWidth)},
-		}),
-		datatable.RowCount(len(items)),
-		datatable.RowHeight(petEggRowH),
-		datatable.ScrollYSignal(w.ensureScrollSignal()),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.selectedRow),
-		datatable.PainterOpt(identifyTablePainter{icons: w.itemIcons(ctx, items)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(items) {
-				return ""
-			}
-			return inventoryItemDisplayName(ctx.Resources, items[row])
-		}),
-		datatable.OnRowSelect(func(row int) {
+	return itemTableView(
+		w.itemTableRows(ctx, items),
+		"Pet Egg",
+		petEggRowH,
+		petEggTableHeaderH,
+		"No items",
+		w.ensureScrollSignal(),
+		w.selectedRow,
+		func(row int) {
 			w.selectedRow = row
-		}),
+		},
 	)
 }
 
@@ -172,12 +163,15 @@ func (w *PetEggWindow) items(s *session.Session) []session.InventoryItem {
 	return items
 }
 
-func (w *PetEggWindow) itemIcons(ctx Context, items []session.InventoryItem) []image.Image {
-	icons := make([]image.Image, len(items))
+func (w *PetEggWindow) itemTableRows(ctx Context, items []session.InventoryItem) []itemTableRow {
+	rows := make([]itemTableRow, len(items))
 	for i, item := range items {
-		icons[i] = w.itemIconImage(ctx.Resources, item)
+		rows[i] = itemTableRow{
+			name: inventoryItemDisplayName(ctx.Resources, item),
+			icon: w.itemIconImage(ctx.Resources, item),
+		}
 	}
-	return icons
+	return rows
 }
 
 func (w *PetEggWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {

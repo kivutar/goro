@@ -167,12 +167,12 @@ func newCartWindowScrollBenchFixture(itemCount int, canvasKind listBenchCanvasKi
 	}
 
 	cart.OpenWindow(ctx)
-	inputState.SetMousePosition(cart.x+12, cart.y+ROWindowTitleHeight+storageTableHeaderH+16)
+	inputState.SetMousePosition(cart.x+12, cart.y+ROWindowTitleHeight+cartTableHeaderH+16)
 	canvasFactory := newListBenchCanvasFactory(canvasKind)
 	app.Frame()
 	app.Window().DrawTo(canvasFactory())
 
-	wheelPosition := geometry.Pt(float32(cart.x+12), float32(cart.y+ROWindowTitleHeight+storageTableHeaderH+16))
+	wheelPosition := geometry.Pt(float32(cart.x+12), float32(cart.y+ROWindowTitleHeight+cartTableHeaderH+16))
 	wheel := event.NewWheelEvent(geometry.Pt(0, 1), wheelPosition, wheelPosition, event.ModNone)
 	maxRow := len(sessionState.Cart.Items) - cartRows
 

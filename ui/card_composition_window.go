@@ -5,8 +5,6 @@ import (
 	"image"
 	"sort"
 
-	"github.com/gogpu/ui/core/datatable"
-	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -114,27 +112,19 @@ func (w *CardCompositionWindow) widgetTree(ctx Context) widget.Widget {
 	)
 }
 
-func (w *CardCompositionWindow) tableWidget(ctx Context) *datatable.Widget {
+func (w *CardCompositionWindow) tableWidget(ctx Context) *rotheme.TableViewWidget {
 	items := w.items(ctx.Session)
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(cardCompositionWindowWidth)},
-		}),
-		datatable.RowCount(len(items)),
-		datatable.RowHeight(cardCompositionRowH),
-		datatable.ScrollYSignal(w.ensureScrollSignal()),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.selectedRow),
-		datatable.PainterOpt(cardCompositionTablePainter{icons: w.itemIcons(ctx, items)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(items) {
-				return ""
-			}
-			return inventoryItemDisplayName(ctx.Resources, items[row])
-		}),
-		datatable.OnRowSelect(func(row int) {
+	return itemTableView(
+		w.itemTableRows(ctx, items),
+		"Item",
+		cardCompositionRowH,
+		cardCompositionTableHeaderH,
+		"No items",
+		w.ensureScrollSignal(),
+		w.selectedRow,
+		func(row int) {
 			w.selectedRow = row
-		}),
+		},
 	)
 }
 
@@ -191,12 +181,15 @@ func (w *CardCompositionWindow) cardItemID(s *session.Session) uint16 {
 	return 0
 }
 
-func (w *CardCompositionWindow) itemIcons(ctx Context, items []session.InventoryItem) []image.Image {
-	icons := make([]image.Image, len(items))
+func (w *CardCompositionWindow) itemTableRows(ctx Context, items []session.InventoryItem) []itemTableRow {
+	rows := make([]itemTableRow, len(items))
 	for i, item := range items {
-		icons[i] = w.itemIconImage(ctx.Resources, item)
+		rows[i] = itemTableRow{
+			name: inventoryItemDisplayName(ctx.Resources, item),
+			icon: w.itemIconImage(ctx.Resources, item),
+		}
 	}
-	return icons
+	return rows
 }
 
 func (w *CardCompositionWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
@@ -249,41 +242,4 @@ func (w *CardCompositionWindow) ensureScrollSignal() state.Signal[float32] {
 
 func cardCompositionTableHeight() float32 {
 	return cardCompositionTableHeaderH + cardCompositionRows*cardCompositionRowH
-}
-
-type cardCompositionTablePainter struct {
-	datatable.DefaultPainter
-	icons []image.Image
-}
-
-func (p cardCompositionTablePainter) PaintHeader(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderPaintState) {
-	if bounds.IsEmpty() {
-		return
-	}
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-}
-
-func (p cardCompositionTablePainter) PaintHeaderCell(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderCellPaintState) {
-}
-
-func (p cardCompositionTablePainter) PaintRow(canvas widget.Canvas, s datatable.RowPaintState) {
-	fill := widget.RGBA8(246, 249, 253, 255)
-	if s.RowIndex%2 == 1 {
-		fill = rotheme.Default.Colors.PanelBody
-	}
-	if s.Hovered {
-		fill = rotheme.Default.Colors.ButtonHover
-	}
-	if s.Selected {
-		fill = rotheme.Default.Colors.ButtonDown
-	}
-	canvas.DrawRect(scrollbarSafeRect(s.Bounds), fill)
-}
-
-func (p cardCompositionTablePainter) PaintCell(canvas widget.Canvas, s datatable.CellPaintState) {
-	textBounds := geometry.NewRect(s.Bounds.Min.X+34, s.Bounds.Min.Y+4, s.Bounds.Width()-38, s.Bounds.Height()-8)
-	if s.RowIndex >= 0 && s.RowIndex < len(p.icons) && p.icons[s.RowIndex] != nil {
-		canvas.DrawImage(p.icons[s.RowIndex], geometry.Pt(s.Bounds.Min.X+5, s.Bounds.Min.Y+4))
-	}
-	rotheme.DrawText(canvas, s.Value, textBounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignLeft)
 }

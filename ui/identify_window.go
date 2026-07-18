@@ -5,8 +5,6 @@ import (
 	"image"
 	"sort"
 
-	"github.com/gogpu/ui/core/datatable"
-	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -39,10 +37,6 @@ type IdentifyWindow struct {
 type identifyItemIconKey struct {
 	itemID     uint16
 	identified bool
-}
-
-type identifyTableRow struct {
-	name string
 }
 
 func (w *IdentifyWindow) OpenList(ctx Context, list network.ItemIdentifyList) {
@@ -131,30 +125,19 @@ func (w *IdentifyWindow) widgetTree(ctx Context) widget.Widget {
 	)
 }
 
-func (w *IdentifyWindow) identifyTableWidget(ctx Context) *datatable.Widget {
+func (w *IdentifyWindow) identifyTableWidget(ctx Context) *rotheme.TableViewWidget {
 	items := w.items(ctx.Session)
-	rows := w.identifyRows(ctx, items)
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(identifyWindowWidth)},
-		}),
-		datatable.RowCount(len(rows)),
-		datatable.RowHeight(identifyRowH),
-		datatable.ScrollYSignal(w.ensureScrollSignal()),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.selectedRow),
-		datatable.PainterOpt(identifyTablePainter{icons: w.identifyItemIcons(ctx, items)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(rows) {
-				return ""
-			}
-			return rows[row].name
-		}),
-		datatable.OnRowSelect(func(row int) {
-			if row >= 0 && row < len(rows) {
-				w.selectedRow = row
-			}
-		}),
+	return itemTableView(
+		w.identifyTableRows(ctx, items),
+		"Item",
+		identifyRowH,
+		identifyTableHeaderH,
+		"No unidentified equipment",
+		w.ensureScrollSignal(),
+		w.selectedRow,
+		func(row int) {
+			w.selectedRow = row
+		},
 	)
 }
 
@@ -173,24 +156,19 @@ func (w *IdentifyWindow) ClampScroll(s *session.Session) {
 	}
 }
 
-func (w *IdentifyWindow) identifyRows(ctx Context, items []session.InventoryItem) []identifyTableRow {
-	rows := make([]identifyTableRow, len(items))
+func (w *IdentifyWindow) identifyTableRows(ctx Context, items []session.InventoryItem) []itemTableRow {
+	rows := make([]itemTableRow, len(items))
 	for i, item := range items {
 		name := inventoryItemDisplayName(ctx.Resources, item)
 		if item.Refine > 0 {
 			name = fmt.Sprintf("+%d %s", item.Refine, name)
 		}
-		rows[i] = identifyTableRow{name: name}
+		rows[i] = itemTableRow{
+			name: name,
+			icon: w.itemIconImage(ctx.Resources, item),
+		}
 	}
 	return rows
-}
-
-func (w *IdentifyWindow) identifyItemIcons(ctx Context, items []session.InventoryItem) []image.Image {
-	icons := make([]image.Image, len(items))
-	for i, item := range items {
-		icons[i] = w.itemIconImage(ctx.Resources, item)
-	}
-	return icons
 }
 
 func (w *IdentifyWindow) itemIconImage(manager *res.Manager, item session.InventoryItem) image.Image {
@@ -310,50 +288,4 @@ func findInventoryItemByIndex(s *session.Session, index uint16) (session.Invento
 		}
 	}
 	return session.InventoryItem{}, false
-}
-
-type identifyTablePainter struct {
-	datatable.DefaultPainter
-	icons []image.Image
-}
-
-func (p identifyTablePainter) PaintHeader(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderPaintState) {
-	if bounds.IsEmpty() {
-		return
-	}
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-}
-
-func (p identifyTablePainter) PaintHeaderCell(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderCellPaintState) {
-}
-
-func (p identifyTablePainter) PaintRow(canvas widget.Canvas, s datatable.RowPaintState) {
-	fill := widget.RGBA8(246, 249, 253, 255)
-	if s.RowIndex%2 == 1 {
-		fill = rotheme.Default.Colors.PanelBody
-	}
-	if s.Hovered {
-		fill = rotheme.Default.Colors.ButtonHover
-	}
-	if s.Selected {
-		fill = rotheme.Default.Colors.ButtonDown
-	}
-	canvas.DrawRect(scrollbarSafeRect(s.Bounds), fill)
-}
-
-func (p identifyTablePainter) PaintCell(canvas widget.Canvas, s datatable.CellPaintState) {
-	textBounds := geometry.NewRect(s.Bounds.Min.X+4, s.Bounds.Min.Y+4, s.Bounds.Width()-8, s.Bounds.Height()-8)
-	if s.RowIndex >= 0 && s.RowIndex < len(p.icons) && p.icons[s.RowIndex] != nil {
-		icon := p.icons[s.RowIndex]
-		iconBounds := icon.Bounds()
-		iconW := float32(iconBounds.Dx())
-		iconH := float32(iconBounds.Dy())
-		canvas.DrawImage(icon, geometry.Pt(s.Bounds.Min.X+6, s.Bounds.Min.Y+(s.Bounds.Height()-iconH)/2))
-		textBounds = geometry.NewRect(s.Bounds.Min.X+iconW+12, s.Bounds.Min.Y+4, s.Bounds.Width()-iconW-16, s.Bounds.Height()-8)
-	}
-	rotheme.DrawText(canvas, s.Value, textBounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, s.Align)
-}
-
-func (p identifyTablePainter) PaintEmptyState(canvas widget.Canvas, bounds geometry.Rect) {
-	rotheme.DrawText(canvas, "No unidentified equipment", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
 }
