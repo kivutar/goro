@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogpu/ui/core/datatable"
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
@@ -343,65 +342,28 @@ func (w *VendingWindow) ownShopTree(ctx Context) widget.Widget {
 	)
 }
 
-func (w *VendingWindow) cartItemsTable(ctx Context) *datatable.Widget {
+func (w *VendingWindow) cartItemsTable(ctx Context) *rotheme.TableViewWidget {
 	return w.table(w.cartRows(ctx), w.ensureLeftScroll(), -1)
 }
 
-func (w *VendingWindow) setupItemsTable(ctx Context) *datatable.Widget {
+func (w *VendingWindow) setupItemsTable(ctx Context) *rotheme.TableViewWidget {
 	return w.table(w.setupRowsData(ctx), w.ensureRightScroll(), w.selectedSetup)
 }
 
-func (w *VendingWindow) vendorItemsTable(ctx Context) *datatable.Widget {
+func (w *VendingWindow) vendorItemsTable(ctx Context) *rotheme.TableViewWidget {
 	return w.table(w.vendorRows(ctx), w.ensureLeftScroll(), w.selectedBuy)
 }
 
-func (w *VendingWindow) buyCartTable(ctx Context) *datatable.Widget {
+func (w *VendingWindow) buyCartTable(ctx Context) *rotheme.TableViewWidget {
 	return w.table(w.buyCartRows(ctx), w.ensureRightScroll(), w.selectedCart)
 }
 
-func (w *VendingWindow) ownItemsTable(ctx Context) *datatable.Widget {
+func (w *VendingWindow) ownItemsTable(ctx Context) *rotheme.TableViewWidget {
 	return w.table(w.ownRows(ctx), w.ensureLeftScroll(), -1)
 }
 
-func (w *VendingWindow) table(rows []shopTableRow, scroll state.Signal[float32], selectedRow int) *datatable.Widget {
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(250)},
-			{Key: "price", Title: "Price", Width: 104, Align: widget.TextAlignRight},
-			{Key: "amount", Title: "Qty", Width: 66, Align: widget.TextAlignCenter},
-		}),
-		datatable.RowCount(len(rows)),
-		datatable.RowHeight(shopRowH),
-		datatable.ScrollYSignal(scroll),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(selectedRow),
-		datatable.PainterOpt(shopBuyTablePainter{icons: rowIcons(rows)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(rows) {
-				return ""
-			}
-			switch col {
-			case "item":
-				return rows[row].name
-			case "price":
-				return rows[row].price
-			case "amount":
-				return rows[row].amount
-			default:
-				return ""
-			}
-		}),
-	)
-}
-
-func rowIcons(rows []shopTableRow) []image.Image {
-	icons := make([]image.Image, len(rows))
-	for i, row := range rows {
-		if row.icon != nil {
-			icons[i] = row.icon
-		}
-	}
-	return icons
+func (w *VendingWindow) table(rows []shopTableRow, scroll state.Signal[float32], selectedRow int) *rotheme.TableViewWidget {
+	return shopTableWidget(rows, true, scroll, selectedRow)
 }
 
 func (w *VendingWindow) cartRows(ctx Context) []shopTableRow {

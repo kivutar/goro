@@ -45,6 +45,28 @@ func TestShopBuyCartTracksQuantityAndTotal(t *testing.T) {
 	}
 }
 
+func TestShopItemAtUsesTableViewBody(t *testing.T) {
+	window := ShopWindow{
+		mode:     shopModeBuy,
+		buyItems: []network.ShopBuyItem{{ItemID: 501, Type: 0, Price: 100}},
+	}
+	window.buyWindow = NewWindow(shopBuyListWindowW, shopListWindowHeight())
+	window.buyWindow.OpenAt(80, 90, nil)
+	ctx := Context{}
+
+	if _, ok := window.shopItemAt(ctx, window.buyWindow.x+8, window.buyWindow.y+ROWindowTitleHeight+shopTableHeaderH-1); ok {
+		t.Fatal("shop header should not hit an item row")
+	}
+
+	item, ok := window.shopItemAt(ctx, window.buyWindow.x+8, window.buyWindow.y+ROWindowTitleHeight+shopTableHeaderH+1)
+	if !ok {
+		t.Fatal("shop row at top of table was not found")
+	}
+	if item.ItemID != 501 || item.Amount != 1 {
+		t.Fatalf("shop item = %+v, want item 501 amount 1", item)
+	}
+}
+
 func TestInventoryBagClassifiesTabs(t *testing.T) {
 	tests := []struct {
 		name string

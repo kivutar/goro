@@ -7,8 +7,6 @@ import (
 	"image"
 	"time"
 
-	"github.com/gogpu/ui/core/datatable"
-	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -20,13 +18,13 @@ import (
 )
 
 const (
-	shopBuyListWindowW   = 420
-	shopBuyCartWindowW   = 420
-	shopDataTableHeaderH = 36
-	shopRowH             = 32
-	shopListRows         = 7
-	shopBuyCartRows      = 4
-	shopSellCartRows     = 10
+	shopBuyListWindowW = 420
+	shopBuyCartWindowW = 420
+	shopTableHeaderH   = 36
+	shopRowH           = 32
+	shopListRows       = 7
+	shopBuyCartRows    = 4
+	shopSellCartRows   = 10
 
 	shopDealWidth  = smallPromptWidth
 	shopDealHeight = smallPromptHeight
@@ -362,81 +360,22 @@ func (w *ShopWindow) buyCartWidgetTree(ctx Context) widget.Widget {
 	)
 }
 
-func (w *ShopWindow) buyTableWidget(ctx Context) *datatable.Widget {
+func (w *ShopWindow) buyTableWidget(ctx Context) *rotheme.TableViewWidget {
 	rows := w.buyTableRows(ctx)
 	amountColumn := false
 	if w.mode == shopModeSell {
 		rows = w.sellTableRows(ctx)
 		amountColumn = true
 	}
-	return w.shopTableWidget(rows, amountColumn, w.ensureBuyScrollSignal(), true, func(row int) {
-		w.buySelectedRow = row
-		w.refreshBuyWindow(ctx)
-	})
+	return shopTableWidget(rows, amountColumn, w.ensureBuyScrollSignal(), w.buySelectedRow)
 }
 
-func (w *ShopWindow) buyCartTableWidget(ctx Context) *datatable.Widget {
+func (w *ShopWindow) buyCartTableWidget(ctx Context) *rotheme.TableViewWidget {
 	rows := w.buyCartTableRows(ctx)
 	if w.mode == shopModeSell {
 		rows = w.sellCartTableRows(ctx)
 	}
-	return w.shopTableWidget(rows, true, w.ensureBuyCartScrollSignal(), false, nil)
-}
-
-func (w *ShopWindow) shopTableWidget(rows []shopTableRow, amountColumn bool, scroll state.Signal[float32], selectable bool, onSelect func(int)) *datatable.Widget {
-	columns := []datatable.Column{
-		{Key: "item", Title: "Item", Width: scrollbarSafeWidth(296)},
-		{Key: "price", Title: "Price", Width: 124, Align: widget.TextAlignRight},
-	}
-	if amountColumn {
-		columns = []datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(250)},
-			{Key: "price", Title: "Price", Width: 104, Align: widget.TextAlignRight},
-			{Key: "amount", Title: "Qty", Width: 66, Align: widget.TextAlignCenter},
-		}
-	}
-	icons := make([]image.Image, len(rows))
-	for i, row := range rows {
-		icons[i] = row.icon
-	}
-	options := []datatable.Option{
-		datatable.Columns(columns),
-		datatable.RowCount(len(rows)),
-		datatable.RowHeight(shopRowH),
-		datatable.ScrollYSignal(scroll),
-		datatable.PainterOpt(shopBuyTablePainter{
-			icons: icons,
-		}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(rows) {
-				return ""
-			}
-			switch col {
-			case "item":
-				return rows[row].name
-			case "price":
-				return rows[row].price
-			case "amount":
-				return rows[row].amount
-			}
-			return ""
-		}),
-	}
-	if selectable {
-		options = append(options,
-			datatable.SelectionModeOpt(datatable.SelectionSingle),
-			datatable.SelectedRow(w.buySelectedRow),
-			datatable.OnRowSelect(func(row int) {
-				if row < 0 || row >= len(rows) {
-					return
-				}
-				if onSelect != nil {
-					onSelect(row)
-				}
-			}),
-		)
-	}
-	return datatable.New(options...)
+	return shopTableWidget(rows, true, w.ensureBuyCartScrollSignal(), -1)
 }
 
 func (w *ShopWindow) buyTableRows(ctx Context) []shopTableRow {
@@ -761,14 +700,75 @@ func (w *ShopWindow) cartTableHeight() int {
 }
 
 func shopTableHeight(rows int) int {
-	return shopDataTableHeaderH + rows*shopRowH
+	return shopTableHeaderH + rows*shopRowH
+}
+
+func shopTableWidget(rows []shopTableRow, amountColumn bool, scroll state.Signal[float32], selectedRow int) *rotheme.TableViewWidget {
+	options := []rotheme.TableViewOption{
+		rotheme.TableViewColumns(shopTableColumns(amountColumn)),
+		rotheme.TableViewRowCount(len(rows)),
+		rotheme.TableViewRowHeight(shopRowH),
+		rotheme.TableViewHeaderHeight(shopTableHeaderH),
+		rotheme.TableViewEmptyText("No items"),
+		rotheme.TableViewScrollYSignal(scroll),
+		rotheme.TableViewInvalidateHover(false),
+		rotheme.TableViewDispatchHoverToCells(false),
+		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+			if cell.Row < 0 || cell.Row >= len(rows) {
+				return rotheme.TableViewSimpleCell{Hidden: true}
+			}
+			return shopTableCell(rows[cell.Row], cell)
+		}),
+	}
+	if selectedRow >= 0 {
+		options = append(options, rotheme.TableViewSelectedRow(state.NewSignal[int](selectedRow)))
+	}
+	return rotheme.TableView(options...)
+}
+
+func shopTableColumns(amountColumn bool) []rotheme.TableViewColumn {
+	if amountColumn {
+		return []rotheme.TableViewColumn{
+			{Key: "item", Title: "Item", Flex: 1, MinWidth: 120},
+			{Key: "price", Title: "Price", Width: 104, Align: widget.TextAlignRight},
+			{Key: "amount", Title: "Qty", Width: 66, Align: widget.TextAlignCenter},
+		}
+	}
+	return []rotheme.TableViewColumn{
+		{Key: "item", Title: "Item", Flex: 1, MinWidth: 120},
+		{Key: "price", Title: "Price", Width: 124, Align: widget.TextAlignRight},
+	}
+}
+
+func shopTableCell(row shopTableRow, cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+	switch cell.Column.Key {
+	case "item":
+		return rotheme.TableViewSimpleCell{
+			Icon: row.icon,
+			Text: row.name,
+		}
+	case "price":
+		return rotheme.TableViewSimpleCell{
+			Text:  row.price,
+			Align: widget.TextAlignRight,
+			Color: rotheme.Default.Colors.MutedText,
+		}
+	case "amount":
+		return rotheme.TableViewSimpleCell{
+			Text:  row.amount,
+			Align: widget.TextAlignCenter,
+			Color: widget.RGBA8(54, 128, 76, 255),
+		}
+	default:
+		return rotheme.TableViewSimpleCell{Hidden: true}
+	}
 }
 
 func tableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount, rowHeight int, scrollY float32) (int, bool) {
-	if !pointInRect(mx, my, tableX, tableY+shopDataTableHeaderH, scrollbarSafeIntWidth(tableW), tableH-shopDataTableHeaderH) {
+	if !pointInRect(mx, my, tableX, tableY+shopTableHeaderH, scrollbarSafeIntWidth(tableW), tableH-shopTableHeaderH) {
 		return 0, false
 	}
-	localY := float32(my-tableY) - shopDataTableHeaderH + scrollY
+	localY := float32(my-tableY) - shopTableHeaderH + scrollY
 	row := int(localY / float32(rowHeight))
 	if row < 0 || row >= rowCount {
 		return 0, false
@@ -838,61 +838,6 @@ func (w *ShopWindow) sellAvailableItems(ctx Context) []session.InventoryItem {
 		}
 	}
 	return items
-}
-
-type shopBuyTablePainter struct {
-	datatable.DefaultPainter
-	icons []image.Image
-}
-
-func (p shopBuyTablePainter) PaintHeader(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderPaintState) {
-	if bounds.IsEmpty() {
-		return
-	}
-	canvas.DrawRect(bounds, rotheme.Default.Colors.PanelBody)
-}
-
-func (p shopBuyTablePainter) PaintHeaderCell(canvas widget.Canvas, bounds geometry.Rect, s datatable.HeaderCellPaintState) {
-}
-
-func (p shopBuyTablePainter) PaintRow(canvas widget.Canvas, s datatable.RowPaintState) {
-	fill := widget.RGBA8(246, 249, 253, 255)
-	if s.RowIndex%2 == 1 {
-		fill = rotheme.Default.Colors.PanelBody
-	}
-	if s.Hovered {
-		fill = rotheme.Default.Colors.ButtonHover
-	}
-	if s.Selected {
-		fill = rotheme.Default.Colors.ButtonDown
-	}
-	canvas.DrawRect(scrollbarSafeRect(s.Bounds), fill)
-}
-
-func (p shopBuyTablePainter) PaintCell(canvas widget.Canvas, s datatable.CellPaintState) {
-	color := rotheme.Default.Colors.Text
-	if s.ColIndex == 1 {
-		color = rotheme.Default.Colors.MutedText
-	}
-	textBounds := geometry.NewRect(s.Bounds.Min.X+4, s.Bounds.Min.Y+4, s.Bounds.Width()-8, s.Bounds.Height()-8)
-	if s.ColIndex == 0 {
-		if s.RowIndex >= 0 && s.RowIndex < len(p.icons) && p.icons[s.RowIndex] != nil {
-			icon := p.icons[s.RowIndex]
-			iconBounds := icon.Bounds()
-			iconW := float32(iconBounds.Dx())
-			iconH := float32(iconBounds.Dy())
-			canvas.DrawImage(icon, geometry.Pt(s.Bounds.Min.X+4, s.Bounds.Min.Y+(s.Bounds.Height()-iconH)/2))
-			textBounds = geometry.NewRect(s.Bounds.Min.X+iconW+9, s.Bounds.Min.Y+4, s.Bounds.Width()-iconW-13, s.Bounds.Height()-8)
-		}
-	}
-	if s.ColIndex == 2 && s.Value != "" {
-		color = widget.RGBA8(54, 128, 76, 255)
-	}
-	rotheme.DrawText(canvas, s.Value, textBounds, rotheme.Default.Typography.TextSize, color, false, s.Align)
-}
-
-func (p shopBuyTablePainter) PaintEmptyState(canvas widget.Canvas, bounds geometry.Rect) {
-	rotheme.DrawText(canvas, "No items", bounds, rotheme.Default.Typography.TextSize, rotheme.Default.Colors.MutedText, false, widget.TextAlignCenter)
 }
 
 func (w *ShopWindow) addCartItem(item session.InventoryItem, sell network.ShopSellItem) {
