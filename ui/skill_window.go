@@ -24,12 +24,11 @@ import (
 const (
 	skillWindowWidth  = 360
 	skillWindowHeight = 388
-	skillWindowPad    = 12
 	skillRowH         = 32
 	skillIconSize     = 24
-	skillHeaderH      = 14
-	skillContentGap   = 5
-	skillListH        = skillWindowHeight - ROWindowTitleHeight - ROWindowFooterHeight - skillWindowPad*2 - skillHeaderH - skillContentGap
+	skillHeaderH      = 24
+	skillHeaderPadY   = 5
+	skillListH        = skillWindowHeight - ROWindowTitleHeight - ROWindowFooterHeight - skillHeaderH
 )
 
 type SkillWindow struct {
@@ -229,8 +228,7 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 				).
 					Height(skillListH),
 			).
-				Padding(skillWindowPad).
-				Gap(skillContentGap),
+				CrossAlign(primitives.CrossAxisStretch),
 		),
 		Footer(
 			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, sessionSkillPoints(ctx.Session)-w.pendingCount()))),
@@ -254,7 +252,9 @@ func (w *SkillWindow) skillHeader() widget.Widget {
 		primitives.Box(rotheme.Text("Lv").Color(rotheme.Default.Colors.MutedText)).Width(40),
 		primitives.Box(rotheme.Text("SP").Color(rotheme.Default.Colors.MutedText)).Width(38),
 		primitives.Box(rotheme.Text("Range").Color(rotheme.Default.Colors.MutedText)).Width(56),
-	).Height(14)
+	).
+		Height(skillHeaderH).
+		PaddingXY(0, skillHeaderPadY)
 }
 
 func (w *SkillWindow) skillList(ctx Context, assets AssetProvider, actions GameActions) widget.Widget {
@@ -366,7 +366,7 @@ func (w *SkillWindow) updateTooltipHover(ctx Context) {
 
 func (w *SkillWindow) skillAtMouse(ctx Context, mouseX, mouseY int) (session.Skill, bool) {
 	x, y := w.skillListOrigin()
-	if !pointInRect(mouseX, mouseY, x, y, scrollbarSafeIntWidth(skillWindowWidth-skillWindowPad*2), skillListH) {
+	if !pointInRect(mouseX, mouseY, x, y, scrollbarSafeIntWidth(skillWindowWidth), skillListH) {
 		return session.Skill{}, false
 	}
 	row := int((float32(mouseY-y) + w.ensureScrollSignal().Get()) / skillRowH)
@@ -378,7 +378,7 @@ func (w *SkillWindow) skillAtMouse(ctx Context, mouseX, mouseY int) (session.Ski
 }
 
 func (w *SkillWindow) skillListOrigin() (int, int) {
-	return w.x + skillWindowPad, w.y + ROWindowTitleHeight + skillWindowPad + skillHeaderH + skillContentGap
+	return w.x, w.y + ROWindowTitleHeight + skillHeaderH
 }
 
 func (w *SkillWindow) hideTooltip() {
@@ -592,7 +592,8 @@ func newSkillRowWidget(cfg skillRowWidgetConfig) *skillRowWidget {
 }
 
 func (w *skillRowWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
-	size := constraints.Constrain(geometry.Sz(skillWindowWidth-skillWindowPad*2, skillRowH))
+	width := constraints.BiggestFinite(scrollbarSafeWidth(skillWindowWidth), skillRowH).Width
+	size := constraints.Constrain(geometry.Sz(width, skillRowH))
 	w.SetBounds(geometry.FromPointSize(w.Position(), size))
 	return size
 }
