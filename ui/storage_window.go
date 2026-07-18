@@ -222,9 +222,9 @@ func (w *StorageWindow) storageTableWidget(ctx Context) *rotheme.TableViewWidget
 		rotheme.TableViewSelectedRow(w.ensureSelectedRowSignal()),
 		rotheme.TableViewInvalidateHover(false),
 		rotheme.TableViewDispatchHoverToCells(false),
-		rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
+		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 			if cell.Row < 0 || cell.Row >= len(rows) {
-				return primitives.Box()
+				return rotheme.TableViewSimpleCell{Hidden: true}
 			}
 			switch cell.Column.Key {
 			case "item":
@@ -232,11 +232,15 @@ func (w *StorageWindow) storageTableWidget(ctx Context) *rotheme.TableViewWidget
 				if cell.Row < len(icons) {
 					icon = icons[cell.Row]
 				}
-				return rotheme.TableIconTextCell(icon, rows[cell.Row].name, cell.Width, cell.Height)
+				return rotheme.TableViewSimpleCell{Icon: icon, Text: rows[cell.Row].name}
 			case "amount":
-				return rotheme.TableTextCellColor(rows[cell.Row].amount, cell.Width, cell.Height, widget.TextAlignRight, rotheme.Default.Colors.MutedText)
+				return rotheme.TableViewSimpleCell{
+					Text:  rows[cell.Row].amount,
+					Align: widget.TextAlignRight,
+					Color: rotheme.Default.Colors.MutedText,
+				}
 			default:
-				return primitives.Box()
+				return rotheme.TableViewSimpleCell{Hidden: true}
 			}
 		}),
 		rotheme.TableViewOnRowClick(func(row int) {

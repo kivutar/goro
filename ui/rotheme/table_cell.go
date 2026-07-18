@@ -30,6 +30,28 @@ type tableCellWidget struct {
 	color  widget.Color
 }
 
+type TableViewSimpleCell struct {
+	Text   string
+	Icon   image.Image
+	Align  widget.TextAlign
+	Color  widget.Color
+	Hidden bool
+}
+
+func (c TableViewSimpleCell) simpleCell() tableViewSimpleCell {
+	color := c.Color
+	if color.IsTransparent() {
+		color = Default.Colors.Text
+	}
+	return tableViewSimpleCell{
+		text:    c.Text,
+		icon:    c.Icon,
+		align:   c.Align,
+		color:   color,
+		visible: !c.Hidden,
+	}
+}
+
 func newTableCell(text string, icon image.Image, width, height float32, align widget.TextAlign, color widget.Color) *tableCellWidget {
 	w := &tableCellWidget{
 		text:   text,

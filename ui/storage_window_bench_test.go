@@ -1,53 +1,111 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"testing"
 
+	"github.com/gogpu/gg"
 	"github.com/gogpu/gg/scene"
 	"github.com/gogpu/gpucontext"
 	uiapp "github.com/gogpu/ui/app"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
+	uirender "github.com/gogpu/ui/render"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/session"
 )
 
 func BenchmarkStorageWindowWheelScroll(b *testing.B) {
-	fixture := newStorageWindowScrollBenchFixture(600)
+	benchmarkListWindowWheelScroll(b, "storage", newStorageWindowScrollBenchFixture)
+}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		fixture.step()
+func BenchmarkCartWindowWheelScroll(b *testing.B) {
+	benchmarkListWindowWheelScroll(b, "cart", newCartWindowScrollBenchFixture)
+}
+
+func benchmarkListWindowWheelScroll(
+	b *testing.B,
+	name string,
+	newFixture func(int, listBenchCanvasKind) *listWindowScrollBenchFixture,
+) {
+	for _, canvasKind := range []listBenchCanvasKind{listBenchCanvasNoop, listBenchCanvasRaster} {
+		b.Run(fmt.Sprintf("%s/%s", name, canvasKind), func(b *testing.B) {
+			fixture := newFixture(600, canvasKind)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				fixture.step()
+			}
+		})
 	}
 }
 
 func TestStorageWindowWheelScrollAllocationBudget(t *testing.T) {
-	fixture := newStorageWindowScrollBenchFixture(600)
+	fixture := newStorageWindowScrollBenchFixture(600, listBenchCanvasNoop)
 	fixture.step()
 
-	allocs := testing.AllocsPerRun(100, fixture.step)
-	if allocs > 100 {
-		t.Fatalf("storage wheel scroll allocations = %.0f, want <= 100", allocs)
+	allocs := testing.AllocsPerRun(100, func() {
+		fixture.step()
+	})
+	if allocs > 75 {
+		t.Fatalf("storage wheel scroll allocations = %.0f, want <= 75", allocs)
 	}
 }
 
-type storageWindowScrollBenchFixture struct {
-	app          *uiapp.App
-	input        *input.State
-	storage      *StorageWindow
-	session      *session.Session
-	ctx          Context
-	canvas       storageBenchCanvas
-	wheel        *event.WheelEvent
-	maxRow       int
-	currentFrame int
+func TestCartWindowWheelScrollAllocationBudget(t *testing.T) {
+	fixture := newCartWindowScrollBenchFixture(600, listBenchCanvasNoop)
+	fixture.step()
+
+	allocs := testing.AllocsPerRun(100, func() {
+		fixture.step()
+	})
+	if allocs > 75 {
+		t.Fatalf("cart wheel scroll allocations = %.0f, want <= 75", allocs)
+	}
 }
 
-func newStorageWindowScrollBenchFixture(itemCount int) *storageWindowScrollBenchFixture {
-	app := uiapp.New(uiapp.WithWindowProvider(gpucontext.NullWindowProvider{W: 800, H: 600}))
+func TestListWindowWheelScrollFixturesScroll(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		newFixture func(int, listBenchCanvasKind) *listWindowScrollBenchFixture
+	}{
+		{name: "storage", newFixture: newStorageWindowScrollBenchFixture},
+		{name: "cart", newFixture: newCartWindowScrollBenchFixture},
+	} {
+		fixture := tc.newFixture(600, listBenchCanvasNoop)
+		before := fixture.currentScroll()
+		fixture.step()
+		if after := fixture.currentScroll(); after <= before {
+			t.Fatalf("%s fixture scroll = %.1f after %.1f, want to increase", tc.name, after, before)
+		}
+	}
+}
+
+type listBenchCanvasKind string
+
+const (
+	listBenchCanvasNoop   listBenchCanvasKind = "noop"
+	listBenchCanvasRaster listBenchCanvasKind = "raster"
+)
+
+type listWindowScrollBenchFixture struct {
+	app           *uiapp.App
+	input         *input.State
+	canvas        widget.Canvas
+	canvasFactory func() widget.Canvas
+	wheel         *event.WheelEvent
+	maxRow        int
+	currentFrame  int
+	resetScroll   func()
+	currentScroll func() float32
+	update        func()
+}
+
+func newStorageWindowScrollBenchFixture(itemCount int, canvasKind listBenchCanvasKind) *listWindowScrollBenchFixture {
+	app := newListBenchApp()
 	manager := NewManager()
 	uiApp := basicMenuTestApp{app: app}
 	manager.SetUIApp(uiApp)
@@ -65,33 +123,109 @@ func newStorageWindowScrollBenchFixture(itemCount int) *storageWindowScrollBench
 
 	storage.OpenWindow(ctx)
 	inputState.SetMousePosition(storage.x+12, storage.y+storageWindowTitleH+16)
-	canvas := storageBenchCanvas{}
+	canvasFactory := newListBenchCanvasFactory(canvasKind)
 	app.Frame()
-	app.Window().DrawTo(canvas)
+	app.Window().DrawTo(canvasFactory())
 
 	wheelPosition := geometry.Pt(float32(storage.x+12), float32(storage.y+storageWindowTitleH+16))
-	wheel := event.NewWheelEvent(wheelPosition, wheelPosition, geometry.Pt(0, 1), event.ModNone)
+	wheel := event.NewWheelEvent(geometry.Pt(0, 1), wheelPosition, wheelPosition, event.ModNone)
 	maxRow := len(sessionState.Storage.Items) - storageRows
 
-	return &storageWindowScrollBenchFixture{
-		app:     app,
-		input:   inputState,
-		storage: storage,
-		session: sessionState,
-		ctx:     ctx,
-		canvas:  canvas,
-		wheel:   wheel,
-		maxRow:  maxRow,
+	return &listWindowScrollBenchFixture{
+		app:           app,
+		input:         inputState,
+		canvasFactory: canvasFactory,
+		wheel:         wheel,
+		maxRow:        maxRow,
+		resetScroll: func() {
+			storage.ensureScrollSignal().Set(0)
+		},
+		currentScroll: func() float32 {
+			return storage.ensureScrollSignal().Get()
+		},
+		update: func() {
+			storage.Update(ctx, nil, nil, nil)
+		},
 	}
 }
 
-func (f *storageWindowScrollBenchFixture) step() {
+func newCartWindowScrollBenchFixture(itemCount int, canvasKind listBenchCanvasKind) *listWindowScrollBenchFixture {
+	app := newListBenchApp()
+	manager := NewManager()
+	uiApp := basicMenuTestApp{app: app}
+	manager.SetUIApp(uiApp)
+	inputState := input.NewState()
+	cart := &CartWindow{}
+	sessionState := benchCartSession(itemCount)
+	ctx := Context{
+		Input:     inputState,
+		Session:   sessionState,
+		UIApp:     uiApp,
+		UIManager: manager,
+		ScreenW:   800,
+		ScreenH:   600,
+	}
+
+	cart.OpenWindow(ctx)
+	inputState.SetMousePosition(cart.x+12, cart.y+ROWindowTitleHeight+storageTableHeaderH+16)
+	canvasFactory := newListBenchCanvasFactory(canvasKind)
+	app.Frame()
+	app.Window().DrawTo(canvasFactory())
+
+	wheelPosition := geometry.Pt(float32(cart.x+12), float32(cart.y+ROWindowTitleHeight+storageTableHeaderH+16))
+	wheel := event.NewWheelEvent(geometry.Pt(0, 1), wheelPosition, wheelPosition, event.ModNone)
+	maxRow := len(sessionState.Cart.Items) - cartRows
+
+	return &listWindowScrollBenchFixture{
+		app:           app,
+		input:         inputState,
+		canvasFactory: canvasFactory,
+		wheel:         wheel,
+		maxRow:        maxRow,
+		resetScroll: func() {
+			cart.ensureScrollSignal().Set(0)
+		},
+		currentScroll: func() float32 {
+			return cart.ensureScrollSignal().Get()
+		},
+		update: func() {
+			cart.Update(ctx, nil, nil, nil)
+		},
+	}
+}
+
+func newListBenchApp() *uiapp.App {
+	return uiapp.New(
+		uiapp.WithWindowProvider(gpucontext.NullWindowProvider{W: 800, H: 600}),
+		uiapp.WithRenderMode(uiapp.RenderModeFrameworkManaged),
+	)
+}
+
+func newListBenchCanvasFactory(kind listBenchCanvasKind) func() widget.Canvas {
+	switch kind {
+	case listBenchCanvasRaster:
+		const width = 800
+		const height = 600
+		dc := gg.NewContext(width, height)
+		return func() widget.Canvas {
+			return uirender.NewCanvas(dc, width, height)
+		}
+	default:
+		canvas := storageBenchCanvas{}
+		return func() widget.Canvas {
+			return canvas
+		}
+	}
+}
+
+func (f *listWindowScrollBenchFixture) step() {
 	if f.maxRow > 0 && f.currentFrame%f.maxRow == 0 {
-		f.storage.ensureScrollSignal().Set(0)
+		f.resetScroll()
 	}
 	f.app.HandleEvent(f.wheel)
-	f.storage.Update(f.ctx, nil, nil, nil)
+	f.update()
 	f.app.Frame()
+	f.canvas = f.canvasFactory()
 	f.app.Window().DrawTo(f.canvas)
 	f.input.EndFrame()
 	f.currentFrame++
@@ -112,6 +246,28 @@ func benchStorageSession(count int) *session.Session {
 			Open:      true,
 			Amount:    count,
 			MaxAmount: count,
+			Items:     items,
+		},
+	}
+}
+
+func benchCartSession(count int) *session.Session {
+	items := make([]session.InventoryItem, count)
+	for i := range items {
+		items[i] = session.InventoryItem{
+			Index:      uint16(i + 1),
+			ItemID:     uint16(500 + i%120),
+			Amount:     (i % 99) + 1,
+			Identified: true,
+		}
+	}
+	return &session.Session{
+		Cart: session.Cart{
+			Open:      true,
+			Amount:    count,
+			MaxAmount: count,
+			Weight:    count * 10,
+			MaxWeight: count * 20,
 			Items:     items,
 		},
 	}

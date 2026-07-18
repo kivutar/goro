@@ -434,6 +434,112 @@ func TestTableViewUsesSimpleCellFastPath(t *testing.T) {
 	}
 }
 
+func TestTableViewBuildSimpleCellDrawsWithoutRowWidgets(t *testing.T) {
+	calls := 0
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(32),
+		TableViewShowHeader(false),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			calls++
+			return TableViewSimpleCell{Text: "Row"}
+		}),
+	)
+	ctx := widget.NewContext()
+	canvas := &tableViewHeaderCanvas{}
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 40)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 40))
+	table.Draw(ctx, canvas)
+
+	if calls == 0 {
+		t.Fatal("simple cell builder was not called")
+	}
+	if got := len(table.body.rows); got != 0 {
+		t.Fatalf("cached row widgets = %d, want 0", got)
+	}
+	if children := table.body.Children(); len(children) != 0 {
+		t.Fatalf("body children = %d, want 0 for direct simple rows", len(children))
+	}
+	if len(canvas.texts) != 1 {
+		t.Fatalf("drawn texts = %d, want 1", len(canvas.texts))
+	}
+}
+
+func TestTableViewBuildSimpleCellHandlesRowClick(t *testing.T) {
+	clicked := -1
+	selected := state.NewSignal[int](-1)
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(32),
+		TableViewShowHeader(false),
+		TableViewSelectedRow(selected),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			return TableViewSimpleCell{Text: "Row"}
+		}),
+		TableViewOnRowClick(func(row int) {
+			clicked = row
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 40)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 40))
+
+	consumed := table.Event(ctx, event.NewMouseEvent(
+		event.MousePress,
+		event.ButtonLeft,
+		event.ButtonStateLeft,
+		geometry.Pt(8, 8),
+		geometry.Pt(8, 8),
+		0,
+	))
+
+	if !consumed {
+		t.Fatal("simple row click was not consumed")
+	}
+	if clicked != 0 {
+		t.Fatalf("clicked row = %d, want 0", clicked)
+	}
+	if selected.Get() != 0 {
+		t.Fatalf("selected row = %d, want 0", selected.Get())
+	}
+}
+
+func TestTableViewBuildSimpleCellHoverInvalidatesRowRect(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(2),
+		TableViewRowHeight(20),
+		TableViewShowHeader(false),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			return TableViewSimpleCell{Text: "Row"}
+		}),
+	)
+	ctx := widget.NewContext()
+	var invalidated []geometry.Rect
+	ctx.SetOnInvalidateRect(func(r geometry.Rect) {
+		invalidated = append(invalidated, r)
+	})
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 60)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 60))
+	widget.StampScreenOrigin(table, &tableViewHeaderCanvas{})
+	table.Draw(ctx, &tableViewHeaderCanvas{})
+	widget.ClearRedrawInTree(table)
+
+	table.setHoveredRow(ctx, 0)
+
+	if !table.body.NeedsRedraw() {
+		t.Fatal("simple table body should be dirty after hover change")
+	}
+	if len(invalidated) != 1 {
+		t.Fatalf("invalidated rect count = %d, want 1", len(invalidated))
+	}
+	if invalidated[0].Height() != table.cfg.rowHeight {
+		t.Fatalf("invalidated rect height = %.1f, want %.1f", invalidated[0].Height(), table.cfg.rowHeight)
+	}
+}
+
 type tableViewLayoutProbe struct {
 	widget.WidgetBase
 	layouts int

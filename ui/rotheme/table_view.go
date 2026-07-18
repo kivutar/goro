@@ -33,18 +33,19 @@ type TableViewCellContext struct {
 type TableViewOption func(*tableViewConfig)
 
 type tableViewConfig struct {
-	columns      []TableViewColumn
-	rowCount     int
-	rowHeight    float32
-	headerHeight float32
-	showHeader   bool
-	stickyHeader bool
-	emptyText    string
-	scrollY      state.Signal[float32]
-	selectedRow  state.Signal[int]
-	buildCell    func(TableViewCellContext) widget.Widget
-	onRowClick   func(int)
-	onRowEvent   func(int, event.Event) bool
+	columns         []TableViewColumn
+	rowCount        int
+	rowHeight       float32
+	headerHeight    float32
+	showHeader      bool
+	stickyHeader    bool
+	emptyText       string
+	scrollY         state.Signal[float32]
+	selectedRow     state.Signal[int]
+	buildCell       func(TableViewCellContext) widget.Widget
+	buildSimpleCell func(TableViewCellContext) TableViewSimpleCell
+	onRowClick      func(int)
+	onRowEvent      func(int, event.Event) bool
 
 	invalidateHover      bool
 	dispatchHoverToCells bool
@@ -148,6 +149,10 @@ func TableViewBuildCell(build func(TableViewCellContext) widget.Widget) TableVie
 	return func(c *tableViewConfig) { c.buildCell = build }
 }
 
+func TableViewBuildSimpleCell(build func(TableViewCellContext) TableViewSimpleCell) TableViewOption {
+	return func(c *tableViewConfig) { c.buildSimpleCell = build }
+}
+
 func TableViewOnRowClick(onClick func(int)) TableViewOption {
 	return func(c *tableViewConfig) { c.onRowClick = onClick }
 }
@@ -200,8 +205,6 @@ func (w *TableViewWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 	if bounds.IsEmpty() {
 		return
 	}
-
-	canvas.DrawRect(bounds, tableViewColors().Body)
 
 	headerH := w.stickyHeaderHeight()
 	if headerH > 0 {
@@ -456,6 +459,15 @@ func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
 		return
 	}
 
+	if table.cfg.buildSimpleCell != nil {
+		if len(b.rows) > 0 {
+			b.clearRows()
+		}
+		table.bodyVisible = nil
+		b.drawSimpleRows(canvas)
+		return
+	}
+
 	start, end := b.visibleRange()
 	b.trimRows(start, end)
 	table.bodyVisible = table.bodyVisible[:0]
@@ -495,7 +507,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 	}
 
 	if table.pressedRow >= 0 && (mouse.MouseType == event.MouseRelease || mouse.MouseType == event.MouseDrag) {
-		if b.dispatchRowEvent(ctx, table.pressedRow, mouse) {
+		if table.cfg.buildSimpleCell == nil && b.dispatchRowEvent(ctx, table.pressedRow, mouse) {
 			if mouse.MouseType == event.MouseRelease {
 				table.pressedRow = -1
 			}
@@ -524,12 +536,14 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 		}
 		return false
 	}
-	consumed := b.dispatchRowEvent(ctx, row, mouse)
-	if mouse.MouseType == event.MousePress && consumed {
-		table.pressedRow = row
-	}
-	if consumed {
-		return true
+	if table.cfg.buildSimpleCell == nil {
+		consumed := b.dispatchRowEvent(ctx, row, mouse)
+		if mouse.MouseType == event.MousePress && consumed {
+			table.pressedRow = row
+		}
+		if consumed {
+			return true
+		}
 	}
 
 	if table.cfg.onRowEvent != nil && table.cfg.onRowEvent(row, mouse) {
@@ -552,7 +566,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 }
 
 func (b *tableViewBody) Children() []widget.Widget {
-	if b.table == nil || len(b.table.bodyVisible) == 0 {
+	if b.table == nil || b.table.cfg.buildSimpleCell != nil || len(b.table.bodyVisible) == 0 {
 		return nil
 	}
 	children := make([]widget.Widget, len(b.table.bodyVisible))
@@ -588,6 +602,27 @@ func (b *tableViewBody) visibleRange() (int, int) {
 		end = start
 	}
 	return start, end
+}
+
+func (b *tableViewBody) drawSimpleRows(canvas widget.Canvas) {
+	table := b.table
+	start, end := b.visibleRange()
+	for row := start; row < end; row++ {
+		y := table.bodyHeaderHeight() + float32(row)*table.cfg.rowHeight
+		rowBounds := geometry.NewRect(0, y, table.contentW, table.cfg.rowHeight)
+		canvas.DrawRect(rowBounds, table.rowBackground(row))
+
+		x := float32(0)
+		for i, col := range table.cfg.columns {
+			if i >= len(table.colWidths) {
+				break
+			}
+			width := table.colWidths[i]
+			cell := table.buildSimpleCell(row, i, col, width)
+			cell.draw(canvas, geometry.NewRect(x, rowBounds.Min.Y, width, rowBounds.Height()))
+			x += width
+		}
+	}
 }
 
 func (b *tableViewBody) rowAt(y float32) int {
@@ -629,6 +664,9 @@ func (b *tableViewBody) ensureRow(row int) *tableViewRowWidget {
 	}
 	if child := b.rows[row]; child != nil {
 		return child
+	}
+	if b.rows == nil {
+		b.rows = make(map[int]*tableViewRowWidget)
 	}
 	child := &tableViewRowWidget{
 		table: b.table,
@@ -754,14 +792,18 @@ func (r *tableViewRowWidget) Children() []widget.Widget {
 }
 
 func (r *tableViewRowWidget) background() widget.Color {
+	return r.table.rowBackground(r.row)
+}
+
+func (w *TableViewWidget) rowBackground(row int) widget.Color {
 	colors := tableViewColors()
-	if r.table.selected(r.row) {
+	if w.selected(row) {
 		return colors.Selected
 	}
-	if r.row == r.table.hoveredRow {
+	if row == w.hoveredRow {
 		return colors.Hover
 	}
-	if r.row%2 == 1 {
+	if row%2 == 1 {
 		return colors.AltRow
 	}
 	return colors.Row
@@ -821,6 +863,19 @@ func (w *TableViewWidget) buildCell(row, columnIndex int, col TableViewColumn, w
 		child = primitives.Box()
 	}
 	return child
+}
+
+func (w *TableViewWidget) buildSimpleCell(row, columnIndex int, col TableViewColumn, width float32) tableViewSimpleCell {
+	if w.cfg.buildSimpleCell == nil {
+		return tableViewSimpleCell{}
+	}
+	return w.cfg.buildSimpleCell(TableViewCellContext{
+		Row:         row,
+		ColumnIndex: columnIndex,
+		Column:      col,
+		Width:       width,
+		Height:      w.cfg.rowHeight,
+	}).simpleCell()
 }
 
 type tableViewCellWidget struct {
@@ -919,6 +974,24 @@ func (w *TableViewWidget) setHoveredRow(ctx widget.Context, row int) {
 
 func (w *TableViewWidget) invalidateHoverRow(ctx widget.Context, row int) {
 	if row < 0 || w.body == nil {
+		return
+	}
+	if w.cfg.buildSimpleCell != nil {
+		if w.scroll == nil {
+			return
+		}
+		_, scrollY := w.scroll.ScrollOffset()
+		viewport := w.scroll.ScreenBounds()
+		if viewport.IsEmpty() {
+			return
+		}
+		y := viewport.Min.Y + w.bodyHeaderHeight() + float32(row)*w.cfg.rowHeight - scrollY
+		bounds := geometry.NewRect(viewport.Min.X, y, w.contentW, w.cfg.rowHeight).Intersection(viewport)
+		if bounds.IsEmpty() {
+			return
+		}
+		w.body.MarkRedrawLocal()
+		ctx.InvalidateRect(bounds)
 		return
 	}
 	child := w.body.rows[row]
