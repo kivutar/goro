@@ -371,6 +371,42 @@ func TestTableViewCanSkipCellHoverDispatch(t *testing.T) {
 	}
 }
 
+func TestTableViewCentersCellWidgetVertically(t *testing.T) {
+	probe := &tableViewFixedProbe{size: geometry.Sz(20, 10)}
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(32),
+		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
+			return probe
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 70)))
+	table.body.layoutRow(ctx, 0)
+
+	if got, want := probe.Bounds().Min.Y, float32(11); got != want {
+		t.Fatalf("cell child y = %.1f, want %.1f", got, want)
+	}
+}
+
+func TestTableTextCellDrawsTextVerticallyCentered(t *testing.T) {
+	cell := TableTextCell("Qty", 76, 32, widget.TextAlignRight)
+	ctx := widget.NewContext()
+	cell.Layout(ctx, geometry.Tight(geometry.Sz(76, 32)))
+	cell.(interface{ SetBounds(geometry.Rect) }).SetBounds(geometry.NewRect(0, 0, 76, 32))
+	canvas := &tableViewHeaderCanvas{}
+
+	cell.Draw(ctx, canvas)
+
+	if len(canvas.texts) != 1 {
+		t.Fatalf("drawn texts = %d, want 1", len(canvas.texts))
+	}
+	if got := canvas.texts[0].bounds.Min.Y; got <= 4 {
+		t.Fatalf("text y = %.1f, want vertically centered away from top", got)
+	}
+}
+
 type tableViewLayoutProbe struct {
 	widget.WidgetBase
 	layouts int
@@ -418,6 +454,28 @@ func (p *tableViewProbe) Children() []widget.Widget {
 }
 
 var _ widget.Widget = (*tableViewProbe)(nil)
+
+type tableViewFixedProbe struct {
+	widget.WidgetBase
+	size geometry.Size
+}
+
+func (p *tableViewFixedProbe) Layout(widget.Context, geometry.Constraints) geometry.Size {
+	p.SetBounds(geometry.FromPointSize(p.Position(), p.size))
+	return p.size
+}
+
+func (p *tableViewFixedProbe) Draw(widget.Context, widget.Canvas) {}
+
+func (p *tableViewFixedProbe) Event(widget.Context, event.Event) bool {
+	return false
+}
+
+func (p *tableViewFixedProbe) Children() []widget.Widget {
+	return nil
+}
+
+var _ widget.Widget = (*tableViewFixedProbe)(nil)
 
 type tableViewHoverProbe struct {
 	widget.WidgetBase

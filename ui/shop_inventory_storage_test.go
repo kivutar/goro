@@ -151,6 +151,27 @@ func TestStorageAndCartAcceptCrossDropsWithoutNetwork(t *testing.T) {
 	}
 }
 
+func TestStorageItemAtUsesTableViewRowsAtTop(t *testing.T) {
+	sessionState := &session.Session{
+		Storage: session.Storage{
+			Open:  true,
+			Items: []session.InventoryItem{{Index: 4, ItemID: 938, Amount: 2}},
+		},
+	}
+	window := StorageWindow{}
+	window.EnsureWindow(storageWindowWidth, storageWindowHeight)
+	window.Window.OpenAt(80, 90, nil)
+
+	item, row, ok := window.itemAt(sessionState, window.x+8, window.y+storageWindowTitleH+1)
+
+	if !ok {
+		t.Fatal("storage row at top of table was not found")
+	}
+	if row != 0 || item.Index != 4 {
+		t.Fatalf("itemAt = row %d item %+v, want row 0 index 4", row, item)
+	}
+}
+
 func TestInventoryBagShowsCartButtonOnlyWhenPlayerHasCart(t *testing.T) {
 	if inventoryBagHasCart(Context{}) {
 		t.Fatal("empty context should not show cart button")

@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"github.com/kivutar/goro/glog"
-	"github.com/kivutar/goro/input"
 	"image"
 	"sort"
 	"time"
@@ -13,6 +11,8 @@ import (
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/glog"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -25,22 +25,24 @@ const (
 	storageTableHeaderH = 36
 	storageRowH         = 32
 	storageRows         = 9
-	storageWindowHeight = storageWindowTitleH + storageTableHeaderH + storageRows*storageRowH + ROWindowFooterHeight
+	storageTableViewH   = storageRows * storageRowH
+	storageWindowHeight = storageWindowTitleH + storageTableViewH + ROWindowFooterHeight
 )
 
 type StorageWindow struct {
 	Window
-	scrollY       state.Signal[float32]
-	selectedRow   int
-	snapshot      string
-	itemInfo      *ItemInfoWindow
-	lastClickItem uint16
-	lastClickAt   time.Time
-	dragItem      session.InventoryItem
-	dragActive    bool
-	dragFrom      time.Time
-	icons         map[storageItemIconKey]image.Image
-	iconMiss      map[storageItemIconKey]struct{}
+	scrollY           state.Signal[float32]
+	selectedRow       int
+	selectedRowSignal state.Signal[int]
+	snapshot          string
+	itemInfo          *ItemInfoWindow
+	lastClickItem     uint16
+	lastClickAt       time.Time
+	dragItem          session.InventoryItem
+	dragActive        bool
+	dragFrom          time.Time
+	icons             map[storageItemIconKey]image.Image
+	iconMiss          map[storageItemIconKey]struct{}
 }
 
 type storageItemIconKey struct {
@@ -63,7 +65,7 @@ func (w *StorageWindow) SetOpen(open bool) {
 func (w *StorageWindow) OpenWindow(ctx Context) {
 	w.EnsureWindow(storageWindowWidth, storageWindowHeight)
 	w.ClampScroll(ctx.Session)
-	w.selectedRow = -1
+	w.setSelectedRow(-1)
 	w.snapshot = w.storageSnapshot(ctx.Session)
 	x, y := storageDefaultPosition(ctx)
 	if !w.IsOpen() {
@@ -196,7 +198,7 @@ func (w *StorageWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget
 		Size(storageWindowWidth, storageWindowHeight),
 		Content(
 			primitives.Box(w.storageTableWidget(ctx)).
-				Height(storageTableHeight()).
+				Height(storageTableViewHeight()).
 				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
@@ -206,36 +208,38 @@ func (w *StorageWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget
 	)
 }
 
-func (w *StorageWindow) storageTableWidget(ctx Context) *datatable.Widget {
+func (w *StorageWindow) storageTableWidget(ctx Context) *rotheme.TableViewWidget {
 	items := sortedStorageItems(ctx.Session)
 	rows := w.storageRows(ctx, items)
-	return datatable.New(
-		datatable.Columns([]datatable.Column{
-			{Key: "item", Title: "Item", Width: scrollbarSafeWidth(236)},
-			{Key: "amount", Title: "Qty", Width: 76, Align: widget.TextAlignRight},
-		}),
-		datatable.RowCount(len(rows)),
-		datatable.RowHeight(storageRowH),
-		datatable.ScrollYSignal(w.ensureScrollSignal()),
-		datatable.SelectionModeOpt(datatable.SelectionSingle),
-		datatable.SelectedRow(w.selectedRow),
-		datatable.PainterOpt(storageTablePainter{icons: w.storageItemIcons(ctx, items)}),
-		datatable.CellValue(func(row int, col string) string {
-			if row < 0 || row >= len(rows) {
-				return ""
+	icons := w.storageItemIcons(ctx, items)
+	return rotheme.TableView(
+		rotheme.TableViewColumns(storageTableColumns),
+		rotheme.TableViewRowCount(len(rows)),
+		rotheme.TableViewRowHeight(storageRowH),
+		rotheme.TableViewShowHeader(false),
+		rotheme.TableViewEmptyText("No items"),
+		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
+		rotheme.TableViewSelectedRow(w.ensureSelectedRowSignal()),
+		rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
+			if cell.Row < 0 || cell.Row >= len(rows) {
+				return primitives.Box()
 			}
-			switch col {
+			switch cell.Column.Key {
 			case "item":
-				return rows[row].name
+				var icon image.Image
+				if cell.Row < len(icons) {
+					icon = icons[cell.Row]
+				}
+				return rotheme.TableIconTextCell(icon, rows[cell.Row].name, cell.Width, cell.Height)
 			case "amount":
-				return rows[row].amount
+				return rotheme.TableTextCellColor(rows[cell.Row].amount, cell.Width, cell.Height, widget.TextAlignRight, rotheme.Default.Colors.MutedText)
 			default:
-				return ""
+				return primitives.Box()
 			}
 		}),
-		datatable.OnRowSelect(func(row int) {
+		rotheme.TableViewOnRowClick(func(row int) {
 			if row >= 0 && row < len(rows) {
-				w.selectedRow = row
+				w.setSelectedRow(row)
 			}
 		}),
 	)
@@ -271,7 +275,7 @@ func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) boo
 	if !ok {
 		return false
 	}
-	w.selectedRow = row
+	w.setSelectedRow(row)
 	now := time.Now()
 	if w.lastClickItem == item.Index && now.Sub(w.lastClickAt) <= 360*time.Millisecond {
 		w.withdraw(ctx, item)
@@ -321,7 +325,7 @@ func (w *StorageWindow) withdraw(ctx Context, item session.InventoryItem) {
 func (w *StorageWindow) ClampScroll(s *session.Session) {
 	items := sortedStorageItems(s)
 	if w.selectedRow >= len(items) {
-		w.selectedRow = -1
+		w.setSelectedRow(-1)
 	}
 	scroll := w.ensureScrollSignal()
 	maxScroll := float32(maxInt(0, len(items)-storageRows) * storageRowH)
@@ -414,10 +418,22 @@ func (w *StorageWindow) ensureScrollSignal() state.Signal[float32] {
 	return w.scrollY
 }
 
+func (w *StorageWindow) ensureSelectedRowSignal() state.Signal[int] {
+	if w.selectedRowSignal == nil {
+		w.selectedRowSignal = state.NewSignal[int](w.selectedRow)
+	}
+	return w.selectedRowSignal
+}
+
+func (w *StorageWindow) setSelectedRow(row int) {
+	w.selectedRow = row
+	w.ensureSelectedRowSignal().Set(row)
+}
+
 func (w *StorageWindow) itemAt(s *session.Session, mx, my int) (session.InventoryItem, int, bool) {
 	tableX := w.x
 	tableY := w.y + storageWindowTitleH
-	row, ok := storageTableRowAt(mx, my, tableX, tableY, storageWindowWidth, int(storageTableHeight()), len(sortedStorageItems(s)), w.ensureScrollSignal().Get())
+	row, ok := storageTableViewRowAt(mx, my, tableX, tableY, storageWindowWidth, int(storageTableViewHeight()), len(sortedStorageItems(s)), w.ensureScrollSignal().Get())
 	if !ok {
 		return session.InventoryItem{}, 0, false
 	}
@@ -435,6 +451,27 @@ func storageDefaultPosition(ctx Context) (int, int) {
 
 func storageTableHeight() float32 {
 	return storageTableHeaderH + storageRows*storageRowH
+}
+
+func storageTableViewHeight() float32 {
+	return storageTableViewH
+}
+
+var storageTableColumns = []rotheme.TableViewColumn{
+	{Key: "item", Title: "Item", Flex: 1, MinWidth: 120},
+	{Key: "amount", Title: "Qty", Width: 76, Align: widget.TextAlignRight},
+}
+
+func storageTableViewRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount int, scrollY float32) (int, bool) {
+	if !pointInRect(mx, my, tableX, tableY, scrollbarSafeIntWidth(tableW), tableH) {
+		return 0, false
+	}
+	localY := float32(my-tableY) + scrollY
+	row := int(localY / float32(storageRowH))
+	if row < 0 || row >= rowCount {
+		return 0, false
+	}
+	return row, true
 }
 
 func storageTableRowAt(mx, my, tableX, tableY, tableW, tableH, rowCount int, scrollY float32) (int, bool) {

@@ -777,15 +777,84 @@ func (w *TableViewWidget) buildRow(row int) widget.Widget {
 			child = primitives.Box()
 		}
 		cells = append(cells,
-			primitives.HBox(child).
-				Width(width).
-				Height(w.cfg.rowHeight).
-				CrossAlign(primitives.CrossAxisCenter),
+			newTableViewCellWidget(child, width, w.cfg.rowHeight),
 		)
 	}
 	return primitives.HBox(cells...).
 		Height(w.cfg.rowHeight).
 		CrossAlign(primitives.CrossAxisStretch)
+}
+
+type tableViewCellWidget struct {
+	widget.WidgetBase
+	child  widget.Widget
+	width  float32
+	height float32
+}
+
+func newTableViewCellWidget(child widget.Widget, width, height float32) *tableViewCellWidget {
+	w := &tableViewCellWidget{
+		child:  child,
+		width:  width,
+		height: height,
+	}
+	w.SetVisible(true)
+	w.SetEnabled(true)
+	setParent(child, w)
+	return w
+}
+
+func (w *tableViewCellWidget) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(w.width, w.height))
+	if w.child != nil {
+		childSize := w.child.Layout(ctx, geometry.Constraints{
+			MinWidth:  0,
+			MaxWidth:  size.Width,
+			MinHeight: 0,
+			MaxHeight: size.Height,
+		})
+		y := (size.Height - childSize.Height) / 2
+		if y < 0 {
+			y = 0
+		}
+		setBounds(w.child, geometry.NewRect(0, y, childSize.Width, childSize.Height))
+	}
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *tableViewCellWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
+	if w.child == nil {
+		return
+	}
+	bounds := w.Bounds()
+	canvas.PushTransform(bounds.Min)
+	widget.StampScreenOrigin(w.child, canvas)
+	widget.DrawChild(w.child, ctx, canvas)
+	canvas.PopTransform()
+}
+
+func (w *tableViewCellWidget) Event(ctx widget.Context, e event.Event) bool {
+	if w.child == nil {
+		return false
+	}
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return w.child.Event(ctx, e)
+	}
+	if !w.Bounds().Contains(mouse.Position) && mouse.MouseType != event.MouseRelease && mouse.MouseType != event.MouseDrag {
+		return false
+	}
+	local := *mouse
+	local.Position = mouse.Position.Sub(w.Bounds().Min)
+	return w.child.Event(ctx, &local)
+}
+
+func (w *tableViewCellWidget) Children() []widget.Widget {
+	if w.child == nil {
+		return nil
+	}
+	return []widget.Widget{w.child}
 }
 
 func isTableViewHoverEvent(mouse *event.MouseEvent) bool {
