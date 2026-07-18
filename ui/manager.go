@@ -9,12 +9,13 @@ import (
 )
 
 type Manager struct {
-	app  client.UIApp
-	root *overlayRoot
+	app      client.UIApp
+	root     *overlayRoot
+	overlays []widget.Widget
 }
 
 func NewManager() *Manager {
-	return &Manager{root: newOverlayRoot()}
+	return &Manager{root: newOverlayRoot(nil)}
 }
 
 func (m *Manager) SetUIApp(app client.UIApp) {
@@ -29,8 +30,13 @@ func (m *Manager) AddOverlay(root widget.Widget) {
 	if m == nil || root == nil {
 		return
 	}
+	for _, child := range m.overlays {
+		if child == root {
+			return
+		}
+	}
 	disableRootRepaintBoundary(root)
-	m.root.Add(root)
+	m.overlays = append(m.overlays, root)
 	m.apply()
 }
 
@@ -38,15 +44,20 @@ func (m *Manager) RemoveOverlay(root widget.Widget) {
 	if m == nil || root == nil {
 		return
 	}
-	m.root.Remove(root)
-	m.apply()
+	for i, child := range m.overlays {
+		if child == root {
+			m.overlays = append(m.overlays[:i], m.overlays[i+1:]...)
+			m.apply()
+			return
+		}
+	}
 }
 
 func (m *Manager) Clear() {
-	if m == nil {
+	if m == nil || len(m.overlays) == 0 {
 		return
 	}
-	m.root.Clear()
+	m.overlays = nil
 	m.apply()
 }
 
@@ -55,6 +66,7 @@ func (m *Manager) PointerBlocked(x, y int) bool {
 }
 
 func (m *Manager) apply() {
+	m.root = newOverlayRoot(m.overlays)
 	if m.app != nil && m.root != nil {
 		m.app.SetUIRoot(m.root)
 		disableRootRepaintBoundary(m.root)
@@ -77,65 +89,12 @@ type overlayRoot struct {
 	children []widget.Widget
 }
 
-func newOverlayRoot() *overlayRoot {
-	root := &overlayRoot{}
+func newOverlayRoot(children []widget.Widget) *overlayRoot {
+	root := &overlayRoot{children: append([]widget.Widget(nil), children...)}
 	root.SetVisible(true)
 	root.SetEnabled(true)
+	root.SetNeedsRedraw(true)
 	return root
-}
-
-func (r *overlayRoot) Add(root widget.Widget) {
-	if root == nil {
-		return
-	}
-	for _, child := range r.children {
-		if child == root {
-			return
-		}
-	}
-	r.children = append(r.children, root)
-	if setter, ok := root.(interface{ SetParent(widget.Widget) }); ok {
-		setter.SetParent(r)
-	}
-	r.SetNeedsRedraw(true)
-}
-
-func (r *overlayRoot) Remove(root widget.Widget) {
-	for i, child := range r.children {
-		if child == root {
-			unmountOverlayChild(root)
-			r.children = append(r.children[:i], r.children[i+1:]...)
-			if setter, ok := root.(interface{ SetParent(widget.Widget) }); ok {
-				setter.SetParent(nil)
-			}
-			r.SetNeedsRedraw(true)
-			return
-		}
-	}
-}
-
-func (r *overlayRoot) Clear() {
-	if len(r.children) == 0 {
-		return
-	}
-	for _, child := range r.children {
-		unmountOverlayChild(child)
-		if setter, ok := child.(interface{ SetParent(widget.Widget) }); ok {
-			setter.SetParent(nil)
-		}
-	}
-	r.children = nil
-	r.SetNeedsRedraw(true)
-}
-
-func unmountOverlayChild(child widget.Widget) {
-	if child == nil {
-		return
-	}
-	if mounted, ok := child.(interface{ IsMounted() bool }); ok && !mounted.IsMounted() {
-		return
-	}
-	widget.UnmountTree(child)
 }
 
 func (r *overlayRoot) Layout(ctx widget.Context, constraints geometry.Constraints) geometry.Size {
