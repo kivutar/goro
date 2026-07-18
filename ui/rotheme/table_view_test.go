@@ -56,8 +56,10 @@ func TestTableViewHeaderDrawsAcrossScrollbarGutter(t *testing.T) {
 }
 
 type tableViewHeaderCanvas struct {
-	rects []geometry.Rect
-	lines []struct {
+	rects          []geometry.Rect
+	transform      geometry.Point
+	transformStack []geometry.Point
+	lines          []struct {
 		from geometry.Point
 		to   geometry.Point
 	}
@@ -112,11 +114,21 @@ func (c *tableViewHeaderCanvas) PushClipRoundRect(geometry.Rect, float32) {}
 
 func (c *tableViewHeaderCanvas) PopClip() {}
 
-func (c *tableViewHeaderCanvas) PushTransform(geometry.Point) {}
+func (c *tableViewHeaderCanvas) PushTransform(offset geometry.Point) {
+	c.transformStack = append(c.transformStack, offset)
+	c.transform = c.transform.Add(offset)
+}
 
-func (c *tableViewHeaderCanvas) PopTransform() {}
+func (c *tableViewHeaderCanvas) PopTransform() {
+	if len(c.transformStack) == 0 {
+		return
+	}
+	offset := c.transformStack[len(c.transformStack)-1]
+	c.transformStack = c.transformStack[:len(c.transformStack)-1]
+	c.transform = c.transform.Sub(offset)
+}
 
-func (c *tableViewHeaderCanvas) TransformOffset() geometry.Point { return geometry.Point{} }
+func (c *tableViewHeaderCanvas) TransformOffset() geometry.Point { return c.transform }
 
 func (c *tableViewHeaderCanvas) ScreenOriginBase() geometry.Point { return geometry.Point{} }
 
@@ -212,6 +224,66 @@ func TestTableViewMouseMoveDoesNotRelayoutCachedRow(t *testing.T) {
 
 	if probe.layouts != 1 {
 		t.Fatalf("layouts after mouse move = %d, want 1", probe.layouts)
+	}
+}
+
+func TestTableViewHoverInvalidatesOnlyChangedRows(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(10),
+		TableViewRowHeight(20),
+		TableViewHeaderHeight(10),
+	)
+	ctx := widget.NewContext()
+	var invalidated []geometry.Rect
+	ctx.SetOnInvalidateRect(func(r geometry.Rect) {
+		invalidated = append(invalidated, r)
+	})
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 70)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 70))
+	widget.StampScreenOrigin(table, &tableViewHeaderCanvas{})
+	table.Draw(ctx, &tableViewHeaderCanvas{})
+	widget.ClearRedrawInTree(table)
+
+	row0 := table.body.rows[0]
+	row1 := table.body.rows[1]
+	if row0 == nil || row1 == nil {
+		t.Fatal("expected visible rows to be cached after draw")
+	}
+
+	table.setHoveredRow(ctx, 0)
+	if table.NeedsRedraw() {
+		t.Fatal("table should stay clean when hover changes")
+	}
+	if !row0.NeedsRedraw() {
+		t.Fatal("new hovered row should be locally dirty")
+	}
+	if len(invalidated) != 1 {
+		t.Fatalf("invalidated rect count = %d, want 1", len(invalidated))
+	}
+	if row0.ScreenBounds().Height() != invalidated[0].Height() {
+		t.Fatalf("invalidated row height = %.1f, want %.1f", invalidated[0].Height(), row0.ScreenBounds().Height())
+	}
+
+	row0.ClearRedraw()
+	invalidated = invalidated[:0]
+	table.setHoveredRow(ctx, 1)
+	if table.NeedsRedraw() {
+		t.Fatal("table should stay clean when hover moves")
+	}
+	if !row0.NeedsRedraw() {
+		t.Fatal("previous hovered row should be locally dirty")
+	}
+	if !row1.NeedsRedraw() {
+		t.Fatal("new hovered row should be locally dirty")
+	}
+	if len(invalidated) != 2 {
+		t.Fatalf("invalidated rect count = %d, want 2", len(invalidated))
+	}
+	for _, r := range invalidated {
+		if r.Width() >= table.Bounds().Width() || r.Height() > table.cfg.rowHeight {
+			t.Fatalf("invalidated rect %v should be row-sized, table bounds %v", r, table.Bounds())
+		}
 	}
 }
 

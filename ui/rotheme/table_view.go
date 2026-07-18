@@ -772,9 +772,32 @@ func (w *TableViewWidget) setHoveredRow(ctx widget.Context, row int) {
 	if w.hoveredRow == row {
 		return
 	}
+	previous := w.hoveredRow
 	w.hoveredRow = row
-	w.SetNeedsRedraw(true)
-	ctx.InvalidateRect(w.Bounds())
+	w.invalidateHoverRow(ctx, previous)
+	w.invalidateHoverRow(ctx, row)
+}
+
+func (w *TableViewWidget) invalidateHoverRow(ctx widget.Context, row int) {
+	if row < 0 || w.body == nil {
+		return
+	}
+	child := w.body.rows[row]
+	if child == nil {
+		return
+	}
+	child.MarkRedrawLocal()
+
+	bounds := child.ScreenBounds()
+	if w.scroll != nil {
+		if viewport := w.scroll.ScreenBounds(); !viewport.IsEmpty() {
+			bounds = bounds.Intersection(viewport)
+		}
+	}
+	if bounds.IsEmpty() {
+		return
+	}
+	ctx.InvalidateRect(bounds)
 }
 
 func setBounds(w widget.Widget, bounds geometry.Rect) {
