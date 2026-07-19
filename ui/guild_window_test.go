@@ -58,7 +58,7 @@ func TestGuildSkillTooltipAreaUsesInputCursorPosition(t *testing.T) {
 		event.MouseMove,
 		event.ButtonNone,
 		0,
-		geometry.Pt(10, guildSkillHeaderH+6),
+		geometry.Pt(10, guildTableHeaderH+6),
 		geometry.Pt(300, 120),
 		0,
 	))
@@ -137,6 +137,50 @@ func TestGuildMemberPositionTransferSendsOnlyMasterChange(t *testing.T) {
 	}
 	if changes[0].AccountID != 2 || changes[0].CharID != 20 || changes[0].PositionID != 0 {
 		t.Fatalf("member position changes = %+v", changes)
+	}
+}
+
+func TestGuildTableControlCellsKeepControlHeight(t *testing.T) {
+	s := &session.Session{Guild: session.Guild{
+		IsMaster: true,
+		Members: []session.GuildMember{
+			{AccountID: 2, CharID: 20, PositionID: 1, CharName: "Arcer"},
+		},
+		Positions: []session.GuildPosition{
+			{PositionID: 1, PosName: "Member"},
+			{PositionID: 2, PosName: "Officer"},
+		},
+	}}
+	ctx := Context{Session: s}
+	window := &GuildWindow{}
+	window.ensurePositionDraft(ctx, s.Guild.Positions)
+
+	cells := []struct {
+		name string
+		cell widget.Widget
+	}{
+		{
+			name: "dropdown",
+			cell: window.guildMemberPositionCell(ctx, s.Guild.Members[0], s.Guild.Positions, true, 62),
+		},
+		{
+			name: "title textfield",
+			cell: window.guildPositionTitleCell(s.Guild.Positions[0], true, 120),
+		},
+		{
+			name: "tax textfield",
+			cell: window.guildPositionTaxCell(s.Guild.Positions[0], true, 46),
+		},
+	}
+
+	for _, tc := range cells {
+		size := tc.cell.Layout(widget.NewContext(), geometry.Constraints{
+			MaxWidth:  160,
+			MaxHeight: guildTableRowH,
+		})
+		if size.Height != guildTableControlH {
+			t.Fatalf("%s height = %.1f, want %.1f", tc.name, size.Height, float32(guildTableControlH))
+		}
 	}
 }
 
