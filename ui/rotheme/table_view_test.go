@@ -21,7 +21,7 @@ func TestTableViewDefaultHeaderHeightUsesPadding(t *testing.T) {
 	}
 }
 
-func TestTableViewStickyHeaderKeepsScrollBodyBelowHeader(t *testing.T) {
+func TestTableViewHeaderKeepsScrollBodyBelowHeader(t *testing.T) {
 	table := TableView(
 		TableViewColumns([]TableViewColumn{{Key: "name", Width: 100}}),
 		TableViewRowCount(10),

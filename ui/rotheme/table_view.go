@@ -38,7 +38,6 @@ type tableViewConfig struct {
 	rowHeight       float32
 	headerHeight    float32
 	showHeader      bool
-	stickyHeader    bool
 	emptyText       string
 	scrollY         state.Signal[float32]
 	selectedRow     state.Signal[int]
@@ -76,7 +75,6 @@ func TableView(opts ...TableViewOption) *TableViewWidget {
 		rowHeight:            32,
 		headerHeight:         Default.Typography.TextSize + TableHeaderPadY*2,
 		showHeader:           true,
-		stickyHeader:         true,
 		emptyText:            "No rows",
 		invalidateHover:      true,
 		dispatchHoverToCells: true,
@@ -128,10 +126,6 @@ func TableViewHeaderHeight(height float32) TableViewOption {
 
 func TableViewShowHeader(show bool) TableViewOption {
 	return func(c *tableViewConfig) { c.showHeader = show }
-}
-
-func TableViewStickyHeader(sticky bool) TableViewOption {
-	return func(c *tableViewConfig) { c.stickyHeader = sticky }
 }
 
 func TableViewEmptyText(text string) TableViewOption {
@@ -191,7 +185,7 @@ func (w *TableViewWidget) Layout(ctx widget.Context, constraints geometry.Constr
 
 	w.width = size.Width
 	w.height = size.Height
-	w.bodyHeight = size.Height - w.stickyHeaderHeight()
+	w.bodyHeight = size.Height - w.headerHeight()
 	if w.bodyHeight < 0 {
 		w.bodyHeight = 0
 	}
@@ -211,7 +205,7 @@ func (w *TableViewWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 		return
 	}
 
-	headerH := w.stickyHeaderHeight()
+	headerH := w.headerHeight()
 	if headerH > 0 {
 		w.drawHeader(canvas, geometry.NewRect(bounds.Min.X, bounds.Min.Y, bounds.Width(), headerH), w.safeBodyWidth())
 	}
@@ -261,7 +255,7 @@ func (w *TableViewWidget) updateScrollBounds() {
 	if bounds.IsEmpty() || w.scroll == nil {
 		return
 	}
-	headerH := w.stickyHeaderHeight()
+	headerH := w.headerHeight()
 	w.scroll.SetBounds(geometry.NewRect(bounds.Min.X, bounds.Min.Y+headerH, bounds.Width(), w.bodyHeight))
 }
 
@@ -284,22 +278,15 @@ func (w *TableViewWidget) updateHoverFromEvent(ctx widget.Context, e event.Event
 	}
 }
 
-func (w *TableViewWidget) stickyHeaderHeight() float32 {
-	if w.cfg.showHeader && w.cfg.stickyHeader {
-		return w.cfg.headerHeight
-	}
-	return 0
-}
-
-func (w *TableViewWidget) bodyHeaderHeight() float32 {
-	if w.cfg.showHeader && !w.cfg.stickyHeader {
+func (w *TableViewWidget) headerHeight() float32 {
+	if w.cfg.showHeader {
 		return w.cfg.headerHeight
 	}
 	return 0
 }
 
 func (w *TableViewWidget) contentHeight() float32 {
-	return w.stickyHeaderHeight() + w.bodyHeaderHeight() + float32(w.cfg.rowCount)*w.cfg.rowHeight
+	return w.headerHeight() + float32(w.cfg.rowCount)*w.cfg.rowHeight
 }
 
 func (w *TableViewWidget) safeBodyWidth() float32 {
@@ -451,7 +438,7 @@ func (b *tableViewBody) Layout(_ widget.Context, constraints geometry.Constraint
 	if width < constraints.MinWidth {
 		width = constraints.MinWidth
 	}
-	return geometry.Sz(width, b.table.bodyHeaderHeight()+float32(b.table.cfg.rowCount)*b.table.cfg.rowHeight)
+	return geometry.Sz(width, float32(b.table.cfg.rowCount)*b.table.cfg.rowHeight)
 }
 
 func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
@@ -464,12 +451,8 @@ func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
 	bounds := table.scroll.Bounds()
 	canvas.DrawRect(geometry.NewRect(0, 0, bounds.Width(), bounds.Height()), tableViewColors().Body)
 
-	if headerH := table.bodyHeaderHeight(); headerH > 0 {
-		table.drawHeader(canvas, geometry.NewRect(0, 0, bounds.Width(), headerH), table.contentW)
-	}
-
 	if table.cfg.rowCount == 0 {
-		DrawText(canvas, table.cfg.emptyText, geometry.NewRect(0, table.bodyHeaderHeight(), table.contentW, bounds.Height()-table.bodyHeaderHeight()), Default.Typography.TextSize, Default.Colors.MutedText, false, widget.TextAlignCenter)
+		DrawText(canvas, table.cfg.emptyText, geometry.NewRect(0, 0, table.contentW, bounds.Height()), Default.Typography.TextSize, Default.Colors.MutedText, false, widget.TextAlignCenter)
 		b.clearRows()
 		return
 	}
@@ -589,16 +572,15 @@ func (b *tableViewBody) Children() []widget.Widget {
 func (b *tableViewBody) visibleRange() (int, int) {
 	table := b.table
 	_, scrollY := table.scroll.ScrollOffset()
-	headerH := table.bodyHeaderHeight()
 	rowHeight := table.cfg.rowHeight
 	if rowHeight <= 0 {
 		return 0, 0
 	}
-	startY := scrollY - headerH
+	startY := scrollY
 	if startY < 0 {
 		startY = 0
 	}
-	endY := scrollY + table.bodyHeight - headerH
+	endY := scrollY + table.bodyHeight
 	if endY < 0 {
 		endY = 0
 	}
@@ -620,7 +602,7 @@ func (b *tableViewBody) drawSimpleRows(canvas widget.Canvas) {
 	table := b.table
 	start, end := b.visibleRange()
 	for row := start; row < end; row++ {
-		y := table.bodyHeaderHeight() + float32(row)*table.cfg.rowHeight
+		y := float32(row) * table.cfg.rowHeight
 		rowBounds := geometry.NewRect(0, y, table.contentW, table.cfg.rowHeight)
 		canvas.DrawRect(rowBounds, table.rowBackground(row))
 
@@ -639,7 +621,6 @@ func (b *tableViewBody) drawSimpleRows(canvas widget.Canvas) {
 
 func (b *tableViewBody) rowAt(y float32) int {
 	table := b.table
-	y -= table.bodyHeaderHeight()
 	if y < 0 || table.cfg.rowHeight <= 0 {
 		return -1
 	}
@@ -664,7 +645,7 @@ func (b *tableViewBody) layoutRow(ctx widget.Context, row int) *tableViewRowWidg
 		return nil
 	}
 	table := b.table
-	y := table.bodyHeaderHeight() + float32(row)*table.cfg.rowHeight
+	y := float32(row) * table.cfg.rowHeight
 	size := child.ensureLayout(ctx, table.contentW, table.cfg.rowHeight)
 	child.SetBounds(geometry.NewRect(0, y, size.Width, size.Height))
 	return child
@@ -967,7 +948,7 @@ func (w *TableViewWidget) invalidateHoverRow(ctx widget.Context, row int) {
 		if viewport.IsEmpty() {
 			return
 		}
-		y := viewport.Min.Y + w.bodyHeaderHeight() + float32(row)*w.cfg.rowHeight - scrollY
+		y := viewport.Min.Y + float32(row)*w.cfg.rowHeight - scrollY
 		bounds := geometry.NewRect(viewport.Min.X, y, w.contentW, w.cfg.rowHeight).Intersection(viewport)
 		if bounds.IsEmpty() {
 			return
