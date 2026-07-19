@@ -288,6 +288,56 @@ func TestTableViewHoverInvalidatesOnlyChangedRows(t *testing.T) {
 	}
 }
 
+func TestTableViewMouseMoveBetweenRowsInvalidatesHoverRows(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(3),
+		TableViewRowHeight(20),
+		TableViewHeaderHeight(10),
+	)
+	ctx := widget.NewContext()
+	var invalidated []geometry.Rect
+	ctx.SetOnInvalidateRect(func(r geometry.Rect) {
+		invalidated = append(invalidated, r)
+	})
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 70)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 70))
+	widget.StampScreenOrigin(table, &tableViewHeaderCanvas{})
+	table.Draw(ctx, &tableViewHeaderCanvas{})
+	widget.ClearRedrawInTree(table)
+
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseMove,
+		event.ButtonNone,
+		0,
+		geometry.Pt(8, 18),
+		geometry.Pt(8, 18),
+		0,
+	))
+	if table.hoveredRow != 0 {
+		t.Fatalf("hovered row = %d, want 0", table.hoveredRow)
+	}
+	if len(invalidated) != 1 {
+		t.Fatalf("invalidated rect count after first hover = %d, want 1", len(invalidated))
+	}
+
+	invalidated = invalidated[:0]
+	table.Event(ctx, event.NewMouseEvent(
+		event.MouseMove,
+		event.ButtonNone,
+		0,
+		geometry.Pt(8, 38),
+		geometry.Pt(8, 38),
+		0,
+	))
+	if table.hoveredRow != 1 {
+		t.Fatalf("hovered row = %d, want 1", table.hoveredRow)
+	}
+	if len(invalidated) != 2 {
+		t.Fatalf("invalidated rect count after row change = %d, want 2", len(invalidated))
+	}
+}
+
 func TestTableViewCanDisableHoverInvalidation(t *testing.T) {
 	table := TableView(
 		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),

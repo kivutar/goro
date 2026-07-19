@@ -212,7 +212,6 @@ func (w *CartWindow) cartTableWidget(ctx Context) *rotheme.TableViewWidget {
 		rotheme.TableViewEmptyText("No items"),
 		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
 		rotheme.TableViewSelectedRow(state.NewSignal[int](w.selectedRow)),
-		rotheme.TableViewInvalidateHover(false),
 		rotheme.TableViewDispatchHoverToCells(false),
 		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 			if cell.Row < 0 || cell.Row >= len(rows) {

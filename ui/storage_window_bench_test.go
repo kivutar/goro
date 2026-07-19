@@ -25,6 +25,14 @@ func BenchmarkCartWindowWheelScroll(b *testing.B) {
 	benchmarkListWindowWheelScroll(b, "cart", newCartWindowScrollBenchFixture)
 }
 
+func BenchmarkStorageWindowMouseHover(b *testing.B) {
+	benchmarkListWindowMouseHover(b, "storage", newStorageWindowScrollBenchFixture)
+}
+
+func BenchmarkCartWindowMouseHover(b *testing.B) {
+	benchmarkListWindowMouseHover(b, "cart", newCartWindowScrollBenchFixture)
+}
+
 func benchmarkListWindowWheelScroll(
 	b *testing.B,
 	name string,
@@ -38,6 +46,24 @@ func benchmarkListWindowWheelScroll(
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				fixture.step()
+			}
+		})
+	}
+}
+
+func benchmarkListWindowMouseHover(
+	b *testing.B,
+	name string,
+	newFixture func(int, listBenchCanvasKind) *listWindowScrollBenchFixture,
+) {
+	for _, canvasKind := range []listBenchCanvasKind{listBenchCanvasNoop, listBenchCanvasRaster} {
+		b.Run(fmt.Sprintf("%s/%s", name, canvasKind), func(b *testing.B) {
+			fixture := newFixture(600, canvasKind)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				fixture.stepMouseHover()
 			}
 		})
 	}
@@ -64,6 +90,26 @@ func TestCartWindowWheelScrollAllocationBudget(t *testing.T) {
 	})
 	if allocs > 75 {
 		t.Fatalf("cart wheel scroll allocations = %.0f, want <= 75", allocs)
+	}
+}
+
+func TestListWindowMouseHoverAllocationBudget(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		newFixture func(int, listBenchCanvasKind) *listWindowScrollBenchFixture
+	}{
+		{name: "storage", newFixture: newStorageWindowScrollBenchFixture},
+		{name: "cart", newFixture: newCartWindowScrollBenchFixture},
+	} {
+		fixture := tc.newFixture(600, listBenchCanvasNoop)
+		fixture.stepMouseHover()
+
+		allocs := testing.AllocsPerRun(100, func() {
+			fixture.stepMouseHover()
+		})
+		if allocs > 75 {
+			t.Fatalf("%s mouse hover allocations = %.0f, want <= 75", tc.name, allocs)
+		}
 	}
 }
 
@@ -97,6 +143,7 @@ type listWindowScrollBenchFixture struct {
 	canvas        widget.Canvas
 	canvasFactory func() widget.Canvas
 	wheel         *event.WheelEvent
+	mouseMoves    []*event.MouseEvent
 	maxRow        int
 	currentFrame  int
 	resetScroll   func()
@@ -136,6 +183,7 @@ func newStorageWindowScrollBenchFixture(itemCount int, canvasKind listBenchCanva
 		input:         inputState,
 		canvasFactory: canvasFactory,
 		wheel:         wheel,
+		mouseMoves:    listWindowMouseHoverMoves(storage.x+12, storage.y+storageWindowTitleH, storageRowH, storageRows),
 		maxRow:        maxRow,
 		resetScroll: func() {
 			storage.ensureScrollSignal().Set(0)
@@ -181,6 +229,7 @@ func newCartWindowScrollBenchFixture(itemCount int, canvasKind listBenchCanvasKi
 		input:         inputState,
 		canvasFactory: canvasFactory,
 		wheel:         wheel,
+		mouseMoves:    listWindowMouseHoverMoves(cart.x+12, cart.y+ROWindowTitleHeight+cartTableHeaderH, storageRowH, cartRows),
 		maxRow:        maxRow,
 		resetScroll: func() {
 			cart.ensureScrollSignal().Set(0)
@@ -229,6 +278,29 @@ func (f *listWindowScrollBenchFixture) step() {
 	f.app.Window().DrawTo(f.canvas)
 	f.input.EndFrame()
 	f.currentFrame++
+}
+
+func (f *listWindowScrollBenchFixture) stepMouseHover() {
+	if len(f.mouseMoves) == 0 {
+		return
+	}
+	move := f.mouseMoves[f.currentFrame%len(f.mouseMoves)]
+	f.app.HandleEvent(move)
+	f.update()
+	f.app.Frame()
+	f.canvas = f.canvasFactory()
+	f.app.Window().DrawTo(f.canvas)
+	f.input.EndFrame()
+	f.currentFrame++
+}
+
+func listWindowMouseHoverMoves(x, tableY, rowH, rows int) []*event.MouseEvent {
+	moves := make([]*event.MouseEvent, 0, rows)
+	for row := 0; row < rows; row++ {
+		pos := geometry.Pt(float32(x), float32(tableY+row*rowH+rowH/2))
+		moves = append(moves, event.NewMouseEvent(event.MouseMove, event.ButtonNone, 0, pos, pos, event.ModNone))
+	}
+	return moves
 }
 
 func benchStorageSession(count int) *session.Session {

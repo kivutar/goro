@@ -223,7 +223,6 @@ func (w *SkillWindow) skillTableWidget(ctx Context, assets AssetProvider, action
 		rotheme.TableViewHeaderHeight(skillHeaderH),
 		rotheme.TableViewEmptyText("No skills received from server yet."),
 		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
-		rotheme.TableViewInvalidateHover(false),
 		rotheme.TableViewDispatchHoverToCells(false),
 		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 			if cell.Row < 0 || cell.Row >= len(skills) {

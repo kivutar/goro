@@ -711,7 +711,6 @@ func shopTableWidget(rows []shopTableRow, amountColumn bool, scroll state.Signal
 		rotheme.TableViewHeaderHeight(shopTableHeaderH),
 		rotheme.TableViewEmptyText("No items"),
 		rotheme.TableViewScrollYSignal(scroll),
-		rotheme.TableViewInvalidateHover(false),
 		rotheme.TableViewDispatchHoverToCells(false),
 		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 			if cell.Row < 0 || cell.Row >= len(rows) {

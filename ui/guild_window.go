@@ -328,7 +328,6 @@ func (w *GuildWindow) membersTab(ctx Context) widget.Widget {
 			rotheme.TableViewHeaderHeight(guildTableHeaderH),
 			rotheme.TableViewEmptyText("No guild members loaded."),
 			rotheme.TableViewScrollYSignal(w.ensureGuildMemberScrollSignal()),
-			rotheme.TableViewInvalidateHover(false),
 			rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
 				if cell.Row < 0 || cell.Row >= len(members) {
 					return primitives.Box()
@@ -522,7 +521,6 @@ func (w *GuildWindow) positionsTab(ctx Context) widget.Widget {
 			rotheme.TableViewHeaderHeight(guildTableHeaderH),
 			rotheme.TableViewEmptyText("No guild positions loaded."),
 			rotheme.TableViewScrollYSignal(w.ensureGuildPositionScrollSignal()),
-			rotheme.TableViewInvalidateHover(false),
 			rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
 				if cell.Row < 0 || cell.Row >= len(positions) {
 					return primitives.Box()
@@ -756,7 +754,6 @@ func (w *GuildWindow) skillsTab(ctx Context) widget.Widget {
 			rotheme.TableViewHeaderHeight(guildTableHeaderH),
 			rotheme.TableViewEmptyText("No guild skills loaded."),
 			rotheme.TableViewScrollYSignal(w.ensureGuildSkillScrollSignal()),
-			rotheme.TableViewInvalidateHover(false),
 			rotheme.TableViewDispatchHoverToCells(false),
 			rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 				if cell.Row < 0 || cell.Row >= len(guild.Skills) {
@@ -1008,7 +1005,6 @@ func (w *GuildWindow) historyTab(ctx Context) widget.Widget {
 			rotheme.TableViewHeaderHeight(guildTableHeaderH),
 			rotheme.TableViewEmptyText("No expel history loaded."),
 			rotheme.TableViewScrollYSignal(w.ensureGuildHistoryScrollSignal()),
-			rotheme.TableViewInvalidateHover(false),
 			rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 				if cell.Row < 0 || cell.Row >= len(history) {
 					return rotheme.TableViewSimpleCell{Hidden: true}
