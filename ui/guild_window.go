@@ -587,6 +587,7 @@ func (w *GuildWindow) guildPositionRightCell(ctx Context, positionID, flag uint3
 		return guildTableViewTextCell(guildRightLabel(enabled), width, guildTableRowH)
 	}
 	return primitives.HBox(
+		primitives.Expanded(primitives.Box()),
 		rotheme.Checkbox(
 			checkbox.Checked(enabled),
 			checkbox.OnToggle(func(checked bool) {
@@ -600,10 +601,8 @@ func (w *GuildWindow) guildPositionRightCell(ctx Context, positionID, flag uint3
 				w.refresh(ctx)
 			}),
 		),
-	).
-		Width(width).
-		Height(guildTableRowH).
-		CrossAlign(primitives.CrossAxisCenter)
+		primitives.Expanded(primitives.Box()),
+	).Width(width)
 }
 
 func (w *GuildWindow) guildPositionTaxCell(position session.GuildPosition, isMaster bool, width float32) widget.Widget {

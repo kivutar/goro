@@ -184,6 +184,41 @@ func TestGuildTableControlCellsKeepControlHeight(t *testing.T) {
 	}
 }
 
+func TestGuildPositionCheckboxCellCentersCheckboxHorizontally(t *testing.T) {
+	s := &session.Session{Guild: session.Guild{
+		IsMaster: true,
+		Positions: []session.GuildPosition{
+			{PositionID: 1, Right: 0x01, PosName: "Member"},
+		},
+	}}
+	ctx := Context{Session: s}
+	window := &GuildWindow{}
+	window.ensurePositionDraft(ctx, s.Guild.Positions)
+
+	const cellW = float32(58)
+	cell := window.guildPositionRightCell(ctx, 1, 0x01, true, cellW)
+	size := cell.Layout(widget.NewContext(), geometry.Constraints{
+		MaxWidth:  160,
+		MaxHeight: guildTableRowH,
+	})
+	if size.Width != cellW {
+		t.Fatalf("cell width = %.1f, want %.1f", size.Width, cellW)
+	}
+	children := cell.(interface{ Children() []widget.Widget }).Children()
+	if len(children) != 3 {
+		t.Fatalf("checkbox cell children = %d, want 3", len(children))
+	}
+	checkboxBounds := children[1].(interface{ Bounds() geometry.Rect }).Bounds()
+	got := checkboxBounds.Min.X + checkboxBounds.Width()/2
+	want := cellW / 2
+	if got < want-0.01 || got > want+0.01 {
+		t.Fatalf("checkbox center x = %.1f, want %.1f", got, want)
+	}
+	if size.Height >= guildTableRowH {
+		t.Fatalf("checkbox cell height = %.1f, want less than row height %.1f", size.Height, float32(guildTableRowH))
+	}
+}
+
 func TestGuildSkillTablePlusStagesSkill(t *testing.T) {
 	skill := session.Skill{ID: db.SkillGdApproval, Name: "Approval", Level: 1, MaxLevel: 5, Upgradable: true}
 	guild := session.Guild{
