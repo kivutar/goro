@@ -31,7 +31,7 @@ const (
 	guildWindowTabWidth  = 64
 	guildEmblemSize      = 24
 	guildTablePadding    = 7
-	guildTableViewportW  = guildWindowWidth - guildTablePadding*2
+	guildTableViewportW  = guildWindowWidth
 	guildTableWidth      = guildWindowWidth - guildTablePadding*2 - ROScrollbarGutter
 	guildMemberRowH      = 24
 	guildMemberHeaderH   = 24
@@ -341,7 +341,6 @@ func (w *GuildWindow) membersTab(ctx Context) widget.Widget {
 			}),
 		),
 	).
-		PaddingXY(guildTablePadding, guildTablePadding).
 		Background(rotheme.Default.Colors.WindowBody).
 		CrossAlign(primitives.CrossAxisStretch)
 }
@@ -573,7 +572,6 @@ func (w *GuildWindow) positionsTab(ctx Context) widget.Widget {
 			}),
 		),
 	).
-		PaddingXY(guildTablePadding, guildTablePadding).
 		Background(rotheme.Default.Colors.WindowBody).
 		CrossAlign(primitives.CrossAxisStretch)
 }
@@ -808,7 +806,6 @@ func (w *GuildWindow) skillsTab(ctx Context) widget.Widget {
 			}),
 		),
 	).
-		PaddingXY(guildTablePadding, guildTablePadding).
 		Background(rotheme.Default.Colors.WindowBody).
 		CrossAlign(primitives.CrossAxisStretch)
 }
@@ -1022,9 +1019,9 @@ func (w *GuildWindow) updateSkillTooltipHover(ctx Context) {
 }
 
 func (w *GuildWindow) guildSkillTableBounds() (int, int, int, int) {
-	x := w.x + guildTablePadding
-	y := w.y + ROWindowTitleHeight + guildWindowTabHeight + guildTablePadding
-	height := w.height - ROWindowTitleHeight - guildWindowTabHeight - ROWindowFooterHeight - guildTablePadding*2
+	x := w.x
+	y := w.y + ROWindowTitleHeight + guildWindowTabHeight
+	height := w.height - ROWindowTitleHeight - guildWindowTabHeight - ROWindowFooterHeight
 	if height < 0 {
 		height = 0
 	}

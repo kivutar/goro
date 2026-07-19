@@ -58,7 +58,7 @@ func TestGuildSkillTooltipAreaUsesInputCursorPosition(t *testing.T) {
 		event.MouseMove,
 		event.ButtonNone,
 		0,
-		geometry.Pt(guildTablePadding+10, guildTablePadding+30),
+		geometry.Pt(10, guildSkillHeaderH+6),
 		geometry.Pt(300, 120),
 		0,
 	))
