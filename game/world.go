@@ -1640,8 +1640,8 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			m.requestGuildWindowTab(ctx, action.MenuTab)
 		} else if action.SelectedEmblemPath != "" {
 			m.uploadGuildEmblem(ctx, action.SelectedEmblemPath)
-		} else if action.ChangeMemberPosition {
-			m.changeGuildMemberPosition(ctx, action.MemberAccountID, action.MemberCharID, action.MemberPositionID)
+		} else if len(action.MemberPositions) > 0 {
+			m.changeGuildMemberPositions(ctx, action.MemberPositions)
 		} else if len(action.LevelUpSkillIDs) > 0 {
 			m.levelUpGuildSkills(ctx, action.LevelUpSkillIDs)
 		} else if action.UpdatePositions {

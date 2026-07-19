@@ -85,6 +85,61 @@ func TestGuildSkillLevelUpStaysPendingUntilConfirm(t *testing.T) {
 	}
 }
 
+func TestGuildMemberPositionChangeStaysPendingUntilConfirm(t *testing.T) {
+	s := &session.Session{Guild: session.Guild{
+		IsMaster: true,
+		Members: []session.GuildMember{
+			{AccountID: 1, CharID: 10, PositionID: 0, CharName: "Kivutar"},
+			{AccountID: 2, CharID: 20, PositionID: 1, CharName: "Arcer"},
+		},
+		Positions: []session.GuildPosition{
+			{PositionID: 0, PosName: "Guild Master"},
+			{PositionID: 1, PosName: "Member"},
+			{PositionID: 2, PosName: "Officer"},
+		},
+	}}
+	ctx := Context{Session: s}
+	window := &GuildWindow{}
+
+	window.stageMemberPosition(ctx, s.Guild.Members[1], 2)
+	if action := window.PopAction(); action.hasAction() {
+		t.Fatalf("staging should not publish action: %+v", action)
+	}
+
+	window.confirmMemberPositionChanges(ctx)
+	action := window.PopAction()
+	if got := action.MemberPositions; len(got) != 1 ||
+		got[0].AccountID != 2 ||
+		got[0].CharID != 20 ||
+		got[0].PositionID != 2 {
+		t.Fatalf("member positions = %+v", got)
+	}
+}
+
+func TestGuildMemberPositionTransferSendsOnlyMasterChange(t *testing.T) {
+	s := &session.Session{Guild: session.Guild{
+		IsMaster: true,
+		Members: []session.GuildMember{
+			{AccountID: 1, CharID: 10, PositionID: 0, CharName: "Kivutar"},
+			{AccountID: 2, CharID: 20, PositionID: 1, CharName: "Arcer"},
+			{AccountID: 3, CharID: 30, PositionID: 2, CharName: "Zed"},
+		},
+	}}
+	ctx := Context{Session: s}
+	window := &GuildWindow{}
+	window.ensureMemberDraft(ctx, s.Guild.Members)
+	window.memberDraft[guildMemberKey{accountID: 2, charID: 20}] = 0
+	window.memberDraft[guildMemberKey{accountID: 3, charID: 30}] = 1
+
+	changes := window.memberPositionChanges(ctx)
+	if len(changes) != 1 {
+		t.Fatalf("member position changes = %+v, want only the master transfer", changes)
+	}
+	if changes[0].AccountID != 2 || changes[0].CharID != 20 || changes[0].PositionID != 0 {
+		t.Fatalf("member position changes = %+v", changes)
+	}
+}
+
 func TestGuildSkillTablePlusStagesSkill(t *testing.T) {
 	skill := session.Skill{ID: db.SkillGdApproval, Name: "Approval", Level: 1, MaxLevel: 5, Upgradable: true}
 	guild := session.Guild{

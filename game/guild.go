@@ -132,7 +132,10 @@ func (m *WorldMode) uploadGuildEmblem(ctx client.Context, path string) {
 	m.ui.console.AddSystemMessage("Guild emblem uploaded.")
 }
 
-func (m *WorldMode) changeGuildMemberPosition(ctx client.Context, accountID, charID, positionID uint32) {
+func (m *WorldMode) changeGuildMemberPositions(ctx client.Context, updates []gameui.GuildMemberPositionUpdate) {
+	if len(updates) == 0 {
+		return
+	}
 	if ctx.Network == nil {
 		m.ui.console.AddErrorMessage("Guild member position update failed: not connected.")
 		return
@@ -141,25 +144,25 @@ func (m *WorldMode) changeGuildMemberPosition(ctx client.Context, accountID, cha
 		m.ui.console.AddErrorMessage("Guild member position update failed.")
 		return
 	}
-	found := false
+	existing := make(map[[2]uint32]struct{}, len(ctx.Session.Guild.Members))
 	for _, member := range ctx.Session.Guild.Members {
-		if member.AccountID == accountID && member.CharID == charID {
-			found = true
-			break
+		existing[[2]uint32{member.AccountID, member.CharID}] = struct{}{}
+	}
+	members := make([]network.GuildMemberPosition, 0, len(updates))
+	for _, update := range updates {
+		if _, ok := existing[[2]uint32{update.AccountID, update.CharID}]; !ok {
+			m.ui.console.AddErrorMessage("Guild member position update failed: member not found.")
+			return
 		}
+		members = append(members, network.GuildMemberPosition{
+			AccountID:  update.AccountID,
+			CharID:     update.CharID,
+			PositionID: update.PositionID,
+		})
 	}
-	if !found {
-		m.ui.console.AddErrorMessage("Guild member position update failed: member not found.")
-		return
-	}
-	members := []network.GuildMemberPosition{{
-		AccountID:  accountID,
-		CharID:     charID,
-		PositionID: positionID,
-	}}
 	if err := ctx.Network.SendGuildMemberPositions(members); err != nil {
 		m.ui.console.AddErrorMessage("Guild member position update failed.")
-		glog.Warnf("guild member position update failed account=%d char=%d position=%d: %v", accountID, charID, positionID, err)
+		glog.Warnf("guild member position update failed members=%d: %v", len(members), err)
 		return
 	}
 }

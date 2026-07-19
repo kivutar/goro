@@ -49,6 +49,8 @@ type GuildWindow struct {
 	EmblemImage     func(Context) image.Image
 	emblemOptions   []GuildEmblemOption
 	memberScrollY   state.Signal[float32]
+	memberDraft     map[guildMemberKey]uint32
+	memberSource    string
 	positionDraft   map[uint32]guildPositionDraft
 	positionSource  string
 	positionScrollY state.Signal[float32]
@@ -61,16 +63,19 @@ type GuildWindow struct {
 }
 
 type GuildWindowAction struct {
-	RequestMenu          bool
-	MenuTab              uint32
-	SelectedEmblemPath   string
-	ChangeMemberPosition bool
-	MemberAccountID      uint32
-	MemberCharID         uint32
-	MemberPositionID     uint32
-	LevelUpSkillIDs      []uint16
-	UpdatePositions      bool
-	Positions            []GuildPositionUpdate
+	RequestMenu        bool
+	MenuTab            uint32
+	SelectedEmblemPath string
+	MemberPositions    []GuildMemberPositionUpdate
+	LevelUpSkillIDs    []uint16
+	UpdatePositions    bool
+	Positions          []GuildPositionUpdate
+}
+
+type GuildMemberPositionUpdate struct {
+	AccountID  uint32
+	CharID     uint32
+	PositionID uint32
 }
 
 type GuildPositionUpdate struct {
@@ -90,6 +95,11 @@ type guildPositionDraft struct {
 	posName string
 	right   uint32
 	payRate string
+}
+
+type guildMemberKey struct {
+	accountID uint32
+	charID    uint32
 }
 
 type guildWindowTab int
@@ -164,7 +174,7 @@ func (w *GuildWindow) PopAction() GuildWindowAction {
 func (a GuildWindowAction) hasAction() bool {
 	return a.RequestMenu ||
 		a.SelectedEmblemPath != "" ||
-		a.ChangeMemberPosition ||
+		len(a.MemberPositions) > 0 ||
 		len(a.LevelUpSkillIDs) > 0 ||
 		a.UpdatePositions
 }
@@ -257,6 +267,20 @@ func (w *GuildWindow) tabContent(ctx Context) widget.Widget {
 func (w *GuildWindow) tabFooter(ctx Context) []widget.Widget {
 	guild := guildSessionInfo(ctx.Session)
 	switch w.tab {
+	case guildWindowTabMembers:
+		if !guild.IsMaster {
+			return nil
+		}
+		return []widget.Widget{
+			primitives.Expanded(primitives.Box()),
+			rotheme.Button("Reset", func() {
+				w.resetMemberDraft(ctx)
+				w.refresh(ctx)
+			}),
+			rotheme.Button("Confirm", func() {
+				w.confirmMemberPositionChanges(ctx)
+			}),
+		}
 	case guildWindowTabPositions:
 		if !guild.IsMaster {
 			return nil
@@ -298,6 +322,7 @@ func (w *GuildWindow) tabFooter(ctx Context) []widget.Widget {
 func (w *GuildWindow) membersTab(ctx Context) widget.Widget {
 	guild := guildSessionInfo(ctx.Session)
 	members := guild.Members
+	w.ensureMemberDraft(ctx, members)
 	totalExp := guildMembersTotalExp(members)
 	return primitives.Box(
 		rotheme.TableView(
@@ -312,7 +337,7 @@ func (w *GuildWindow) membersTab(ctx Context) widget.Widget {
 				if cell.Row < 0 || cell.Row >= len(members) {
 					return primitives.Box()
 				}
-				return w.guildMemberTableCell(members[cell.Row], guild.Positions, guild.IsMaster, totalExp, cell)
+				return w.guildMemberTableCell(ctx, members[cell.Row], guild.Positions, guild.IsMaster, totalExp, cell)
 			}),
 		),
 	).
@@ -332,12 +357,12 @@ var guildMemberTableColumns = []rotheme.TableViewColumn{
 	{Key: "fill", Flex: 1},
 }
 
-func (w *GuildWindow) guildMemberTableCell(member session.GuildMember, positions []session.GuildPosition, isMaster bool, totalExp uint32, cell rotheme.TableViewCellContext) widget.Widget {
+func (w *GuildWindow) guildMemberTableCell(ctx Context, member session.GuildMember, positions []session.GuildPosition, isMaster bool, totalExp uint32, cell rotheme.TableViewCellContext) widget.Widget {
 	switch cell.Column.Key {
 	case "name":
 		return guildTableViewTextCell(guildText(member.CharName), cell.Width, guildMemberRowH)
 	case "position":
-		return w.guildMemberPositionCell(member, positions, isMaster, cell.Width)
+		return w.guildMemberPositionCell(ctx, member, positions, isMaster, cell.Width)
 	case "job":
 		return guildTableViewTextCell(db.JobDisplayName(int(member.Job)), cell.Width, guildMemberRowH)
 	case "level":
@@ -353,15 +378,21 @@ func (w *GuildWindow) guildMemberTableCell(member session.GuildMember, positions
 	}
 }
 
-func (w *GuildWindow) guildMemberPositionCell(member session.GuildMember, positions []session.GuildPosition, isMaster bool, width float32) widget.Widget {
+func (w *GuildWindow) guildMemberPositionCell(ctx Context, member session.GuildMember, positions []session.GuildPosition, isMaster bool, width float32) widget.Widget {
 	if !isMaster || member.PositionID == 0 {
 		return guildTableViewTextCell(guildPositionName(positions, member.PositionID), width, guildMemberRowH)
+	}
+	positionID := member.PositionID
+	if w.memberDraft != nil {
+		if draftPositionID, ok := w.memberDraft[guildMemberKey{accountID: member.AccountID, charID: member.CharID}]; ok {
+			positionID = draftPositionID
+		}
 	}
 	sortedPositions := guildSortedPositions(positions)
 	items := make([]dropdown.ItemDef, 0, len(sortedPositions))
 	selected := -1
 	for i, position := range sortedPositions {
-		if position.PositionID == member.PositionID {
+		if position.PositionID == positionID {
 			selected = i
 		}
 		items = append(items, dropdown.ItemDef{
@@ -383,12 +414,8 @@ func (w *GuildWindow) guildMemberPositionCell(member session.GuildMember, positi
 				if err != nil {
 					return
 				}
-				w.action = GuildWindowAction{
-					ChangeMemberPosition: true,
-					MemberAccountID:      member.AccountID,
-					MemberCharID:         member.CharID,
-					MemberPositionID:     uint32(positionID),
-				}
+				w.stageMemberPosition(ctx, member, uint32(positionID))
+				w.refresh(ctx)
 			}),
 		),
 	).
@@ -452,6 +479,77 @@ func (w *GuildWindow) ensureGuildMemberScrollSignal() state.Signal[float32] {
 		w.memberScrollY = state.NewSignal[float32](0)
 	}
 	return w.memberScrollY
+}
+
+func (w *GuildWindow) ensureMemberDraft(ctx Context, members []session.GuildMember) {
+	source := guildMemberDraftSource(members)
+	if w.memberDraft != nil && w.memberSource == source {
+		return
+	}
+	w.resetMemberDraft(ctx)
+}
+
+func (w *GuildWindow) resetMemberDraft(ctx Context) {
+	guild := guildSessionInfo(ctx.Session)
+	w.memberSource = guildMemberDraftSource(guild.Members)
+	w.memberDraft = make(map[guildMemberKey]uint32, len(guild.Members))
+	for _, member := range guild.Members {
+		w.memberDraft[guildMemberKey{accountID: member.AccountID, charID: member.CharID}] = member.PositionID
+	}
+}
+
+func (w *GuildWindow) stageMemberPosition(ctx Context, member session.GuildMember, positionID uint32) {
+	guild := guildSessionInfo(ctx.Session)
+	w.ensureMemberDraft(ctx, guild.Members)
+	key := guildMemberKey{accountID: member.AccountID, charID: member.CharID}
+	if positionID == 0 {
+		for _, other := range guild.Members {
+			otherKey := guildMemberKey{accountID: other.AccountID, charID: other.CharID}
+			if otherKey != key && other.PositionID != 0 && w.memberDraft[otherKey] == 0 {
+				w.memberDraft[otherKey] = other.PositionID
+			}
+		}
+	}
+	w.memberDraft[key] = positionID
+}
+
+func (w *GuildWindow) memberPositionChanges(ctx Context) []GuildMemberPositionUpdate {
+	guild := guildSessionInfo(ctx.Session)
+	changes := make([]GuildMemberPositionUpdate, 0)
+	for _, member := range guild.Members {
+		key := guildMemberKey{accountID: member.AccountID, charID: member.CharID}
+		positionID, ok := w.memberDraft[key]
+		if !ok || positionID == member.PositionID {
+			continue
+		}
+		update := GuildMemberPositionUpdate{
+			AccountID:  member.AccountID,
+			CharID:     member.CharID,
+			PositionID: positionID,
+		}
+		if positionID == 0 {
+			// Position 0 transfers guild master; rAthena stops processing the packet after it.
+			return []GuildMemberPositionUpdate{update}
+		}
+		changes = append(changes, update)
+	}
+	return changes
+}
+
+func (w *GuildWindow) confirmMemberPositionChanges(ctx Context) {
+	changes := w.memberPositionChanges(ctx)
+	if len(changes) == 0 {
+		return
+	}
+	w.action = GuildWindowAction{MemberPositions: changes}
+}
+
+func guildMemberDraftSource(members []session.GuildMember) string {
+	var out strings.Builder
+	for _, member := range members {
+		fmt.Fprintf(&out, "|%d:%d:%d", member.AccountID, member.CharID, member.PositionID)
+	}
+	return out.String()
 }
 
 func (w *GuildWindow) positionsTab(ctx Context) widget.Widget {
