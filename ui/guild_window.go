@@ -13,6 +13,7 @@ import (
 	"github.com/gogpu/ui/core/scrollview"
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
 	"github.com/gogpu/ui/widget"
@@ -33,7 +34,7 @@ const (
 	guildTableViewportW  = guildWindowWidth - guildTablePadding*2
 	guildTableWidth      = guildWindowWidth - guildTablePadding*2 - ROScrollbarGutter
 	guildSkillRowHeight  = 32
-	guildSkillIconSize   = 24
+	guildSkillHeaderH    = 24
 )
 
 type GuildWindow struct {
@@ -683,30 +684,19 @@ func (w *GuildWindow) skillsTab(ctx Context) widget.Widget {
 			rotheme.TableViewColumns(guildSkillTableColumns),
 			rotheme.TableViewRowCount(len(guild.Skills)),
 			rotheme.TableViewRowHeight(guildSkillRowHeight),
+			rotheme.TableViewHeaderHeight(guildSkillHeaderH),
 			rotheme.TableViewEmptyText("No guild skills loaded."),
 			rotheme.TableViewScrollYSignal(w.ensureGuildSkillScrollSignal()),
 			rotheme.TableViewInvalidateHover(false),
 			rotheme.TableViewDispatchHoverToCells(false),
-			rotheme.TableViewBuildCell(func(cell rotheme.TableViewCellContext) widget.Widget {
+			rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
 				if cell.Row < 0 || cell.Row >= len(guild.Skills) {
-					return primitives.Box()
+					return rotheme.TableViewSimpleCell{Hidden: true}
 				}
 				return w.guildSkillCell(ctx, w.guildSkillWithPending(guild.Skills[cell.Row]), guild, cell)
 			}),
-			rotheme.TableViewOnRowEvent(func(row int, e event.Event) bool {
-				mouse, ok := e.(*event.MouseEvent)
-				if !ok || row < 0 || row >= len(guild.Skills) {
-					return false
-				}
-				switch mouse.MouseType {
-				case event.MouseEnter, event.MouseMove, event.MouseDrag:
-					mx, my := int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y)
-					if ctx.Input != nil {
-						mx, my = ctx.Input.MouseX, ctx.Input.MouseY
-					}
-					w.showSkillTooltip(ctx, w.guildSkillWithPending(guild.Skills[row]), mx, my)
-				}
-				return false
+			rotheme.TableViewOnRowEventWithContext(func(widgetCtx widget.Context, row int, e event.Event) bool {
+				return w.handleGuildSkillTableRowEvent(widgetCtx, ctx, guild, guild.Skills, row, e)
 			}),
 		),
 	).
@@ -716,83 +706,46 @@ func (w *GuildWindow) skillsTab(ctx Context) widget.Widget {
 }
 
 var guildSkillTableColumns = []rotheme.TableViewColumn{
-	{Key: "kind", Width: 48},
+	{Key: "icon", Width: 34},
+	{Key: "type", Width: 16},
 	{Key: "name", Title: "Name", Width: 234},
 	{Key: "level", Title: "Lv", Width: 40},
-	{Key: "fill", Flex: 1},
 	{Key: "levelup", Width: 22},
+	{Key: "fill", Flex: 1},
 }
 
-func (w *GuildWindow) guildSkillCell(ctx Context, skill session.Skill, guild session.Guild, cell rotheme.TableViewCellContext) widget.Widget {
+func (w *GuildWindow) guildSkillCell(ctx Context, skill session.Skill, guild session.Guild, cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+	nameColor := rotheme.Default.Colors.Text
+	if skill.Level <= 0 {
+		nameColor = rotheme.Default.Colors.MutedText
+	}
 	switch cell.Column.Key {
-	case "kind":
-		return primitives.HBox(
-			guildSkillIconCell(w.guildSkillIcon(ctx, skill)),
-			primitives.HBox(
-				rotheme.Text(skillTypeLabel(skill)).
-					Color(skillTypeColor(skill)).
-					Align(widget.TextAlignLeft),
-			).
-				Width(16).
-				Height(guildSkillRowHeight).
-				CrossAlign(primitives.CrossAxisCenter),
-		).
-			Height(guildSkillRowHeight).
-			CrossAlign(primitives.CrossAxisCenter)
+	case "icon":
+		return rotheme.TableViewSimpleCell{Icon: w.guildSkillIconImage(ctx, skill)}
+	case "type":
+		return rotheme.TableViewSimpleCell{
+			Text:  skillTypeLabel(skill),
+			Color: skillTypeColor(skill),
+		}
 	case "name":
-		return guildSkillTextCell(trimRunes(skillDisplayName(ctx.Resources, skill), 28), cell.Width)
+		return rotheme.TableViewSimpleCell{
+			Text:  trimRunes(skillDisplayName(ctx.Resources, skill), 28),
+			Color: nameColor,
+		}
 	case "level":
-		return guildSkillTextCell(guildSkillLevelText(skill), cell.Width)
+		return rotheme.TableViewSimpleCell{
+			Text:  guildSkillLevelText(skill),
+			Color: nameColor,
+		}
 	case "levelup":
-		return w.guildSkillLevelUpCell(skill, guild)
+		return rotheme.TableViewIconButtonCell(rotheme.IconButtonPlus, !w.canStageGuildSkill(skill, guild))
 	default:
-		return primitives.Box()
+		return rotheme.TableViewSimpleCell{Hidden: true}
 	}
-}
-
-func guildSkillTextCell(text string, width float32) widget.Widget {
-	return primitives.HBox(
-		rotheme.Text(text).
-			Align(widget.TextAlignLeft),
-	).
-		Width(width).
-		Height(guildSkillRowHeight).
-		PaddingLeft(4).
-		CrossAlign(primitives.CrossAxisCenter)
-}
-
-func guildSkillIconCell(icon widget.Widget) widget.Widget {
-	return primitives.Box(icon).
-		Width(32).
-		Height(guildSkillRowHeight).
-		PaddingTop((guildSkillRowHeight - guildSkillIconSize) / 2).
-		CrossAlign(primitives.CrossAxisCenter)
-}
-
-func (w *GuildWindow) guildSkillLevelUpCell(skill session.Skill, guild session.Guild) widget.Widget {
-	canLevelUp := w.canStageGuildSkill(skill, guild)
-	var child widget.Widget = primitives.Box()
-	if canLevelUp {
-		child = rotheme.IconButton(rotheme.IconButtonPlus, func() {
-			w.stageGuildSkill(skill.ID)
-			w.refresh(w.ctx)
-		})
-	}
-	return primitives.Box(child).
-		Width(22).
-		Height(guildSkillRowHeight).
-		PaddingTop((guildSkillRowHeight - rotheme.IconButtonSize) / 2)
 }
 
 func (w *GuildWindow) canStageGuildSkill(skill session.Skill, guild session.Guild) bool {
 	return guild.IsMaster && guild.SkillPoints > w.skillPendingCount() && skill.Upgradable && guildSkillCanLevelUp(skill)
-}
-
-func (w *GuildWindow) guildSkillIcon(ctx Context, skill session.Skill) widget.Widget {
-	if img := w.guildSkillIconImage(ctx, skill); img != nil {
-		return newStaticImageWidget(img, guildSkillIconSize, guildSkillIconSize)
-	}
-	return primitives.Box()
 }
 
 func (w *GuildWindow) guildSkillIconImage(ctx Context, skill session.Skill) image.Image {
@@ -832,6 +785,53 @@ func guildSkillLevelText(skill session.Skill) string {
 
 func guildSkillCanLevelUp(skill session.Skill) bool {
 	return skill.ID != 0 && (skill.MaxLevel <= 0 || skill.Level < skill.MaxLevel)
+}
+
+func (w *GuildWindow) handleGuildSkillTableRowEvent(widgetCtx widget.Context, ctx Context, guild session.Guild, skills []session.Skill, row int, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok || row < 0 || row >= len(skills) {
+		return false
+	}
+	skill := w.guildSkillWithPending(skills[row])
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseMove, event.MouseDrag:
+		if widgetCtx != nil && w.canStageGuildSkill(skill, guild) && guildSkillLevelUpButtonBounds(row).Contains(mouse.Position) {
+			widgetCtx.SetCursor(widget.CursorPointer)
+		}
+		mx, my := int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y)
+		if ctx.Input != nil {
+			mx, my = ctx.Input.MouseX, ctx.Input.MouseY
+		}
+		w.showSkillTooltip(ctx, skill, mx, my)
+		return false
+	case event.MousePress:
+		if mouse.Button != event.ButtonLeft || !guildSkillLevelUpButtonBounds(row).Contains(mouse.Position) {
+			return false
+		}
+		if !w.canStageGuildSkill(skill, guild) {
+			return true
+		}
+		w.stageGuildSkill(skill.ID)
+		w.refresh(ctx)
+		return true
+	}
+	return false
+}
+
+func guildSkillLevelUpButtonBounds(row int) geometry.Rect {
+	x := float32(0)
+	for _, col := range guildSkillTableColumns {
+		if col.Key == "levelup" {
+			return geometry.NewRect(
+				x+(col.Width-rotheme.IconButtonSize)/2,
+				float32(row)*guildSkillRowHeight+(guildSkillRowHeight-rotheme.IconButtonSize)/2,
+				rotheme.IconButtonSize,
+				rotheme.IconButtonSize,
+			)
+		}
+		x += col.Width
+	}
+	return geometry.Rect{}
 }
 
 func (w *GuildWindow) clearGuildSkillPending() {

@@ -84,3 +84,40 @@ func TestGuildSkillLevelUpStaysPendingUntilConfirm(t *testing.T) {
 		t.Fatalf("level up ids = %v", got)
 	}
 }
+
+func TestGuildSkillTablePlusStagesSkill(t *testing.T) {
+	skill := session.Skill{ID: db.SkillGdApproval, Name: "Approval", Level: 1, MaxLevel: 5, Upgradable: true}
+	guild := session.Guild{
+		IsMaster:    true,
+		SkillPoints: 1,
+		Skills:      []session.Skill{skill},
+	}
+	window := &GuildWindow{}
+	bounds := guildSkillLevelUpButtonBounds(0)
+
+	consumed := window.handleGuildSkillTableRowEvent(
+		nil,
+		Context{Session: &session.Session{Guild: guild}},
+		guild,
+		guild.Skills,
+		0,
+		event.NewMouseEvent(
+			event.MousePress,
+			event.ButtonLeft,
+			event.ButtonStateLeft,
+			geometry.Pt(bounds.Min.X+1, bounds.Min.Y+1),
+			geometry.Pt(100, 120),
+			0,
+		),
+	)
+
+	if !consumed {
+		t.Fatal("plus press was not consumed")
+	}
+	if got := window.skillPending[skill.ID]; got != 1 {
+		t.Fatalf("pending skill levels = %d, want 1", got)
+	}
+	if action := window.PopAction(); action.hasAction() {
+		t.Fatalf("staging should not publish action: %+v", action)
+	}
+}
