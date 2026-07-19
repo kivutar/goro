@@ -10,7 +10,6 @@ import (
 
 	"github.com/gogpu/ui/core/checkbox"
 	"github.com/gogpu/ui/core/dropdown"
-	"github.com/gogpu/ui/core/scrollview"
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
@@ -32,7 +31,6 @@ const (
 	guildEmblemSize      = 24
 	guildTablePadding    = 7
 	guildTableViewportW  = guildWindowWidth
-	guildTableWidth      = guildWindowWidth - guildTablePadding*2 - ROScrollbarGutter
 	guildMemberRowH      = 24
 	guildMemberHeaderH   = 24
 	guildPositionRowH    = 24
@@ -59,6 +57,7 @@ type GuildWindow struct {
 	skillPending    map[uint16]int
 	skillOrder      []uint16
 	skillScrollY    state.Signal[float32]
+	historyScrollY  state.Signal[float32]
 	tooltip         tooltipState
 }
 
@@ -420,42 +419,6 @@ func (w *GuildWindow) guildMemberPositionCell(ctx Context, member session.GuildM
 	).
 		Width(width).
 		Height(guildMemberRowH)
-}
-
-func guildMemberCell(text string, width float32, header, dark bool) widget.Widget {
-	text = trimRunes(strings.TrimSpace(text), int(width/7))
-	color := rotheme.Default.Colors.Text
-	height := float32(20)
-	bg := guildTableRowBackground(dark)
-	if header {
-		color = rotheme.Default.Colors.MutedText
-		height = 16
-		bg = rotheme.Default.Colors.WindowBody
-	}
-	return primitives.HBox(
-		rotheme.Text(text).
-			Color(color).
-			Align(widget.TextAlignLeft),
-	).
-		Width(width).
-		Height(height).
-		PaddingLeft(4).
-		CrossAlign(primitives.CrossAxisCenter).
-		Background(bg)
-}
-
-func guildTableFiller(dark bool) widget.Widget {
-	return primitives.Expanded(
-		primitives.Box().
-			Background(guildTableRowBackground(dark)),
-	)
-}
-
-func guildTableRowBackground(dark bool) widget.Color {
-	if dark {
-		return rotheme.Default.Colors.PanelBody
-	}
-	return rotheme.Default.Colors.WindowBody
 }
 
 func guildMembersTotalExp(members []session.GuildMember) uint32 {
@@ -1037,50 +1000,52 @@ func (w *GuildWindow) ensureGuildSkillScrollSignal() state.Signal[float32] {
 
 func (w *GuildWindow) historyTab(ctx Context) widget.Widget {
 	history := guildSessionInfo(ctx.Session).ExpelHistory
-	rows := make([]widget.Widget, 0, len(history)+1)
-	rows = append(rows, guildHistoryHeaderRow())
-	if len(history) == 0 {
-		rows = append(rows,
-			primitives.Box(rotheme.Text("No expel history loaded.").Color(rotheme.Default.Colors.MutedText)).
-				Height(24).
-				Width(guildTableWidth).
-				PaddingXY(4, 4).
-				Background(rotheme.Default.Colors.WindowBody),
-		)
-	}
-	for i, entry := range history {
-		rows = append(rows, guildHistoryRow(entry, i%2 == 0))
-	}
 	return primitives.Box(
-		scrollview.New(
-			primitives.Box(rows...),
-			scrollview.DirectionOpt(scrollview.Vertical),
-			scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
-			scrollview.ScrollStep(20),
+		rotheme.TableView(
+			rotheme.TableViewColumns(guildHistoryTableColumns),
+			rotheme.TableViewRowCount(len(history)),
+			rotheme.TableViewRowHeight(guildMemberRowH),
+			rotheme.TableViewHeaderHeight(guildMemberHeaderH),
+			rotheme.TableViewEmptyText("No expel history loaded."),
+			rotheme.TableViewScrollYSignal(w.ensureGuildHistoryScrollSignal()),
+			rotheme.TableViewInvalidateHover(false),
+			rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+				if cell.Row < 0 || cell.Row >= len(history) {
+					return rotheme.TableViewSimpleCell{Hidden: true}
+				}
+				return guildHistoryCell(history[cell.Row], cell)
+			}),
 		),
 	).
-		PaddingXY(guildTablePadding, guildTablePadding).
-		Background(rotheme.Default.Colors.WindowBody)
+		Background(rotheme.Default.Colors.WindowBody).
+		CrossAlign(primitives.CrossAxisStretch)
 }
 
-func guildHistoryHeaderRow() widget.Widget {
-	return primitives.HBox(
-		guildMemberCell("Name", 116, true, false),
-		guildMemberCell("The Reason of Expulsion", 244, true, false),
-		guildTableFiller(false),
-	).
-		Width(guildTableWidth).
-		Height(16)
+var guildHistoryTableColumns = []rotheme.TableViewColumn{
+	{Key: "name", Title: "Name", Width: 116},
+	{Key: "reason", Title: "The Reason of Expulsion", Flex: 1},
 }
 
-func guildHistoryRow(entry session.GuildExpelHistory, dark bool) widget.Widget {
-	return primitives.HBox(
-		guildMemberCell(guildText(entry.CharName), 116, false, dark),
-		guildMemberCell(guildText(entry.Reason), 244, false, dark),
-		guildTableFiller(dark),
-	).
-		Width(guildTableWidth).
-		Height(20)
+func guildHistoryCell(entry session.GuildExpelHistory, cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+	switch cell.Column.Key {
+	case "name":
+		return rotheme.TableViewSimpleCell{
+			Text: trimRunes(guildText(entry.CharName), int(cell.Width/7)),
+		}
+	case "reason":
+		return rotheme.TableViewSimpleCell{
+			Text: trimRunes(guildText(entry.Reason), int(cell.Width/7)),
+		}
+	default:
+		return rotheme.TableViewSimpleCell{Hidden: true}
+	}
+}
+
+func (w *GuildWindow) ensureGuildHistoryScrollSignal() state.Signal[float32] {
+	if w.historyScrollY == nil {
+		w.historyScrollY = state.NewSignal[float32](0)
+	}
+	return w.historyScrollY
 }
 
 func (w *GuildWindow) noticeTab(ctx Context) widget.Widget {
