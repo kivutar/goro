@@ -547,6 +547,188 @@ func TestTableViewBuildSimpleCellHandlesRowClick(t *testing.T) {
 	}
 }
 
+func TestTableViewBuildSimpleCellIgnoresRightClick(t *testing.T) {
+	clicked := -1
+	selected := state.NewSignal[int](-1)
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(32),
+		TableViewShowHeader(false),
+		TableViewSelectedRow(selected),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			return TableViewSimpleCell{Text: "Row"}
+		}),
+		TableViewOnRowClick(func(row int) {
+			clicked = row
+		}),
+	)
+	ctx := widget.NewContext()
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 40)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 40))
+
+	consumed := table.Event(ctx, event.NewMouseEvent(
+		event.MousePress,
+		event.ButtonRight,
+		event.ButtonStateRight,
+		geometry.Pt(8, 8),
+		geometry.Pt(8, 8),
+		0,
+	))
+
+	if consumed {
+		t.Fatal("right click should not be consumed by fallback row selection")
+	}
+	if clicked != -1 {
+		t.Fatalf("clicked row = %d, want -1", clicked)
+	}
+	if selected.Get() != -1 {
+		t.Fatalf("selected row = %d, want -1", selected.Get())
+	}
+}
+
+func TestTableViewSelectionInvalidatesChangedRows(t *testing.T) {
+	selected := state.NewSignal[int](-1)
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(3),
+		TableViewRowHeight(20),
+		TableViewShowHeader(false),
+		TableViewSelectedRow(selected),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			return TableViewSimpleCell{Text: "Row"}
+		}),
+	)
+	ctx := widget.NewContext()
+	var invalidated []geometry.Rect
+	ctx.SetOnInvalidateRect(func(r geometry.Rect) {
+		invalidated = append(invalidated, r)
+	})
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 60)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 60))
+	widget.StampScreenOrigin(table, &tableViewHeaderCanvas{})
+	table.Draw(ctx, &tableViewHeaderCanvas{})
+	widget.ClearRedrawInTree(table)
+
+	row0 := table.body.simpleRows[0]
+	row1 := table.body.simpleRows[1]
+	if row0 == nil || row1 == nil {
+		t.Fatal("expected visible rows to be cached after draw")
+	}
+
+	table.setSelectedRow(ctx, 0)
+	if table.NeedsRedraw() {
+		t.Fatal("table should stay clean when selection changes internally")
+	}
+	if !row0.NeedsRedraw() {
+		t.Fatal("new selected row should be locally dirty")
+	}
+	if len(invalidated) != 1 {
+		t.Fatalf("invalidated rect count = %d, want 1", len(invalidated))
+	}
+	if invalidated[0].Height() != table.cfg.rowHeight {
+		t.Fatalf("invalidated rect height = %.1f, want %.1f", invalidated[0].Height(), table.cfg.rowHeight)
+	}
+
+	row0.ClearRedraw()
+	invalidated = invalidated[:0]
+	table.setSelectedRow(ctx, 1)
+	if table.NeedsRedraw() {
+		t.Fatal("table should stay clean when selection moves internally")
+	}
+	if !row0.NeedsRedraw() {
+		t.Fatal("previous selected row should be locally dirty")
+	}
+	if !row1.NeedsRedraw() {
+		t.Fatal("new selected row should be locally dirty")
+	}
+	if len(invalidated) != 2 {
+		t.Fatalf("invalidated rect count = %d, want 2", len(invalidated))
+	}
+}
+
+func TestTableViewInternalSelectionDoesNotDirtyScheduler(t *testing.T) {
+	selected := state.NewSignal[int](-1)
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewShowHeader(false),
+		TableViewSelectedRow(selected),
+		TableViewBuildSimpleCell(func(TableViewCellContext) TableViewSimpleCell {
+			return TableViewSimpleCell{Text: "Row"}
+		}),
+	)
+	sched := state.NewScheduler(func([]widget.Widget) {})
+	ctx := widget.NewContext()
+	ctx.SetScheduler(sched)
+	var invalidated []geometry.Rect
+	ctx.SetOnInvalidateRect(func(r geometry.Rect) {
+		invalidated = append(invalidated, r)
+	})
+	widget.MountTree(table, ctx)
+	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 40)))
+	table.SetBounds(geometry.NewRect(0, 0, 100, 40))
+	widget.StampScreenOrigin(table, &tableViewHeaderCanvas{})
+	table.Draw(ctx, &tableViewHeaderCanvas{})
+	widget.ClearRedrawInTree(table)
+	sched.Flush()
+
+	consumed := table.Event(ctx, event.NewMouseEvent(
+		event.MousePress,
+		event.ButtonLeft,
+		event.ButtonStateLeft,
+		geometry.Pt(8, 8),
+		geometry.Pt(8, 8),
+		0,
+	))
+
+	if !consumed {
+		t.Fatal("left click should be consumed")
+	}
+	if selected.Get() != 0 {
+		t.Fatalf("selected row = %d, want 0", selected.Get())
+	}
+	if sched.PendingCount() != 0 {
+		t.Fatalf("pending dirty widgets = %d, want 0", sched.PendingCount())
+	}
+	if len(invalidated) != 1 {
+		t.Fatalf("invalidated rect count = %d, want 1", len(invalidated))
+	}
+	widget.UnmountTree(table)
+}
+
+func TestTableViewExternalSelectionSignalMarksSchedulerDirty(t *testing.T) {
+	selected := state.NewSignal[int](-1)
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
+		TableViewRowCount(1),
+		TableViewRowHeight(20),
+		TableViewShowHeader(false),
+		TableViewSelectedRow(selected),
+	)
+	var dirty []widget.Widget
+	sched := state.NewScheduler(func(widgets []widget.Widget) {
+		dirty = widgets
+	})
+	ctx := widget.NewContext()
+	ctx.SetScheduler(sched)
+	widget.MountTree(table, ctx)
+	sched.Flush()
+	dirty = nil
+
+	selected.Set(0)
+
+	if sched.PendingCount() != 1 {
+		t.Fatalf("pending dirty widgets = %d, want 1", sched.PendingCount())
+	}
+	sched.Flush()
+	if len(dirty) != 1 || dirty[0] != table {
+		t.Fatalf("dirty widgets = %v, want table only", dirty)
+	}
+	widget.UnmountTree(table)
+}
+
 func TestTableViewBuildSimpleCellHoverInvalidatesRowRect(t *testing.T) {
 	table := TableView(
 		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),

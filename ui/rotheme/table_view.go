@@ -59,15 +59,16 @@ type TableViewWidget struct {
 	scroll *scrollview.Widget
 	body   *tableViewBody
 
-	width       float32
-	height      float32
-	bodyHeight  float32
-	colWidths   []float32
-	contentW    float32
-	hoveredRow  int
-	pressedRow  int
-	bodyVisible []widget.Widget
-	mountCtx    widget.Context
+	width               float32
+	height              float32
+	bodyHeight          float32
+	colWidths           []float32
+	contentW            float32
+	hoveredRow          int
+	pressedRow          int
+	observedSelectedRow int
+	bodyVisible         []widget.Widget
+	mountCtx            widget.Context
 }
 
 func TableView(opts ...TableViewOption) *TableViewWidget {
@@ -82,10 +83,15 @@ func TableView(opts ...TableViewOption) *TableViewWidget {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	observedSelectedRow := -1
+	if cfg.selectedRow != nil {
+		observedSelectedRow = cfg.selectedRow.Get()
+	}
 	table := &TableViewWidget{
-		cfg:        cfg,
-		hoveredRow: -1,
-		pressedRow: -1,
+		cfg:                 cfg,
+		hoveredRow:          -1,
+		pressedRow:          -1,
+		observedSelectedRow: observedSelectedRow,
 	}
 	table.SetVisible(true)
 	table.SetEnabled(true)
@@ -242,6 +248,19 @@ func (w *TableViewWidget) Children() []widget.Widget {
 
 func (w *TableViewWidget) Mount(ctx widget.Context) {
 	w.mountCtx = ctx
+	if w.cfg.selectedRow != nil {
+		w.observedSelectedRow = w.cfg.selectedRow.Get()
+		if sched := ctx.Scheduler(); sched != nil {
+			b := state.BindToSchedulerFunc(w.cfg.selectedRow, func(row int) bool {
+				if row == w.observedSelectedRow {
+					return false
+				}
+				w.observedSelectedRow = row
+				return true
+			}, w, sched)
+			w.AddBinding(b)
+		}
+	}
 	if w.body != nil {
 		w.body.mountRows(ctx)
 	}
@@ -560,10 +579,8 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 		}
 		return true
 	}
-	if mouse.MouseType == event.MousePress {
-		if table.cfg.selectedRow != nil {
-			table.cfg.selectedRow.Set(row)
-		}
+	if mouse.MouseType == event.MousePress && mouse.Button == event.ButtonLeft {
+		table.setSelectedRow(ctx, row)
 		if table.cfg.onRowClick != nil {
 			table.cfg.onRowClick(row)
 		}
@@ -1058,11 +1075,25 @@ func (w *TableViewWidget) setHoveredRow(ctx widget.Context, row int) {
 	if !w.cfg.invalidateHover {
 		return
 	}
-	w.invalidateHoverRow(ctx, previous)
-	w.invalidateHoverRow(ctx, row)
+	w.invalidateRow(ctx, previous)
+	w.invalidateRow(ctx, row)
 }
 
-func (w *TableViewWidget) invalidateHoverRow(ctx widget.Context, row int) {
+func (w *TableViewWidget) setSelectedRow(ctx widget.Context, row int) {
+	if w.cfg.selectedRow == nil {
+		return
+	}
+	previous := w.cfg.selectedRow.Get()
+	if previous == row {
+		return
+	}
+	w.observedSelectedRow = row
+	w.cfg.selectedRow.Set(row)
+	w.invalidateRow(ctx, previous)
+	w.invalidateRow(ctx, row)
+}
+
+func (w *TableViewWidget) invalidateRow(ctx widget.Context, row int) {
 	if row < 0 || w.body == nil {
 		return
 	}
