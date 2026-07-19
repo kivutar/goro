@@ -90,7 +90,11 @@ func TableView(opts ...TableViewOption) *TableViewWidget {
 	table.SetVisible(true)
 	table.SetEnabled(true)
 
-	table.body = &tableViewBody{table: table, rows: make(map[int]*tableViewRowWidget)}
+	table.body = &tableViewBody{
+		table:      table,
+		rows:       make(map[int]*tableViewRowWidget),
+		simpleRows: make(map[int]*tableViewSimpleRowWidget),
+	}
 	table.body.SetVisible(true)
 	table.body.SetEnabled(true)
 
@@ -423,8 +427,9 @@ func tableViewColors() struct {
 
 type tableViewBody struct {
 	widget.WidgetBase
-	table *TableViewWidget
-	rows  map[int]*tableViewRowWidget
+	table      *TableViewWidget
+	rows       map[int]*tableViewRowWidget
+	simpleRows map[int]*tableViewSimpleRowWidget
 }
 
 func (b *tableViewBody) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {
@@ -449,7 +454,10 @@ func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
 	table.setContentWidth(table.safeBodyWidth())
 
 	bounds := table.scroll.Bounds()
-	canvas.DrawRect(geometry.NewRect(0, 0, bounds.Width(), bounds.Height()), tableViewColors().Body)
+	bodyBounds := geometry.NewRect(0, 0, bounds.Width(), bounds.Height())
+	if b.shouldDrawBackground(canvas, bodyBounds) {
+		canvas.DrawRect(bodyBounds, tableViewColors().Body)
+	}
 
 	if table.cfg.rowCount == 0 {
 		DrawText(canvas, table.cfg.emptyText, geometry.NewRect(0, 0, table.contentW, bounds.Height()), Default.Typography.TextSize, Default.Colors.MutedText, false, widget.TextAlignCenter)
@@ -459,11 +467,13 @@ func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
 
 	if table.cfg.buildSimpleCell != nil {
 		if len(b.rows) > 0 {
-			b.clearRows()
+			b.clearWidgetRows()
 		}
-		table.bodyVisible = nil
-		b.drawSimpleRows(canvas)
+		b.drawSimpleRows(ctx, canvas)
 		return
+	}
+	if len(b.simpleRows) > 0 {
+		b.clearSimpleRows()
 	}
 
 	start, end := b.visibleRange()
@@ -476,6 +486,9 @@ func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
 		}
 		table.bodyVisible = append(table.bodyVisible, child)
 		widget.StampScreenOrigin(child, canvas)
+		if !tableViewCanvasIntersects(canvas, child.Bounds()) {
+			continue
+		}
 		widget.DrawChild(child, ctx, canvas)
 	}
 }
@@ -561,7 +574,7 @@ func (b *tableViewBody) Event(ctx widget.Context, e event.Event) bool {
 }
 
 func (b *tableViewBody) Children() []widget.Widget {
-	if b.table == nil || b.table.cfg.buildSimpleCell != nil || len(b.table.bodyVisible) == 0 {
+	if b.table == nil || len(b.table.bodyVisible) == 0 {
 		return nil
 	}
 	children := make([]widget.Widget, len(b.table.bodyVisible))
@@ -598,25 +611,50 @@ func (b *tableViewBody) visibleRange() (int, int) {
 	return start, end
 }
 
-func (b *tableViewBody) drawSimpleRows(canvas widget.Canvas) {
+func (b *tableViewBody) drawSimpleRows(ctx widget.Context, canvas widget.Canvas) {
 	table := b.table
 	start, end := b.visibleRange()
+	b.trimSimpleRows(start, end)
+	table.bodyVisible = table.bodyVisible[:0]
 	for row := start; row < end; row++ {
-		y := float32(row) * table.cfg.rowHeight
-		rowBounds := geometry.NewRect(0, y, table.contentW, table.cfg.rowHeight)
-		canvas.DrawRect(rowBounds, table.rowBackground(row))
-
-		x := float32(0)
-		for i, col := range table.cfg.columns {
-			if i >= len(table.colWidths) {
-				break
-			}
-			width := table.colWidths[i]
-			cell := table.buildSimpleCell(row, i, col, width)
-			cell.draw(canvas, geometry.NewRect(x, rowBounds.Min.Y, width, rowBounds.Height()))
-			x += width
+		child := b.layoutSimpleRow(row)
+		if child == nil {
+			continue
 		}
+		table.bodyVisible = append(table.bodyVisible, child)
+		widget.StampScreenOrigin(child, canvas)
+		if !tableViewCanvasIntersects(canvas, child.Bounds()) {
+			continue
+		}
+		b.drawSimpleRow(canvas, row, child.Bounds())
 	}
+}
+
+func (b *tableViewBody) drawSimpleRow(canvas widget.Canvas, row int, rowBounds geometry.Rect) {
+	table := b.table
+	canvas.DrawRect(rowBounds, table.rowBackground(row))
+
+	x := float32(0)
+	for i, col := range table.cfg.columns {
+		if i >= len(table.colWidths) {
+			break
+		}
+		width := table.colWidths[i]
+		cell := table.buildSimpleCell(row, i, col, width)
+		cell.draw(canvas, geometry.NewRect(x, rowBounds.Min.Y, width, rowBounds.Height()))
+		x += width
+	}
+}
+
+func (b *tableViewBody) layoutSimpleRow(row int) *tableViewSimpleRowWidget {
+	child := b.ensureSimpleRow(row)
+	if child == nil {
+		return nil
+	}
+	table := b.table
+	y := float32(row) * table.cfg.rowHeight
+	child.SetBounds(geometry.NewRect(0, y, table.contentW, table.cfg.rowHeight))
+	return child
 }
 
 func (b *tableViewBody) rowAt(y float32) int {
@@ -677,12 +715,48 @@ func (b *tableViewBody) ensureRow(row int) *tableViewRowWidget {
 	return child
 }
 
+func (b *tableViewBody) ensureSimpleRow(row int) *tableViewSimpleRowWidget {
+	if row < 0 || row >= b.table.cfg.rowCount {
+		return nil
+	}
+	if child := b.simpleRows[row]; child != nil {
+		return child
+	}
+	if b.simpleRows == nil {
+		b.simpleRows = make(map[int]*tableViewSimpleRowWidget)
+	}
+	child := &tableViewSimpleRowWidget{
+		table: b.table,
+		row:   row,
+	}
+	child.SetVisible(true)
+	child.SetEnabled(true)
+	setParent(child, b)
+	b.simpleRows[row] = child
+	if b.table.mountCtx != nil {
+		widget.MountTree(child, b.table.mountCtx)
+	}
+	return child
+}
+
 func (b *tableViewBody) clearRows() {
+	b.clearWidgetRows()
+	b.clearSimpleRows()
+	b.table.bodyVisible = nil
+}
+
+func (b *tableViewBody) clearWidgetRows() {
 	for _, child := range b.rows {
 		unmountMounted(child)
 	}
 	b.rows = make(map[int]*tableViewRowWidget)
-	b.table.bodyVisible = nil
+}
+
+func (b *tableViewBody) clearSimpleRows() {
+	for _, child := range b.simpleRows {
+		unmountMounted(child)
+	}
+	b.simpleRows = make(map[int]*tableViewSimpleRowWidget)
 }
 
 func (b *tableViewBody) trimRows(start, end int) {
@@ -694,10 +768,63 @@ func (b *tableViewBody) trimRows(start, end int) {
 	}
 }
 
+func (b *tableViewBody) trimSimpleRows(start, end int) {
+	for row := range b.simpleRows {
+		if row < start || row >= end {
+			unmountMounted(b.simpleRows[row])
+			delete(b.simpleRows, row)
+		}
+	}
+}
+
 func (b *tableViewBody) mountRows(ctx widget.Context) {
 	for _, child := range b.rows {
 		widget.MountTree(child, ctx)
 	}
+	for _, child := range b.simpleRows {
+		widget.MountTree(child, ctx)
+	}
+}
+
+func (b *tableViewBody) shouldDrawBackground(canvas widget.Canvas, bounds geometry.Rect) bool {
+	if b.table == nil || bounds.IsEmpty() {
+		return false
+	}
+	if canvas.ClipBounds().IsEmpty() {
+		return true
+	}
+	localClip := tableViewLocalClip(canvas).Intersection(bounds)
+	if localClip.IsEmpty() {
+		return false
+	}
+
+	table := b.table
+	rowsHeight := float32(table.cfg.rowCount) * table.cfg.rowHeight
+	rowArea := geometry.NewRect(0, 0, table.contentW, rowsHeight).Intersection(bounds)
+	return !rowArea.ContainsRect(localClip)
+}
+
+type tableViewSimpleRowWidget struct {
+	widget.WidgetBase
+	table *TableViewWidget
+	row   int
+}
+
+func (r *tableViewSimpleRowWidget) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(r.table.contentW, r.table.cfg.rowHeight))
+	r.SetBounds(geometry.FromPointSize(r.Position(), size))
+	return size
+}
+
+func (r *tableViewSimpleRowWidget) Draw(_ widget.Context, canvas widget.Canvas) {
+}
+
+func (r *tableViewSimpleRowWidget) Event(widget.Context, event.Event) bool {
+	return false
+}
+
+func (r *tableViewSimpleRowWidget) Children() []widget.Widget {
+	return nil
 }
 
 type tableViewRowWidget struct {
@@ -940,20 +1067,21 @@ func (w *TableViewWidget) invalidateHoverRow(ctx widget.Context, row int) {
 		return
 	}
 	if w.cfg.buildSimpleCell != nil {
-		if w.scroll == nil {
+		child := w.body.simpleRows[row]
+		if child == nil {
 			return
 		}
-		_, scrollY := w.scroll.ScrollOffset()
-		viewport := w.scroll.ScreenBounds()
-		if viewport.IsEmpty() {
-			return
+		child.MarkRedrawLocal()
+
+		bounds := child.ScreenBounds()
+		if w.scroll != nil {
+			if viewport := w.scroll.ScreenBounds(); !viewport.IsEmpty() {
+				bounds = bounds.Intersection(viewport)
+			}
 		}
-		y := viewport.Min.Y + float32(row)*w.cfg.rowHeight - scrollY
-		bounds := geometry.NewRect(viewport.Min.X, y, w.contentW, w.cfg.rowHeight).Intersection(viewport)
 		if bounds.IsEmpty() {
 			return
 		}
-		w.body.MarkRedrawLocal()
 		ctx.InvalidateRect(bounds)
 		return
 	}
@@ -995,6 +1123,23 @@ func unmountMounted(w widget.Widget) {
 		return
 	}
 	widget.UnmountTree(w)
+}
+
+func tableViewCanvasIntersects(canvas widget.Canvas, bounds geometry.Rect) bool {
+	clip := canvas.ClipBounds()
+	if clip.IsEmpty() {
+		return true
+	}
+	return bounds.Translate(canvas.TransformOffset()).Intersects(clip)
+}
+
+func tableViewLocalClip(canvas widget.Canvas) geometry.Rect {
+	clip := canvas.ClipBounds()
+	offset := canvas.TransformOffset()
+	return geometry.Rect{
+		Min: clip.Min.Sub(offset),
+		Max: clip.Max.Sub(offset),
+	}
 }
 
 var (

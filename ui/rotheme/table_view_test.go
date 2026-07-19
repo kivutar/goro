@@ -58,6 +58,7 @@ func TestTableViewHeaderDrawsAcrossScrollbarGutter(t *testing.T) {
 
 type tableViewHeaderCanvas struct {
 	rects          []geometry.Rect
+	clip           geometry.Rect
 	transform      geometry.Point
 	transformStack []geometry.Point
 	lines          []struct {
@@ -133,7 +134,7 @@ func (c *tableViewHeaderCanvas) TransformOffset() geometry.Point { return c.tran
 
 func (c *tableViewHeaderCanvas) ScreenOriginBase() geometry.Point { return geometry.Point{} }
 
-func (c *tableViewHeaderCanvas) ClipBounds() geometry.Rect { return geometry.Rect{} }
+func (c *tableViewHeaderCanvas) ClipBounds() geometry.Rect { return c.clip }
 
 func (c *tableViewHeaderCanvas) ReplayScene(*scene.Scene) {}
 
@@ -441,7 +442,7 @@ func TestTableViewCentersCellWidgetVertically(t *testing.T) {
 	}
 }
 
-func TestTableViewBuildSimpleCellDrawsWithoutRowWidgets(t *testing.T) {
+func TestTableViewBuildSimpleCellDrawsWithoutCellWidgets(t *testing.T) {
 	calls := 0
 	table := TableView(
 		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
@@ -463,10 +464,13 @@ func TestTableViewBuildSimpleCellDrawsWithoutRowWidgets(t *testing.T) {
 		t.Fatal("simple cell builder was not called")
 	}
 	if got := len(table.body.rows); got != 0 {
-		t.Fatalf("cached row widgets = %d, want 0", got)
+		t.Fatalf("cached widget row count = %d, want 0", got)
 	}
-	if children := table.body.Children(); len(children) != 0 {
-		t.Fatalf("body children = %d, want 0 for direct simple rows", len(children))
+	if got := len(table.body.simpleRows); got != 1 {
+		t.Fatalf("cached simple row count = %d, want 1", got)
+	}
+	if children := table.body.Children(); len(children) != 1 {
+		t.Fatalf("body children = %d, want 1 simple row", len(children))
 	}
 	if len(canvas.texts) != 1 {
 		t.Fatalf("drawn texts = %d, want 1", len(canvas.texts))
@@ -493,7 +497,10 @@ func TestTableViewBuildSimpleCellDrawsIconButtonWithoutRowWidgets(t *testing.T) 
 	table.Draw(ctx, canvas)
 
 	if got := len(table.body.rows); got != 0 {
-		t.Fatalf("cached row widgets = %d, want 0", got)
+		t.Fatalf("cached widget row count = %d, want 0", got)
+	}
+	if got := len(table.body.simpleRows); got != 1 {
+		t.Fatalf("cached simple row count = %d, want 1", got)
 	}
 	if len(canvas.lines) < 2 {
 		t.Fatalf("drawn icon lines = %d, want at least 2", len(canvas.lines))
@@ -563,14 +570,44 @@ func TestTableViewBuildSimpleCellHoverInvalidatesRowRect(t *testing.T) {
 
 	table.setHoveredRow(ctx, 0)
 
-	if !table.body.NeedsRedraw() {
-		t.Fatal("simple table body should be dirty after hover change")
+	if table.body.NeedsRedraw() {
+		t.Fatal("simple table body should stay clean after hover change")
+	}
+	row := table.body.simpleRows[0]
+	if row == nil {
+		t.Fatal("simple row was not cached")
+	}
+	if !row.NeedsRedraw() {
+		t.Fatal("simple hovered row should be dirty after hover change")
 	}
 	if len(invalidated) != 1 {
 		t.Fatalf("invalidated rect count = %d, want 1", len(invalidated))
 	}
 	if invalidated[0].Height() != table.cfg.rowHeight {
 		t.Fatalf("invalidated rect height = %.1f, want %.1f", invalidated[0].Height(), table.cfg.rowHeight)
+	}
+}
+
+func TestTableViewBodySkipsBackgroundForRowDirtyClip(t *testing.T) {
+	table := TableView(
+		TableViewColumns([]TableViewColumn{{Key: "name", Width: 80}}),
+		TableViewRowCount(2),
+		TableViewRowHeight(20),
+		TableViewShowHeader(false),
+	)
+	table.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(80, 80)))
+	table.setContentWidth(80)
+	bounds := geometry.NewRect(0, 0, 80, 80)
+	canvas := &tableViewHeaderCanvas{clip: geometry.NewRect(12, 34, 80, 20)}
+	canvas.PushTransform(geometry.Pt(12, 34))
+
+	if table.body.shouldDrawBackground(canvas, bounds) {
+		t.Fatal("body background should be skipped when dirty clip is covered by row backgrounds")
+	}
+
+	canvas.clip = geometry.NewRect(12, 78, 80, 12)
+	if !table.body.shouldDrawBackground(canvas, bounds) {
+		t.Fatal("body background should draw when dirty clip reaches below the last row")
 	}
 }
 
