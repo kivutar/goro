@@ -286,6 +286,10 @@ func applyLocalGuildDetails(ctx client.Context, info network.GuildInfo) {
 	applyLocalGuildInfo(ctx, info.GuildID, info.EmblemVersion, info.GuildName)
 	if ctx.Session != nil {
 		isMaster := ctx.Session.Guild.IsMaster
+		masterName := strings.TrimSpace(info.MasterName)
+		if selectedName := strings.TrimSpace(ctx.Session.Selected.Name); selectedName != "" && masterName != "" {
+			isMaster = selectedName == masterName
+		}
 		members := ctx.Session.Guild.Members
 		positions := ctx.Session.Guild.Positions
 		skillPoints := ctx.Session.Guild.SkillPoints
@@ -307,7 +311,7 @@ func applyLocalGuildDetails(ctx client.Context, info network.GuildInfo) {
 			Virtue:           info.Virtue,
 			EmblemVersion:    info.EmblemVersion,
 			Name:             strings.TrimSpace(info.GuildName),
-			MasterName:       strings.TrimSpace(info.MasterName),
+			MasterName:       masterName,
 			ManageLand:       strings.TrimSpace(info.ManageLand),
 			Zeny:             info.Zeny,
 			Members:          members,
