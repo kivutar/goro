@@ -53,6 +53,7 @@ type HomunculusInfoActionKind uint8
 
 const (
 	HomunculusInfoActionNone HomunculusInfoActionKind = iota
+	HomunculusInfoActionSkill
 	HomunculusInfoActionFeed
 	HomunculusInfoActionDelete
 	HomunculusInfoActionRename
@@ -137,6 +138,9 @@ func (w *HomunculusInfoWindow) widgetTree(ctx Context) widget.Widget {
 		Size(homunculusInfoWindowW, homunculusInfoWindowH),
 		Content(w.contentTree(ctx)),
 		Footer(
+			rotheme.Button("Skill", func() {
+				w.action = HomunculusInfoAction{Kind: HomunculusInfoActionSkill}
+			}).Width(72),
 			rotheme.Button("Feed", func() {
 				w.action = HomunculusInfoAction{Kind: HomunculusInfoActionFeed}
 			}).Width(72),

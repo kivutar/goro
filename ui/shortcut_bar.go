@@ -621,7 +621,7 @@ func skillForShortcut(s *session.Session, entry shortcutSlotState) (session.Skil
 	if entry.kind != shortcutSkill {
 		return session.Skill{}, false
 	}
-	skill, ok := skillByID(s, entry.skillID)
+	skill, ok := shortcutSkillByID(s, entry.skillID)
 	if !ok || skill.Level <= 0 {
 		return session.Skill{}, false
 	}
@@ -631,4 +631,17 @@ func skillForShortcut(s *session.Session, entry shortcutSlotState) (session.Skil
 	}
 	skill.Level = level
 	return skill, true
+}
+
+func shortcutSkillByID(s *session.Session, skillID uint16) (session.Skill, bool) {
+	if skill, ok := skillByID(s, skillID); ok {
+		return skill, true
+	}
+	if s == nil {
+		return session.Skill{}, false
+	}
+	if skill, ok := companionSkillByID(s.Mercenary, skillID); ok {
+		return skill, true
+	}
+	return companionSkillByID(s.Homunculus, skillID)
 }

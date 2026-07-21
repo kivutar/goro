@@ -345,6 +345,7 @@ func TestPendingHomunculusDeleteVanishClearsSession(t *testing.T) {
 		},
 	}
 	mode.ui.homunculusInfo.OpenInfo(ctx, sess.Homunculus)
+	mode.ui.homunculusSkill.Open(ctx, nil)
 
 	mode.applyActorVanish(ctx, network.ActorVanish{ID: 300, Reason: actorVanishOutOfSight})
 
@@ -359,6 +360,9 @@ func TestPendingHomunculusDeleteVanishClearsSession(t *testing.T) {
 	}
 	if mode.ui.homunculusInfo.IsOpen() {
 		t.Fatal("homunculus info window stayed open after delete")
+	}
+	if mode.ui.homunculusSkill.IsOpen() {
+		t.Fatal("homunculus skill window stayed open after delete")
 	}
 	if _, ok := mode.companionAI.msg[300]; ok {
 		t.Fatal("homunculus AI message remained after delete")

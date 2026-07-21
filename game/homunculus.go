@@ -48,6 +48,8 @@ func (m *WorldMode) handleHomunculusContextAction(ctx client.Context, action gam
 
 func (m *WorldMode) handleHomunculusInfoAction(ctx client.Context, action gameui.HomunculusInfoAction) {
 	switch action.Kind {
+	case gameui.HomunculusInfoActionSkill:
+		m.ui.homunculusSkill.Toggle(ctx, m)
 	case gameui.HomunculusInfoActionFeed:
 		m.openHomunculusFeedConfirm(ctx)
 	case gameui.HomunculusInfoActionDelete:
@@ -167,6 +169,7 @@ func (m *WorldMode) clearDeletedHomunculus(ctx client.Context) {
 		delete(m.companionAI.resMsg, id)
 	}
 	m.ui.homunculusInfo.Close()
+	m.ui.homunculusSkill.Close()
 	m.ui.homunculusContext.Close()
 }
 

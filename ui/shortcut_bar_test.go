@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 )
@@ -229,6 +230,25 @@ func TestSkillForShortcutFallsBackAndClampsLevel(t *testing.T) {
 	}
 	if skill.Level != 4 {
 		t.Fatalf("clamped shortcut level = %d, want learned level 4", skill.Level)
+	}
+}
+
+func TestSkillForShortcutResolvesHomunculusSkills(t *testing.T) {
+	s := &session.Session{
+		Homunculus: session.Companion{
+			Active: true,
+			Skills: session.Skills{
+				List: []session.Skill{{ID: db.SkillHvanCaprice, Level: 4, Type: 1, Name: "Caprice"}},
+			},
+		},
+	}
+
+	skill, ok := skillForShortcut(s, shortcutSlotState{kind: shortcutSkill, skillID: db.SkillHvanCaprice, skillLevel: 2})
+	if !ok {
+		t.Fatal("homunculus shortcut skill not found")
+	}
+	if skill.ID != db.SkillHvanCaprice || skill.Level != 2 || skill.Name != "Caprice" {
+		t.Fatalf("homunculus shortcut skill = %+v", skill)
 	}
 }
 

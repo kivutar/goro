@@ -152,6 +152,7 @@ type worldUI struct {
 	petContext        gameui.PetContextMenu
 	petConfirm        gameui.ConfirmModal
 	homunculusInfo    gameui.HomunculusInfoWindow
+	homunculusSkill   gameui.HomunculusSkillWindow
 	homunculusContext gameui.HomunculusContextMenu
 	homunculusConfirm gameui.ConfirmModal
 	statsWindow       gameui.StatsWindow
@@ -409,6 +410,7 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	m.ui.itemInfoWindow.Rebind(ctx, m)
 	m.ui.statsWindow.Rebind(ctx)
 	m.ui.skillWindow.Rebind(ctx, m)
+	m.ui.homunculusSkill.Rebind(ctx, m)
 	m.ui.friendsWindow.Rebind(ctx)
 	m.ui.guildWindow.Rebind(ctx)
 	m.ui.friendSettings.Rebind(ctx)
@@ -1551,7 +1553,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.openPlayerContextFromInput(ctx, now) {
 		return nil, nil
 	}
-	if !m.ui.escapeMenu.IsOpen() && !m.ui.teleportModal.IsOpen() && !m.ui.deathModal.IsOpen() && !m.ui.friendRequest.IsOpen() && !m.ui.friendConfirm.IsOpen() && !m.ui.partyRequest.IsOpen() && !m.ui.guildRequest.IsOpen() && !m.ui.tradeRequest.IsOpen() && !m.ui.settingsWindow.IsOpen() && !m.ui.identifyWindow.IsOpen() && !m.ui.petEggWindow.IsOpen() && !m.ui.petInfoWindow.IsOpen() && !m.ui.petConfirm.IsOpen() && !m.ui.homunculusInfo.IsOpen() && !m.ui.homunculusConfirm.IsOpen() {
+	if !m.ui.escapeMenu.IsOpen() && !m.ui.teleportModal.IsOpen() && !m.ui.deathModal.IsOpen() && !m.ui.friendRequest.IsOpen() && !m.ui.friendConfirm.IsOpen() && !m.ui.partyRequest.IsOpen() && !m.ui.guildRequest.IsOpen() && !m.ui.tradeRequest.IsOpen() && !m.ui.settingsWindow.IsOpen() && !m.ui.identifyWindow.IsOpen() && !m.ui.petEggWindow.IsOpen() && !m.ui.petInfoWindow.IsOpen() && !m.ui.petConfirm.IsOpen() && !m.ui.homunculusInfo.IsOpen() && !m.ui.homunculusSkill.IsOpen() && !m.ui.homunculusConfirm.IsOpen() {
 		m.updateCameraRotation(ctx)
 	}
 	if m.updatePetSlotMachine(ctx) {
@@ -1657,6 +1659,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.skillWindow.UpdateDrag(ctx, &m.ui.shortcutBar) {
 		return nil, nil
 	}
+	if m.ui.homunculusSkill.UpdateDrag(ctx, &m.ui.shortcutBar) {
+		return nil, nil
+	}
 	if m.ui.shortcutBar.Update(ctx, m) {
 		return nil, nil
 	}
@@ -1688,6 +1693,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if m.ui.skillWindow.Update(ctx, &m.ui.shortcutBar, m) {
+		return nil, nil
+	}
+	if m.ui.homunculusSkill.Update(ctx, &m.ui.shortcutBar, m) {
 		return nil, nil
 	}
 	if m.toggleGuildWindowFromInput(ctx) {
@@ -1999,6 +2007,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.petEggWindow = m.ui.petEggWindow
 	next.ui.petInfoWindow = m.ui.petInfoWindow
 	next.ui.homunculusInfo = m.ui.homunculusInfo
+	next.ui.homunculusSkill = m.ui.homunculusSkill
 	next.petProperty = m.petProperty
 	next.hasPetProperty = m.hasPetProperty
 	next.petOldFullness = m.petOldFullness
@@ -2111,6 +2120,7 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 		m.ui.shopWindow.Draw(screen, ctx, m)
 		m.ui.vendingWindow.Draw(screen, ctx, m)
 		m.ui.skillWindow.Draw(screen, ctx, m)
+		m.ui.homunculusSkill.Draw(screen, ctx, m)
 		m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 		m.ui.deathModal.Draw(screen, ctx, width, height)
 	}
@@ -2136,6 +2146,7 @@ func (m *WorldMode) DrawUIOverlay(ctx client.Context, screen *render.Frame) {
 	m.ui.equipmentWindow.DrawTooltip(screen)
 	m.ui.itemInfoWindow.DrawTooltip(screen)
 	m.ui.skillWindow.DrawTooltip(screen)
+	m.ui.homunculusSkill.DrawTooltip(screen)
 	m.ui.guildWindow.DrawTooltip(screen)
 	m.ui.shortcutBar.DrawTooltip(screen)
 }
@@ -2147,6 +2158,7 @@ func (m *WorldMode) drawUIDragGhosts(screen *render.Frame, ctx client.Context) {
 	m.ui.shopWindow.DrawDragGhost(screen, ctx, m)
 	m.ui.vendingWindow.DrawDragGhost(screen, ctx, m)
 	m.ui.skillWindow.DrawDragGhost(screen, ctx, m)
+	m.ui.homunculusSkill.DrawDragGhost(screen, ctx, m)
 }
 
 func clickedAttackTarget(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {
