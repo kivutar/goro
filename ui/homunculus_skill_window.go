@@ -37,12 +37,15 @@ type HomunculusSkillWindow struct {
 	hoverX         int
 	hoverY         int
 	tooltip        tooltipState
+	pending        map[uint16]int
+	pendingOrder   []uint16
 	dirty          bool
 	icons          map[uint16]image.Image
 	iconMiss       map[uint16]struct{}
 	lastIconAssets bool
 	assets         AssetProvider
 	actions        GameActions
+	homunculusID   uint32
 }
 
 func (w *HomunculusSkillWindow) Toggle(ctx Context, actions GameActions) {
@@ -55,6 +58,7 @@ func (w *HomunculusSkillWindow) Toggle(ctx Context, actions GameActions) {
 		return
 	}
 	w.bindActions(actions)
+	w.syncHomunculusIdentity(ctx)
 	w.openAtDefault(ctx)
 }
 
@@ -64,6 +68,7 @@ func (w *HomunculusSkillWindow) Open(ctx Context, actions GameActions) {
 		return
 	}
 	w.bindActions(actions)
+	w.syncHomunculusIdentity(ctx)
 	w.openAtDefault(ctx)
 }
 
@@ -92,6 +97,7 @@ func (w *HomunculusSkillWindow) Update(ctx Context, shortcuts *ShortcutBar, acti
 		w.close(ctx)
 		return true
 	}
+	w.syncHomunculusIdentity(ctx)
 	if ctx.Input == nil {
 		w.Publish(ctx)
 		return true
@@ -226,7 +232,16 @@ func (w *HomunculusSkillWindow) widgetTreeWithAssets(ctx Context, assets AssetPr
 				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
-			footerLabel(fmt.Sprintf("Skill Points: %d", homunculusSkillPoints(ctx.Session))),
+			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, homunculusSkillPoints(ctx.Session)-w.pendingCount()))),
+			primitives.Expanded(primitives.Box()),
+			rotheme.Button("Reset", func() {
+				w.clearPending()
+				w.dirty = true
+			}),
+			rotheme.Button("Confirm", func() {
+				w.confirmPending(ctx)
+				w.dirty = true
+			}),
 		),
 	)
 }
@@ -254,8 +269,9 @@ func (w *HomunculusSkillWindow) skillTableWidget(ctx Context, assets AssetProvid
 }
 
 func (w *HomunculusSkillWindow) skillTableCell(ctx Context, assets AssetProvider, skill session.Skill, cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
+	display := w.skillWithPending(skill)
 	nameColor := rotheme.Default.Colors.Text
-	if skill.Level <= 0 {
+	if display.Level <= 0 {
 		nameColor = rotheme.Default.Colors.MutedText
 	}
 	switch cell.Column.Key {
@@ -263,31 +279,31 @@ func (w *HomunculusSkillWindow) skillTableCell(ctx Context, assets AssetProvider
 		return rotheme.TableViewSimpleCell{Icon: w.skillIconImage(ctx, assets, skill)}
 	case "type":
 		return rotheme.TableViewSimpleCell{
-			Text:  skillTypeLabel(skill),
-			Color: skillTypeColor(skill),
+			Text:  skillTypeLabel(display),
+			Color: skillTypeColor(display),
 		}
 	case "name":
 		return rotheme.TableViewSimpleCell{
-			Text:  trimRunes(skillDisplayName(ctx.Resources, skill), 18),
+			Text:  trimRunes(skillDisplayName(ctx.Resources, display), 18),
 			Color: nameColor,
 		}
 	case "level":
 		return rotheme.TableViewSimpleCell{
-			Text:  fmt.Sprintf("%d", skill.Level),
+			Text:  fmt.Sprintf("%d", display.Level),
 			Color: nameColor,
 		}
 	case "sp":
 		return rotheme.TableViewSimpleCell{
-			Text:  fmt.Sprintf("%d", skill.SPCost),
+			Text:  fmt.Sprintf("%d", display.SPCost),
 			Color: rotheme.Default.Colors.MutedText,
 		}
 	case "range":
 		return rotheme.TableViewSimpleCell{
-			Text:  fmt.Sprintf("%d", skill.Range),
+			Text:  fmt.Sprintf("%d", display.Range),
 			Color: rotheme.Default.Colors.MutedText,
 		}
 	case "levelup":
-		return rotheme.TableViewIconButtonCell(rotheme.IconButtonPlus, !w.canLevelUp(ctx.Session, skill))
+		return rotheme.TableViewIconButtonCell(rotheme.IconButtonPlus, !w.canStageSkill(ctx.Session, skill))
 	default:
 		return rotheme.TableViewSimpleCell{Hidden: true}
 	}
@@ -301,7 +317,8 @@ func (w *HomunculusSkillWindow) handleSkillTableRowEvent(widgetCtx widget.Contex
 	skill := skills[row]
 	switch mouse.MouseType {
 	case event.MouseEnter, event.MouseMove, event.MouseDrag:
-		if skill.Level > 0 || w.canLevelUp(ctx.Session, skill) {
+		display := w.skillWithPending(skill)
+		if display.Level > 0 || w.canStageSkill(ctx.Session, skill) {
 			widgetCtx.SetCursor(widget.CursorPointer)
 		}
 		mx, my := int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y)
@@ -319,7 +336,11 @@ func (w *HomunculusSkillWindow) handleSkillTableRowEvent(widgetCtx widget.Contex
 			return false
 		}
 		if skillTableLevelUpButtonBounds(row).Contains(mouse.Position) {
-			w.levelUp(ctx, skill)
+			if !w.canStageSkill(ctx.Session, skill) {
+				glog.Debugf("homunculus skill level up ignored id=%d: no points or maxed", skill.ID)
+				return true
+			}
+			w.stageSkill(skill.ID)
 			w.dirty = true
 			return true
 		}
@@ -371,28 +392,83 @@ func (w *HomunculusSkillWindow) pressSkill(ctx Context, actions GameActions, ski
 	w.hoverY = my
 }
 
-func (w *HomunculusSkillWindow) levelUp(ctx Context, skill session.Skill) {
-	if !w.canLevelUp(ctx.Session, skill) {
-		glog.Debugf("homunculus skill level up ignored id=%d: no points or maxed", skill.ID)
-		return
-	}
-	if ctx.Network == nil {
-		glog.Warnf("homunculus skill level up failed id=%d: not connected", skill.ID)
-		return
-	}
-	if err := ctx.Network.SendSkillLevelUp(skill.ID); err != nil {
-		glog.Warnf("homunculus skill level up failed id=%d: %v", skill.ID, err)
-	}
+func (w *HomunculusSkillWindow) clearPending() {
+	w.pending = nil
+	w.pendingOrder = nil
 }
 
-func (w *HomunculusSkillWindow) canLevelUp(s *session.Session, skill session.Skill) bool {
+func (w *HomunculusSkillWindow) pendingCount() int {
+	total := 0
+	for _, count := range w.pending {
+		total += count
+	}
+	return total
+}
+
+func (w *HomunculusSkillWindow) pendingFor(skillID uint16) int {
+	if w.pending == nil {
+		return 0
+	}
+	return w.pending[skillID]
+}
+
+func (w *HomunculusSkillWindow) skillWithPending(skill session.Skill) session.Skill {
+	skill.Level += w.pendingFor(skill.ID)
+	return skill
+}
+
+func (w *HomunculusSkillWindow) stageSkill(skillID uint16) {
+	if w.pending == nil {
+		w.pending = make(map[uint16]int)
+	}
+	if w.pending[skillID] == 0 {
+		w.pendingOrder = append(w.pendingOrder, skillID)
+	}
+	w.pending[skillID]++
+}
+
+func (w *HomunculusSkillWindow) canStageSkill(s *session.Session, skill session.Skill) bool {
 	if s == nil || s.Homunculus.Skills.Points <= 0 || !skill.Upgradable {
 		return false
 	}
+	pending := w.pendingFor(skill.ID)
 	if maxLevel := skillMaxLevel(skill); maxLevel > 0 {
-		return skill.Level < maxLevel
+		return skill.Level+pending < maxLevel && w.pendingCount() < homunculusSkillPoints(s)
 	}
-	return true
+	return w.pendingCount() < homunculusSkillPoints(s)
+}
+
+func (w *HomunculusSkillWindow) confirmPending(ctx Context) {
+	if len(w.pendingOrder) == 0 {
+		return
+	}
+	if ctx.Network == nil {
+		glog.Warnf("homunculus skill level up failed: not connected")
+		return
+	}
+	for _, skillID := range w.pendingOrder {
+		for i := 0; i < w.pending[skillID]; i++ {
+			if err := ctx.Network.SendSkillLevelUp(skillID); err != nil {
+				glog.Warnf("homunculus skill level up failed id=%d: %v", skillID, err)
+				return
+			}
+		}
+	}
+	w.clearPending()
+}
+
+func (w *HomunculusSkillWindow) syncHomunculusIdentity(ctx Context) {
+	if ctx.Session == nil || !ctx.Session.Homunculus.Active {
+		return
+	}
+	id := ctx.Session.Homunculus.ID
+	if w.homunculusID != 0 && id != 0 && w.homunculusID != id {
+		w.clearPending()
+		w.snapshot = ""
+	}
+	if id != 0 {
+		w.homunculusID = id
+	}
 }
 
 func (w *HomunculusSkillWindow) showTooltip(ctx Context, skill session.Skill, mx, my int) {
@@ -490,7 +566,7 @@ func (w *HomunculusSkillWindow) skillSnapshot(s *session.Session) string {
 	if s == nil {
 		return ""
 	}
-	return fmt.Sprintf("active=%t;points=%d;skills=%v", s.Homunculus.Active, s.Homunculus.Skills.Points, s.Homunculus.Skills.List)
+	return fmt.Sprintf("id=%d;active=%t;points=%d;pending=%v;skills=%v", s.Homunculus.ID, s.Homunculus.Active, s.Homunculus.Skills.Points, w.pending, s.Homunculus.Skills.List)
 }
 
 func (w *HomunculusSkillWindow) visibleSkills(ctx Context) []session.Skill {
