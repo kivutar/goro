@@ -72,10 +72,12 @@
 
   Homunculus / Mercenary
 
-  - [ ] Homunculus menu: 0x022D
-  - [ ] Change homunculus name: 0x0231
-  - [ ] Homunculus move/attack/return to master: 0x0232, 0x0233, 0x0234
-  - [ ] Mercenary action: 0x029F
+  - [x] Homunculus menu/feed/delete: 0x022D
+  - [x] Change homunculus name: 0x0231
+  - [x] Homunculus/mercenary move/attack/return to master: 0x0232, 0x0233, 0x0234
+  - [x] Mercenary action: 0x029F
+  - [x] Homunculus/mercenary property, parameter, and skill-list state: 0x022E, 0x022F, 0x0230, 0x0235, 0x0239, 0x027D, 0x029B, 0x029C, 0x029D, 0x029E, 0x02A2
+  - [x] Gravity-style AI.lua / AI_M.lua loader and Lua API shim
 
   Mail / Auction
 

@@ -440,6 +440,7 @@ func (m *WorldMode) sendAttackAction(ctx client.Context, actor world.Actor, sour
 func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.ActorActionNotify) {
 	glog.Debugf("actor action src=%d dst=%d skill=%d level=%d damage=%d left_damage=%d hits=%d action=%d src_speed=%d dst_speed=%d tick=%d", action.SourceID, action.TargetID, action.SkillID, action.SkillLevel, action.Damage, action.LeftDamage, action.HitCount, action.Action, action.SourceSpeed, action.TargetSpeed, action.ServerTick)
 	now := time.Now()
+	m.applyActorActionAIState(ctx, action)
 	if action.Action == network.ActorActionPickupItem {
 		m.applyActorPickupActionNotify(ctx, action, now)
 		return
@@ -502,6 +503,19 @@ func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.Ac
 	m.addActionDamageFloaters(action, target, targetOK, targetLocal, sourceLocal, x, y, hitAt)
 	if sourceLocal {
 		m.maybeSendPetHuntingTalk(ctx, now)
+	}
+}
+
+func (m *WorldMode) applyActorActionAIState(ctx client.Context, action network.ActorActionNotify) {
+	if action.SourceID != 0 {
+		motion := aiMotionAttack
+		if action.Action == network.ActorActionPickupItem || action.Action == network.ActionSitDown || action.Action == network.ActionStandUp {
+			motion = aiMotionStand
+		}
+		m.setActorAIMotion(ctx, action.SourceID, motion, action.TargetID)
+	}
+	if action.TargetID != 0 && actionHasHitReaction(action) {
+		m.setActorAIMotion(ctx, action.TargetID, aiMotionStand, action.SourceID)
 	}
 }
 
@@ -1518,6 +1532,7 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 	} else {
 		m.startCombatAnimation(ctx, id, actionFamily, now, visibleDuration)
 	}
+	m.setActorAIMotion(ctx, id, aiMotionDead, 0)
 	if !local {
 		if m.actorDeaths == nil {
 			m.actorDeaths = make(map[uint32]time.Time)

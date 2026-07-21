@@ -146,9 +146,19 @@ func upsertNetworkActor(ctx client.Context, entry network.ActorEntry) {
 	if isLocalActor(ctx, entry.ID) {
 		return
 	}
+	applyCompanionActorEntry(ctx, entry)
 	dir := entry.Dir
 	if entry.Moving {
 		dir = directionFromDelta(entry.FromX, entry.FromY, entry.ToX, entry.ToY, dir)
+	}
+	attackRange := 0
+	if ctx.Session != nil {
+		switch entry.ObjectType {
+		case actorObjectTypeHomunculus:
+			attackRange = ctx.Session.Homunculus.AttackRange
+		case actorObjectTypeMercenary:
+			attackRange = ctx.Session.Mercenary.AttackRange
+		}
 	}
 	actor := worldstate.Actor{
 		ID:            entry.ID,
@@ -177,6 +187,7 @@ func upsertNetworkActor(ctx client.Context, entry network.ActorEntry) {
 		ObjectType:    entry.ObjectType,
 		HasObjectType: entry.HasObjectType,
 		Speed:         entry.Speed,
+		AttackRange:   attackRange,
 		BodyState:     entry.BodyState,
 		HealthState:   entry.HealthState,
 		EffectState:   entry.EffectState,

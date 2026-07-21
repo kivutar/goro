@@ -43,6 +43,8 @@ type Session struct {
 	Whisper          WhisperSettings
 	Party            Party
 	Movement         Movement
+	Homunculus       Companion
+	Mercenary        Companion
 }
 
 func New() *Session {
@@ -80,6 +82,8 @@ func (s *Session) SelectCharacter(character Character) {
 	s.Friends = Friends{}
 	s.Party = Party{}
 	s.Movement = Movement{}
+	s.Homunculus = Companion{}
+	s.Mercenary = Companion{}
 }
 
 func (s *Session) SelectedCharacter() Character {
@@ -355,6 +359,39 @@ type Skill struct {
 	Range      int
 	Name       string
 	Upgradable bool
+}
+
+type Companion struct {
+	ID           uint32
+	Active       bool
+	Name         string
+	Flags        uint8
+	Level        int
+	Hunger       int
+	Intimacy     int
+	ItemID       uint32
+	Faith        int
+	SummonCount  int
+	Calls        uint32
+	Kills        uint32
+	ExpireTick   uint32
+	Attack       int
+	MagicAttack  int
+	Hit          int
+	Critical     int
+	Defense      int
+	MagicDefense int
+	Flee         int
+	ASPD         int
+	HP           int
+	MaxHP        int
+	SP           int
+	MaxSP        int
+	Exp          uint32
+	MaxExp       uint32
+	AttackRange  int
+	Job          int16
+	Skills       Skills
 }
 
 type HotkeySlot struct {

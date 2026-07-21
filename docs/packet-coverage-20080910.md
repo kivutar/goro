@@ -21,8 +21,8 @@ Status meaning:
 - Effective unique map opcodes: `603`
 - Overwritten historical/remap declarations: `283`
 - Client-to-map packets accepted by rAthena: `177`
-- Effective map opcodes referenced by Goro: `189`
-- Client-to-map accepted packets referenced by Goro: `88` / `177`
+- Effective map opcodes referenced by Goro: `204`
+- Client-to-map accepted packets referenced by Goro: `94` / `177`
 - Unresolved packet aliases in this generated pass: `0`
 
 ## High Priority Gaps
@@ -41,11 +41,6 @@ Status meaning:
 | `0x01A1` | C->S | `0x01a1` | `3` | `clif_parse_PetMenu` | P2 |
 | `0x01A5` | C->S | `0x01a5` | `26` | `clif_parse_ChangePetName` | P2 |
 | `0x01A9` | C->S | `0x01a9` | `6` | `clif_parse_SendEmotion` (pet emotion) | P2 |
-| `0x022D` | C->S | `0x022d` | `5` | `clif_parse_HomMenu` | P2 |
-| `0x0231` | C->S | `0x0231` | `26` | `clif_parse_ChangeHomunculusName` | P2 |
-| `0x0232` | C->S | `HEADER_CZ_REQUEST_MOVENPC` | `sizeof( PACKET_CZ_REQUEST_MOVENPC )` | `clif_parse_HomMoveTo` | P2 |
-| `0x0233` | C->S | `0x0233` | `11` | `clif_parse_HomAttack` | P2 |
-| `0x0234` | C->S | `0x0234` | `6` | `clif_parse_HomMoveToMaster` | P2 |
 | `0x023B` | C->S | `0x023b` | `36` | `clif_parse_StoragePassword` | P0/P1 |
 | `0x02C4` | C->S | `HEADER_CZ_PARTY_JOIN_REQ` | `sizeof( PACKET_CZ_PARTY_JOIN_REQ )` | `clif_parse_PartyInvite2` | P2 |
 | `0x02C7` | C->S | `HEADER_CZ_PARTY_JOIN_REQ_ACK` | `sizeof( PACKET_CZ_PARTY_JOIN_REQ_ACK )` | `clif_parse_ReplyPartyInvite2` | P2 |
@@ -414,14 +409,17 @@ email check.
 | `0x022A` | S->C | referenced | `0x022a` | `58` | `-` | packet.go |
 | `0x022B` | S->C | referenced | `0x022b` | `57` | `-` | packet.go |
 | `0x022C` | S->C | referenced | `0x022c` | `65` | `-` | actor_packets.go, packet.go |
-| `0x022D` | C->S | missing | `0x022d` | `5` | `clif_parse_HomMenu` | - |
-| `0x022E` | S->C | untracked | `0x022e` | `71` | `-` | - |
-| `0x022F` | S->C | untracked | `0x022f` | `5` | `-` | - |
-| `0x0231` | C->S | missing | `0x0231` | `26` | `clif_parse_ChangeHomunculusName` | - |
-| `0x0232` | C->S | missing | `HEADER_CZ_REQUEST_MOVENPC` | `sizeof( PACKET_CZ_REQUEST_MOVENPC )` | `clif_parse_HomMoveTo` | - |
-| `0x0233` | C->S | missing | `0x0233` | `11` | `clif_parse_HomAttack` | - |
-| `0x0234` | C->S | missing | `0x0234` | `6` | `clif_parse_HomMoveToMaster` | - |
+| `0x022D` | C->S | implemented | `0x022d` | `5` | `clif_parse_HomMenu` | companion_packets.go, client.go |
+| `0x022E` | S->C | implemented | `0x022e` | `71` | `-` | companion_packets.go, packet.go |
+| `0x022F` | S->C | implemented | `0x022f` | `5` | `-` | companion_packets.go, packet.go |
+| `0x0230` | S->C | implemented | `0x0230` | `12` | `-` | companion_packets.go, packet.go |
+| `0x0231` | C->S | implemented | `0x0231` | `26` | `clif_parse_ChangeHomunculusName` | companion_packets.go, client.go |
+| `0x0232` | C->S | implemented | `HEADER_CZ_REQUEST_MOVENPC` | `sizeof( PACKET_CZ_REQUEST_MOVENPC )` | `clif_parse_HomMoveTo` | companion_packets.go, client.go |
+| `0x0233` | C->S | implemented | `0x0233` | `11` | `clif_parse_HomAttack` | companion_packets.go, client.go |
+| `0x0234` | C->S | implemented | `0x0234` | `6` | `clif_parse_HomMoveToMaster` | companion_packets.go, client.go |
+| `0x0235` | S->C | implemented | `0x0235` | `-1` | `-` | companion_packets.go, packet.go |
 | `0x0237` | C->S | missing | `HEADER_CZ_KILLER_RANK` | `sizeof( PACKET_CZ_KILLER_RANK )` | `clif_parse_ranklist_killer` | - |
+| `0x0239` | S->C | implemented | `0x0239` | `11` | `-` | companion_packets.go, packet.go |
 | `0x023A` | S->C | untracked | `0x023a` | `4` | `-` | - |
 | `0x023B` | C->S | missing | `0x023b` | `36` | `clif_parse_StoragePassword` | - |
 | `0x023C` | S->C | untracked | `0x023c` | `6` | `-` | - |
@@ -485,7 +483,7 @@ email check.
 | `0x027A` | S->C | untracked | `0x027a` | `-1` | `-` | - |
 | `0x027B` | S->C | untracked | `0x027b` | `14` | `-` | - |
 | `0x027C` | S->C | untracked | `0x027c` | `60` | `-` | - |
-| `0x027D` | S->C | untracked | `0x027d` | `62` | `-` | - |
+| `0x027D` | S->C | implemented | `0x027d` | `62` | `-` | companion_packets.go, packet.go |
 | `0x027E` | S->C | untracked | `0x027e` | `-1` | `-` | - |
 | `0x027F` | S->C | untracked | `0x027f` | `8` | `-` | - |
 | `0x0280` | S->C | untracked | `0x0280` | `12` | `-` | - |
@@ -507,14 +505,14 @@ email check.
 | `0x0292` | C->S | missing | `0x0292` | `2` | `clif_parse_AutoRevive` | - |
 | `0x0293` | S->C | untracked | `0x0293` | `70` | `-` | - |
 | `0x0294` | S->C | untracked | `0x0294` | `10` | `-` | - |
-| `0x029B` | S->C | untracked | `0x029b` | `80` | `-` | - |
-| `0x029C` | S->C | untracked | `0x029c` | `66` | `-` | - |
-| `0x029D` | S->C | untracked | `0x029d` | `-1` | `-` | - |
-| `0x029E` | S->C | untracked | `0x029e` | `11` | `-` | - |
-| `0x029F` | C->S | missing | `0x029f` | `3` | `clif_parse_mercenary_action` | - |
+| `0x029B` | S->C | implemented | `0x029b` | `80` | `-` | companion_packets.go, packet.go |
+| `0x029C` | S->C | implemented | `0x029c` | `66` | `-` | companion_packets.go, packet.go |
+| `0x029D` | S->C | implemented | `0x029d` | `-1` | `-` | companion_packets.go, packet.go |
+| `0x029E` | S->C | implemented | `0x029e` | `11` | `-` | companion_packets.go, packet.go |
+| `0x029F` | C->S | implemented | `0x029f` | `3` | `clif_parse_mercenary_action` | companion_packets.go, client.go |
 | `0x02A0` | S->C | untracked | `0x02a0` | `-1` | `-` | - |
 | `0x02A1` | S->C | untracked | `0x02a1` | `-1` | `-` | - |
-| `0x02A2` | S->C | untracked | `0x02a2` | `8` | `-` | - |
+| `0x02A2` | S->C | implemented | `0x02a2` | `8` | `-` | companion_packets.go, packet.go |
 | `0x02A3` | S->C | untracked | `0x02a3` | `-1` | `-` | - |
 | `0x02A4` | S->C | untracked | `0x02a4` | `-1` | `-` | - |
 | `0x02A5` | S->C | untracked | `0x02a5` | `8` | `-` | - |

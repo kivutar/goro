@@ -115,6 +115,7 @@ type WorldMode struct {
 	mapFade           mapFadeState
 	hoveredWalk       hoveredWalkCellCache
 	bot               *luaBot
+	companionAI       companionAISystem
 }
 
 type worldUI struct {
@@ -1278,6 +1279,60 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			m.applyStatusEffectChange(ctx, statusEffect)
 			continue
 		}
+		if hom, ok, err := network.ParseHomunculusProperty(pkt); err != nil {
+			glog.Errorf("parse homunculus property 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			m.applyHomunculusProperty(ctx, hom)
+			continue
+		}
+		if feed, ok, err := network.ParseHomunculusFeedResult(pkt); err != nil {
+			glog.Errorf("parse homunculus feed 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			glog.Debugf("homunculus feed result success=%t item=%d", feed.Result, feed.ItemID)
+			continue
+		}
+		if homState, ok, err := network.ParseHomunculusStateChange(pkt); err != nil {
+			glog.Errorf("parse homunculus state 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			m.applyHomunculusStateChange(ctx, homState)
+			continue
+		}
+		if homSkills, ok, err := network.ParseHomunculusSkillInfoList(pkt); err != nil {
+			glog.Errorf("parse homunculus skill list 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyHomunculusSkillInfoList(ctx, homSkills)
+			continue
+		}
+		if homSkill, ok, err := network.ParseHomunculusSkillInfoUpdate(pkt); err != nil {
+			glog.Errorf("parse homunculus skill update 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyHomunculusSkillInfoUpdate(ctx, homSkill)
+			continue
+		}
+		if merc, ok, err := network.ParseMercenaryProperty(pkt); err != nil {
+			glog.Errorf("parse mercenary property 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			m.applyMercenaryProperty(ctx, merc)
+			continue
+		}
+		if mercParam, ok, err := network.ParseMercenaryParamChange(pkt); err != nil {
+			glog.Errorf("parse mercenary param 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			m.applyMercenaryParamChange(ctx, mercParam)
+			continue
+		}
+		if mercSkills, ok, err := network.ParseMercenarySkillInfoList(pkt); err != nil {
+			glog.Errorf("parse mercenary skill list 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyMercenarySkillInfoList(ctx, mercSkills)
+			continue
+		}
+		if mercSkill, ok, err := network.ParseMercenarySkillInfoUpdate(pkt); err != nil {
+			glog.Errorf("parse mercenary skill update 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			applyMercenarySkillInfoUpdate(ctx, mercSkill)
+			continue
+		}
 		if list, ok, err := network.ParseSkillInfoList(pkt); err != nil {
 			glog.Errorf("parse skill list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
@@ -1465,6 +1520,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if playerContextConsumed {
+		return nil, nil
+	}
+	if m.handleCompanionAICommandClick(ctx, now) {
 		return nil, nil
 	}
 	if m.openPlayerContextFromInput(ctx, now) {
@@ -1672,6 +1730,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	m.ui.minimap.Update(ctx)
 	removeExpiredStatusEffects(ctx.Session, now)
 	m.ui.statusIcons.Update(ctx, now)
+	m.updateCompanionAI(ctx, now)
 	m.updateBot(ctx, now)
 	pointerBlocked := uiPointerBlocked(ctx)
 	if !pointerBlocked {
@@ -1928,6 +1987,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.shortcutBar = m.ui.shortcutBar
 	next.ui.minimap = m.ui.minimap
 	next.startMapFadeIn(time.Now())
+	m.companionAI.close()
 	return next
 }
 

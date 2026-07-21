@@ -417,6 +417,86 @@ func (c *Client) SendUseSkillToGroundWithText(skillID, level uint16, x, y int, t
 	return err
 }
 
+func (c *Client) SendHomunculusCommand(command uint8) error {
+	packet := BuildHomunculusCommandPacket(command)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_COMMAND_MER opcode=0x%04X command=%d client_date=%d", ID(packet), command, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_COMMAND_MER failed opcode=0x%04X len=%d command=%d client_date=%d: %v", ID(packet), len(packet), command, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendHomunculusFeed() error {
+	packet := BuildHomunculusCommandPacketWithType(PacketZCFeedMercenary, HomunculusCommandFeed)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_COMMAND_MER feed opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+	} else {
+		glog.Warnf("send CZ_COMMAND_MER feed failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendHomunculusRename(name string) error {
+	packet := BuildHomunculusRenamePacket(name)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_RENAME_MER opcode=0x%04X len=%d client_date=%d", ID(packet), len(packet), c.clientDate)
+	} else {
+		glog.Warnf("send CZ_RENAME_MER failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendCompanionMove(gid uint32, x, y int) error {
+	packet, ok := BuildCompanionMovePacket(gid, x, y)
+	if !ok {
+		return fmt.Errorf("invalid companion destination %d,%d", x, y)
+	}
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_REQUEST_MOVENPC opcode=0x%04X gid=%d dst=%d,%d client_date=%d", ID(packet), gid, x, y, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_REQUEST_MOVENPC failed opcode=0x%04X len=%d gid=%d dst=%d,%d client_date=%d: %v", ID(packet), len(packet), gid, x, y, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendCompanionAttack(gid, targetGID uint32) error {
+	packet := BuildCompanionAttackPacket(gid, targetGID, 0)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_REQUEST_ACTNPC opcode=0x%04X gid=%d target=%d client_date=%d", ID(packet), gid, targetGID, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_REQUEST_ACTNPC failed opcode=0x%04X len=%d gid=%d target=%d client_date=%d: %v", ID(packet), len(packet), gid, targetGID, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendCompanionMoveToOwner(gid uint32) error {
+	packet := BuildCompanionMoveToOwnerPacket(gid)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_REQUEST_MOVETOOWNER opcode=0x%04X gid=%d client_date=%d", ID(packet), gid, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_REQUEST_MOVETOOWNER failed opcode=0x%04X len=%d gid=%d client_date=%d: %v", ID(packet), len(packet), gid, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendMercenaryCommand(command uint8) error {
+	packet := BuildMercenaryCommandPacket(command)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_MER_COMMAND opcode=0x%04X command=%d client_date=%d", ID(packet), command, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_MER_COMMAND failed opcode=0x%04X len=%d command=%d client_date=%d: %v", ID(packet), len(packet), command, c.clientDate, err)
+	}
+	return err
+}
+
 func (c *Client) SendChangeCart(cartNum uint16) error {
 	packet := BuildChangeCartPacket(cartNum)
 	err := c.Send(packet)

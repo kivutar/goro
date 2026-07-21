@@ -69,6 +69,10 @@ type Actor struct {
 	ObjectType     uint8
 	HasObjectType  bool
 	Speed          int
+	AIMotion       int
+	HasAIMotion    bool
+	AITargetID     uint32
+	AttackRange    int
 	Sitting        bool
 	BodyState      uint16
 	HealthState    uint16
@@ -160,6 +164,16 @@ func (w *World) UpsertActor(actor Actor) {
 		if actor.Speed <= 0 {
 			actor.Speed = existing.Speed
 		}
+		if !actor.HasAIMotion {
+			actor.AIMotion = existing.AIMotion
+			actor.HasAIMotion = existing.HasAIMotion
+		}
+		if actor.AITargetID == 0 {
+			actor.AITargetID = existing.AITargetID
+		}
+		if actor.AttackRange <= 0 {
+			actor.AttackRange = existing.AttackRange
+		}
 		if !actor.HasState {
 			actor.BodyState = existing.BodyState
 			actor.HealthState = existing.HealthState
@@ -194,6 +208,10 @@ func (w *World) UpsertActor(actor Actor) {
 	if actor.Moving {
 		actor.Sitting = false
 		actor.HeadDir = 0
+		if !actor.HasAIMotion {
+			actor.AIMotion = 1
+			actor.HasAIMotion = true
+		}
 	} else {
 		actor.FromX = actor.X
 		actor.FromY = actor.Y
