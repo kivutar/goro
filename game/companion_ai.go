@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/res"
@@ -662,6 +663,9 @@ func (m *WorldMode) companionSkillRange(ctx client.Context, kind companionAIKind
 		if skill.ID == skillID && skill.Range > 0 {
 			return skill.Range + 1
 		}
+	}
+	if attackRange, ok := db.SkillAttackRange(skillID, int(level)); ok {
+		return attackRange + 1
 	}
 	return m.companionAttackRange(ctx, kind, id)
 }

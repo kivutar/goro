@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
@@ -241,6 +242,45 @@ func TestCompanionAICellDistanceMatchesDefaultLua(t *testing.T) {
 	}
 	if got := companionAICellDistance(-1, 0, 3, 4); got != -1 {
 		t.Fatalf("missing distance = %d, want -1", got)
+	}
+}
+
+func TestCompanionSkillRangeFallsBackToRobrowserSkillInfo(t *testing.T) {
+	sess := session.New()
+	sess.Homunculus = session.Companion{ID: 300, Active: true, AttackRange: 1}
+	world := worldstate.New()
+	world.Actors[300] = worldstate.Actor{
+		ID:            300,
+		X:             10,
+		Y:             20,
+		AttackRange:   1,
+		HasObjectType: true,
+		ObjectType:    actorObjectTypeHomunculus,
+	}
+	ctx := client.Context{Session: sess, World: world}
+	mode := NewWorldMode()
+
+	if got := mode.companionSkillRange(ctx, companionAIHomunculus, 300, db.SkillHvanCaprice, 3); got != 10 {
+		t.Fatalf("caprice AI range = %d, want roBrowser attack range + 1", got)
+	}
+}
+
+func TestCompanionSkillRangePrefersServerSkillInfo(t *testing.T) {
+	sess := session.New()
+	sess.Homunculus = session.Companion{
+		ID:     300,
+		Active: true,
+		Skills: session.Skills{
+			List: []session.Skill{{ID: db.SkillHvanCaprice, Level: 3, Range: 4}},
+		},
+	}
+	world := worldstate.New()
+	world.Actors[300] = worldstate.Actor{ID: 300, AttackRange: 1, HasObjectType: true, ObjectType: actorObjectTypeHomunculus}
+	ctx := client.Context{Session: sess, World: world}
+	mode := NewWorldMode()
+
+	if got := mode.companionSkillRange(ctx, companionAIHomunculus, 300, db.SkillHvanCaprice, 3); got != 5 {
+		t.Fatalf("caprice server AI range = %d, want server range + 1", got)
 	}
 }
 
