@@ -194,7 +194,7 @@ func clickedHomunculusTarget(ctx client.Context, projection sceneProjection, mou
 	return actor, true
 }
 
-func (m *WorldMode) maybeQueueAggressiveCompanionTarget(ctx client.Context, kind companionAIKind, id uint32) {
+func (m *WorldMode) maybeQueueAggressiveCompanionTarget(ctx client.Context, kind companionAIKind, id uint32, actorDeaths map[uint32]time.Time) {
 	if ctx.Session == nil || ctx.World == nil || id == 0 || !companionAIAggressive(ctx, kind) {
 		return
 	}
@@ -214,7 +214,7 @@ func (m *WorldMode) maybeQueueAggressiveCompanionTarget(ctx client.Context, kind
 		if kind == companionAIMercenary && actor.ID == ctx.Session.Homunculus.ID {
 			continue
 		}
-		if !m.luaCompanionIsMonster(ctx, actor.ID) {
+		if !m.luaCompanionIsMonster(ctx, actor.ID, actorDeaths) {
 			continue
 		}
 		distance := companionCellDistance(source.X, source.Y, actor.X, actor.Y)

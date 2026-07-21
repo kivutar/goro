@@ -78,6 +78,7 @@ type GameplayConfig struct {
 	LessEffects bool
 	SnapTargets bool
 	SnapItems   bool
+	ForceUserAI bool
 }
 
 type ScriptConfig struct {
@@ -315,6 +316,7 @@ func applyCLI(cfg *Config, args []string) error {
 	fs.BoolVar(&cfg.Gameplay.SnapTargets, "snap", cfg.Gameplay.SnapTargets, "magnetize attack and enemy skill cursors to targets")
 	fs.BoolVar(&cfg.Gameplay.SnapItems, "itemsnap", cfg.Gameplay.SnapItems, "magnetize pickup cursor to floor items")
 	fs.BoolVar(&cfg.Gameplay.SnapItems, "item-snap", cfg.Gameplay.SnapItems, "magnetize pickup cursor to floor items")
+	fs.BoolVar(&cfg.Gameplay.ForceUserAI, "force-user-ai", cfg.Gameplay.ForceUserAI, "start companion AI in USER_AI/USER_AI_M custom mode")
 	fs.StringVar(&cfg.Script.Path, "script", cfg.Script.Path, "Lua script to run while in game")
 	fs.StringVar(&cfg.Log.Level, "log-level", cfg.Log.Level, "minimum log level: debug, info, warn, error, fatal")
 	fs.StringVar(&cfg.Log.File, "log-file", cfg.Log.File, "append logs to this file")
@@ -420,6 +422,8 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		return setBool(value, &cfg.Gameplay.SnapTargets)
 	case "gameplay.itemsnap", "gameplay.snapitems", "gameplay.itemsnapping":
 		return setBool(value, &cfg.Gameplay.SnapItems)
+	case "gameplay.forceuserai":
+		return setBool(value, &cfg.Gameplay.ForceUserAI)
 	case ".script", "script.path":
 		cfg.Script.Path = value
 	case "log.level":

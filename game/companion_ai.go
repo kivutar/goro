@@ -3,9 +3,12 @@ package game
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kivutar/goro/client"
@@ -38,15 +41,28 @@ type companionAISystem struct {
 }
 
 type companionAI struct {
-	kind        companionAIKind
-	custom      bool
-	state       *lua.LState
-	source      string
-	mainDir     string
-	loaded      map[string]bool
-	nextTick    time.Time
-	disabled    bool
-	lastLoadErr error
+	kind     companionAIKind
+	custom   bool
+	state    *lua.LState
+	source   string
+	mainDir  string
+	loaded   map[string]bool
+	nextTick time.Time
+	disabled bool
+
+	mu                  sync.Mutex
+	running             bool
+	closeAfterRun       bool
+	snapshot            companionAISnapshot
+	trace               bool
+	magicNumber2Checked bool
+	magicNumber2Limit   int
+	lastLoadErr         error
+}
+
+type companionAISnapshot struct {
+	ctx         client.Context
+	actorDeaths map[uint32]time.Time
 }
 
 func (s *companionAISystem) close() {
@@ -63,11 +79,22 @@ func (s *companionAISystem) close() {
 }
 
 func (ai *companionAI) close() {
-	if ai == nil || ai.state == nil {
+	if ai == nil {
 		return
 	}
-	ai.state.Close()
+	ai.mu.Lock()
+	if ai.running {
+		ai.disabled = true
+		ai.closeAfterRun = true
+		ai.mu.Unlock()
+		return
+	}
+	state := ai.state
 	ai.state = nil
+	ai.mu.Unlock()
+	if state != nil {
+		state.Close()
+	}
 }
 
 func (m *WorldMode) updateCompanionAI(ctx client.Context, now time.Time) {
@@ -143,15 +170,11 @@ func (m *WorldMode) updateCompanionAIKind(ctx client.Context, kind companionAIKi
 		m.setCompanionAIForKind(kind, ai)
 		glog.Debugf("%s AI loaded source=%s", companionAIKindName(kind), ai.source)
 	}
-	if ai.disabled || ai.state == nil || now.Before(ai.nextTick) {
+	if now.Before(ai.nextTick) {
 		return
 	}
 	ai.nextTick = now.Add(companionAITickInterval)
-	if err := ai.tick(id); err != nil {
-		glog.Warnf("%s AI tick failed source=%s id=%d: %v", companionAIKindName(kind), ai.source, id, err)
-		ai.close()
-		ai.disabled = true
-	}
+	ai.startTick(id, newCompanionAISnapshot(ctx, m.actorDeaths))
 }
 
 func (m *WorldMode) companionAIForKind(kind companionAIKind) *companionAI {
@@ -208,6 +231,7 @@ func newCompanionAI(ctx client.Context, mode *WorldMode, kind companionAIKind, n
 			mainDir:  candidate.dir,
 			loaded:   make(map[string]bool),
 			nextTick: now.Add(companionAITickInterval),
+			trace:    companionAITraceEnabled(),
 		}
 		ai.registerAPI(ctx, mode)
 		if err := ai.doAIFile(ctx.Resources, candidate.main); err != nil {
@@ -262,8 +286,13 @@ func companionAICandidates(kind companionAIKind, useCustom bool) []companionAICa
 
 func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 	L := ai.state
+	ai.registerLua51Compatibility()
+	ai.registerFileIO(ctx)
 	L.SetGlobal("MoveToOwner", L.NewFunction(func(L *lua.LState) int {
 		id := uint32(L.CheckInt(1))
+		if ai.trace {
+			glog.Debugf("%s AI MoveToOwner id=%d", companionAIKindName(ai.kind), id)
+		}
 		if ctx.Network != nil {
 			if err := ctx.Network.SendCompanionMoveToOwner(id); err != nil {
 				glog.Warnf("%s AI MoveToOwner failed id=%d: %v", companionAIKindName(ai.kind), id, err)
@@ -275,6 +304,9 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		id := uint32(L.CheckInt(1))
 		x := L.CheckInt(2)
 		y := L.CheckInt(3)
+		if ai.trace {
+			glog.Debugf("%s AI Move id=%d dst=%d,%d", companionAIKindName(ai.kind), id, x, y)
+		}
 		if ctx.Network != nil {
 			if err := ctx.Network.SendCompanionMove(id, x, y); err != nil {
 				glog.Warnf("%s AI Move failed id=%d dst=%d,%d: %v", companionAIKindName(ai.kind), id, x, y, err)
@@ -285,6 +317,9 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 	L.SetGlobal("Attack", L.NewFunction(func(L *lua.LState) int {
 		id := uint32(L.CheckInt(1))
 		targetID := uint32(L.CheckInt(2))
+		if ai.trace {
+			glog.Debugf("%s AI Attack id=%d target=%d", companionAIKindName(ai.kind), id, targetID)
+		}
 		if ctx.Network != nil {
 			if err := ctx.Network.SendCompanionAttack(id, targetID); err != nil {
 				glog.Warnf("%s AI Attack failed id=%d target=%d: %v", companionAIKindName(ai.kind), id, targetID, err)
@@ -293,11 +328,13 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		return 0
 	}))
 	L.SetGlobal("GetV", L.NewFunction(func(L *lua.LState) int {
-		return mode.luaCompanionGetV(L, ctx, ai.kind)
+		return mode.luaCompanionGetV(L, ai.apiContext(ctx), ai.kind, ai.apiActorDeaths(mode))
 	}))
 	L.SetGlobal("GetActors", L.NewFunction(func(L *lua.LState) int {
-		mode.maybeQueueAggressiveCompanionTarget(ctx, ai.kind, companionIDForAIKind(ctx, ai.kind))
-		L.Push(mode.luaCompanionActors(L, ctx))
+		apiCtx := ai.apiContext(ctx)
+		deaths := ai.apiActorDeaths(mode)
+		mode.maybeQueueAggressiveCompanionTarget(apiCtx, ai.kind, companionIDForAIKind(apiCtx, ai.kind), deaths)
+		L.Push(mode.luaCompanionActors(L, apiCtx, ai))
 		return 1
 	}))
 	L.SetGlobal("GetTick", L.NewFunction(func(L *lua.LState) int {
@@ -335,7 +372,7 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		level := uint16(maxInt(1, L.CheckInt(2)))
 		skillID := uint16(L.CheckInt(3))
 		targetID := uint32(L.CheckInt(4))
-		mode.luaCompanionSkillObject(ctx, ai.kind, id, level, skillID, targetID)
+		mode.luaCompanionSkillObject(ai.apiContext(ctx), ai.kind, id, level, skillID, targetID, ai.apiActorDeaths(mode))
 		L.Push(lua.LNumber(0))
 		return 1
 	}))
@@ -345,13 +382,13 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		skillID := uint16(L.CheckInt(3))
 		x := L.CheckInt(4)
 		y := L.CheckInt(5)
-		mode.luaCompanionSkillGround(ctx, ai.kind, id, level, skillID, x, y)
+		mode.luaCompanionSkillGround(ai.apiContext(ctx), ai.kind, id, level, skillID, x, y, ai.apiActorDeaths(mode))
 		L.Push(lua.LNumber(0))
 		return 1
 	}))
 	L.SetGlobal("IsMonster", L.NewFunction(func(L *lua.LState) int {
 		id := uint32(L.CheckInt(1))
-		if mode.luaCompanionIsMonster(ctx, id) {
+		if mode.luaCompanionIsMonster(ai.apiContext(ctx), id, ai.apiActorDeaths(mode)) {
 			L.Push(lua.LNumber(1))
 		} else {
 			L.Push(lua.LNumber(0))
@@ -359,11 +396,15 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		return 1
 	}))
 	L.SetGlobal("TraceAI", L.NewFunction(func(L *lua.LState) int {
-		glog.Debugf("%s AI TraceAI: %s", companionAIKindName(ai.kind), luaValueString(L.Get(1)))
+		if ai.trace {
+			glog.Debugf("%s AI TraceAI: %s", companionAIKindName(ai.kind), luaValueString(L.Get(1)))
+		}
 		return 0
 	}))
 	L.SetGlobal("Trace", L.NewFunction(func(L *lua.LState) int {
-		glog.Debugf("%s AI Trace: %s", companionAIKindName(ai.kind), luaValueString(L.Get(1)))
+		if ai.trace {
+			glog.Debugf("%s AI Trace: %s", companionAIKindName(ai.kind), luaValueString(L.Get(1)))
+		}
 		return 0
 	}))
 	L.SetGlobal("TraceValue", L.NewFunction(func(L *lua.LState) int {
@@ -371,7 +412,9 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		return 1
 	}))
 	L.SetGlobal("chaiDevLog", L.NewFunction(func(L *lua.LState) int {
-		glog.Debugf("%s AI %s: %s", companionAIKindName(ai.kind), luaValueString(L.Get(1)), luaValueString(L.Get(2)))
+		if ai.trace {
+			glog.Debugf("%s AI %s: %s", companionAIKindName(ai.kind), luaValueString(L.Get(1)), luaValueString(L.Get(2)))
+		}
 		return 0
 	}))
 	L.SetGlobal("require", L.NewFunction(func(L *lua.LState) int {
@@ -393,6 +436,156 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 	}))
 }
 
+func (ai *companionAI) registerLua51Compatibility() {
+	const source = `
+if string and string.gmatch then
+	local gmatch = string.gmatch
+	string.gfind = function(s, pattern)
+		local iter, state = gmatch(s, pattern)
+		return function()
+			return iter(state)
+		end
+	end
+end
+`
+	if err := ai.state.DoString(source); err != nil {
+		glog.Warnf("%s AI Lua 5.1 compatibility failed: %v", companionAIKindName(ai.kind), err)
+	}
+}
+
+func (ai *companionAI) registerFileIO(ctx client.Context) {
+	if ctx.Resources == nil || ctx.Resources.Root == "" {
+		return
+	}
+	L := ai.state
+	ioTable, ok := L.GetGlobal("io").(*lua.LTable)
+	if !ok {
+		return
+	}
+	openFn, ok := ioTable.RawGetString("open").(*lua.LFunction)
+	if !ok {
+		return
+	}
+	root := ctx.Resources.Root
+	ioTable.RawSetString("open", L.NewFunction(func(L *lua.LState) int {
+		path := companionAIIOPath(root, L.CheckString(1))
+		mode := ""
+		nargs := 1
+		if L.GetTop() >= 2 {
+			mode = L.CheckString(2)
+			nargs = 2
+		}
+		if companionAIIOWriteMode(mode) {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				L.Push(lua.LNil)
+				L.Push(lua.LString(err.Error()))
+				return 2
+			}
+		}
+		baseTop := L.GetTop()
+		L.Push(openFn)
+		L.Push(lua.LString(path))
+		if nargs == 2 {
+			L.Push(lua.LString(mode))
+		}
+		if err := L.PCall(nargs, lua.MultRet, nil); err != nil {
+			L.SetTop(baseTop)
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+		return L.GetTop() - baseTop
+	}))
+}
+
+func companionAIIOPath(root, path string) string {
+	path = strings.TrimSpace(path)
+	path = strings.Trim(path, `"'`)
+	path = strings.ReplaceAll(path, "\\", string(filepath.Separator))
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	path = strings.TrimPrefix(path, "."+string(filepath.Separator))
+	path = strings.TrimPrefix(path, "./")
+	return filepath.Join(root, path)
+}
+
+func companionAIIOWriteMode(mode string) bool {
+	return strings.HasPrefix(mode, "w") || strings.HasPrefix(mode, "a")
+}
+
+func companionAITraceEnabled() bool {
+	return os.Getenv("GORO_DEBUG_AI_TRACE") == "1"
+}
+
+func (ai *companionAI) syncActorIDCompatibilityLimit(maxMonsterID uint32) {
+	if ai == nil || ai.state == nil || maxMonsterID == 0 {
+		return
+	}
+	if !ai.magicNumber2Checked {
+		ai.magicNumber2Checked = true
+		current, ok := ai.state.GetGlobal("MagicNumber2").(lua.LNumber)
+		if !ok || current <= 0 {
+			ai.magicNumber2Limit = -1
+			return
+		}
+		ai.magicNumber2Limit = int(current)
+	}
+	if ai.magicNumber2Limit <= 0 {
+		return
+	}
+	nextLimit := int(maxMonsterID) + 1
+	if nextLimit <= ai.magicNumber2Limit {
+		return
+	}
+	oldLimit := ai.magicNumber2Limit
+	ai.magicNumber2Limit = nextLimit
+	ai.state.SetGlobal("MagicNumber2", lua.LNumber(nextLimit))
+	if ai.trace {
+		glog.Debugf("%s AI MagicNumber2 adjusted from %d to %d for high monster gids", companionAIKindName(ai.kind), oldLimit, nextLimit)
+	}
+}
+
+func (ai *companionAI) startTick(id uint32, snapshot companionAISnapshot) {
+	ai.mu.Lock()
+	if ai.disabled || ai.running || ai.state == nil {
+		ai.mu.Unlock()
+		return
+	}
+	ai.running = true
+	ai.snapshot = snapshot
+	source := ai.source
+	kind := ai.kind
+	ai.mu.Unlock()
+
+	go func() {
+		err := ai.tick(id)
+
+		ai.mu.Lock()
+		ai.running = false
+		closeAfterRun := ai.closeAfterRun
+		if err != nil {
+			ai.disabled = true
+			closeAfterRun = true
+		}
+		var state *lua.LState
+		if closeAfterRun {
+			state = ai.state
+			ai.state = nil
+			ai.closeAfterRun = false
+		}
+		ai.snapshot = companionAISnapshot{}
+		ai.mu.Unlock()
+
+		if err != nil {
+			glog.Warnf("%s AI tick failed source=%s id=%d: %v", companionAIKindName(kind), source, id, err)
+		}
+		if state != nil {
+			state.Close()
+		}
+	}()
+}
+
 func (ai *companionAI) tick(id uint32) error {
 	if ai == nil || ai.state == nil {
 		return nil
@@ -406,6 +599,90 @@ func (ai *companionAI) tick(id uint32) error {
 		NRet:    0,
 		Protect: true,
 	}, lua.LNumber(id))
+}
+
+func (ai *companionAI) apiContext(defaultCtx client.Context) client.Context {
+	if ai == nil {
+		return defaultCtx
+	}
+	if ai.hasSnapshot() {
+		return ai.snapshot.ctx
+	}
+	return defaultCtx
+}
+
+func (ai *companionAI) apiActorDeaths(mode *WorldMode) map[uint32]time.Time {
+	if ai != nil && ai.hasSnapshot() {
+		return ai.snapshot.actorDeaths
+	}
+	if mode == nil {
+		return nil
+	}
+	return mode.actorDeaths
+}
+
+func (ai *companionAI) hasSnapshot() bool {
+	return ai != nil && (ai.snapshot.ctx.Session != nil || ai.snapshot.ctx.World != nil)
+}
+
+func newCompanionAISnapshot(ctx client.Context, actorDeaths map[uint32]time.Time) companionAISnapshot {
+	snapshot := ctx
+	snapshot.Input = nil
+	snapshot.Audio = nil
+	snapshot.Runtime = nil
+	snapshot.RequestQuit = nil
+	snapshot.RequestScreenshot = nil
+	snapshot.UIApp = nil
+	snapshot.UIManager = nil
+	snapshot.Session = copySessionForCompanionAI(ctx.Session)
+	snapshot.World = copyWorldForCompanionAI(ctx.World)
+	return companionAISnapshot{
+		ctx:         snapshot,
+		actorDeaths: copyActorDeathsForCompanionAI(actorDeaths),
+	}
+}
+
+func copySessionForCompanionAI(src *session.Session) *session.Session {
+	if src == nil {
+		return nil
+	}
+	dst := *src
+	dst.CharServers = append([]session.CharServer(nil), src.CharServers...)
+	dst.Characters = append([]session.Character(nil), src.Characters...)
+	dst.Homunculus.Skills.List = append([]session.Skill(nil), src.Homunculus.Skills.List...)
+	dst.Mercenary.Skills.List = append([]session.Skill(nil), src.Mercenary.Skills.List...)
+	return &dst
+}
+
+func copyWorldForCompanionAI(src *worldstate.World) *worldstate.World {
+	if src == nil {
+		return nil
+	}
+	dst := *src
+	dst.Player = copyActorForCompanionAI(src.Player)
+	dst.Actors = make(map[uint32]worldstate.Actor, len(src.Actors))
+	for id, actor := range src.Actors {
+		dst.Actors[id] = copyActorForCompanionAI(actor)
+	}
+	dst.Items = nil
+	dst.RSM = nil
+	return &dst
+}
+
+func copyActorForCompanionAI(actor worldstate.Actor) worldstate.Actor {
+	actor.MovePath = append([]worldstate.WalkStep(nil), actor.MovePath...)
+	return actor
+}
+
+func copyActorDeathsForCompanionAI(src map[uint32]time.Time) map[uint32]time.Time {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[uint32]time.Time, len(src))
+	for id, removeAt := range src {
+		dst[id] = removeAt
+	}
+	return dst
 }
 
 func (ai *companionAI) requireAIFile(manager *res.Manager, module string) error {
@@ -453,7 +730,7 @@ func decodeAILua(data []byte) string {
 	return string(decoded)
 }
 
-func (m *WorldMode) luaCompanionGetV(L *lua.LState, ctx client.Context, kind companionAIKind) int {
+func (m *WorldMode) luaCompanionGetV(L *lua.LState, ctx client.Context, kind companionAIKind, actorDeaths map[uint32]time.Time) int {
 	variable := L.CheckInt(1)
 	id := uint32(L.CheckInt(2))
 	switch variable {
@@ -469,10 +746,21 @@ func (m *WorldMode) luaCompanionGetV(L *lua.LState, ctx client.Context, kind com
 		L.Push(lua.LNumber(1))
 		return 1
 	case 3:
-		L.Push(lua.LNumber(m.companionActorMotion(ctx, id)))
+		L.Push(lua.LNumber(m.companionActorMotion(ctx, id, actorDeaths)))
 		return 1
-	case 4, 6, 14:
+	case 4:
 		L.Push(lua.LNumber(m.companionAttackRange(ctx, kind, id)))
+		return 1
+	case 6, 14:
+		skillID := uint16(0)
+		if L.GetTop() >= 3 {
+			skillID = uint16(L.CheckInt(3))
+		}
+		level := uint16(0)
+		if variable == 14 && L.GetTop() >= 4 {
+			level = uint16(maxInt(1, L.CheckInt(4)))
+		}
+		L.Push(lua.LNumber(m.companionSkillAttackRange(ctx, kind, id, skillID, level)))
 		return 1
 	case 5:
 		targetID := companionActorTarget(ctx, id)
@@ -520,7 +808,7 @@ func (m *WorldMode) luaCompanionGetV(L *lua.LState, ctx client.Context, kind com
 	}
 }
 
-func (m *WorldMode) luaCompanionActors(L *lua.LState, ctx client.Context) *lua.LTable {
+func (m *WorldMode) luaCompanionActors(L *lua.LState, ctx client.Context, ai *companionAI) *lua.LTable {
 	result := L.NewTable()
 	result.Append(lua.LNumber(0))
 	if ctx.World == nil {
@@ -530,14 +818,23 @@ func (m *WorldMode) luaCompanionActors(L *lua.LState, ctx client.Context) *lua.L
 		result.Append(lua.LNumber(owner))
 	}
 	ids := make([]int, 0, len(ctx.World.Actors))
-	for id := range ctx.World.Actors {
+	maxMonsterID := uint32(0)
+	for id, actor := range ctx.World.Actors {
 		ids = append(ids, int(id))
+		if actor.HasObjectType && companionAIObjectTypeIsMonster(actor.ObjectType) && id > maxMonsterID {
+			maxMonsterID = id
+		}
 	}
+	ai.syncActorIDCompatibilityLimit(maxMonsterID)
 	sort.Ints(ids)
 	for _, id := range ids {
 		result.Append(lua.LNumber(id))
 	}
 	return result
+}
+
+func companionAIObjectTypeIsMonster(objectType uint8) bool {
+	return objectType == actorObjectTypeMob || objectType == actorObjectTypeNPCABR || objectType == actorObjectTypeNPCBionic
 }
 
 func (m *WorldMode) luaCompanionMessageTable(L *lua.LState, id uint32, response bool) *lua.LTable {
@@ -592,12 +889,12 @@ func (m *WorldMode) setCompanionAIMessage(id uint32, raw string) {
 	m.companionAI.resMsg[id] = raw
 }
 
-func (m *WorldMode) luaCompanionSkillObject(ctx client.Context, kind companionAIKind, id uint32, level, skillID uint16, targetID uint32) {
+func (m *WorldMode) luaCompanionSkillObject(ctx client.Context, kind companionAIKind, id uint32, level, skillID uint16, targetID uint32, actorDeaths map[uint32]time.Time) {
 	if ctx.Network == nil || !m.companionIDMatches(ctx, kind, id) {
 		return
 	}
 	source, ok := companionActorByID(ctx, id)
-	if !ok || !m.companionCanUseSkill(ctx, id) {
+	if !ok || !m.companionCanUseSkill(ctx, id, actorDeaths) {
 		return
 	}
 	target, ok := companionActorByID(ctx, targetID)
@@ -608,7 +905,7 @@ func (m *WorldMode) luaCompanionSkillObject(ctx client.Context, kind companionAI
 	if rangeCells <= 0 {
 		rangeCells = m.companionAttackRange(ctx, kind, id)
 	}
-	if !attackTargetWithinRange(source.X, source.Y, target.X, target.Y, rangeCells) {
+	if !companionAISkillTargetInRange(source, target, rangeCells) {
 		return
 	}
 	if err := ctx.Network.SendUseSkillToID(skillID, level, targetID); err != nil {
@@ -616,8 +913,8 @@ func (m *WorldMode) luaCompanionSkillObject(ctx client.Context, kind companionAI
 	}
 }
 
-func (m *WorldMode) luaCompanionSkillGround(ctx client.Context, kind companionAIKind, id uint32, level, skillID uint16, x, y int) {
-	if ctx.Network == nil || !m.companionIDMatches(ctx, kind, id) || !m.companionCanUseSkill(ctx, id) {
+func (m *WorldMode) luaCompanionSkillGround(ctx client.Context, kind companionAIKind, id uint32, level, skillID uint16, x, y int, actorDeaths map[uint32]time.Time) {
+	if ctx.Network == nil || !m.companionIDMatches(ctx, kind, id) || !m.companionCanUseSkill(ctx, id, actorDeaths) {
 		return
 	}
 	if !walkTargetInBounds(ctx, x, y) {
@@ -642,8 +939,8 @@ func (m *WorldMode) companionIDMatches(ctx client.Context, kind companionAIKind,
 	}
 }
 
-func (m *WorldMode) companionCanUseSkill(ctx client.Context, id uint32) bool {
-	switch m.companionActorMotion(ctx, id) {
+func (m *WorldMode) companionCanUseSkill(ctx client.Context, id uint32, actorDeaths map[uint32]time.Time) bool {
+	switch m.companionActorMotion(ctx, id, actorDeaths) {
 	case aiMotionStand, aiMotionMove, aiMotionAttack:
 		return true
 	default:
@@ -651,18 +948,40 @@ func (m *WorldMode) companionCanUseSkill(ctx client.Context, id uint32) bool {
 	}
 }
 
+func companionAISkillTargetInRange(source, target worldstate.Actor, rangeCells int) bool {
+	return companionCellDistance(source.X, source.Y, target.X, target.Y) <= float64(rangeCells)
+}
+
+func (m *WorldMode) companionSkillAttackRange(ctx client.Context, kind companionAIKind, id uint32, skillID, level uint16) int {
+	if skillID == 0 {
+		return m.companionAttackRange(ctx, kind, id)
+	}
+	if !m.companionIDMatches(ctx, kind, id) {
+		return 1
+	}
+	skill, ok := companionAISkill(ctx.Session, kind, skillID)
+	if !ok || skill.Level <= 0 {
+		return 1
+	}
+	if skill.Range > 0 {
+		return skill.Range
+	}
+	lookupLevel := int(level)
+	if lookupLevel <= 0 || lookupLevel > skill.Level {
+		lookupLevel = skill.Level
+	}
+	if attackRange, ok := db.SkillAttackRange(skillID, lookupLevel); ok {
+		return attackRange
+	}
+	return 1
+}
+
 func (m *WorldMode) companionSkillRange(ctx client.Context, kind companionAIKind, id uint32, skillID, level uint16) int {
 	if ctx.Session == nil {
 		return 1
 	}
-	skills := ctx.Session.Homunculus.Skills.List
-	if kind == companionAIMercenary {
-		skills = ctx.Session.Mercenary.Skills.List
-	}
-	for _, skill := range skills {
-		if skill.ID == skillID && skill.Range > 0 {
-			return skill.Range + 1
-		}
+	if skill, ok := companionAISkill(ctx.Session, kind, skillID); ok && skill.Range > 0 {
+		return skill.Range + 1
 	}
 	if attackRange, ok := db.SkillAttackRange(skillID, int(level)); ok {
 		return attackRange + 1
@@ -670,18 +989,34 @@ func (m *WorldMode) companionSkillRange(ctx client.Context, kind companionAIKind
 	return m.companionAttackRange(ctx, kind, id)
 }
 
-func (m *WorldMode) luaCompanionIsMonster(ctx client.Context, id uint32) bool {
+func companionAISkill(sessionState *session.Session, kind companionAIKind, skillID uint16) (session.Skill, bool) {
+	if sessionState == nil {
+		return session.Skill{}, false
+	}
+	skills := sessionState.Homunculus.Skills.List
+	if kind == companionAIMercenary {
+		skills = sessionState.Mercenary.Skills.List
+	}
+	for _, skill := range skills {
+		if skill.ID == skillID {
+			return skill, true
+		}
+	}
+	return session.Skill{}, false
+}
+
+func (m *WorldMode) luaCompanionIsMonster(ctx client.Context, id uint32, actorDeaths map[uint32]time.Time) bool {
 	if id == 0 || ctx.World == nil {
 		return false
 	}
-	if _, dead := m.actorDeaths[id]; dead {
+	if _, dead := actorDeaths[id]; dead {
 		return false
 	}
 	actor, ok := ctx.World.Actors[id]
 	if !ok || !actor.HasObjectType {
 		return false
 	}
-	return actor.ObjectType == actorObjectTypeMob || actor.ObjectType == actorObjectTypeNPCABR || actor.ObjectType == actorObjectTypeNPCBionic
+	return companionAIObjectTypeIsMonster(actor.ObjectType)
 }
 
 func companionActorByID(ctx client.Context, id uint32) (worldstate.Actor, bool) {
@@ -737,12 +1072,12 @@ func companionAICellDistance(x1, y1, x2, y2 int) int {
 	return int(math.Floor(math.Sqrt(dx*dx + dy*dy)))
 }
 
-func (m *WorldMode) companionActorMotion(ctx client.Context, id uint32) int {
+func (m *WorldMode) companionActorMotion(ctx client.Context, id uint32, actorDeaths map[uint32]time.Time) int {
 	if ctx.World == nil || id == 0 {
 		return aiMotionStand
 	}
 	now := time.Now()
-	if _, dead := m.actorDeaths[id]; dead {
+	if _, dead := actorDeaths[id]; dead {
 		return aiMotionDead
 	}
 	if isLocalActor(ctx, id) {

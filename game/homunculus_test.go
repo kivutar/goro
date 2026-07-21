@@ -30,7 +30,7 @@ func TestHomunculusAssistQueuesNearestMonsterAttack(t *testing.T) {
 		},
 	}
 
-	mode.maybeQueueAggressiveCompanionTarget(ctx, companionAIHomunculus, 300)
+	mode.maybeQueueAggressiveCompanionTarget(ctx, companionAIHomunculus, 300, nil)
 
 	if got := mode.companionAI.msg[300]; got != "3,500" {
 		t.Fatalf("queued message = %q, want nearest monster attack", got)
@@ -55,7 +55,7 @@ func TestHomunculusStandByDoesNotQueueAggressiveAttack(t *testing.T) {
 		},
 	}
 
-	mode.maybeQueueAggressiveCompanionTarget(ctx, companionAIHomunculus, 300)
+	mode.maybeQueueAggressiveCompanionTarget(ctx, companionAIHomunculus, 300, nil)
 
 	if got := mode.companionAI.msg[300]; got != "" {
 		t.Fatalf("passive mode queued message = %q", got)

@@ -70,6 +70,7 @@ no_ctrl = false
 mineffect = true
 snap = true
 itemsnap = false
+force_user_ai = false
 
 [script]
 path = ./ignored.lua
@@ -98,6 +99,7 @@ file = ./ignored.log
 		"--mineffect=false",
 		"--snap=false",
 		"--itemsnap=true",
+		"--force-user-ai=true",
 		"--script", filepath.Join(root, "bot.lua"),
 		"--log-level", "debug",
 		"--log-file", filepath.Join(root, "goro.log"),
@@ -129,7 +131,7 @@ file = ./ignored.log
 	if cfg.Fog.Enabled {
 		t.Fatalf("fog enabled = true, want false")
 	}
-	if cfg.Gameplay.NoShift || !cfg.Gameplay.NoCtrl || cfg.Gameplay.LessEffects || cfg.Gameplay.SnapTargets || !cfg.Gameplay.SnapItems {
+	if cfg.Gameplay.NoShift || !cfg.Gameplay.NoCtrl || cfg.Gameplay.LessEffects || cfg.Gameplay.SnapTargets || !cfg.Gameplay.SnapItems || !cfg.Gameplay.ForceUserAI {
 		t.Fatalf("unexpected gameplay config: %#v", cfg.Gameplay)
 	}
 	if cfg.Script.Path != filepath.Join(root, "bot.lua") {

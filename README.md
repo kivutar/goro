@@ -87,6 +87,7 @@ Useful options:
 --username <username> # prefill the username in login window
 --password <password> # same for password
 --autologin=true # perform server connection and login on startup
+--force-user-ai=true # start homunculus and mercenary in USER_AI custom mode
 ```
 
 ## Getting Started
