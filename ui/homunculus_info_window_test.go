@@ -47,12 +47,26 @@ func TestHomunculusRenameUsesModifiedFlagThreshold(t *testing.T) {
 }
 
 func TestHomunculusInfoWindowHeightFitsDetails(t *testing.T) {
-	const barBlockH = homunculusInfoRowH + homunculusInfoBarH + 2
-	requiredDetailsH := homunculusInfoNameH + homunculusInfoRowH + 4*barBlockH + 2*homunculusInfoRowH + 7*4
+	const barBlockH = homunculusInfoRowH + homunculusInfoBarH + homunculusInfoBarGap
+	requiredDetailsH := homunculusInfoNameH + homunculusInfoRowH + 4*barBlockH + 2*homunculusInfoRowH + 7*homunculusInfoRowGap
 	requiredBodyH := homunculusInfoContentPad*2 + requiredDetailsH
 	availableBodyH := homunculusInfoWindowH - ROWindowTitleHeight - ROWindowFooterHeight
 	if availableBodyH < requiredBodyH {
 		t.Fatalf("body height = %d, want at least %d", availableBodyH, requiredBodyH)
+	}
+}
+
+func TestHomunculusInfoWindowColumnsFitContent(t *testing.T) {
+	assertHomunculusInfoWidth(t, "content columns", homunculusInfoLeftW+homunculusInfoColumnGap+homunculusInfoRightW, homunculusInfoContentW)
+	assertHomunculusInfoWidth(t, "detail row", homunculusInfoInfoLabelW+homunculusInfoInfoGap+homunculusInfoInfoValueW, homunculusInfoRightW)
+	assertHomunculusInfoWidth(t, "name row", homunculusInfoInfoLabelW+homunculusInfoNameGap+homunculusInfoNameInputW+homunculusInfoNameGap+homunculusInfoNameButtonW, homunculusInfoRightW)
+	assertHomunculusInfoWidth(t, "bar row", homunculusInfoBarPadX+homunculusInfoBarW, homunculusInfoRightW)
+}
+
+func assertHomunculusInfoWidth(t *testing.T, name string, got, want float32) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("%s width = %v, want %v", name, got, want)
 	}
 }
 

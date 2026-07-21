@@ -17,15 +17,28 @@ import (
 )
 
 const (
-	homunculusInfoWindowW    = 280
-	homunculusInfoWindowH    = 320
-	homunculusInfoContentPad = 10
-	homunculusInfoLeftW      = 82
-	homunculusInfoRightW     = 168
-	homunculusInfoRowH       = 17
-	homunculusInfoNameH      = 24
-	homunculusInfoBarW       = 150
-	homunculusInfoBarH       = 7
+	homunculusInfoWindowW     = 300
+	homunculusInfoWindowH     = 320
+	homunculusInfoContentPad  = 10
+	homunculusInfoContentW    = homunculusInfoWindowW - homunculusInfoContentPad*2
+	homunculusInfoColumnGap   = 10
+	homunculusInfoRowH        = 17
+	homunculusInfoNameH       = 24
+	homunculusInfoStatLabelW  = 40
+	homunculusInfoStatValueW  = 40
+	homunculusInfoLeftW       = homunculusInfoStatLabelW + rotheme.TableGap + homunculusInfoStatValueW
+	homunculusInfoRightW      = homunculusInfoContentW - homunculusInfoLeftW - homunculusInfoColumnGap
+	homunculusInfoInfoLabelW  = 50
+	homunculusInfoInfoGap     = 4
+	homunculusInfoInfoValueW  = homunculusInfoRightW - homunculusInfoInfoLabelW - homunculusInfoInfoGap
+	homunculusInfoNameGap     = 4
+	homunculusInfoNameButtonW = 44
+	homunculusInfoNameInputW  = homunculusInfoRightW - homunculusInfoInfoLabelW - homunculusInfoNameButtonW - homunculusInfoNameGap*2
+	homunculusInfoBarPadX     = homunculusInfoInfoLabelW + homunculusInfoInfoGap
+	homunculusInfoBarW        = homunculusInfoInfoValueW
+	homunculusInfoBarH        = 7
+	homunculusInfoBarGap      = 2
+	homunculusInfoRowGap      = 4
 )
 
 var (
@@ -135,30 +148,27 @@ func (w *HomunculusInfoWindow) widgetTree(ctx Context) widget.Widget {
 }
 
 func (w *HomunculusInfoWindow) contentTree(ctx Context) widget.Widget {
-	return primitives.Box(
-		primitives.HBox(
-			w.statsColumn(),
-			w.detailsColumn(ctx),
-		).
-			Gap(10).
-			CrossAlign(primitives.CrossAxisStart),
+	return primitives.HBox(
+		w.statsTable(),
+		w.detailsColumn(ctx),
 	).
+		Gap(homunculusInfoColumnGap).
+		CrossAlign(primitives.CrossAxisStart).
 		Padding(homunculusInfoContentPad)
 }
 
-func (w *HomunculusInfoWindow) statsColumn() widget.Widget {
-	return primitives.Box(
-		w.statRow("ATK", w.companion.Attack),
-		w.statRow("MATK", w.companion.MagicAttack),
-		w.statRow("HIT", w.companion.Hit),
-		w.statRow("CRI", w.companion.Critical),
-		w.statRow("DEF", w.companion.Defense),
-		w.statRow("MDEF", w.companion.MagicDefense),
-		w.statRow("FLEE", w.companion.Flee),
-		w.statTextRow("ASPD", fmt.Sprintf("%d", HomunculusASPDDisplay(w.companion.ASPD))),
-	).
-		Width(homunculusInfoLeftW).
-		Gap(2)
+func (w *HomunculusInfoWindow) statsTable() widget.Widget {
+	rows := []rotheme.TableRow{
+		homunculusInfoStatRow("ATK", fmt.Sprintf("%d", w.companion.Attack)),
+		homunculusInfoStatRow("MATK", fmt.Sprintf("%d", w.companion.MagicAttack)),
+		homunculusInfoStatRow("HIT", fmt.Sprintf("%d", w.companion.Hit)),
+		homunculusInfoStatRow("CRI", fmt.Sprintf("%d", w.companion.Critical)),
+		homunculusInfoStatRow("DEF", fmt.Sprintf("%d", w.companion.Defense)),
+		homunculusInfoStatRow("MDEF", fmt.Sprintf("%d", w.companion.MagicDefense)),
+		homunculusInfoStatRow("FLEE", fmt.Sprintf("%d", w.companion.Flee)),
+		homunculusInfoStatRow("ASPD", fmt.Sprintf("%d", HomunculusASPDDisplay(w.companion.ASPD))),
+	}
+	return homunculusInfoTable(rows)
 }
 
 func (w *HomunculusInfoWindow) detailsColumn(ctx Context) widget.Widget {
@@ -173,7 +183,7 @@ func (w *HomunculusInfoWindow) detailsColumn(ctx Context) widget.Widget {
 		w.infoRow("Skill Pt", fmt.Sprintf("%d", w.companion.Skills.Points)),
 	).
 		Width(homunculusInfoRightW).
-		Gap(4)
+		Gap(homunculusInfoRowGap)
 }
 
 func (w *HomunculusInfoWindow) nameRow(ctx Context) widget.Widget {
@@ -181,16 +191,16 @@ func (w *HomunculusInfoWindow) nameRow(ctx Context) widget.Widget {
 		return w.infoRow("Name", displayHomunculusName(w.companion))
 	}
 	return primitives.HBox(
-		w.rowLabel("Name", 36),
+		w.rowLabel("Name", homunculusInfoInfoLabelW),
 		primitives.Box(w.nameInput(ctx)).
-			Width(86).
+			Width(homunculusInfoNameInputW).
 			Height(homunculusInfoNameH).
 			CrossAlign(primitives.CrossAxisStretch),
 		rotheme.Button("Edit", func() {
 			w.rename()
-		}).Width(44),
+		}).Width(homunculusInfoNameButtonW),
 	).
-		Gap(3).
+		Gap(homunculusInfoNameGap).
 		CrossAlign(primitives.CrossAxisCenter).
 		Height(homunculusInfoNameH)
 }
@@ -213,28 +223,13 @@ func (w *HomunculusInfoWindow) nameInput(ctx Context) *textfield.Widget {
 	return w.nameField
 }
 
-func (w *HomunculusInfoWindow) statRow(label string, value int) widget.Widget {
-	return w.statTextRow(label, fmt.Sprintf("%d", value))
-}
-
-func (w *HomunculusInfoWindow) statTextRow(label, value string) widget.Widget {
-	return primitives.HBox(
-		w.rowLabel(label, 38),
-		primitives.Box(rotheme.Text(value).Align(widget.TextAlignRight)).
-			Width(40),
-	).
-		Gap(4).
-		CrossAlign(primitives.CrossAxisCenter).
-		Height(homunculusInfoRowH)
-}
-
 func (w *HomunculusInfoWindow) infoRow(label, value string) widget.Widget {
 	return primitives.HBox(
-		w.rowLabel(label, 48),
+		w.rowLabel(label, homunculusInfoInfoLabelW),
 		primitives.Box(rotheme.Text(value)).
-			Width(116),
+			Width(homunculusInfoInfoValueW),
 	).
-		Gap(4).
+		Gap(homunculusInfoInfoGap).
 		CrossAlign(primitives.CrossAxisCenter).
 		Height(homunculusInfoRowH)
 }
@@ -243,31 +238,52 @@ func (w *HomunculusInfoWindow) barRow(label string, current, maxValue int, fill 
 	text := formatHomunculusBarText(current, maxValue, showValues)
 	return primitives.Box(
 		primitives.HBox(
-			w.rowLabel(label, 48),
+			w.rowLabel(label, homunculusInfoInfoLabelW),
 			primitives.Box(rotheme.Text(text).Align(widget.TextAlignRight)).
-				Width(116),
+				Width(homunculusInfoInfoValueW),
 		).
-			Gap(4).
+			Gap(homunculusInfoInfoGap).
 			CrossAlign(primitives.CrossAxisCenter).
 			Height(homunculusInfoRowH),
-		newHomunculusBarWidget(ratioInt(current, maxValue), fill, homunculusInfoBarW, homunculusInfoBarH),
+		primitives.Box(
+			newHomunculusBarWidget(ratioInt(current, maxValue), fill, homunculusInfoBarW, homunculusInfoBarH),
+		).
+			PaddingLeft(homunculusInfoBarPadX),
 	).
-		Gap(2)
+		Gap(homunculusInfoBarGap)
 }
 
 func (w *HomunculusInfoWindow) expBarRow(label string, current, maxValue uint64, fill widget.Color) widget.Widget {
 	return primitives.Box(
 		primitives.HBox(
-			w.rowLabel(label, 48),
+			w.rowLabel(label, homunculusInfoInfoLabelW),
 			primitives.Box(rotheme.Text(formatHomunculusEXPBarText(current, maxValue)).Align(widget.TextAlignRight)).
-				Width(116),
+				Width(homunculusInfoInfoValueW),
 		).
-			Gap(4).
+			Gap(homunculusInfoInfoGap).
 			CrossAlign(primitives.CrossAxisCenter).
 			Height(homunculusInfoRowH),
-		newHomunculusBarWidget(ratioUint64(current, maxValue), fill, homunculusInfoBarW, homunculusInfoBarH),
+		primitives.Box(
+			newHomunculusBarWidget(ratioUint64(current, maxValue), fill, homunculusInfoBarW, homunculusInfoBarH),
+		).
+			PaddingLeft(homunculusInfoBarPadX),
 	).
-		Gap(2)
+		Gap(homunculusInfoBarGap)
+}
+
+func homunculusInfoTable(rows []rotheme.TableRow) widget.Widget {
+	return rotheme.Table(
+		rows,
+		rotheme.TableRowHeightOpt(homunculusInfoRowH),
+		rotheme.TableColors(rotheme.Default.Colors.ButtonHover, rotheme.Default.Colors.WindowFooter),
+	)
+}
+
+func homunculusInfoStatRow(label, value string) rotheme.TableRow {
+	return rotheme.TableRow{
+		{Text: label, Width: homunculusInfoStatLabelW, Align: widget.TextAlignLeft, Head: true},
+		{Text: value, Width: homunculusInfoStatValueW, Align: widget.TextAlignRight},
+	}
 }
 
 func (w *HomunculusInfoWindow) rowLabel(label string, width float32) widget.Widget {
