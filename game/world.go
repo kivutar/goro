@@ -85,6 +85,7 @@ type WorldMode struct {
 	petLastTalk       time.Time
 	petInfoRequested  bool
 	petID             uint32
+	homDeleteID       uint32
 	petSlotMachine    petSlotMachineState
 	pickupReqItemID   uint32
 	lockedAttackID    uint32

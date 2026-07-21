@@ -252,6 +252,7 @@ const (
 
 func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVanish) {
 	glog.Debugf("actor vanish id=%d reason=%d", vanish.ID, vanish.Reason)
+	pendingHomunculusDelete := m.homDeleteID != 0 && vanish.ID == m.homDeleteID
 	if m.attackFocusID == vanish.ID {
 		m.clearAttackFocus()
 	}
@@ -268,6 +269,9 @@ func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVan
 	delete(m.actorLife, vanish.ID)
 	delete(m.speechBubbles, vanish.ID)
 	delete(m.petAccessoryIDs, vanish.ID)
+	if pendingHomunculusDelete {
+		m.clearDeletedHomunculus(ctx)
+	}
 }
 
 func (m *WorldMode) addActorVanishTeleportEffect(ctx client.Context, vanish network.ActorVanish) {

@@ -101,3 +101,74 @@ func TestHomunculusParamChangeUpdatesSessionAndLife(t *testing.T) {
 		t.Fatalf("actor = %+v", actor)
 	}
 }
+
+func TestPendingHomunculusDeleteVanishClearsSession(t *testing.T) {
+	mode := NewWorldMode()
+	mode.homDeleteID = 300
+	mode.companionAI.msg = map[uint32]string{300: "3,500"}
+	mode.companionAI.resMsg = map[uint32]string{300: "1,300"}
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:     300,
+			Active: true,
+			Name:   "Pipou",
+			HP:     1,
+			MaxHP:  10,
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+	mode.ui.homunculusInfo.OpenInfo(ctx, sess.Homunculus)
+
+	mode.applyActorVanish(ctx, network.ActorVanish{ID: 300, Reason: actorVanishOutOfSight})
+
+	if sess.Homunculus.Active || sess.Homunculus.ID != 0 || sess.Homunculus.Name != "" {
+		t.Fatalf("homunculus session after delete = %+v", sess.Homunculus)
+	}
+	if mode.homDeleteID != 0 {
+		t.Fatalf("pending delete id = %d, want 0", mode.homDeleteID)
+	}
+	if _, ok := ctx.World.Actors[300]; ok {
+		t.Fatal("deleted homunculus actor remained in world")
+	}
+	if mode.ui.homunculusInfo.IsOpen() {
+		t.Fatal("homunculus info window stayed open after delete")
+	}
+	if _, ok := mode.companionAI.msg[300]; ok {
+		t.Fatal("homunculus AI message remained after delete")
+	}
+	if _, ok := mode.companionAI.resMsg[300]; ok {
+		t.Fatal("homunculus AI response message remained after delete")
+	}
+}
+
+func TestHomunculusVanishWithoutDeleteKeepsSession(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:     300,
+			Active: true,
+			Name:   "Pipou",
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyActorVanish(ctx, network.ActorVanish{ID: 300, Reason: actorVanishOutOfSight})
+
+	if !sess.Homunculus.Active || sess.Homunculus.ID != 300 {
+		t.Fatalf("homunculus session should survive non-delete vanish: %+v", sess.Homunculus)
+	}
+}

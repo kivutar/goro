@@ -10,6 +10,7 @@ import (
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
 )
@@ -100,7 +101,9 @@ func (m *WorldMode) sendHomunculusDelete(ctx client.Context) {
 	if err := ctx.Network.SendHomunculusDelete(); err != nil {
 		m.ui.console.AddErrorMessage("Homunculus delete failed.")
 		glog.Warnf("homunculus delete failed: %v", err)
+		return
 	}
+	m.homDeleteID = currentHomunculusID(ctx)
 }
 
 func (m *WorldMode) sendHomunculusRename(ctx client.Context, name string) {
@@ -141,6 +144,30 @@ func (m *WorldMode) toggleHomunculusAssist(ctx client.Context) {
 
 func homunculusAggressive(ctx client.Context) bool {
 	return ctx.Session != nil && ctx.Session.HomunculusAggressive
+}
+
+func currentHomunculusID(ctx client.Context) uint32 {
+	if ctx.Session != nil && ctx.Session.Homunculus.ID != 0 {
+		return ctx.Session.Homunculus.ID
+	}
+	return findCompanionActorID(ctx, actorObjectTypeHomunculus)
+}
+
+func (m *WorldMode) clearDeletedHomunculus(ctx client.Context) {
+	id := m.homDeleteID
+	if id == 0 && ctx.Session != nil {
+		id = ctx.Session.Homunculus.ID
+	}
+	m.homDeleteID = 0
+	if ctx.Session != nil {
+		ctx.Session.Homunculus = session.Companion{}
+	}
+	if id != 0 {
+		delete(m.companionAI.msg, id)
+		delete(m.companionAI.resMsg, id)
+	}
+	m.ui.homunculusInfo.Close()
+	m.ui.homunculusContext.Close()
 }
 
 func clickedHomunculusTarget(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {
