@@ -14,6 +14,8 @@ const (
 	aiMotionMove   = 1
 	aiMotionAttack = 2
 	aiMotionDead   = 3
+
+	homunculusHungerMax = 100
 )
 
 func applyCompanionActorEntry(ctx client.Context, entry network.ActorEntry) {
@@ -29,6 +31,26 @@ func applyCompanionActorEntry(ctx client.Context, entry network.ActorEntry) {
 		ctx.Session.Mercenary.ID = entry.ID
 		ctx.Session.Mercenary.Active = true
 		ctx.Session.Mercenary.Job = entry.Job
+	}
+}
+
+func companionActorEntryName(ctx client.Context, entry network.ActorEntry) string {
+	if ctx.Session == nil || !entry.HasObjectType {
+		return ""
+	}
+	switch entry.ObjectType {
+	case actorObjectTypeHomunculus:
+		if ctx.Session.Homunculus.ID != 0 && ctx.Session.Homunculus.ID != entry.ID {
+			return ""
+		}
+		return sanitizeActorName(ctx.Session.Homunculus.Name)
+	case actorObjectTypeMercenary:
+		if ctx.Session.Mercenary.ID != 0 && ctx.Session.Mercenary.ID != entry.ID {
+			return ""
+		}
+		return sanitizeActorName(ctx.Session.Mercenary.Name)
+	default:
+		return ""
 	}
 }
 
@@ -63,7 +85,9 @@ func (m *WorldMode) applyHomunculusProperty(ctx client.Context, property network
 	if hom.ID == 0 {
 		hom.ID = findCompanionActorID(ctx, actorObjectTypeHomunculus)
 	}
+	m.applyCompanionActorName(ctx, hom.ID, hom.Name)
 	m.applyCompanionLife(ctx, hom.ID, property.HP, property.MaxHP, property.SP, property.MaxSP, property.AttackRange)
+	m.applyCompanionHunger(ctx, hom.ID, property.Hunger, homunculusHungerMax)
 	glog.Debugf("homunculus property id=%d name=%q level=%d hp=%d/%d sp=%d/%d hunger=%d intimacy=%d range=%d skills=%d", hom.ID, hom.Name, hom.Level, hom.HP, hom.MaxHP, hom.SP, hom.MaxSP, hom.Hunger, hom.Intimacy, hom.AttackRange, hom.Skills.Points)
 }
 
@@ -74,6 +98,7 @@ func (m *WorldMode) applyHomunculusStateChange(ctx client.Context, change networ
 	hom := &ctx.Session.Homunculus
 	hom.ID = change.GID
 	hom.Active = true
+	m.applyCompanionActorName(ctx, hom.ID, hom.Name)
 	switch change.State {
 	case 0:
 		// Pre-init: robrowser uses this packet to learn Session.homunId.
@@ -81,6 +106,7 @@ func (m *WorldMode) applyHomunculusStateChange(ctx client.Context, change networ
 		hom.Intimacy = int(change.Data)
 	case 2:
 		hom.Hunger = int(change.Data)
+		m.applyCompanionHunger(ctx, hom.ID, hom.Hunger, homunculusHungerMax)
 	}
 	glog.Debugf("homunculus state id=%d type=%d state=%d data=%d", change.GID, change.Type, change.State, change.Data)
 }
@@ -90,6 +116,7 @@ func (m *WorldMode) applyHomunculusParamChange(ctx client.Context, change networ
 		return
 	}
 	hom := &ctx.Session.Homunculus
+	previousLevel := hom.Level
 	value := int(change.Value)
 	switch change.Param {
 	case network.StatusSpeed:
@@ -105,6 +132,12 @@ func (m *WorldMode) applyHomunculusParamChange(ctx client.Context, change networ
 	case network.StatusMaxSP:
 		hom.MaxSP = value
 	case network.StatusBaseLevel:
+		if previousLevel > 0 && value > previousLevel {
+			if hom.ID == 0 {
+				hom.ID = findCompanionActorID(ctx, actorObjectTypeHomunculus)
+			}
+			m.addWorldEffectIfMissing(ctx, effectHoUp, hom.ID)
+		}
 		hom.Level = value
 	case network.StatusSkillPoint:
 		hom.Skills.Points = value
@@ -174,6 +207,7 @@ func (m *WorldMode) applyMercenaryProperty(ctx client.Context, property network.
 	if property.AttackRange > 0 {
 		merc.AttackRange = property.AttackRange
 	}
+	m.applyCompanionActorName(ctx, merc.ID, merc.Name)
 	m.applyCompanionLife(ctx, merc.ID, merc.HP, merc.MaxHP, merc.SP, merc.MaxSP, merc.AttackRange)
 	glog.Debugf("mercenary property id=%d name=%q level=%d hp=%d/%d sp=%d/%d faith=%d kills=%d range=%d", merc.ID, merc.Name, merc.Level, merc.HP, merc.MaxHP, merc.SP, merc.MaxSP, merc.Faith, merc.Kills, merc.AttackRange)
 }
@@ -272,6 +306,37 @@ func (m *WorldMode) applyCompanionLife(ctx client.Context, id uint32, hp, maxHP,
 		life.maxSP = maxSP
 		life.hasSP = true
 	}
+	life.updatedAt = time.Now()
+	m.actorLife[id] = life
+}
+
+func (m *WorldMode) applyCompanionActorName(ctx client.Context, id uint32, name string) {
+	if id == 0 || ctx.World == nil {
+		return
+	}
+	name = sanitizeActorName(name)
+	if name == "" {
+		return
+	}
+	actor, ok := ctx.World.Actors[id]
+	if !ok {
+		return
+	}
+	actor.Name = name
+	ctx.World.Actors[id] = actor
+}
+
+func (m *WorldMode) applyCompanionHunger(ctx client.Context, id uint32, hunger, maxHunger int) {
+	if id == 0 || ctx.World == nil || maxHunger <= 0 {
+		return
+	}
+	if m.actorLife == nil {
+		m.actorLife = make(map[uint32]actorLife)
+	}
+	life := m.actorLife[id]
+	life.hunger = clampInt(hunger, 0, maxHunger)
+	life.maxHunger = maxHunger
+	life.hasHunger = true
 	life.updatedAt = time.Now()
 	m.actorLife[id] = life
 }

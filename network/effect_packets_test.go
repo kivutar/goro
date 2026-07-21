@@ -7,11 +7,11 @@ import (
 
 func TestParseSpecialEffectNotify(t *testing.T) {
 	data := make([]byte, 10)
-	binary.LittleEndian.PutUint16(data[0:2], 0x019B)
+	binary.LittleEndian.PutUint16(data[0:2], PacketZCNotifyEffect)
 	binary.LittleEndian.PutUint32(data[2:6], 0x11223344)
 	binary.LittleEndian.PutUint32(data[6:10], SpecialEffectBaseLevelUp)
 
-	notify, ok, err := ParseSpecialEffectNotify(Packet{ID: 0x019B, Data: data})
+	notify, ok, err := ParseSpecialEffectNotify(Packet{ID: PacketZCNotifyEffect, Data: data})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,6 +19,24 @@ func TestParseSpecialEffectNotify(t *testing.T) {
 		t.Fatal("special effect notify not parsed")
 	}
 	if notify.AID != 0x11223344 || notify.EffectID != SpecialEffectBaseLevelUp {
+		t.Fatalf("notify = %+v", notify)
+	}
+}
+
+func TestParseSpecialEffectNotify2(t *testing.T) {
+	data := make([]byte, 10)
+	binary.LittleEndian.PutUint16(data[0:2], PacketZCNotifyEffect2)
+	binary.LittleEndian.PutUint32(data[2:6], 0x11223344)
+	binary.LittleEndian.PutUint32(data[6:10], 568)
+
+	notify, ok, err := ParseSpecialEffectNotify(Packet{ID: PacketZCNotifyEffect2, Data: data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("special effect2 notify not parsed")
+	}
+	if notify.AID != 0x11223344 || notify.EffectID != 568 {
 		t.Fatalf("notify = %+v", notify)
 	}
 }

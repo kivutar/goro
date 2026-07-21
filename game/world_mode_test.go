@@ -9583,6 +9583,21 @@ func TestLocalPlayerNameIsBelowHPAndSPBars(t *testing.T) {
 	}
 }
 
+func TestActorLifeBarHeightAddsHomunculusHungerRow(t *testing.T) {
+	if got := actorLifeBarHeight(actorLife{hasSP: true, hasHunger: true}); got != 13 {
+		t.Fatalf("life bar height = %.1f, want hp/sp/hunger height", got)
+	}
+}
+
+func TestHomunculusNameYUsesThreeBarHeight(t *testing.T) {
+	life := actorLife{hasSP: true, hasHunger: true}
+	barY := actorLifeBarY(100, 1.2)
+	nameY := actorNameBelowLifeBarY(100, 1.2, life)
+	if got := nameY - (barY + actorLifeBarHeight(life)); got != 3 {
+		t.Fatalf("name gap = %.1f, want 3px below hp/sp/hunger bars", got)
+	}
+}
+
 func TestCombatHitDelayUsesActionSoundMotion(t *testing.T) {
 	action := res.ACTAction{Animations: []res.ACTAnimation{
 		{Sound: -1},
@@ -11588,6 +11603,17 @@ func TestActorDisplayNameDoesNotLabelUnnamedPlayerJob(t *testing.T) {
 
 	if got := actorDisplayName(ctx, actor, false); got != "" {
 		t.Fatalf("display name = %q, want empty", got)
+	}
+}
+
+func TestHoverActorServerNameLookupIncludesCompanions(t *testing.T) {
+	for _, actor := range []worldstate.Actor{
+		{HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+		{HasObjectType: true, ObjectType: actorObjectTypeMercenary},
+	} {
+		if !shouldUseServerNameForHoverActor(actor) {
+			t.Fatalf("companion actor should request server name: %+v", actor)
+		}
 	}
 }
 

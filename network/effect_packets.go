@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	PacketCZLessEffect uint16 = 0x021D
-	PacketZCLessEffect uint16 = 0x021E
-	PacketZCMVP        uint16 = 0x010C
+	PacketCZLessEffect    uint16 = 0x021D
+	PacketZCLessEffect    uint16 = 0x021E
+	PacketZCNotifyEffect  uint16 = 0x019B
+	PacketZCNotifyEffect2 uint16 = 0x01F3
+	PacketZCMVP           uint16 = 0x010C
 
 	SpecialEffectBaseLevelUp = 0
 	SpecialEffectJobLevelUp  = 1
@@ -46,11 +48,13 @@ func ParseLessEffect(packet Packet) (bool, bool, error) {
 }
 
 func ParseSpecialEffectNotify(packet Packet) (SpecialEffectNotify, bool, error) {
-	if packet.ID != 0x019B {
+	switch packet.ID {
+	case PacketZCNotifyEffect, PacketZCNotifyEffect2:
+	default:
 		return SpecialEffectNotify{}, false, nil
 	}
 	if len(packet.Data) < 10 {
-		return SpecialEffectNotify{}, false, fmt.Errorf("ZC_NOTIFY_EFFECT too short: %d", len(packet.Data))
+		return SpecialEffectNotify{}, false, fmt.Errorf("ZC_NOTIFY_EFFECT 0x%04X too short: %d", packet.ID, len(packet.Data))
 	}
 	return SpecialEffectNotify{
 		AID:      binary.LittleEndian.Uint32(packet.Data[2:6]),

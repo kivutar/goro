@@ -192,6 +192,10 @@ type actorLife struct {
 	maxSP     int
 	hasSP     bool
 	player    bool
+	friendly  bool
+	hunger    int
+	maxHunger int
+	hasHunger bool
 	updatedAt time.Time
 }
 
@@ -1626,10 +1630,14 @@ func actorCastBarProgress(bar actorCastBar, now time.Time) (float64, bool) {
 }
 
 func actorLifeBarHeight(life actorLife) float64 {
+	height := 5.0
 	if life.hasSP {
-		return 9
+		height += 4
 	}
-	return 5
+	if life.hasHunger {
+		height += 4
+	}
+	return height
 }
 
 func actorNameBelowLifeBarY(baseY, scale float64, life actorLife) float64 {
@@ -1641,19 +1649,14 @@ func (m *WorldMode) drawActorLifeBar(screen *render.Frame, ctx client.Context, e
 	if !ok {
 		return
 	}
-	ratio := float64(life.hp) / float64(life.maxHP)
-	if ratio < 0 {
-		ratio = 0
-	} else if ratio > 1 {
-		ratio = 1
-	}
+	ratio := actorLifeRatio(life.hp, life.maxHP)
 	const width = 60.0
 	height := actorLifeBarHeight(life)
 	x := math.Round(entry.screenX - width/2)
 	y := math.Round(actorLifeBarY(entry.screenY, entry.scale))
 	fillWidth := math.Round((width - 2) * ratio)
 	fill := color.RGBA{R: 255, G: 0, B: 231, A: 255}
-	if life.player {
+	if life.player || life.friendly {
 		fill = ui.PlayerHPBarColor
 		if ratio < 0.25 {
 			fill = color.RGBA{R: 255, G: 0, B: 0, A: 255}
@@ -1666,18 +1669,41 @@ func (m *WorldMode) drawActorLifeBar(screen *render.Frame, ctx client.Context, e
 	if fillWidth > 0 {
 		render.DrawRect(screen, x+1, y+1, fillWidth, 3, fill)
 	}
+	rowY := y + 1
 	if life.hasSP {
-		spRatio := float64(life.sp) / float64(life.maxSP)
-		if spRatio < 0 {
-			spRatio = 0
-		} else if spRatio > 1 {
-			spRatio = 1
-		}
-		render.DrawRect(screen, x, y+4, width, 1, color.RGBA{R: 16, G: 24, B: 156, A: 255})
+		rowY += 4
+		spRatio := actorLifeRatio(life.sp, life.maxSP)
+		render.DrawRect(screen, x, rowY-1, width, 1, color.RGBA{R: 16, G: 24, B: 156, A: 255})
 		if spWidth := math.Round((width - 2) * spRatio); spWidth > 0 {
-			render.DrawRect(screen, x+1, y+5, spWidth, 3, ui.PlayerSPBarColor)
+			render.DrawRect(screen, x+1, rowY, spWidth, 3, ui.PlayerSPBarColor)
 		}
 	}
+	if life.hasHunger {
+		rowY += 4
+		hungerRatio := actorLifeRatio(life.hunger, life.maxHunger)
+		hungerFill := color.RGBA{R: 255, G: 231, B: 231, A: 255}
+		if hungerRatio < 0.25 {
+			hungerFill = color.RGBA{R: 255, G: 255, B: 0, A: 255}
+		}
+		render.DrawRect(screen, x+1, rowY-1, width-2, 1, color.RGBA{R: 66, G: 66, B: 66, A: 255})
+		if hungerWidth := math.Round((width - 2) * hungerRatio); hungerWidth > 0 {
+			render.DrawRect(screen, x+1, rowY, hungerWidth, 3, hungerFill)
+		}
+	}
+}
+
+func actorLifeRatio(value, maxValue int) float64 {
+	if maxValue <= 0 {
+		return 0
+	}
+	ratio := float64(value) / float64(maxValue)
+	if ratio < 0 {
+		return 0
+	}
+	if ratio > 1 {
+		return 1
+	}
+	return ratio
 }
 
 func (m *WorldMode) drawActorCastBar(screen *render.Frame, entry sceneActorDrawEntry, now time.Time) {
@@ -1722,10 +1748,73 @@ func (m *WorldMode) actorLifeForDisplay(ctx client.Context, actor world.Actor) (
 	if life, ok := partyMemberLifeForDisplay(ctx, actor); ok {
 		return life, true
 	}
+	if life, ok := m.homunculusLifeForDisplay(ctx, actor); ok {
+		return life, true
+	}
 	// Monster HP bars are a 2012+ client feature. The 2008 client exposes
 	// monster HP through WZ_ESTIMATION/Sense instead, so keep the combat HP
 	// cache hidden from the normal actor overlay.
 	return actorLife{}, false
+}
+
+func (m *WorldMode) homunculusLifeForDisplay(ctx client.Context, actor world.Actor) (actorLife, bool) {
+	if ctx.Session == nil || actor.ID == 0 {
+		return actorLife{}, false
+	}
+	hom := ctx.Session.Homunculus
+	if !hom.Active {
+		return actorLife{}, false
+	}
+	if hom.ID != 0 {
+		if actor.ID != hom.ID {
+			return actorLife{}, false
+		}
+	} else if !actor.HasObjectType || actor.ObjectType != actorObjectTypeHomunculus {
+		return actorLife{}, false
+	}
+
+	life := actorLife{
+		hp:       hom.HP,
+		maxHP:    hom.MaxHP,
+		sp:       hom.SP,
+		maxSP:    hom.MaxSP,
+		hasSP:    hom.MaxSP > 0,
+		friendly: true,
+	}
+	if m.actorLife != nil {
+		if cached, ok := m.actorLife[actor.ID]; ok {
+			if cached.maxHP > 0 {
+				life.hp = cached.hp
+				life.maxHP = cached.maxHP
+			}
+			if cached.hasSP && cached.maxSP > 0 {
+				life.sp = cached.sp
+				life.maxSP = cached.maxSP
+				life.hasSP = true
+			}
+			if cached.hasHunger && cached.maxHunger > 0 {
+				life.hunger = cached.hunger
+				life.maxHunger = cached.maxHunger
+				life.hasHunger = true
+			}
+		}
+	}
+	if !life.hasHunger && hom.Hunger > 0 {
+		life.hunger = hom.Hunger
+		life.maxHunger = homunculusHungerMax
+		life.hasHunger = true
+	}
+	if life.maxHP <= 0 || life.hp < 0 {
+		return actorLife{}, false
+	}
+	life.hp = clampGameInt(life.hp, 0, life.maxHP)
+	if life.hasSP {
+		life.sp = clampGameInt(life.sp, 0, life.maxSP)
+	}
+	if life.hasHunger {
+		life.hunger = clampGameInt(life.hunger, 0, life.maxHunger)
+	}
+	return life, true
 }
 
 func (m *WorldMode) monsterLifeForSense(actorID uint32) (actorLife, bool) {

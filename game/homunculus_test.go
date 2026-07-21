@@ -68,6 +68,8 @@ func TestHomunculusParamChangeUpdatesSessionAndLife(t *testing.T) {
 		Homunculus: session.Companion{
 			ID:          300,
 			Active:      true,
+			Level:       12,
+			Hunger:      37,
 			HP:          10,
 			MaxHP:       20,
 			SP:          5,
@@ -90,8 +92,9 @@ func TestHomunculusParamChangeUpdatesSessionAndLife(t *testing.T) {
 	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusNextBaseExp, Value: 6_000_000_000})
 	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusSkillPoint, Value: 7})
 	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusSpeed, Value: 150})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusBaseLevel, Value: 13})
 
-	if sess.Homunculus.HP != 18 || sess.Homunculus.MaxSP != 44 || sess.Homunculus.Exp != 5_000_000_000 || sess.Homunculus.MaxExp != 6_000_000_000 || sess.Homunculus.Skills.Points != 7 {
+	if sess.Homunculus.HP != 18 || sess.Homunculus.MaxSP != 44 || sess.Homunculus.Level != 13 || sess.Homunculus.Exp != 5_000_000_000 || sess.Homunculus.MaxExp != 6_000_000_000 || sess.Homunculus.Skills.Points != 7 {
 		t.Fatalf("homunculus session = %+v", sess.Homunculus)
 	}
 	if life := mode.actorLife[300]; life.hp != 18 || life.maxHP != 20 || life.sp != 5 || life.maxSP != 44 || !life.hasSP {
@@ -99,6 +102,223 @@ func TestHomunculusParamChangeUpdatesSessionAndLife(t *testing.T) {
 	}
 	if actor := ctx.World.Actors[300]; actor.Speed != 150 || actor.AttackRange != 2 {
 		t.Fatalf("actor = %+v", actor)
+	}
+}
+
+func TestHomunculusPropertyStoresDisplayLifeAndHunger(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, Name: "Vanilmirth2", HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyHomunculusProperty(ctx, network.HomunculusProperty{
+		Name:        "Pipou",
+		Level:       45,
+		Hunger:      62,
+		HP:          123,
+		MaxHP:       456,
+		SP:          78,
+		MaxSP:       90,
+		AttackRange: 4,
+	})
+
+	life, ok := mode.actorLifeForDisplay(ctx, ctx.World.Actors[300])
+	if !ok {
+		t.Fatal("homunculus display life missing")
+	}
+	if life.hp != 123 || life.maxHP != 456 || life.sp != 78 || life.maxSP != 90 || !life.hasSP || life.hunger != 62 || life.maxHunger != 100 || !life.hasHunger || !life.friendly {
+		t.Fatalf("homunculus display life = %+v", life)
+	}
+	if actor := ctx.World.Actors[300]; actor.Name != "Pipou" || actor.AttackRange != 4 {
+		t.Fatalf("homunculus actor = %+v", actor)
+	}
+}
+
+func TestHomunculusActorEntryUsesKnownSessionName(t *testing.T) {
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			Name: "Pipou",
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World:   worldstate.New(),
+	}
+
+	upsertNetworkActor(ctx, network.ActorEntry{
+		ID:            300,
+		Job:           6002,
+		X:             10,
+		Y:             20,
+		HasObjectType: true,
+		ObjectType:    actorObjectTypeHomunculus,
+	})
+
+	if actor := ctx.World.Actors[300]; actor.Name != "Pipou" {
+		t.Fatalf("homunculus actor name = %q, want session name", actor.Name)
+	}
+}
+
+func TestHomunculusActorEntryDoesNotUseSessionNameForDifferentID(t *testing.T) {
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:   300,
+			Name: "Pipou",
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World:   worldstate.New(),
+	}
+
+	upsertNetworkActor(ctx, network.ActorEntry{
+		ID:            301,
+		Job:           6002,
+		X:             10,
+		Y:             20,
+		HasObjectType: true,
+		ObjectType:    actorObjectTypeHomunculus,
+	})
+
+	if actor := ctx.World.Actors[301]; actor.Name != "" {
+		t.Fatalf("other homunculus actor name = %q, want empty before server ack", actor.Name)
+	}
+}
+
+func TestHomunculusStateChangeAppliesKnownSessionName(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			Name: "Pipou",
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, Name: "Vanilmirth2", HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyHomunculusStateChange(ctx, network.HomunculusStateChange{GID: 300, State: 0})
+
+	if actor := ctx.World.Actors[300]; actor.Name != "Pipou" {
+		t.Fatalf("homunculus actor name = %q, want known session name", actor.Name)
+	}
+}
+
+func TestHomunculusStateChangeUpdatesDisplayHunger(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:     300,
+			Active: true,
+			HP:     50,
+			MaxHP:  100,
+			SP:     10,
+			MaxSP:  20,
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyHomunculusStateChange(ctx, network.HomunculusStateChange{GID: 300, State: 2, Data: 24})
+
+	life, ok := mode.actorLifeForDisplay(ctx, ctx.World.Actors[300])
+	if !ok {
+		t.Fatal("homunculus display life missing")
+	}
+	if sess.Homunculus.Hunger != 24 || life.hunger != 24 || life.maxHunger != 100 || !life.hasHunger {
+		t.Fatalf("homunculus hunger session=%+v life=%+v", sess.Homunculus, life)
+	}
+}
+
+func TestHomunculusParamLevelUpAddsHoUpEffect(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:     300,
+			Active: true,
+			Level:  9,
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, X: 12, Y: 34, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusBaseLevel, Value: 10})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusBaseLevel, Value: 10})
+
+	if len(mode.worldEffects) != 1 {
+		t.Fatalf("world effects = %d, want 1", len(mode.worldEffects))
+	}
+	if effect := mode.worldEffects[0]; effect.effectID != effectHoUp || effect.actorID != 300 {
+		t.Fatalf("world effect = %+v", effect)
+	}
+}
+
+func TestHomunculusNotifyEffect2AddsHoUpEffectWithoutSound(t *testing.T) {
+	mode := NewWorldMode()
+	ctx := client.Context{
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, X: 12, Y: 34, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applySpecialEffectNotify(ctx, network.SpecialEffectNotify{AID: 300, EffectID: effectHoUp})
+
+	if len(mode.worldEffects) != 1 {
+		t.Fatalf("world effects = %d, want 1", len(mode.worldEffects))
+	}
+	if effect := mode.worldEffects[0]; effect.effectID != effectHoUp || effect.actorID != 300 {
+		t.Fatalf("world effect = %+v", effect)
+	}
+	if len(mode.scheduledSounds) != 0 {
+		t.Fatalf("scheduled sounds = %+v, want none for robr EF_HO_UP", mode.scheduledSounds)
+	}
+}
+
+func TestHomunculusParamInitialLevelDoesNotAddHoUpEffect(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:     300,
+			Active: true,
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, X: 12, Y: 34, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusBaseLevel, Value: 10})
+
+	if len(mode.worldEffects) != 0 {
+		t.Fatalf("world effects = %+v, want none for initial level load", mode.worldEffects)
 	}
 }
 

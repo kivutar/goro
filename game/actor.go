@@ -146,6 +146,7 @@ func upsertNetworkActor(ctx client.Context, entry network.ActorEntry) {
 	if isLocalActor(ctx, entry.ID) {
 		return
 	}
+	name := companionActorEntryName(ctx, entry)
 	applyCompanionActorEntry(ctx, entry)
 	dir := entry.Dir
 	if entry.Moving {
@@ -162,6 +163,7 @@ func upsertNetworkActor(ctx client.Context, entry network.ActorEntry) {
 	}
 	actor := worldstate.Actor{
 		ID:               entry.ID,
+		Name:             name,
 		GuildID:          entry.GuildID,
 		EmblemVersion:    entry.EmblemVersion,
 		X:                entry.X,
@@ -885,7 +887,11 @@ func (m *WorldMode) drawHoveredActorNameLabel(screen *render.Frame, ctx client.C
 	point := projection.Project(cellCenter(actorX), cellCenter(actorY), terrainZ)
 	scale := actorBillboardScreenScale(projection, cellCenter(actorX), cellCenter(actorY), terrainZ)
 	isPlayer := isLocalActor(ctx, actor.ID)
-	drawActorNameLabels(screen, labels, m.actorGuildEmblem(ctx, actor, isPlayer), float64(point.x), float64(point.y), scale, actorNameLabelColor(actor, isPlayer))
+	labelY := actorNameLabelY(float64(point.y), scale)
+	if life, ok := m.actorLifeForDisplay(ctx, actor); ok {
+		labelY = actorNameBelowLifeBarY(float64(point.y), scale, life)
+	}
+	drawActorNameLabelsAtY(screen, labels, m.actorGuildEmblem(ctx, actor, isPlayer), float64(point.x), labelY, actorNameLabelColor(actor, isPlayer))
 }
 
 func (m *WorldMode) hoveredActorDisplayName(ctx client.Context, actor worldstate.Actor, now time.Time) string {
@@ -956,7 +962,15 @@ func shouldUseServerNameForHoverActor(actor worldstate.Actor) bool {
 	if isMonsterLikeHoverActor(actor) {
 		return true
 	}
-	return actor.HasObjectType && actor.ObjectType == actorObjectTypeNPC
+	if !actor.HasObjectType {
+		return false
+	}
+	switch actor.ObjectType {
+	case actorObjectTypeNPC, actorObjectTypeHomunculus, actorObjectTypeMercenary:
+		return true
+	default:
+		return false
+	}
 }
 
 func isMonsterLikeHoverActor(actor worldstate.Actor) bool {
