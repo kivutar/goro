@@ -295,6 +295,7 @@ func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
 		return mode.luaCompanionGetV(L, ctx, ai.kind)
 	}))
 	L.SetGlobal("GetActors", L.NewFunction(func(L *lua.LState) int {
+		mode.maybeQueueAggressiveCompanionTarget(ctx, ai.kind, companionIDForAIKind(ctx, ai.kind))
 		L.Push(mode.luaCompanionActors(L, ctx))
 		return 1
 	}))

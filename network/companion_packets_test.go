@@ -13,6 +13,10 @@ func TestBuildCompanionPackets(t *testing.T) {
 	if binary.LittleEndian.Uint16(command[2:4]) != PacketZCFeedMercenary || command[4] != HomunculusCommandFeed {
 		t.Fatalf("homunculus command payload = %x", command)
 	}
+	deleteCommand := BuildHomunculusCommandPacketWithType(PacketZCFeedMercenary, HomunculusCommandDelete)
+	if binary.LittleEndian.Uint16(deleteCommand[2:4]) != PacketZCFeedMercenary || deleteCommand[4] != HomunculusCommandDelete {
+		t.Fatalf("homunculus delete command payload = %x", deleteCommand)
+	}
 
 	move, ok := BuildCompanionMovePacket(0x11223344, 150, 200)
 	if !ok {

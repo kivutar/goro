@@ -119,54 +119,57 @@ type WorldMode struct {
 }
 
 type worldUI struct {
-	minimap          gameui.Minimap
-	statusIcons      gameui.StatusIcons
-	console          gameui.ChatConsole
-	npcDialog        gameui.NPCDialog
-	escapeMenu       gameui.EscapeMenu
-	teleportModal    gameui.TeleportModal
-	deathModal       gameui.DeathModal
-	disconnectDialog gameui.ConfirmModal
-	friendRequest    gameui.ConfirmModal
-	friendConfirm    gameui.ConfirmModal
-	partyRequest     gameui.ConfirmModal
-	guildRequest     gameui.ConfirmModal
-	tradeRequest     gameui.ConfirmModal
-	characterWindow  gameui.CharacterWindow
-	basicMenu        gameui.BasicMenu
-	inventoryBag     gameui.InventoryBagWindow
-	equipmentWindow  gameui.EquipmentWindow
-	viewEquipWindow  gameui.ViewEquipmentWindow
-	storageWindow    gameui.StorageWindow
-	cartWindow       gameui.CartWindow
-	changeCartWindow gameui.ChangeCartWindow
-	shopWindow       gameui.ShopWindow
-	vendingWindow    gameui.VendingWindow
-	itemInfoWindow   gameui.ItemInfoWindow
-	identifyWindow   gameui.IdentifyWindow
-	cardWindow       gameui.CardCompositionWindow
-	makingArrow      gameui.MakingArrowWindow
-	petEggWindow     gameui.PetEggWindow
-	petInfoWindow    gameui.PetInfoWindow
-	petContext       gameui.PetContextMenu
-	petConfirm       gameui.ConfirmModal
-	statsWindow      gameui.StatsWindow
-	skillWindow      gameui.SkillWindow
-	friendsWindow    gameui.FriendsWindow
-	guildWindow      gameui.GuildWindow
-	friendSettings   gameui.FriendSettingsWindow
-	whisperWindow    gameui.WhisperWindow
-	chatRoomCreate   gameui.ChatRoomCreateWindow
-	chatRoom         gameui.ChatRoomWindow
-	partySettings    gameui.PartySettingsWindow
-	partyCreate      gameui.PartyCreateWindow
-	partyInvite      gameui.PartyInviteWindow
-	partyInfo        gameui.ConfirmModal
-	skillTextPrompt  gameui.TextPromptWindow
-	playerContext    gameui.PlayerContextMenu
-	tradeWindow      gameui.TradeWindow
-	settingsWindow   gameui.SettingsWindow
-	shortcutBar      gameui.ShortcutBar
+	minimap           gameui.Minimap
+	statusIcons       gameui.StatusIcons
+	console           gameui.ChatConsole
+	npcDialog         gameui.NPCDialog
+	escapeMenu        gameui.EscapeMenu
+	teleportModal     gameui.TeleportModal
+	deathModal        gameui.DeathModal
+	disconnectDialog  gameui.ConfirmModal
+	friendRequest     gameui.ConfirmModal
+	friendConfirm     gameui.ConfirmModal
+	partyRequest      gameui.ConfirmModal
+	guildRequest      gameui.ConfirmModal
+	tradeRequest      gameui.ConfirmModal
+	characterWindow   gameui.CharacterWindow
+	basicMenu         gameui.BasicMenu
+	inventoryBag      gameui.InventoryBagWindow
+	equipmentWindow   gameui.EquipmentWindow
+	viewEquipWindow   gameui.ViewEquipmentWindow
+	storageWindow     gameui.StorageWindow
+	cartWindow        gameui.CartWindow
+	changeCartWindow  gameui.ChangeCartWindow
+	shopWindow        gameui.ShopWindow
+	vendingWindow     gameui.VendingWindow
+	itemInfoWindow    gameui.ItemInfoWindow
+	identifyWindow    gameui.IdentifyWindow
+	cardWindow        gameui.CardCompositionWindow
+	makingArrow       gameui.MakingArrowWindow
+	petEggWindow      gameui.PetEggWindow
+	petInfoWindow     gameui.PetInfoWindow
+	petContext        gameui.PetContextMenu
+	petConfirm        gameui.ConfirmModal
+	homunculusInfo    gameui.HomunculusInfoWindow
+	homunculusContext gameui.HomunculusContextMenu
+	homunculusConfirm gameui.ConfirmModal
+	statsWindow       gameui.StatsWindow
+	skillWindow       gameui.SkillWindow
+	friendsWindow     gameui.FriendsWindow
+	guildWindow       gameui.GuildWindow
+	friendSettings    gameui.FriendSettingsWindow
+	whisperWindow     gameui.WhisperWindow
+	chatRoomCreate    gameui.ChatRoomCreateWindow
+	chatRoom          gameui.ChatRoomWindow
+	partySettings     gameui.PartySettingsWindow
+	partyCreate       gameui.PartyCreateWindow
+	partyInvite       gameui.PartyInviteWindow
+	partyInfo         gameui.ConfirmModal
+	skillTextPrompt   gameui.TextPromptWindow
+	playerContext     gameui.PlayerContextMenu
+	tradeWindow       gameui.TradeWindow
+	settingsWindow    gameui.SettingsWindow
+	shortcutBar       gameui.ShortcutBar
 }
 
 type actorSpriteKey struct {
@@ -415,6 +418,7 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	m.ui.chatRoom.Rebind(ctx)
 	m.ui.skillTextPrompt.Rebind(ctx)
 	m.ui.settingsWindow.Rebind(ctx)
+	m.ui.homunculusInfo.Rebind(ctx)
 	m.ui.whisperWindow.Rebind(ctx)
 	m.ui.shortcutBar.ResetOverlay(ctx)
 }
@@ -1289,6 +1293,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			glog.Errorf("parse homunculus feed 0x%04X: %v", pkt.ID, err)
 		} else if ok {
 			glog.Debugf("homunculus feed result success=%t item=%d", feed.Result, feed.ItemID)
+			m.applyHomunculusFeedResultMessage(ctx, feed)
 			continue
 		}
 		if homState, ok, err := network.ParseHomunculusStateChange(pkt); err != nil {
@@ -1501,6 +1506,17 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.openPetContextFromInput(ctx, now) {
 		return nil, nil
 	}
+	homunculusContextConsumed := m.ui.homunculusContext.Update(ctx)
+	if action := m.ui.homunculusContext.PopAction(); action.Kind != gameui.HomunculusContextActionNone {
+		m.handleHomunculusContextAction(ctx, action)
+		return nil, nil
+	}
+	if homunculusContextConsumed {
+		return nil, nil
+	}
+	if m.openHomunculusContextFromInput(ctx, now) {
+		return nil, nil
+	}
 	playerContextConsumed := m.ui.playerContext.Update(ctx)
 	switch action := m.ui.playerContext.PopAction(); action.Kind {
 	case gameui.PlayerContextActionAddFriend:
@@ -1528,7 +1544,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.openPlayerContextFromInput(ctx, now) {
 		return nil, nil
 	}
-	if !m.ui.escapeMenu.IsOpen() && !m.ui.teleportModal.IsOpen() && !m.ui.deathModal.IsOpen() && !m.ui.friendRequest.IsOpen() && !m.ui.friendConfirm.IsOpen() && !m.ui.partyRequest.IsOpen() && !m.ui.guildRequest.IsOpen() && !m.ui.tradeRequest.IsOpen() && !m.ui.settingsWindow.IsOpen() && !m.ui.identifyWindow.IsOpen() && !m.ui.petEggWindow.IsOpen() && !m.ui.petInfoWindow.IsOpen() && !m.ui.petConfirm.IsOpen() {
+	if !m.ui.escapeMenu.IsOpen() && !m.ui.teleportModal.IsOpen() && !m.ui.deathModal.IsOpen() && !m.ui.friendRequest.IsOpen() && !m.ui.friendConfirm.IsOpen() && !m.ui.partyRequest.IsOpen() && !m.ui.guildRequest.IsOpen() && !m.ui.tradeRequest.IsOpen() && !m.ui.settingsWindow.IsOpen() && !m.ui.identifyWindow.IsOpen() && !m.ui.petEggWindow.IsOpen() && !m.ui.petInfoWindow.IsOpen() && !m.ui.petConfirm.IsOpen() && !m.ui.homunculusInfo.IsOpen() && !m.ui.homunculusConfirm.IsOpen() {
 		m.updateCameraRotation(ctx)
 	}
 	if m.updatePetSlotMachine(ctx) {
@@ -1562,6 +1578,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if m.ui.petInfoWindow.Update(ctx) {
+		return nil, nil
+	}
+	if m.ui.homunculusConfirm.Update(ctx) {
+		return nil, nil
+	}
+	if m.ui.homunculusInfo.Update(ctx) {
+		if action := m.ui.homunculusInfo.PopAction(); action.Kind != gameui.HomunculusInfoActionNone {
+			m.handleHomunculusInfoAction(ctx, action)
+		}
 		return nil, nil
 	}
 	if m.ui.deathModal.Update(ctx) {
@@ -1966,6 +1991,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.cardWindow = m.ui.cardWindow
 	next.ui.petEggWindow = m.ui.petEggWindow
 	next.ui.petInfoWindow = m.ui.petInfoWindow
+	next.ui.homunculusInfo = m.ui.homunculusInfo
 	next.petProperty = m.petProperty
 	next.hasPetProperty = m.hasPetProperty
 	next.petOldFullness = m.petOldFullness

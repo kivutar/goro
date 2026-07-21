@@ -439,6 +439,17 @@ func (c *Client) SendHomunculusFeed() error {
 	return err
 }
 
+func (c *Client) SendHomunculusDelete() error {
+	packet := BuildHomunculusCommandPacketWithType(PacketZCFeedMercenary, HomunculusCommandDelete)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_COMMAND_MER delete opcode=0x%04X client_date=%d", ID(packet), c.clientDate)
+	} else {
+		glog.Warnf("send CZ_COMMAND_MER delete failed opcode=0x%04X len=%d client_date=%d: %v", ID(packet), len(packet), c.clientDate, err)
+	}
+	return err
+}
+
 func (c *Client) SendHomunculusRename(name string) error {
 	packet := BuildHomunculusRenamePacket(name)
 	err := c.Send(packet)

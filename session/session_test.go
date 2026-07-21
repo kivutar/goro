@@ -15,7 +15,9 @@ func TestSelectCharacterClearsCharacterScopedState(t *testing.T) {
 	s.NoCtrl = true
 	s.LessEffects = true
 	s.HomunculusCustomAI = true
+	s.HomunculusAggressive = true
 	s.MercenaryCustomAI = true
+	s.MercenaryAggressive = true
 	s.SnapTargets = true
 	s.SnapItems = true
 	s.Whisper = WhisperSettings{OpenFriends: true, Configured: true}
@@ -62,7 +64,7 @@ func TestSelectCharacterClearsCharacterScopedState(t *testing.T) {
 	if s.AccountID != 2000000 || s.AuthCode != 123 || s.UserLevel != 99 || s.Sex != 1 {
 		t.Fatalf("account state was not preserved: %+v", s)
 	}
-	if !s.NoShift || !s.NoCtrl || !s.LessEffects || !s.HomunculusCustomAI || !s.MercenaryCustomAI || !s.SnapTargets || !s.SnapItems || !s.Whisper.Configured {
+	if !s.NoShift || !s.NoCtrl || !s.LessEffects || !s.HomunculusCustomAI || !s.HomunculusAggressive || !s.MercenaryCustomAI || !s.MercenaryAggressive || !s.SnapTargets || !s.SnapItems || !s.Whisper.Configured {
 		t.Fatalf("client settings were not preserved: %+v", s)
 	}
 	if len(s.CharServers) != 1 || len(s.Characters) != 2 {
