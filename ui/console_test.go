@@ -74,6 +74,36 @@ func TestConsoleMineffectCommandTogglesSessionPreference(t *testing.T) {
 	}
 }
 
+func TestConsoleCompanionAICommandsToggleSessionPreference(t *testing.T) {
+	console := &ChatConsole{active: true}
+	sessionState := &session.Session{}
+	ctx := client.Context{Session: sessionState}
+
+	if !console.SubmitCommand(ctx, "/hoai") {
+		t.Fatal("hoai command was not handled")
+	}
+	if !sessionState.HomunculusCustomAI {
+		t.Fatal("homunculus custom AI was not enabled")
+	}
+	if console.active || console.input != "" {
+		t.Fatalf("console active=%t input=%q, want closed empty input", console.active, console.input)
+	}
+
+	if !console.SubmitCommand(ctx, "/merai") {
+		t.Fatal("merai command was not handled")
+	}
+	if !sessionState.MercenaryCustomAI {
+		t.Fatal("mercenary custom AI was not enabled")
+	}
+
+	if !console.SubmitCommand(ctx, "/hoai") {
+		t.Fatal("hoai command was not handled")
+	}
+	if sessionState.HomunculusCustomAI {
+		t.Fatal("homunculus custom AI was not disabled")
+	}
+}
+
 func TestConsoleMemoCommandWithoutNetwork(t *testing.T) {
 	console := &ChatConsole{input: "/memo", active: true}
 

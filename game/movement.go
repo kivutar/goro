@@ -287,13 +287,17 @@ func setPlayerMovementPathAt(ctx client.Context, path []worldstate.WalkStep, fro
 }
 
 func upsertActor(ctx client.Context, actor worldstate.Actor) {
+	upsertActorAt(ctx, actor, time.Now())
+}
+
+func upsertActorAt(ctx client.Context, actor worldstate.Actor, now time.Time) {
 	if ctx.World == nil {
 		return
 	}
-	now := time.Now()
+	existing, hasExisting := ctx.World.Actors[actor.ID]
 	if actor.Moving {
 		if actor.FromX == 0 && actor.FromY == 0 {
-			if existing, ok := ctx.World.Actors[actor.ID]; ok {
+			if hasExisting {
 				actor.FromX = existing.X
 				actor.FromY = existing.Y
 			}
@@ -302,14 +306,30 @@ func upsertActor(ctx client.Context, actor worldstate.Actor) {
 			actor.ToX = actor.X
 			actor.ToY = actor.Y
 		}
+		if actor.Speed <= 0 && hasExisting && existing.Speed > 0 {
+			actor.Speed = existing.Speed
+		}
 		if len(actor.MovePath) == 0 {
 			actor.MovePath = walkPath(ctx.World.GAT, actor.FromX, actor.FromY, actor.ToX, actor.ToY)
+			if len(actor.MovePath) == 0 {
+				actor.MovePath = directMovementPath(actor.FromX, actor.FromY, actor.ToX, actor.ToY)
+			}
 		}
-		actor.MoveStarted = now
-		actor.MoveDuration = actorMovementDurationWithSpeed(actor.MovePath, actor.FromX, actor.FromY, actor.ToX, actor.ToY, actorMoveSpeed(actor))
-		actor.HasMoveStart = false
-		if existing, ok := ctx.World.Actors[actor.ID]; ok && actorIsMovingAt(existing, now) {
-			actor.WalkDistance = actorRenderWalkDistance(existing, now)
+		fastForward := time.Duration(0)
+		if actor.HasMoveStartTick && ctx.Session != nil {
+			if elapsed, ok := ctx.Session.ElapsedSinceServerTick(actor.MoveStartTick, now); ok {
+				fastForward = elapsed
+			}
+		}
+		speed := actorMoveSpeed(actor)
+		startX, startY, hasMoveStart, offset := movementStart(actor.MovePath, existing, now, fastForward, speed, actor.FromX, actor.FromY)
+		actor.MoveStarted = now.Add(-offset)
+		actor.MoveDuration = actorMovementDurationFromWithSpeed(actor.MovePath, actor.FromX, actor.FromY, actor.ToX, actor.ToY, speed, startX, startY, hasMoveStart)
+		actor.MoveStartX = startX
+		actor.MoveStartY = startY
+		actor.HasMoveStart = hasMoveStart
+		if hasExisting && actorIsMovingAt(existing, now) {
+			actor.WalkDistance = movementWalkDistanceOffset(actor.MovePath, existing, now, offset, speed, startX, startY, hasMoveStart)
 		}
 	}
 	ctx.World.UpsertActor(actor)

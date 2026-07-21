@@ -243,13 +243,14 @@ func (m *WorldMode) applyCompanionLife(ctx client.Context, id uint32, hp, maxHP,
 	m.actorLife[id] = life
 }
 
-func (m *WorldMode) setActorAIMotion(ctx client.Context, id uint32, motion int, targetID uint32) {
+func (m *WorldMode) setActorAIMotion(ctx client.Context, id uint32, motion int, targetID uint32, expires time.Time) {
 	if id == 0 || ctx.World == nil {
 		return
 	}
 	if isLocalActor(ctx, id) {
 		ctx.World.Player.AIMotion = motion
 		ctx.World.Player.HasAIMotion = true
+		ctx.World.Player.AIMotionExpires = expires
 		ctx.World.Player.AITargetID = targetID
 		return
 	}
@@ -259,6 +260,7 @@ func (m *WorldMode) setActorAIMotion(ctx client.Context, id uint32, motion int, 
 	}
 	actor.AIMotion = motion
 	actor.HasAIMotion = true
+	actor.AIMotionExpires = expires
 	actor.AITargetID = targetID
 	ctx.World.Actors[id] = actor
 }

@@ -278,6 +278,12 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 	case "/mineffect":
 		c.submitLessEffects(ctx)
 		return true
+	case "/hoai":
+		c.submitCompanionAI(ctx, true)
+		return true
+	case "/merai":
+		c.submitCompanionAI(ctx, false)
+		return true
 	case "/memo":
 		c.submitMemo(ctx)
 		return true
@@ -376,6 +382,32 @@ func (c *ChatConsole) submitLessEffects(ctx client.Context) {
 		c.AddSystemMessage("Less Effects: On")
 	} else {
 		c.AddSystemMessage("Less Effects: Off")
+	}
+	c.setInput("")
+	c.setActive(false)
+}
+
+func (c *ChatConsole) submitCompanionAI(ctx client.Context, homunculus bool) {
+	if ctx.Session == nil {
+		c.AddErrorMessage("ai mode failed: no session")
+		c.setInput("")
+		c.setActive(false)
+		return
+	}
+	label := "Mercenary"
+	enabled := false
+	if homunculus {
+		label = "Homunculus"
+		ctx.Session.HomunculusCustomAI = !ctx.Session.HomunculusCustomAI
+		enabled = ctx.Session.HomunculusCustomAI
+	} else {
+		ctx.Session.MercenaryCustomAI = !ctx.Session.MercenaryCustomAI
+		enabled = ctx.Session.MercenaryCustomAI
+	}
+	if enabled {
+		c.AddSystemMessage("%s AI: Custom", label)
+	} else {
+		c.AddSystemMessage("%s AI: Default", label)
 	}
 	c.setInput("")
 	c.setActive(false)

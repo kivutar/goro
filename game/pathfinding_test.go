@@ -6,6 +6,7 @@ import (
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/res"
+	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
 )
 
@@ -43,6 +44,61 @@ func TestWalkPathStoresFinalSegmentDirection(t *testing.T) {
 	}
 	if w.Dir != w.Player.Dir {
 		t.Fatalf("world dir = %d, want player dir %d", w.Dir, w.Player.Dir)
+	}
+}
+
+func TestRemoteMoveUpdateUsesExistingActorSpeed(t *testing.T) {
+	now := time.Unix(100, 0)
+	w := worldstate.New()
+	w.Actors[300] = worldstate.Actor{ID: 300, X: 0, Y: 0, Speed: 500}
+
+	upsertActorAt(client.Context{World: w}, worldstate.Actor{
+		ID:     300,
+		X:      4,
+		Y:      0,
+		FromX:  0,
+		FromY:  0,
+		ToX:    4,
+		ToY:    0,
+		Moving: true,
+	}, now)
+
+	actor := w.Actors[300]
+	if actor.Speed != 500 {
+		t.Fatalf("speed = %d, want preserved 500", actor.Speed)
+	}
+	if got, want := actor.MoveDuration, 2*time.Second; got != want {
+		t.Fatalf("move duration = %s, want %s", got, want)
+	}
+}
+
+func TestRemoteMoveUpdateUsesServerMoveStartTick(t *testing.T) {
+	s := &session.Session{}
+	now := time.Unix(100, 0)
+	s.SyncServerTick(1500, now)
+	w := worldstate.New()
+	w.Actors[300] = worldstate.Actor{ID: 300, X: 0, Y: 0, Speed: 500}
+
+	upsertActorAt(client.Context{World: w, Session: s}, worldstate.Actor{
+		ID:               300,
+		X:                4,
+		Y:                0,
+		FromX:            0,
+		FromY:            0,
+		ToX:              4,
+		ToY:              0,
+		MoveStartTick:    500,
+		HasMoveStartTick: true,
+		Moving:           true,
+	}, now)
+
+	actor := w.Actors[300]
+	if got, want := actor.MoveStarted, now.Add(-time.Second); !got.Equal(want) {
+		t.Fatalf("move started = %s, want %s", got, want)
+	}
+	x, y := actorRenderPosition(actor, now)
+	if x < 1.9 || x > 2.1 || y != 0 {
+		t.Fatalf("render position = %.2f,%.2f, want around 2,0", x, y)
 	}
 }
 

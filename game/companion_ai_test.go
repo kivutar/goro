@@ -13,6 +13,107 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+func TestCompanionAILoadsDefaultBeforeCustomUntilCommandTogglesCustom(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "AI", "USER_AI"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AI", "AI.lua"), []byte(`function AI(id) source = 1 end`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AI", "USER_AI", "AI.lua"), []byte(`function AI(id) source = 2 end`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := res.NewManager(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := client.Context{Resources: manager, Session: session.New()}
+	mode := NewWorldMode()
+
+	ai, err := newCompanionAI(ctx, mode, companionAIHomunculus, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ai.close()
+	if ai.source != "AI/AI.lua" || ai.custom {
+		t.Fatalf("ai source=%q custom=%t, want default AI", ai.source, ai.custom)
+	}
+	if err := ai.tick(300); err != nil {
+		t.Fatal(err)
+	}
+	assertLuaGlobalNumber(t, ai.state, "source", 1)
+
+	ctx.Session.HomunculusCustomAI = true
+	customAI, err := newCompanionAI(ctx, mode, companionAIHomunculus, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer customAI.close()
+	if customAI.source != "AI/USER_AI/AI.lua" || !customAI.custom {
+		t.Fatalf("ai source=%q custom=%t, want custom AI", customAI.source, customAI.custom)
+	}
+	if err := customAI.tick(300); err != nil {
+		t.Fatal(err)
+	}
+	assertLuaGlobalNumber(t, customAI.state, "source", 2)
+}
+
+func TestCompanionAICustomModeDoesNotFallbackToDefault(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "AI"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AI", "AI.lua"), []byte(`function AI(id) source = 1 end`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := res.NewManager(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := client.Context{Resources: manager, Session: session.New()}
+	ctx.Session.HomunculusCustomAI = true
+	if ai, err := newCompanionAI(ctx, NewWorldMode(), companionAIHomunculus, time.Now()); err == nil {
+		ai.close()
+		t.Fatalf("custom AI loaded source=%q, want missing custom AI error", ai.source)
+	}
+}
+
+func TestCompanionAIReloadsWhenCustomToggleChanges(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "AI", "USER_AI"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AI", "AI.lua"), []byte(`function AI(id) end`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AI", "USER_AI", "AI.lua"), []byte(`function AI(id) end`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := res.NewManager(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionState := session.New()
+	sessionState.Homunculus = session.Companion{ID: 300, Active: true}
+	world := worldstate.New()
+	world.Actors[300] = worldstate.Actor{ID: 300, HasObjectType: true, ObjectType: actorObjectTypeHomunculus}
+	ctx := client.Context{Resources: manager, Session: sessionState, World: world}
+	mode := NewWorldMode()
+
+	now := time.Now()
+	mode.updateCompanionAIKind(ctx, companionAIHomunculus, 300, now)
+	if mode.companionAI.homunculus == nil || mode.companionAI.homunculus.source != "AI/AI.lua" {
+		t.Fatalf("homunculus AI = %+v, want default source", mode.companionAI.homunculus)
+	}
+
+	sessionState.HomunculusCustomAI = true
+	mode.updateCompanionAIKind(ctx, companionAIHomunculus, 300, now.Add(time.Millisecond))
+	if mode.companionAI.homunculus == nil || mode.companionAI.homunculus.source != "AI/USER_AI/AI.lua" {
+		t.Fatalf("homunculus AI = %+v, want custom source", mode.companionAI.homunculus)
+	}
+}
+
 func TestCompanionAILoadsGravityGlobals(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "AI"), 0o755); err != nil {
@@ -88,6 +189,119 @@ end
 	assertLuaGlobalNumber(t, ai.state, "seen_monster", 1)
 	if got := int(ai.state.GetGlobal("seen_actor_count").(lua.LNumber)); got < 3 {
 		t.Fatalf("seen_actor_count = %d, want at least owner/homunculus/monster", got)
+	}
+}
+
+func TestCompanionActorPositionTruncatesMovingCellsLikeRobrowser(t *testing.T) {
+	now := time.Now()
+	sess := session.New()
+	sess.AccountID = 100
+	world := worldstate.New()
+	world.Player = worldstate.Actor{
+		ID:           100,
+		X:            4,
+		Y:            0,
+		FromX:        0,
+		FromY:        0,
+		ToX:          4,
+		ToY:          0,
+		Moving:       true,
+		MoveStarted:  now.Add(-600 * time.Millisecond),
+		MoveDuration: 4 * time.Second,
+	}
+	world.Actors[300] = worldstate.Actor{
+		ID:            300,
+		X:             14,
+		Y:             0,
+		FromX:         10,
+		FromY:         0,
+		ToX:           14,
+		ToY:           0,
+		Moving:        true,
+		MoveStarted:   now.Add(-600 * time.Millisecond),
+		MoveDuration:  4 * time.Second,
+		HasObjectType: true,
+		ObjectType:    actorObjectTypeHomunculus,
+	}
+	ctx := client.Context{Session: sess, World: world}
+
+	ownerX, ownerY := companionActorPosition(ctx, 100)
+	if ownerX != 0 || ownerY != 0 {
+		t.Fatalf("owner AI position = %d,%d, want truncated 0,0", ownerX, ownerY)
+	}
+	actorX, actorY := companionActorPosition(ctx, 300)
+	if actorX != 10 || actorY != 0 {
+		t.Fatalf("companion AI position = %d,%d, want truncated 10,0", actorX, actorY)
+	}
+}
+
+func TestCompanionAICellDistanceMatchesDefaultLua(t *testing.T) {
+	if got, want := companionAICellDistance(0, 0, 3, 4), 5; got != want {
+		t.Fatalf("distance = %d, want %d", got, want)
+	}
+	if got := companionAICellDistance(-1, 0, 3, 4); got != -1 {
+		t.Fatalf("missing distance = %d, want -1", got)
+	}
+}
+
+func TestCompanionActorMotionReturnsStandAfterWalkExpires(t *testing.T) {
+	now := time.Now()
+	world := worldstate.New()
+	world.Actors[300] = worldstate.Actor{
+		ID:            300,
+		X:             4,
+		Y:             0,
+		FromX:         0,
+		FromY:         0,
+		ToX:           4,
+		ToY:           0,
+		Moving:        true,
+		MoveStarted:   now.Add(-time.Second),
+		MoveDuration:  100 * time.Millisecond,
+		AIMotion:      aiMotionMove,
+		HasAIMotion:   true,
+		HasObjectType: true,
+		ObjectType:    actorObjectTypeHomunculus,
+	}
+	ctx := client.Context{World: world}
+	mode := NewWorldMode()
+
+	if got := mode.companionActorMotion(ctx, 300); got != aiMotionStand {
+		t.Fatalf("expired walk motion = %d, want stand", got)
+	}
+
+	actor := world.Actors[300]
+	actor.MoveStarted = now
+	world.Actors[300] = actor
+	if got := mode.companionActorMotion(ctx, 300); got != aiMotionMove {
+		t.Fatalf("active walk motion = %d, want move", got)
+	}
+}
+
+func TestCompanionActorMotionReturnsStandAfterActionExpires(t *testing.T) {
+	world := worldstate.New()
+	world.Actors[300] = worldstate.Actor{
+		ID:              300,
+		X:               4,
+		Y:               0,
+		AIMotion:        aiMotionAttack,
+		HasAIMotion:     true,
+		AIMotionExpires: time.Now().Add(-time.Millisecond),
+		HasObjectType:   true,
+		ObjectType:      actorObjectTypeHomunculus,
+	}
+	ctx := client.Context{World: world}
+	mode := NewWorldMode()
+
+	if got := mode.companionActorMotion(ctx, 300); got != aiMotionStand {
+		t.Fatalf("expired attack motion = %d, want stand", got)
+	}
+
+	actor := world.Actors[300]
+	actor.AIMotionExpires = time.Now().Add(time.Second)
+	world.Actors[300] = actor
+	if got := mode.companionActorMotion(ctx, 300); got != aiMotionAttack {
+		t.Fatalf("active attack motion = %d, want attack", got)
 	}
 }
 

@@ -161,40 +161,49 @@ func upsertNetworkActor(ctx client.Context, entry network.ActorEntry) {
 		}
 	}
 	actor := worldstate.Actor{
-		ID:            entry.ID,
-		GuildID:       entry.GuildID,
-		EmblemVersion: entry.EmblemVersion,
-		X:             entry.X,
-		Y:             entry.Y,
-		Dir:           dir,
-		Job:           entry.Job,
-		Head:          entry.Head,
-		Weapon:        entry.Weapon,
-		Shield:        entry.Shield,
-		HeadTop:       entry.HeadTop,
-		HeadMid:       entry.HeadMid,
-		HeadLow:       entry.HeadLow,
-		HeadPal:       entry.HeadPal,
-		BodyPal:       entry.BodyPal,
-		Sex:           entry.Sex,
-		HeadDir:       entry.HeadDir,
-		Appearance:    entry.Appearance,
-		Moving:        entry.Moving,
-		FromX:         entry.FromX,
-		FromY:         entry.FromY,
-		ToX:           entry.ToX,
-		ToY:           entry.ToY,
-		ObjectType:    entry.ObjectType,
-		HasObjectType: entry.HasObjectType,
-		Speed:         entry.Speed,
-		AttackRange:   attackRange,
-		BodyState:     entry.BodyState,
-		HealthState:   entry.HealthState,
-		EffectState:   entry.EffectState,
-		HasState:      entry.HasState,
+		ID:               entry.ID,
+		GuildID:          entry.GuildID,
+		EmblemVersion:    entry.EmblemVersion,
+		X:                entry.X,
+		Y:                entry.Y,
+		Dir:              dir,
+		Job:              entry.Job,
+		Head:             entry.Head,
+		Weapon:           entry.Weapon,
+		Shield:           entry.Shield,
+		HeadTop:          entry.HeadTop,
+		HeadMid:          entry.HeadMid,
+		HeadLow:          entry.HeadLow,
+		HeadPal:          entry.HeadPal,
+		BodyPal:          entry.BodyPal,
+		Sex:              entry.Sex,
+		HeadDir:          entry.HeadDir,
+		Appearance:       entry.Appearance,
+		Moving:           entry.Moving,
+		FromX:            entry.FromX,
+		FromY:            entry.FromY,
+		ToX:              entry.ToX,
+		ToY:              entry.ToY,
+		MoveStartTick:    entry.MoveStartTick,
+		HasMoveStartTick: entry.HasMoveStartTick,
+		ObjectType:       entry.ObjectType,
+		HasObjectType:    entry.HasObjectType,
+		Speed:            entry.Speed,
+		AttackRange:      attackRange,
+		BodyState:        entry.BodyState,
+		HealthState:      entry.HealthState,
+		EffectState:      entry.EffectState,
+		HasState:         entry.HasState,
 	}
 	if existing, ok := ctx.World.Actors[entry.ID]; ok {
 		actor.Opt3State = existing.Opt3State
+		if !actor.HasObjectType {
+			actor.ObjectType = existing.ObjectType
+			actor.HasObjectType = existing.HasObjectType
+		}
+		if actor.AttackRange <= 0 {
+			actor.AttackRange = existing.AttackRange
+		}
 	}
 	applyActorCartStateFromEffect(&actor)
 	upsertActor(ctx, actor)

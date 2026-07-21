@@ -65,6 +65,7 @@ func TestParseActorMoveEntry2(t *testing.T) {
 	binary.LittleEndian.PutUint32(data[2:6], 2000002)
 	binary.LittleEndian.PutUint16(data[6:8], 480)
 	binary.LittleEndian.PutUint16(data[14:16], 1002)
+	binary.LittleEndian.PutUint32(data[24:28], 654321)
 	data[49] = 0
 	data[50], data[51], data[52], data[53], data[54], data[55] = packMovePosition(10, 20, 30, 40)
 
@@ -83,6 +84,9 @@ func TestParseActorMoveEntry2(t *testing.T) {
 	}
 	if entry.Speed != 480 {
 		t.Fatalf("speed = %d, want 480", entry.Speed)
+	}
+	if !entry.HasMoveStartTick || entry.MoveStartTick != 654321 {
+		t.Fatalf("move start tick = %d has=%t, want 654321 true", entry.MoveStartTick, entry.HasMoveStartTick)
 	}
 }
 
@@ -136,6 +140,7 @@ func TestParseActorMoveEntry2008Palettes(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[19:21], 4)
 	binary.LittleEndian.PutUint32(data[21:25], uint32(1201)|uint32(2101)<<16)
 	binary.LittleEndian.PutUint16(data[25:27], 12)
+	binary.LittleEndian.PutUint32(data[27:31], 234567)
 	binary.LittleEndian.PutUint16(data[31:33], 23)
 	binary.LittleEndian.PutUint16(data[33:35], 34)
 	binary.LittleEndian.PutUint16(data[35:37], 9)
@@ -159,6 +164,9 @@ func TestParseActorMoveEntry2008Palettes(t *testing.T) {
 	if entry.GuildID != 0x01020304 || entry.EmblemVersion != 8 {
 		t.Fatalf("unexpected guild emblem fields: %+v", entry)
 	}
+	if !entry.HasMoveStartTick || entry.MoveStartTick != 234567 {
+		t.Fatalf("move start tick = %d has=%t, want 234567 true", entry.MoveStartTick, entry.HasMoveStartTick)
+	}
 }
 
 func TestParseActorMoveUpdate(t *testing.T) {
@@ -181,6 +189,9 @@ func TestParseActorMoveUpdate(t *testing.T) {
 	if entry.ID != 2000004 || entry.FromX != 11 || entry.FromY != 21 || entry.ToX != 31 || entry.ToY != 41 || entry.X != 31 || entry.Y != 41 {
 		t.Fatalf("unexpected move update: %+v", entry)
 	}
+	if !entry.HasMoveStartTick || entry.MoveStartTick != 123456 {
+		t.Fatalf("move start tick = %d has=%t, want 123456 true", entry.MoveStartTick, entry.HasMoveStartTick)
+	}
 }
 
 func TestParseActorMoveEntryModern(t *testing.T) {
@@ -193,6 +204,7 @@ func TestParseActorMoveEntryModern(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[19:21], 3)
 	binary.LittleEndian.PutUint32(data[21:25], uint32(2101)<<16|1201)
 	binary.LittleEndian.PutUint16(data[25:27], 11)
+	binary.LittleEndian.PutUint32(data[27:31], 345678)
 	binary.LittleEndian.PutUint16(data[31:33], 22)
 	binary.LittleEndian.PutUint16(data[33:35], 33)
 	data[54] = 1
@@ -211,6 +223,9 @@ func TestParseActorMoveEntryModern(t *testing.T) {
 	if entry.FromX != 10 || entry.FromY != 20 || entry.ToX != 11 || entry.ToY != 21 || entry.X != 11 || entry.Y != 21 {
 		t.Fatalf("unexpected movement: %+v", entry)
 	}
+	if !entry.HasMoveStartTick || entry.MoveStartTick != 345678 {
+		t.Fatalf("move start tick = %d has=%t, want 345678 true", entry.MoveStartTick, entry.HasMoveStartTick)
+	}
 }
 
 func TestParseActorMoveEntryVariableRobe(t *testing.T) {
@@ -224,6 +239,7 @@ func TestParseActorMoveEntryVariableRobe(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[21:23], 4)
 	binary.LittleEndian.PutUint32(data[23:27], uint32(2102)<<16|1202)
 	binary.LittleEndian.PutUint16(data[27:29], 12)
+	binary.LittleEndian.PutUint32(data[29:33], 456789)
 	binary.LittleEndian.PutUint16(data[33:35], 23)
 	binary.LittleEndian.PutUint16(data[35:37], 34)
 	data[58] = 0
@@ -242,6 +258,9 @@ func TestParseActorMoveEntryVariableRobe(t *testing.T) {
 	if entry.FromX != 30 || entry.FromY != 40 || entry.ToX != 31 || entry.ToY != 41 || entry.X != 31 || entry.Y != 41 {
 		t.Fatalf("unexpected robe movement: %+v", entry)
 	}
+	if !entry.HasMoveStartTick || entry.MoveStartTick != 456789 {
+		t.Fatalf("move start tick = %d has=%t, want 456789 true", entry.MoveStartTick, entry.HasMoveStartTick)
+	}
 }
 
 func TestParseActorMoveEntryVariableNoRobe(t *testing.T) {
@@ -255,6 +274,7 @@ func TestParseActorMoveEntryVariableNoRobe(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[21:23], 5)
 	binary.LittleEndian.PutUint32(data[23:27], uint32(2103)<<16|1203)
 	binary.LittleEndian.PutUint16(data[27:29], 13)
+	binary.LittleEndian.PutUint32(data[29:33], 567890)
 	binary.LittleEndian.PutUint16(data[33:35], 24)
 	binary.LittleEndian.PutUint16(data[35:37], 35)
 	data[56] = 1
@@ -272,6 +292,9 @@ func TestParseActorMoveEntryVariableNoRobe(t *testing.T) {
 	}
 	if entry.FromX != 50 || entry.FromY != 60 || entry.ToX != 51 || entry.ToY != 61 || entry.X != 51 || entry.Y != 61 {
 		t.Fatalf("unexpected variable movement: %+v", entry)
+	}
+	if !entry.HasMoveStartTick || entry.MoveStartTick != 567890 {
+		t.Fatalf("move start tick = %d has=%t, want 567890 true", entry.MoveStartTick, entry.HasMoveStartTick)
 	}
 }
 

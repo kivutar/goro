@@ -440,7 +440,7 @@ func (m *WorldMode) sendAttackAction(ctx client.Context, actor world.Actor, sour
 func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.ActorActionNotify) {
 	glog.Debugf("actor action src=%d dst=%d skill=%d level=%d damage=%d left_damage=%d hits=%d action=%d src_speed=%d dst_speed=%d tick=%d", action.SourceID, action.TargetID, action.SkillID, action.SkillLevel, action.Damage, action.LeftDamage, action.HitCount, action.Action, action.SourceSpeed, action.TargetSpeed, action.ServerTick)
 	now := time.Now()
-	m.applyActorActionAIState(ctx, action)
+	m.applyActorActionAIState(ctx, action, now)
 	if action.Action == network.ActorActionPickupItem {
 		m.applyActorPickupActionNotify(ctx, action, now)
 		return
@@ -506,16 +506,18 @@ func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.Ac
 	}
 }
 
-func (m *WorldMode) applyActorActionAIState(ctx client.Context, action network.ActorActionNotify) {
+func (m *WorldMode) applyActorActionAIState(ctx client.Context, action network.ActorActionNotify, now time.Time) {
 	if action.SourceID != 0 {
 		motion := aiMotionAttack
+		expires := now.Add(combatDuration(action.SourceSpeed, defaultAttackAnimationDuration))
 		if action.Action == network.ActorActionPickupItem || action.Action == network.ActionSitDown || action.Action == network.ActionStandUp {
 			motion = aiMotionStand
+			expires = time.Time{}
 		}
-		m.setActorAIMotion(ctx, action.SourceID, motion, action.TargetID)
+		m.setActorAIMotion(ctx, action.SourceID, motion, action.TargetID, expires)
 	}
 	if action.TargetID != 0 && actionHasHitReaction(action) {
-		m.setActorAIMotion(ctx, action.TargetID, aiMotionStand, action.SourceID)
+		m.setActorAIMotion(ctx, action.TargetID, aiMotionStand, action.SourceID, time.Time{})
 	}
 }
 
@@ -1532,7 +1534,7 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 	} else {
 		m.startCombatAnimation(ctx, id, actionFamily, now, visibleDuration)
 	}
-	m.setActorAIMotion(ctx, id, aiMotionDead, 0)
+	m.setActorAIMotion(ctx, id, aiMotionDead, 0, time.Time{})
 	if !local {
 		if m.actorDeaths == nil {
 			m.actorDeaths = make(map[uint32]time.Time)

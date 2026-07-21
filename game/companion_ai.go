@@ -12,6 +12,7 @@ import (
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/res"
+	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
 	lua "github.com/yuin/gopher-lua"
 	"golang.org/x/text/encoding/korean"
@@ -37,6 +38,7 @@ type companionAISystem struct {
 
 type companionAI struct {
 	kind        companionAIKind
+	custom      bool
 	state       *lua.LState
 	source      string
 	mainDir     string
@@ -122,10 +124,17 @@ func (m *WorldMode) updateCompanionAIKind(ctx client.Context, kind companionAIKi
 		return
 	}
 	ai := m.companionAIForKind(kind)
+	useCustom := companionAIUseCustom(ctx.Session, kind)
+	if ai != nil && ai.custom != useCustom {
+		glog.Debugf("%s AI mode changed custom=%t, reloading", companionAIKindName(kind), useCustom)
+		ai.close()
+		m.setCompanionAIForKind(kind, nil)
+		ai = nil
+	}
 	if ai == nil {
 		loaded, err := newCompanionAI(ctx, m, kind, now)
 		if err != nil {
-			m.setCompanionAIForKind(kind, &companionAI{kind: kind, disabled: true, lastLoadErr: err})
+			m.setCompanionAIForKind(kind, &companionAI{kind: kind, custom: useCustom, disabled: true, lastLoadErr: err})
 			glog.Debugf("%s AI unavailable: %v", companionAIKindName(kind), err)
 			return
 		}
@@ -186,11 +195,13 @@ func newCompanionAI(ctx client.Context, mode *WorldMode, kind companionAIKind, n
 	if ctx.Resources == nil {
 		return nil, fmt.Errorf("resources unavailable")
 	}
-	candidates := companionAICandidates(kind)
+	useCustom := companionAIUseCustom(ctx.Session, kind)
+	candidates := companionAICandidates(kind, useCustom)
 	var lastErr error
 	for _, candidate := range candidates {
 		ai := &companionAI{
 			kind:     kind,
+			custom:   useCustom,
 			state:    lua.NewState(),
 			source:   candidate.main,
 			mainDir:  candidate.dir,
@@ -221,15 +232,31 @@ type companionAICandidate struct {
 	dir  string
 }
 
-func companionAICandidates(kind companionAIKind) []companionAICandidate {
+func companionAIUseCustom(sessionState *session.Session, kind companionAIKind) bool {
+	if sessionState == nil {
+		return false
+	}
+	switch kind {
+	case companionAIHomunculus:
+		return sessionState.HomunculusCustomAI
+	case companionAIMercenary:
+		return sessionState.MercenaryCustomAI
+	default:
+		return false
+	}
+}
+
+func companionAICandidates(kind companionAIKind, useCustom bool) []companionAICandidate {
 	main := "AI.lua"
 	if kind == companionAIMercenary {
 		main = "AI_M.lua"
 	}
-	return []companionAICandidate{
-		{main: "AI/USER_AI/" + main, dir: "AI/USER_AI"},
-		{main: "AI/" + main, dir: "AI"},
+	defaultCandidate := companionAICandidate{main: "AI/" + main, dir: "AI"}
+	customCandidate := companionAICandidate{main: "AI/USER_AI/" + main, dir: "AI/USER_AI"}
+	if useCustom {
+		return []companionAICandidate{customCandidate}
 	}
+	return []companionAICandidate{defaultCandidate}
 }
 
 func (ai *companionAI) registerAPI(ctx client.Context, mode *WorldMode) {
@@ -677,32 +704,53 @@ func companionActorPosition(ctx client.Context, id uint32) (int, int) {
 	if ctx.World == nil || id == 0 {
 		return -1, -1
 	}
+	now := time.Now()
 	if isLocalActor(ctx, id) {
-		return currentPlayerCell(ctx, time.Now())
+		return companionActorRenderCell(ctx.World.Player, now)
 	}
 	actor, ok := ctx.World.Actors[id]
 	if !ok {
 		return -1, -1
 	}
+	return companionActorRenderCell(actor, now)
+}
+
+func companionActorRenderCell(actor worldstate.Actor, now time.Time) (int, int) {
 	if actor.Moving {
-		x, y := actorRenderPosition(actor, time.Now())
-		return int(math.Round(x)), int(math.Round(y))
+		x, y := actorRenderPosition(actor, now)
+		return int(x), int(y)
 	}
 	return actor.X, actor.Y
+}
+
+func companionAICellDistance(x1, y1, x2, y2 int) int {
+	if x1 == -1 || x2 == -1 {
+		return -1
+	}
+	dx := float64(x1 - x2)
+	dy := float64(y1 - y2)
+	return int(math.Floor(math.Sqrt(dx*dx + dy*dy)))
 }
 
 func (m *WorldMode) companionActorMotion(ctx client.Context, id uint32) int {
 	if ctx.World == nil || id == 0 {
 		return aiMotionStand
 	}
+	now := time.Now()
 	if _, dead := m.actorDeaths[id]; dead {
 		return aiMotionDead
 	}
 	if isLocalActor(ctx, id) {
-		if actorIsMovingAt(ctx.World.Player, time.Now()) {
+		if actorIsMovingAt(ctx.World.Player, now) {
 			return aiMotionMove
 		}
 		if ctx.World.Player.HasAIMotion {
+			if ctx.World.Player.AIMotion == aiMotionMove && ctx.World.Player.Moving {
+				return aiMotionStand
+			}
+			if companionAIMotionExpired(ctx.World.Player, now) {
+				return aiMotionStand
+			}
 			return ctx.World.Player.AIMotion
 		}
 		return aiMotionStand
@@ -711,13 +759,23 @@ func (m *WorldMode) companionActorMotion(ctx client.Context, id uint32) int {
 	if !ok {
 		return aiMotionStand
 	}
-	if actorIsMovingAt(actor, time.Now()) {
+	if actorIsMovingAt(actor, now) {
 		return aiMotionMove
 	}
 	if actor.HasAIMotion {
+		if actor.AIMotion == aiMotionMove && actor.Moving {
+			return aiMotionStand
+		}
+		if companionAIMotionExpired(actor, now) {
+			return aiMotionStand
+		}
 		return actor.AIMotion
 	}
 	return aiMotionStand
+}
+
+func companionAIMotionExpired(actor worldstate.Actor, now time.Time) bool {
+	return actor.AIMotion != aiMotionDead && !actor.AIMotionExpires.IsZero() && !now.Before(actor.AIMotionExpires)
 }
 
 func companionActorTarget(ctx client.Context, id uint32) uint32 {
