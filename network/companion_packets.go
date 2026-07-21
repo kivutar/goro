@@ -6,23 +6,29 @@ import (
 )
 
 const (
-	PacketCZCommandMercenary      uint16 = 0x022D
-	PacketZCPropertyHomunculus    uint16 = 0x022E
-	PacketZCFeedMercenary         uint16 = 0x022F
-	PacketZCChangeStateMercenary  uint16 = 0x0230
-	PacketCZRenameMercenary       uint16 = 0x0231
-	PacketCZRequestMoveNPC        uint16 = 0x0232
-	PacketCZRequestActNPC         uint16 = 0x0233
-	PacketCZRequestMoveToOwner    uint16 = 0x0234
-	PacketZCHomunculusSkillList   uint16 = 0x0235
-	PacketZCHomunculusSkillUpdate uint16 = 0x0239
-	PacketZCPropertyMercenaryOld  uint16 = 0x027D
-	PacketZCMercenaryInit         uint16 = 0x029B
-	PacketZCMercenaryProperty     uint16 = 0x029C
-	PacketZCMercenarySkillList    uint16 = 0x029D
-	PacketZCMercenarySkillUpdate  uint16 = 0x029E
-	PacketCZMercenaryCommand      uint16 = 0x029F
-	PacketZCMercenaryParamChange  uint16 = 0x02A2
+	PacketCZCommandMercenary       uint16 = 0x022D
+	PacketZCPropertyHomunculus     uint16 = 0x022E
+	PacketZCFeedMercenary          uint16 = 0x022F
+	PacketZCChangeStateMercenary   uint16 = 0x0230
+	PacketCZRenameMercenary        uint16 = 0x0231
+	PacketCZRequestMoveNPC         uint16 = 0x0232
+	PacketCZRequestActNPC          uint16 = 0x0233
+	PacketCZRequestMoveToOwner     uint16 = 0x0234
+	PacketZCHomunculusSkillList    uint16 = 0x0235
+	PacketZCHomunculusSkillUpdate  uint16 = 0x0239
+	PacketZCPropertyMercenaryOld   uint16 = 0x027D
+	PacketZCMercenaryInit          uint16 = 0x029B
+	PacketZCMercenaryProperty      uint16 = 0x029C
+	PacketZCMercenarySkillList     uint16 = 0x029D
+	PacketZCMercenarySkillUpdate   uint16 = 0x029E
+	PacketCZMercenaryCommand       uint16 = 0x029F
+	PacketZCMercenaryParamChange   uint16 = 0x02A2
+	PacketZCHomunculusParamChange  uint16 = 0x07DB
+	PacketZCPropertyHomunculus2    uint16 = 0x09F7
+	PacketZCPropertyHomunculus3    uint16 = 0x0B2F
+	PacketZCPropertyHomunculus4    uint16 = 0x0B76
+	PacketZCPropertyHomunculus5    uint16 = 0x0BA4
+	PacketZCHomunculusParamChange2 uint16 = 0x0BA5
 )
 
 const (
@@ -53,8 +59,8 @@ type HomunculusProperty struct {
 	MaxHP        int
 	SP           int
 	MaxSP        int
-	Exp          uint32
-	MaxExp       uint32
+	Exp          uint64
+	MaxExp       uint64
 	SkillPoints  int
 	AttackRange  int
 }
@@ -77,6 +83,11 @@ type HomunculusSkillInfoList struct {
 
 type HomunculusSkillInfoUpdate struct {
 	Skill SkillInfo
+}
+
+type HomunculusParamChange struct {
+	Param uint16
+	Value int64
 }
 
 type MercenaryProperty struct {
@@ -118,36 +129,111 @@ type MercenarySkillInfoUpdate struct {
 }
 
 func ParseHomunculusProperty(packet Packet) (HomunculusProperty, bool, error) {
-	if packet.ID != PacketZCPropertyHomunculus {
+	layout, ok := homunculusPropertyLayoutForPacket(packet.ID)
+	if !ok {
 		return HomunculusProperty{}, false, nil
 	}
-	if len(packet.Data) < 71 {
-		return HomunculusProperty{}, false, fmt.Errorf("ZC_PROPERTY_HOMUN too short: %d", len(packet.Data))
+	if len(packet.Data) < layout.size {
+		return HomunculusProperty{}, false, fmt.Errorf("ZC_PROPERTY_HOMUN 0x%04X too short: %d", packet.ID, len(packet.Data))
 	}
-	return HomunculusProperty{
-		Name:         decodeROFixedString(packet.Data[2:26]),
-		Flags:        packet.Data[26],
-		Level:        int(binary.LittleEndian.Uint16(packet.Data[27:29])),
-		Hunger:       int(binary.LittleEndian.Uint16(packet.Data[29:31])),
-		Intimacy:     int(binary.LittleEndian.Uint16(packet.Data[31:33])),
-		ItemID:       uint32(binary.LittleEndian.Uint16(packet.Data[33:35])),
-		Attack:       int(binary.LittleEndian.Uint16(packet.Data[35:37])),
-		MagicAttack:  int(binary.LittleEndian.Uint16(packet.Data[37:39])),
-		Hit:          int(binary.LittleEndian.Uint16(packet.Data[39:41])),
-		Critical:     int(binary.LittleEndian.Uint16(packet.Data[41:43])),
-		Defense:      int(binary.LittleEndian.Uint16(packet.Data[43:45])),
-		MagicDefense: int(binary.LittleEndian.Uint16(packet.Data[45:47])),
-		Flee:         int(binary.LittleEndian.Uint16(packet.Data[47:49])),
-		ASPD:         int(binary.LittleEndian.Uint16(packet.Data[49:51])),
-		HP:           int(binary.LittleEndian.Uint16(packet.Data[51:53])),
-		MaxHP:        int(binary.LittleEndian.Uint16(packet.Data[53:55])),
-		SP:           int(binary.LittleEndian.Uint16(packet.Data[55:57])),
-		MaxSP:        int(binary.LittleEndian.Uint16(packet.Data[57:59])),
-		Exp:          binary.LittleEndian.Uint32(packet.Data[59:63]),
-		MaxExp:       binary.LittleEndian.Uint32(packet.Data[63:67]),
-		SkillPoints:  int(binary.LittleEndian.Uint16(packet.Data[67:69])),
-		AttackRange:  int(binary.LittleEndian.Uint16(packet.Data[69:71])),
-	}, true, nil
+	property := HomunculusProperty{}
+	offset := 2
+	property.Name = decodeROFixedString(packet.Data[offset : offset+24])
+	offset += 24
+	property.Flags = packet.Data[offset]
+	offset++
+	property.Level = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.Hunger = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.Intimacy = readCompanionI16(packet.Data, offset)
+	offset += 2
+	if layout.hasItemID {
+		property.ItemID = uint32(binary.LittleEndian.Uint16(packet.Data[offset : offset+2]))
+		offset += 2
+	}
+	property.Attack = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.MagicAttack = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.Hit = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.Critical = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.Defense = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.MagicDefense = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.Flee = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.ASPD = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.HP = readHomunculusSizedInt(packet.Data, offset, layout.hp32)
+	offset += homunculusSizedIntBytes(layout.hp32)
+	property.MaxHP = readHomunculusSizedInt(packet.Data, offset, layout.hp32)
+	offset += homunculusSizedIntBytes(layout.hp32)
+	property.SP = readHomunculusSizedInt(packet.Data, offset, layout.sp32)
+	offset += homunculusSizedIntBytes(layout.sp32)
+	property.MaxSP = readHomunculusSizedInt(packet.Data, offset, layout.sp32)
+	offset += homunculusSizedIntBytes(layout.sp32)
+	if layout.exp64 {
+		property.Exp = binary.LittleEndian.Uint64(packet.Data[offset : offset+8])
+		offset += 8
+		property.MaxExp = binary.LittleEndian.Uint64(packet.Data[offset : offset+8])
+		offset += 8
+	} else {
+		property.Exp = uint64(binary.LittleEndian.Uint32(packet.Data[offset : offset+4]))
+		offset += 4
+		property.MaxExp = uint64(binary.LittleEndian.Uint32(packet.Data[offset : offset+4]))
+		offset += 4
+	}
+	property.SkillPoints = readCompanionI16(packet.Data, offset)
+	offset += 2
+	property.AttackRange = readCompanionI16(packet.Data, offset)
+	return property, true, nil
+}
+
+type homunculusPropertyLayout struct {
+	size      int
+	hasItemID bool
+	hp32      bool
+	sp32      bool
+	exp64     bool
+}
+
+func homunculusPropertyLayoutForPacket(id uint16) (homunculusPropertyLayout, bool) {
+	switch id {
+	case PacketZCPropertyHomunculus:
+		return homunculusPropertyLayout{size: 71, hasItemID: true}, true
+	case PacketZCPropertyHomunculus2:
+		return homunculusPropertyLayout{size: 75, hasItemID: true, hp32: true}, true
+	case PacketZCPropertyHomunculus3:
+		return homunculusPropertyLayout{size: 73, hp32: true}, true
+	case PacketZCPropertyHomunculus4:
+		return homunculusPropertyLayout{size: 77, hp32: true, sp32: true}, true
+	case PacketZCPropertyHomunculus5:
+		return homunculusPropertyLayout{size: 85, hp32: true, sp32: true, exp64: true}, true
+	default:
+		return homunculusPropertyLayout{}, false
+	}
+}
+
+func readCompanionI16(data []byte, offset int) int {
+	return int(int16(binary.LittleEndian.Uint16(data[offset : offset+2])))
+}
+
+func readHomunculusSizedInt(data []byte, offset int, long bool) int {
+	if long {
+		return int(int32(binary.LittleEndian.Uint32(data[offset : offset+4])))
+	}
+	return readCompanionI16(data, offset)
+}
+
+func homunculusSizedIntBytes(long bool) int {
+	if long {
+		return 4
+	}
+	return 2
 }
 
 func ParseHomunculusFeedResult(packet Packet) (HomunculusFeedResult, bool, error) {
@@ -176,6 +262,34 @@ func ParseHomunculusStateChange(packet Packet) (HomunculusStateChange, bool, err
 		GID:   binary.LittleEndian.Uint32(packet.Data[4:8]),
 		Data:  binary.LittleEndian.Uint32(packet.Data[8:12]),
 	}, true, nil
+}
+
+func ParseHomunculusParamChange(packet Packet) (HomunculusParamChange, bool, error) {
+	switch packet.ID {
+	case PacketZCHomunculusParamChange:
+		if len(packet.Data) < 8 {
+			return HomunculusParamChange{}, false, fmt.Errorf("ZC_HO_PAR_CHANGE too short: %d", len(packet.Data))
+		}
+		return HomunculusParamChange{
+			Param: binary.LittleEndian.Uint16(packet.Data[2:4]),
+			Value: int64(int32(binary.LittleEndian.Uint32(packet.Data[4:8]))),
+		}, true, nil
+	case PacketZCHomunculusParamChange2:
+		if len(packet.Data) < 12 {
+			return HomunculusParamChange{}, false, fmt.Errorf("ZC_HO_PAR_CHANGE2 too short: %d", len(packet.Data))
+		}
+		value := binary.LittleEndian.Uint64(packet.Data[4:12])
+		const maxInt64 = uint64(1<<63 - 1)
+		if value > maxInt64 {
+			value = maxInt64
+		}
+		return HomunculusParamChange{
+			Param: binary.LittleEndian.Uint16(packet.Data[2:4]),
+			Value: int64(value),
+		}, true, nil
+	default:
+		return HomunculusParamChange{}, false, nil
+	}
 }
 
 func ParseHomunculusSkillInfoList(packet Packet) (HomunculusSkillInfoList, bool, error) {

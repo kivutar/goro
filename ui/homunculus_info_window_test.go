@@ -45,3 +45,22 @@ func TestHomunculusRenameUsesModifiedFlagThreshold(t *testing.T) {
 		t.Fatal("flags 5 and above should disable rename")
 	}
 }
+
+func TestHomunculusInfoWindowHeightFitsDetails(t *testing.T) {
+	const barBlockH = homunculusInfoRowH + homunculusInfoBarH + 2
+	requiredDetailsH := homunculusInfoNameH + homunculusInfoRowH + 4*barBlockH + 2*homunculusInfoRowH + 7*4
+	requiredBodyH := homunculusInfoContentPad*2 + requiredDetailsH
+	availableBodyH := homunculusInfoWindowH - ROWindowTitleHeight - ROWindowFooterHeight
+	if availableBodyH < requiredBodyH {
+		t.Fatalf("body height = %d, want at least %d", availableBodyH, requiredBodyH)
+	}
+}
+
+func TestHomunculusEXPUsesUint64(t *testing.T) {
+	if got := formatHomunculusEXPBarText(5_000_000_000, 10_000_000_000); got != "50.0%" {
+		t.Fatalf("exp text = %q, want 50.0%%", got)
+	}
+	if got := ratioUint64(5_000_000_000, 10_000_000_000); got != 0.5 {
+		t.Fatalf("exp ratio = %f, want 0.5", got)
+	}
+}

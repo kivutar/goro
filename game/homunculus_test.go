@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
 )
@@ -58,5 +59,45 @@ func TestHomunculusStandByDoesNotQueueAggressiveAttack(t *testing.T) {
 
 	if got := mode.companionAI.msg[300]; got != "" {
 		t.Fatalf("passive mode queued message = %q", got)
+	}
+}
+
+func TestHomunculusParamChangeUpdatesSessionAndLife(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Homunculus: session.Companion{
+			ID:          300,
+			Active:      true,
+			HP:          10,
+			MaxHP:       20,
+			SP:          5,
+			MaxSP:       10,
+			AttackRange: 2,
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				300: {ID: 300, HasObjectType: true, ObjectType: actorObjectTypeHomunculus},
+			},
+		},
+	}
+
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusHP, Value: 18})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusMaxSP, Value: 44})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusBaseExp, Value: 5_000_000_000})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusNextBaseExp, Value: 6_000_000_000})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusSkillPoint, Value: 7})
+	mode.applyHomunculusParamChange(ctx, network.HomunculusParamChange{Param: network.StatusSpeed, Value: 150})
+
+	if sess.Homunculus.HP != 18 || sess.Homunculus.MaxSP != 44 || sess.Homunculus.Exp != 5_000_000_000 || sess.Homunculus.MaxExp != 6_000_000_000 || sess.Homunculus.Skills.Points != 7 {
+		t.Fatalf("homunculus session = %+v", sess.Homunculus)
+	}
+	if life := mode.actorLife[300]; life.hp != 18 || life.maxHP != 20 || life.sp != 5 || life.maxSP != 44 || !life.hasSP {
+		t.Fatalf("actor life = %+v", life)
+	}
+	if actor := ctx.World.Actors[300]; actor.Speed != 150 || actor.AttackRange != 2 {
+		t.Fatalf("actor = %+v", actor)
 	}
 }

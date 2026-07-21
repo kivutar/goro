@@ -177,6 +177,9 @@ index d3f4c71b6..fb3ae029a 100644
  #endif
  }
  
+@@ -1826 +1826 @@ void clif_hominfo( const map_session_data* sd, const homun_data *hd, int32 flag ){
+-#if PACKETVER_MAIN_NUM >= 20101005 || PACKETVER_RE_NUM >= 20080827 || defined(PACKETVER_ZERO)
++#if PACKETVER_MAIN_NUM >= 20101005 || PACKETVER_RE_NUM >= 20080827 || PACKETVER_SAK_NUM >= 20080618 || defined(PACKETVER_ZERO)
 diff --git a/src/map/clif_packetdb.hpp b/src/map/clif_packetdb.hpp
 index 79cf8caea..45447e40b 100644
 --- a/src/map/clif_packetdb.hpp
@@ -238,6 +241,9 @@ diff --git a/src/map/packets_struct.hpp b/src/map/packets_struct.hpp
 index 52d1555d9..1720f560c 100644
 --- a/src/map/packets_struct.hpp
 +++ b/src/map/packets_struct.hpp
+@@ -2854 +2854 @@ struct PACKET_ZC_PROPERTY_HOMUN {
+-#elif PACKETVER_MAIN_NUM >= 20101005 || PACKETVER_RE_NUM >= 20080827 || defined(PACKETVER_ZERO)
++#elif PACKETVER_MAIN_NUM >= 20101005 || PACKETVER_RE_NUM >= 20080827 || PACKETVER_SAK_NUM >= 20080618 || defined(PACKETVER_ZERO)
 @@ -3975,7 +3975,8 @@ struct PACKET_ZC_USESKILL_ACK {
  	uint8 disposable;
  } __attribute__((packed));

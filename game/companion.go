@@ -85,6 +85,39 @@ func (m *WorldMode) applyHomunculusStateChange(ctx client.Context, change networ
 	glog.Debugf("homunculus state id=%d type=%d state=%d data=%d", change.GID, change.Type, change.State, change.Data)
 }
 
+func (m *WorldMode) applyHomunculusParamChange(ctx client.Context, change network.HomunculusParamChange) {
+	if ctx.Session == nil || !ctx.Session.Homunculus.Active {
+		return
+	}
+	hom := &ctx.Session.Homunculus
+	value := int(change.Value)
+	switch change.Param {
+	case network.StatusSpeed:
+		m.applyCompanionSpeed(ctx, hom.ID, value)
+	case network.StatusBaseExp:
+		hom.Exp = nonNegativeUint64(change.Value)
+	case network.StatusHP:
+		hom.HP = value
+	case network.StatusMaxHP:
+		hom.MaxHP = value
+	case network.StatusSP:
+		hom.SP = value
+	case network.StatusMaxSP:
+		hom.MaxSP = value
+	case network.StatusBaseLevel:
+		hom.Level = value
+	case network.StatusSkillPoint:
+		hom.Skills.Points = value
+	case network.StatusNextBaseExp:
+		hom.MaxExp = nonNegativeUint64(change.Value)
+	default:
+		glog.Debugf("homunculus param ignored param=%d value=%d", change.Param, change.Value)
+		return
+	}
+	m.applyCompanionLife(ctx, hom.ID, hom.HP, hom.MaxHP, hom.SP, hom.MaxSP, hom.AttackRange)
+	glog.Debugf("homunculus param id=%d param=%d value=%d hp=%d/%d sp=%d/%d exp=%d/%d skills=%d", hom.ID, change.Param, change.Value, hom.HP, hom.MaxHP, hom.SP, hom.MaxSP, hom.Exp, hom.MaxExp, hom.Skills.Points)
+}
+
 func applyHomunculusSkillInfoList(ctx client.Context, list network.HomunculusSkillInfoList) {
 	if ctx.Session == nil {
 		return
@@ -137,7 +170,7 @@ func (m *WorldMode) applyMercenaryProperty(ctx client.Context, property network.
 	merc.MaxHP = property.MaxHP
 	merc.SP = property.SP
 	merc.MaxSP = property.MaxSP
-	merc.Exp = property.Exp
+	merc.Exp = uint64(property.Exp)
 	if property.AttackRange > 0 {
 		merc.AttackRange = property.AttackRange
 	}
@@ -241,6 +274,23 @@ func (m *WorldMode) applyCompanionLife(ctx client.Context, id uint32, hp, maxHP,
 	}
 	life.updatedAt = time.Now()
 	m.actorLife[id] = life
+}
+
+func (m *WorldMode) applyCompanionSpeed(ctx client.Context, id uint32, speed int) {
+	if id == 0 || ctx.World == nil {
+		return
+	}
+	if actor, ok := ctx.World.Actors[id]; ok {
+		actor.Speed = speed
+		ctx.World.Actors[id] = actor
+	}
+}
+
+func nonNegativeUint64(value int64) uint64 {
+	if value <= 0 {
+		return 0
+	}
+	return uint64(value)
 }
 
 func (m *WorldMode) setActorAIMotion(ctx client.Context, id uint32, motion int, targetID uint32, expires time.Time) {

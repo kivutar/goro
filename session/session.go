@@ -391,8 +391,8 @@ type Companion struct {
 	MaxHP        int
 	SP           int
 	MaxSP        int
-	Exp          uint32
-	MaxExp       uint32
+	Exp          uint64
+	MaxExp       uint64
 	AttackRange  int
 	Job          int16
 	Skills       Skills

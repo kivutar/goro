@@ -92,6 +92,143 @@ func TestParseHomunculusPackets(t *testing.T) {
 	}
 }
 
+func TestParseHomunculusPropertyVariantsMatchRobrowserLayouts(t *testing.T) {
+	tests := []struct {
+		name   string
+		id     uint16
+		hp     int
+		maxHP  int
+		sp     int
+		maxSP  int
+		exp    uint64
+		maxExp uint64
+	}{
+		{"property2", PacketZCPropertyHomunculus2, 70000, 80000, 300, 400, 123456, 999999},
+		{"property3", PacketZCPropertyHomunculus3, 70001, 80001, 301, 401, 123457, 999998},
+		{"property4", PacketZCPropertyHomunculus4, 70002, 80002, 50000, 60000, 123458, 999997},
+		{"property5", PacketZCPropertyHomunculus5, 70003, 80003, 50001, 60001, 5_000_000_000, 6_000_000_000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			property, ok, err := ParseHomunculusProperty(Packet{
+				ID:   tt.id,
+				Data: buildHomunculusPropertyTestPacket(t, tt.id, tt.hp, tt.maxHP, tt.sp, tt.maxSP, tt.exp, tt.maxExp),
+			})
+			if err != nil || !ok {
+				t.Fatalf("ParseHomunculusProperty ok=%t err=%v", ok, err)
+			}
+			if property.Name != "Lif" || property.Level != 45 || property.Hunger != 62 || property.Intimacy != 911 {
+				t.Fatalf("identity = %+v", property)
+			}
+			if property.HP != tt.hp || property.MaxHP != tt.maxHP || property.SP != tt.sp || property.MaxSP != tt.maxSP || property.Exp != tt.exp || property.MaxExp != tt.maxExp || property.SkillPoints != 4 || property.AttackRange != 7 {
+				t.Fatalf("life/range = %+v, want hp=%d/%d sp=%d/%d exp=%d/%d", property, tt.hp, tt.maxHP, tt.sp, tt.maxSP, tt.exp, tt.maxExp)
+			}
+		})
+	}
+}
+
+func TestParseHomunculusParamChangePackets(t *testing.T) {
+	paramData := make([]byte, 8)
+	binary.LittleEndian.PutUint16(paramData[0:2], PacketZCHomunculusParamChange)
+	binary.LittleEndian.PutUint16(paramData[2:4], StatusHP)
+	binary.LittleEndian.PutUint32(paramData[4:8], 4321)
+	change, ok, err := ParseHomunculusParamChange(Packet{ID: PacketZCHomunculusParamChange, Data: paramData})
+	if err != nil || !ok {
+		t.Fatalf("ParseHomunculusParamChange ok=%t err=%v", ok, err)
+	}
+	if change.Param != StatusHP || change.Value != 4321 {
+		t.Fatalf("homunculus param = %+v", change)
+	}
+
+	paramData2 := make([]byte, 12)
+	binary.LittleEndian.PutUint16(paramData2[0:2], PacketZCHomunculusParamChange2)
+	binary.LittleEndian.PutUint16(paramData2[2:4], StatusBaseExp)
+	binary.LittleEndian.PutUint64(paramData2[4:12], 5_000_000_000)
+	change, ok, err = ParseHomunculusParamChange(Packet{ID: PacketZCHomunculusParamChange2, Data: paramData2})
+	if err != nil || !ok {
+		t.Fatalf("ParseHomunculusParamChange2 ok=%t err=%v", ok, err)
+	}
+	if change.Param != StatusBaseExp || change.Value != 5_000_000_000 {
+		t.Fatalf("homunculus param2 = %+v", change)
+	}
+}
+
+func TestPacketLengths2008IncludesHomunculusRobrowserVariants(t *testing.T) {
+	lengths := PacketLengths2008()
+	for _, tt := range []struct {
+		id   uint16
+		want int
+	}{
+		{PacketZCHomunculusParamChange, 8},
+		{PacketZCPropertyHomunculus2, 75},
+		{PacketZCPropertyHomunculus3, 73},
+		{PacketZCPropertyHomunculus4, 77},
+		{PacketZCPropertyHomunculus5, 85},
+		{PacketZCHomunculusParamChange2, 12},
+	} {
+		if got := lengths[tt.id]; got != tt.want {
+			t.Fatalf("packet 0x%04X length = %d, want %d", tt.id, got, tt.want)
+		}
+	}
+}
+
+func buildHomunculusPropertyTestPacket(t *testing.T, id uint16, hp, maxHP, sp, maxSP int, exp, maxExp uint64) []byte {
+	t.Helper()
+	layout, ok := homunculusPropertyLayoutForPacket(id)
+	if !ok {
+		t.Fatalf("unknown homunculus property id 0x%04X", id)
+	}
+	data := make([]byte, layout.size)
+	binary.LittleEndian.PutUint16(data[0:2], id)
+	offset := 2
+	copy(data[offset:offset+24], []byte("Lif"))
+	offset += 24
+	data[offset] = 3
+	offset++
+	binary.LittleEndian.PutUint16(data[offset:offset+2], 45)
+	offset += 2
+	binary.LittleEndian.PutUint16(data[offset:offset+2], 62)
+	offset += 2
+	binary.LittleEndian.PutUint16(data[offset:offset+2], 911)
+	offset += 2
+	if layout.hasItemID {
+		binary.LittleEndian.PutUint16(data[offset:offset+2], 607)
+		offset += 2
+	}
+	for stat := 100; stat < 108; stat++ {
+		binary.LittleEndian.PutUint16(data[offset:offset+2], uint16(stat))
+		offset += 2
+	}
+	offset = putHomunculusSizedInt(data, offset, hp, layout.hp32)
+	offset = putHomunculusSizedInt(data, offset, maxHP, layout.hp32)
+	offset = putHomunculusSizedInt(data, offset, sp, layout.sp32)
+	offset = putHomunculusSizedInt(data, offset, maxSP, layout.sp32)
+	if layout.exp64 {
+		binary.LittleEndian.PutUint64(data[offset:offset+8], exp)
+		offset += 8
+		binary.LittleEndian.PutUint64(data[offset:offset+8], maxExp)
+		offset += 8
+	} else {
+		binary.LittleEndian.PutUint32(data[offset:offset+4], uint32(exp))
+		offset += 4
+		binary.LittleEndian.PutUint32(data[offset:offset+4], uint32(maxExp))
+		offset += 4
+	}
+	binary.LittleEndian.PutUint16(data[offset:offset+2], 4)
+	offset += 2
+	binary.LittleEndian.PutUint16(data[offset:offset+2], 7)
+	return data
+}
+
+func putHomunculusSizedInt(data []byte, offset, value int, long bool) int {
+	if long {
+		binary.LittleEndian.PutUint32(data[offset:offset+4], uint32(value))
+		return offset + 4
+	}
+	binary.LittleEndian.PutUint16(data[offset:offset+2], uint16(value))
+	return offset + 2
+}
+
 func TestParseMercenaryPackets(t *testing.T) {
 	data := make([]byte, 80)
 	binary.LittleEndian.PutUint16(data[0:2], PacketZCMercenaryInit)

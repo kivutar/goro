@@ -18,7 +18,7 @@ import (
 
 const (
 	homunculusInfoWindowW    = 280
-	homunculusInfoWindowH    = 236
+	homunculusInfoWindowH    = 320
 	homunculusInfoContentPad = 10
 	homunculusInfoLeftW      = 82
 	homunculusInfoRightW     = 168
@@ -167,7 +167,7 @@ func (w *HomunculusInfoWindow) detailsColumn(ctx Context) widget.Widget {
 		w.infoRow("Level", fmt.Sprintf("%d", w.companion.Level)),
 		w.barRow("HP", w.companion.HP, w.companion.MaxHP, Color(homunculusInfoHPColor), true),
 		w.barRow("SP", w.companion.SP, w.companion.MaxSP, Color(homunculusInfoSPColor), true),
-		w.barRow("EXP", int(w.companion.Exp), int(w.companion.MaxExp), Color(homunculusInfoExpColor), false),
+		w.expBarRow("EXP", w.companion.Exp, w.companion.MaxExp, Color(homunculusInfoExpColor)),
 		w.barRow("Hunger", w.companion.Hunger, 100, Color(homunculusInfoFoodColor), true),
 		w.infoRow("Intimacy", HomunculusIntimacyText(w.companion.Intimacy)),
 		w.infoRow("Skill Pt", fmt.Sprintf("%d", w.companion.Skills.Points)),
@@ -251,6 +251,21 @@ func (w *HomunculusInfoWindow) barRow(label string, current, maxValue int, fill 
 			CrossAlign(primitives.CrossAxisCenter).
 			Height(homunculusInfoRowH),
 		newHomunculusBarWidget(ratioInt(current, maxValue), fill, homunculusInfoBarW, homunculusInfoBarH),
+	).
+		Gap(2)
+}
+
+func (w *HomunculusInfoWindow) expBarRow(label string, current, maxValue uint64, fill widget.Color) widget.Widget {
+	return primitives.Box(
+		primitives.HBox(
+			w.rowLabel(label, 48),
+			primitives.Box(rotheme.Text(formatHomunculusEXPBarText(current, maxValue)).Align(widget.TextAlignRight)).
+				Width(116),
+		).
+			Gap(4).
+			CrossAlign(primitives.CrossAxisCenter).
+			Height(homunculusInfoRowH),
+		newHomunculusBarWidget(ratioUint64(current, maxValue), fill, homunculusInfoBarW, homunculusInfoBarH),
 	).
 		Gap(2)
 }
@@ -377,6 +392,24 @@ func formatHomunculusBarText(current, maxValue int, showValues bool) string {
 		return fmt.Sprintf("%d / %d", current, maxValue)
 	}
 	return formatEXPPercent(int64(current), int64(maxValue))
+}
+
+func formatHomunculusEXPBarText(current, maxValue uint64) string {
+	if maxValue == 0 {
+		return "--"
+	}
+	percent := 100 * float64(current) / float64(maxValue)
+	if percent > 100 {
+		percent = 100
+	}
+	return fmt.Sprintf("%.1f%%", math.Floor(percent*10)/10)
+}
+
+func ratioUint64(current, maxValue uint64) float64 {
+	if maxValue == 0 {
+		return 0
+	}
+	return clampUnit(float64(current) / float64(maxValue))
 }
 
 func HomunculusIntimacyText(value int) string {

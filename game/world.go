@@ -1302,6 +1302,12 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			m.applyHomunculusStateChange(ctx, homState)
 			continue
 		}
+		if homParam, ok, err := network.ParseHomunculusParamChange(pkt); err != nil {
+			glog.Errorf("parse homunculus param 0x%04X: %v", pkt.ID, err)
+		} else if ok {
+			m.applyHomunculusParamChange(ctx, homParam)
+			continue
+		}
 		if homSkills, ok, err := network.ParseHomunculusSkillInfoList(pkt); err != nil {
 			glog.Errorf("parse homunculus skill list 0x%04X: %v", pkt.ID, err)
 		} else if ok {
