@@ -43,9 +43,25 @@ func TestNonPCSpriteResourceCandidatesMonster(t *testing.T) {
 	}
 }
 
+func TestNonPCSpriteResourceCandidatesMercenaryCollapsesResourceSeparators(t *testing.T) {
+	got := NonPCSpriteResourceCandidates(6037, `남\\검용병`, "act")
+	want := []string{
+		`data\sprite\인간족\몸통\남\검용병.act`,
+		`data\sprite\mercenary\남\검용병.act`,
+	}
+	if len(got) < len(want) {
+		t.Fatalf("candidate count = %d, want at least %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("candidate[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestNonPCSpriteResourceRealWhenConfigured(t *testing.T) {
 	manager := realDataManager(t)
-	cases := []int{47, 1002, 1015}
+	cases := []int{47, 1002, 1015, 6037}
 	for _, job := range cases {
 		name, ok := manager.NonPCResourceName(job)
 		if !ok {

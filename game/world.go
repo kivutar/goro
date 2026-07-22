@@ -86,6 +86,7 @@ type WorldMode struct {
 	petInfoRequested  bool
 	petID             uint32
 	homDeleteID       uint32
+	mercDeleteID      uint32
 	petSlotMachine    petSlotMachineState
 	pickupReqItemID   uint32
 	lockedAttackID    uint32
@@ -155,6 +156,10 @@ type worldUI struct {
 	homunculusSkill   gameui.HomunculusSkillWindow
 	homunculusContext gameui.HomunculusContextMenu
 	homunculusConfirm gameui.ConfirmModal
+	mercenaryInfo     gameui.MercenaryInfoWindow
+	mercenarySkill    gameui.MercenarySkillWindow
+	mercenaryContext  gameui.MercenaryContextMenu
+	mercenaryConfirm  gameui.ConfirmModal
 	statsWindow       gameui.StatsWindow
 	skillWindow       gameui.SkillWindow
 	friendsWindow     gameui.FriendsWindow
@@ -411,6 +416,7 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	m.ui.statsWindow.Rebind(ctx)
 	m.ui.skillWindow.Rebind(ctx, m)
 	m.ui.homunculusSkill.Rebind(ctx, m)
+	m.ui.mercenarySkill.Rebind(ctx, m)
 	m.ui.friendsWindow.Rebind(ctx)
 	m.ui.guildWindow.Rebind(ctx)
 	m.ui.friendSettings.Rebind(ctx)
@@ -422,6 +428,7 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	m.ui.skillTextPrompt.Rebind(ctx)
 	m.ui.settingsWindow.Rebind(ctx)
 	m.ui.homunculusInfo.Rebind(ctx)
+	m.ui.mercenaryInfo.Rebind(ctx)
 	m.ui.whisperWindow.Rebind(ctx)
 	m.ui.shortcutBar.ResetOverlay(ctx)
 }
@@ -1526,6 +1533,17 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.openHomunculusContextFromInput(ctx, now) {
 		return nil, nil
 	}
+	mercenaryContextConsumed := m.ui.mercenaryContext.Update(ctx)
+	if action := m.ui.mercenaryContext.PopAction(); action.Kind != gameui.MercenaryContextActionNone {
+		m.handleMercenaryContextAction(ctx, action)
+		return nil, nil
+	}
+	if mercenaryContextConsumed {
+		return nil, nil
+	}
+	if m.openMercenaryContextFromInput(ctx, now) {
+		return nil, nil
+	}
 	playerContextConsumed := m.ui.playerContext.Update(ctx)
 	switch action := m.ui.playerContext.PopAction(); action.Kind {
 	case gameui.PlayerContextActionAddFriend:
@@ -1553,7 +1571,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.openPlayerContextFromInput(ctx, now) {
 		return nil, nil
 	}
-	if !m.ui.escapeMenu.IsOpen() && !m.ui.teleportModal.IsOpen() && !m.ui.deathModal.IsOpen() && !m.ui.friendRequest.IsOpen() && !m.ui.friendConfirm.IsOpen() && !m.ui.partyRequest.IsOpen() && !m.ui.guildRequest.IsOpen() && !m.ui.tradeRequest.IsOpen() && !m.ui.settingsWindow.IsOpen() && !m.ui.identifyWindow.IsOpen() && !m.ui.petEggWindow.IsOpen() && !m.ui.petInfoWindow.IsOpen() && !m.ui.petConfirm.IsOpen() && !m.ui.homunculusInfo.IsOpen() && !m.ui.homunculusSkill.IsOpen() && !m.ui.homunculusConfirm.IsOpen() {
+	if !m.ui.escapeMenu.IsOpen() && !m.ui.teleportModal.IsOpen() && !m.ui.deathModal.IsOpen() && !m.ui.friendRequest.IsOpen() && !m.ui.friendConfirm.IsOpen() && !m.ui.partyRequest.IsOpen() && !m.ui.guildRequest.IsOpen() && !m.ui.tradeRequest.IsOpen() && !m.ui.settingsWindow.IsOpen() && !m.ui.identifyWindow.IsOpen() && !m.ui.petEggWindow.IsOpen() && !m.ui.petInfoWindow.IsOpen() && !m.ui.petConfirm.IsOpen() && !m.ui.homunculusInfo.IsOpen() && !m.ui.homunculusSkill.IsOpen() && !m.ui.homunculusConfirm.IsOpen() && !m.ui.mercenaryInfo.IsOpen() && !m.ui.mercenarySkill.IsOpen() && !m.ui.mercenaryConfirm.IsOpen() {
 		m.updateCameraRotation(ctx)
 	}
 	if m.updatePetSlotMachine(ctx) {
@@ -1595,6 +1613,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.homunculusInfo.Update(ctx) {
 		if action := m.ui.homunculusInfo.PopAction(); action.Kind != gameui.HomunculusInfoActionNone {
 			m.handleHomunculusInfoAction(ctx, action)
+		}
+		return nil, nil
+	}
+	if m.ui.mercenaryConfirm.Update(ctx) {
+		return nil, nil
+	}
+	if m.ui.mercenaryInfo.Update(ctx) {
+		if action := m.ui.mercenaryInfo.PopAction(); action.Kind != gameui.MercenaryInfoActionNone {
+			m.handleMercenaryInfoAction(ctx, action)
 		}
 		return nil, nil
 	}
@@ -1662,6 +1689,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.homunculusSkill.UpdateDrag(ctx, &m.ui.shortcutBar) {
 		return nil, nil
 	}
+	if m.ui.mercenarySkill.UpdateDrag(ctx, &m.ui.shortcutBar) {
+		return nil, nil
+	}
 	if m.ui.shortcutBar.Update(ctx, m) {
 		return nil, nil
 	}
@@ -1696,6 +1726,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if m.ui.homunculusSkill.Update(ctx, &m.ui.shortcutBar, m) {
+		return nil, nil
+	}
+	if m.ui.mercenarySkill.Update(ctx, &m.ui.shortcutBar, m) {
 		return nil, nil
 	}
 	if m.toggleGuildWindowFromInput(ctx) {
@@ -2008,6 +2041,8 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.petInfoWindow = m.ui.petInfoWindow
 	next.ui.homunculusInfo = m.ui.homunculusInfo
 	next.ui.homunculusSkill = m.ui.homunculusSkill
+	next.ui.mercenaryInfo = m.ui.mercenaryInfo
+	next.ui.mercenarySkill = m.ui.mercenarySkill
 	next.petProperty = m.petProperty
 	next.hasPetProperty = m.hasPetProperty
 	next.petOldFullness = m.petOldFullness
@@ -2121,6 +2156,7 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 		m.ui.vendingWindow.Draw(screen, ctx, m)
 		m.ui.skillWindow.Draw(screen, ctx, m)
 		m.ui.homunculusSkill.Draw(screen, ctx, m)
+		m.ui.mercenarySkill.Draw(screen, ctx, m)
 		m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 		m.ui.deathModal.Draw(screen, ctx, width, height)
 	}
@@ -2147,6 +2183,7 @@ func (m *WorldMode) DrawUIOverlay(ctx client.Context, screen *render.Frame) {
 	m.ui.itemInfoWindow.DrawTooltip(screen)
 	m.ui.skillWindow.DrawTooltip(screen)
 	m.ui.homunculusSkill.DrawTooltip(screen)
+	m.ui.mercenarySkill.DrawTooltip(screen)
 	m.ui.guildWindow.DrawTooltip(screen)
 	m.ui.shortcutBar.DrawTooltip(screen)
 }
@@ -2159,6 +2196,7 @@ func (m *WorldMode) drawUIDragGhosts(screen *render.Frame, ctx client.Context) {
 	m.ui.vendingWindow.DrawDragGhost(screen, ctx, m)
 	m.ui.skillWindow.DrawDragGhost(screen, ctx, m)
 	m.ui.homunculusSkill.DrawDragGhost(screen, ctx, m)
+	m.ui.mercenarySkill.DrawDragGhost(screen, ctx, m)
 }
 
 func clickedAttackTarget(ctx client.Context, projection sceneProjection, mouseX, mouseY int, now time.Time, deadActors map[uint32]time.Time) (worldstate.Actor, bool) {

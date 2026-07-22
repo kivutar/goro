@@ -255,6 +255,7 @@ const (
 func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVanish) {
 	glog.Debugf("actor vanish id=%d reason=%d", vanish.ID, vanish.Reason)
 	pendingHomunculusDelete := m.homDeleteID != 0 && vanish.ID == m.homDeleteID
+	pendingMercenaryDelete := m.mercDeleteID != 0 && vanish.ID == m.mercDeleteID
 	if m.attackFocusID == vanish.ID {
 		m.clearAttackFocus()
 	}
@@ -273,6 +274,9 @@ func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVan
 	delete(m.petAccessoryIDs, vanish.ID)
 	if pendingHomunculusDelete {
 		m.clearDeletedHomunculus(ctx)
+	}
+	if pendingMercenaryDelete {
+		m.clearDeletedMercenary(ctx)
 	}
 }
 

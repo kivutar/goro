@@ -25,6 +25,7 @@ const (
 
 type HomunculusSkillWindow struct {
 	Window
+	kind           companionSkillWindowKind
 	scrollY        state.Signal[float32]
 	snapshot       string
 	lastClick      uint16
@@ -48,27 +49,67 @@ type HomunculusSkillWindow struct {
 	homunculusID   uint32
 }
 
+type companionSkillWindowKind uint8
+
+const (
+	companionSkillWindowHomunculus companionSkillWindowKind = iota
+	companionSkillWindowMercenary
+)
+
+type MercenarySkillWindow struct {
+	HomunculusSkillWindow
+}
+
+func (w *MercenarySkillWindow) ensureMercenaryKind() {
+	w.HomunculusSkillWindow.kind = companionSkillWindowMercenary
+}
+
+func (w *MercenarySkillWindow) Toggle(ctx Context, actions GameActions) {
+	w.ensureMercenaryKind()
+	w.HomunculusSkillWindow.Toggle(ctx, actions)
+}
+
+func (w *MercenarySkillWindow) Open(ctx Context, actions GameActions) {
+	w.ensureMercenaryKind()
+	w.HomunculusSkillWindow.Open(ctx, actions)
+}
+
+func (w *MercenarySkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameActions) bool {
+	w.ensureMercenaryKind()
+	return w.HomunculusSkillWindow.Update(ctx, shortcuts, actions)
+}
+
+func (w *MercenarySkillWindow) UpdateDrag(ctx Context, shortcuts *ShortcutBar) bool {
+	w.ensureMercenaryKind()
+	return w.HomunculusSkillWindow.UpdateDrag(ctx, shortcuts)
+}
+
+func (w *MercenarySkillWindow) Rebind(ctx Context, actions GameActions) {
+	w.ensureMercenaryKind()
+	w.HomunculusSkillWindow.Rebind(ctx, actions)
+}
+
 func (w *HomunculusSkillWindow) Toggle(ctx Context, actions GameActions) {
 	w.EnsureWindow(homunculusSkillWindowWidth, homunculusSkillWindowHeight)
 	if w.IsOpen() {
 		w.close(ctx)
 		return
 	}
-	if ctx.Session == nil || !ctx.Session.Homunculus.Active {
+	if ctx.Session == nil || !w.companionActive(ctx.Session) {
 		return
 	}
 	w.bindActions(actions)
-	w.syncHomunculusIdentity(ctx)
+	w.syncCompanionIdentity(ctx)
 	w.openAtDefault(ctx)
 }
 
 func (w *HomunculusSkillWindow) Open(ctx Context, actions GameActions) {
 	w.EnsureWindow(homunculusSkillWindowWidth, homunculusSkillWindowHeight)
-	if ctx.Session == nil || !ctx.Session.Homunculus.Active {
+	if ctx.Session == nil || !w.companionActive(ctx.Session) {
 		return
 	}
 	w.bindActions(actions)
-	w.syncHomunculusIdentity(ctx)
+	w.syncCompanionIdentity(ctx)
 	w.openAtDefault(ctx)
 }
 
@@ -93,11 +134,11 @@ func (w *HomunculusSkillWindow) Update(ctx Context, shortcuts *ShortcutBar, acti
 		w.lastIconAssets = true
 		w.snapshot = ""
 	}
-	if ctx.Session == nil || !ctx.Session.Homunculus.Active {
+	if ctx.Session == nil || !w.companionActive(ctx.Session) {
 		w.close(ctx)
 		return true
 	}
-	w.syncHomunculusIdentity(ctx)
+	w.syncCompanionIdentity(ctx)
 	if ctx.Input == nil {
 		w.Publish(ctx)
 		return true
@@ -218,7 +259,7 @@ func (w *HomunculusSkillWindow) widgetTreeWithAssets(ctx Context, assets AssetPr
 		assets = w.assets
 	}
 	return Win(
-		Title("Homunculus Skills"),
+		Title(w.title()),
 		CloseButton(true),
 		OnClose(func() {
 			w.close(ctx)
@@ -232,7 +273,7 @@ func (w *HomunculusSkillWindow) widgetTreeWithAssets(ctx Context, assets AssetPr
 				Background(rotheme.Default.Colors.PanelBody),
 		),
 		Footer(
-			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, homunculusSkillPoints(ctx.Session)-w.pendingCount()))),
+			footerLabel(fmt.Sprintf("Skill Points: %d", maxInt(0, w.companionSkillPoints(ctx.Session)-w.pendingCount()))),
 			primitives.Expanded(primitives.Box()),
 			rotheme.Button("Reset", func() {
 				w.clearPending()
@@ -253,7 +294,7 @@ func (w *HomunculusSkillWindow) skillTableWidget(ctx Context, assets AssetProvid
 		rotheme.TableViewRowCount(len(skills)),
 		rotheme.TableViewRowHeight(skillRowH),
 		rotheme.TableViewHeaderHeight(skillHeaderH),
-		rotheme.TableViewEmptyText("No homunculus skills received from server yet."),
+		rotheme.TableViewEmptyText(fmt.Sprintf("No %s skills received from server yet.", w.kindLabelLower())),
 		rotheme.TableViewScrollYSignal(w.ensureScrollSignal()),
 		rotheme.TableViewDispatchHoverToCells(false),
 		rotheme.TableViewBuildSimpleCell(func(cell rotheme.TableViewCellContext) rotheme.TableViewSimpleCell {
@@ -337,7 +378,7 @@ func (w *HomunculusSkillWindow) handleSkillTableRowEvent(widgetCtx widget.Contex
 		}
 		if skillTableLevelUpButtonBounds(row).Contains(mouse.Position) {
 			if !w.canStageSkill(ctx.Session, skill) {
-				glog.Debugf("homunculus skill level up ignored id=%d: no points or maxed", skill.ID)
+				glog.Debugf("%s skill level up ignored id=%d: no points or maxed", w.kindLabelLower(), skill.ID)
 				return true
 			}
 			w.stageSkill(skill.ID)
@@ -362,11 +403,11 @@ func (w *HomunculusSkillWindow) refresh(ctx Context, actions GameActions) {
 
 func (w *HomunculusSkillWindow) pressSkill(ctx Context, actions GameActions, skill session.Skill, mx, my int) {
 	if skill.Level <= 0 {
-		glog.Debugf("homunculus skill use ignored id=%d: not learned", skill.ID)
+		glog.Debugf("%s skill use ignored id=%d: not learned", w.kindLabelLower(), skill.ID)
 		return
 	}
 	if skill.Type == 0 {
-		glog.Debugf("homunculus skill use ignored id=%d: passive skill", skill.ID)
+		glog.Debugf("%s skill use ignored id=%d: passive skill", w.kindLabelLower(), skill.ID)
 		return
 	}
 	now := time.Now()
@@ -374,11 +415,11 @@ func (w *HomunculusSkillWindow) pressSkill(ctx Context, actions GameActions, ski
 		w.lastClick = 0
 		w.lastClickAt = time.Time{}
 		if actions == nil {
-			glog.Warnf("homunculus skill use failed id=%d: no game actions", skill.ID)
+			glog.Warnf("%s skill use failed id=%d: no game actions", w.kindLabelLower(), skill.ID)
 			return
 		}
 		if err := actions.UseShortcutSkill(ctx, skill); err != nil {
-			glog.Warnf("homunculus skill use failed id=%d: %v", skill.ID, err)
+			glog.Warnf("%s skill use failed id=%d: %v", w.kindLabelLower(), skill.ID, err)
 		}
 		return
 	}
@@ -428,14 +469,14 @@ func (w *HomunculusSkillWindow) stageSkill(skillID uint16) {
 }
 
 func (w *HomunculusSkillWindow) canStageSkill(s *session.Session, skill session.Skill) bool {
-	if s == nil || s.Homunculus.Skills.Points <= 0 || !skill.Upgradable {
+	if s == nil || w.companionSkillPoints(s) <= 0 || !skill.Upgradable {
 		return false
 	}
 	pending := w.pendingFor(skill.ID)
 	if maxLevel := skillMaxLevel(skill); maxLevel > 0 {
-		return skill.Level+pending < maxLevel && w.pendingCount() < homunculusSkillPoints(s)
+		return skill.Level+pending < maxLevel && w.pendingCount() < w.companionSkillPoints(s)
 	}
-	return w.pendingCount() < homunculusSkillPoints(s)
+	return w.pendingCount() < w.companionSkillPoints(s)
 }
 
 func (w *HomunculusSkillWindow) confirmPending(ctx Context) {
@@ -443,13 +484,13 @@ func (w *HomunculusSkillWindow) confirmPending(ctx Context) {
 		return
 	}
 	if ctx.Network == nil {
-		glog.Warnf("homunculus skill level up failed: not connected")
+		glog.Warnf("%s skill level up failed: not connected", w.kindLabelLower())
 		return
 	}
 	for _, skillID := range w.pendingOrder {
 		for i := 0; i < w.pending[skillID]; i++ {
 			if err := ctx.Network.SendSkillLevelUp(skillID); err != nil {
-				glog.Warnf("homunculus skill level up failed id=%d: %v", skillID, err)
+				glog.Warnf("%s skill level up failed id=%d: %v", w.kindLabelLower(), skillID, err)
 				return
 			}
 		}
@@ -457,11 +498,11 @@ func (w *HomunculusSkillWindow) confirmPending(ctx Context) {
 	w.clearPending()
 }
 
-func (w *HomunculusSkillWindow) syncHomunculusIdentity(ctx Context) {
-	if ctx.Session == nil || !ctx.Session.Homunculus.Active {
+func (w *HomunculusSkillWindow) syncCompanionIdentity(ctx Context) {
+	if ctx.Session == nil || !w.companionActive(ctx.Session) {
 		return
 	}
-	id := ctx.Session.Homunculus.ID
+	id := w.companion(ctx.Session).ID
 	if w.homunculusID != 0 && id != 0 && w.homunculusID != id {
 		w.clearPending()
 		w.snapshot = ""
@@ -469,6 +510,11 @@ func (w *HomunculusSkillWindow) syncHomunculusIdentity(ctx Context) {
 	if id != 0 {
 		w.homunculusID = id
 	}
+}
+
+func (w *HomunculusSkillWindow) syncHomunculusIdentity(ctx Context) {
+	w.kind = companionSkillWindowHomunculus
+	w.syncCompanionIdentity(ctx)
 }
 
 func (w *HomunculusSkillWindow) showTooltip(ctx Context, skill session.Skill, mx, my int) {
@@ -566,11 +612,12 @@ func (w *HomunculusSkillWindow) skillSnapshot(s *session.Session) string {
 	if s == nil {
 		return ""
 	}
-	return fmt.Sprintf("id=%d;active=%t;points=%d;pending=%v;skills=%v", s.Homunculus.ID, s.Homunculus.Active, s.Homunculus.Skills.Points, w.pending, s.Homunculus.Skills.List)
+	companion := w.companion(s)
+	return fmt.Sprintf("kind=%d;id=%d;active=%t;points=%d;pending=%v;skills=%v", w.kind, companion.ID, companion.Active, companion.Skills.Points, w.pending, companion.Skills.List)
 }
 
 func (w *HomunculusSkillWindow) visibleSkills(ctx Context) []session.Skill {
-	return append([]session.Skill(nil), sessionHomunculusSkills(ctx.Session)...)
+	return append([]session.Skill(nil), w.companionSkills(ctx.Session)...)
 }
 
 func homunculusSkillDefaultPosition(ctx Context) (int, int) {
@@ -580,18 +627,40 @@ func homunculusSkillDefaultPosition(ctx Context) (int, int) {
 	return maxInt(windowScreenMargin, x), maxInt(windowScreenMargin, y)
 }
 
-func sessionHomunculusSkills(s *session.Session) []session.Skill {
-	if s == nil {
-		return nil
+func (w *HomunculusSkillWindow) title() string {
+	if w.kind == companionSkillWindowMercenary {
+		return "Mercenary Skills"
 	}
-	return s.Homunculus.Skills.List
+	return "Homunculus Skills"
 }
 
-func homunculusSkillPoints(s *session.Session) int {
-	if s == nil {
-		return 0
+func (w *HomunculusSkillWindow) kindLabelLower() string {
+	if w.kind == companionSkillWindowMercenary {
+		return "mercenary"
 	}
-	return s.Homunculus.Skills.Points
+	return "homunculus"
+}
+
+func (w *HomunculusSkillWindow) companion(s *session.Session) session.Companion {
+	if s == nil {
+		return session.Companion{}
+	}
+	if w.kind == companionSkillWindowMercenary {
+		return s.Mercenary
+	}
+	return s.Homunculus
+}
+
+func (w *HomunculusSkillWindow) companionActive(s *session.Session) bool {
+	return w.companion(s).Active
+}
+
+func (w *HomunculusSkillWindow) companionSkills(s *session.Session) []session.Skill {
+	return w.companion(s).Skills.List
+}
+
+func (w *HomunculusSkillWindow) companionSkillPoints(s *session.Session) int {
+	return w.companion(s).Skills.Points
 }
 
 func companionSkillByID(companion session.Companion, skillID uint16) (session.Skill, bool) {

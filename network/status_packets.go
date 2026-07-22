@@ -35,6 +35,9 @@ const (
 	StatusUDex        uint16 = 36
 	StatusULuk        uint16 = 37
 	StatusJobLevel    uint16 = 55
+	StatusMercFlee    uint16 = 165
+	StatusMercKills   uint16 = 189
+	StatusMercFaith   uint16 = 190
 )
 
 type ParameterChange struct {

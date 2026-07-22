@@ -227,6 +227,12 @@ func (m *WorldMode) applyMercenaryParamChange(ctx client.Context, change network
 		merc.SP = value
 	case network.StatusMaxSP:
 		merc.MaxSP = value
+	case network.StatusMercFlee:
+		merc.Flee = value
+	case network.StatusMercKills:
+		merc.Kills = uint32(maxInt(0, value))
+	case network.StatusMercFaith:
+		merc.Faith = value
 	default:
 		glog.Debugf("mercenary param ignored param=%d value=%d", change.Param, value)
 		return

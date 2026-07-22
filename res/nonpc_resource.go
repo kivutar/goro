@@ -8,6 +8,7 @@ import (
 )
 
 const legacyMonsterSpriteRoot = "data\\sprite\\몬스터\\"
+const mercenarySpriteRoot = "data\\sprite\\인간족\\몸통\\"
 
 var npcIdentityLuaCandidates = []string{
 	"data\\luafiles514\\lua files\\datainfo\\npcidentity.lub",
@@ -64,7 +65,7 @@ func NonPCSpriteResourceCandidates(job int, resourceName string, extension strin
 	if resourceName == "" {
 		return nil
 	}
-	name := strings.TrimSuffix(resourceName, "."+extension)
+	name := normalizeNonPCSpriteResourceName(strings.TrimSuffix(resourceName, "."+extension))
 	lowerName := strings.ToLower(name)
 	seen := make(map[string]struct{})
 	var out []string
@@ -84,6 +85,7 @@ func NonPCSpriteResourceCandidates(job int, resourceName string, extension strin
 
 	if job >= 6001 && job <= 6047 {
 		if job >= 6017 && job <= 6046 {
+			addStem(mercenarySpriteRoot)
 			addStem("data\\sprite\\mercenary\\")
 		} else {
 			addStem("data\\sprite\\homun\\")
@@ -99,4 +101,13 @@ func NonPCSpriteResourceCandidates(job int, resourceName string, extension strin
 	addStem("data\\sprite\\NPC\\")
 	addStem("data\\sprite\\npc\\")
 	return out
+}
+
+func normalizeNonPCSpriteResourceName(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.ReplaceAll(name, "/", "\\")
+	for strings.Contains(name, "\\\\") {
+		name = strings.ReplaceAll(name, "\\\\", "\\")
+	}
+	return name
 }
