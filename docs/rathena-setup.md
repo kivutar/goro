@@ -177,6 +177,27 @@ index d3f4c71b6..fb3ae029a 100644
  #endif
  }
  
+@@ -1767,10 +1767,10 @@ int32 clif_spawn( const block_list* bl, bool walking ){
+ /// 0x7db <type>.W <value>.L (ZC_HO_PAR_CHANGE)
+ /// 0xba5 <type>.W <value>.Q (ZC_HO_PAR_CHANGE2)
+ void clif_homunculus_updatestatus( const map_session_data& sd, _sp type ) {
+-#if PACKETVER >= 20090610
+    if( !hom_is_active(sd.hd) )
+        return;
+
++#if PACKETVER >= 20090610
+    PACKET_ZC_HO_PAR_CHANGE p = {};
+
+    p.packetType = HEADER_ZC_HO_PAR_CHANGE;
+@@ -1817,6 +1817,8 @@ void clif_homunculus_updatestatus( const map_session_data& sd, _sp type ) {
+    }
+
+    clif_send(&p, sizeof(p), &sd, SELF);
++#else
++    clif_hominfo(&sd, sd.hd, 0);
+ #endif
+ }
+
 @@ -1826 +1826 @@ void clif_hominfo( const map_session_data* sd, const homun_data *hd, int32 flag ){
 -#if PACKETVER_MAIN_NUM >= 20101005 || PACKETVER_RE_NUM >= 20080827 || defined(PACKETVER_ZERO)
 +#if PACKETVER_MAIN_NUM >= 20101005 || PACKETVER_RE_NUM >= 20080827 || PACKETVER_SAK_NUM >= 20080618 || defined(PACKETVER_ZERO)
@@ -270,6 +291,12 @@ make server
 `--enable-prere` adds `-DPRERE`. rAthena does not expose a configure switch for
 `PACKETVER_SAK_NUM`, so keep the `#define PACKETVER_SAK_NUM 20080910` patch in
 `src/custom/defines_pre.hpp`.
+
+The homunculus hunk is required for 2008 Sakray clients. `ZC_HO_PAR_CHANGE`
+(`0x07DB`) starts at `PACKETVER >= 20090610`; older clients expect the server to
+refresh the full `ZC_PROPERTY_HOMUN` (`0x022E`) packet when homunculus HP, SP, or
+EXP changes. Without this, the homunculus status window can stay stuck on stale
+values after the first info request.
 
 ## Required Config
 

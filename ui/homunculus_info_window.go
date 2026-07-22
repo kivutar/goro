@@ -42,11 +42,10 @@ const (
 )
 
 var (
-	homunculusInfoBarBack   = color.RGBA{R: 66, G: 66, B: 66, A: 255}
-	homunculusInfoHPColor   = PlayerHPBarColor
-	homunculusInfoSPColor   = PlayerSPBarColor
-	homunculusInfoExpColor  = WindowBorderColor
-	homunculusInfoFoodColor = WindowBorderColor
+	homunculusInfoBarBack  = color.RGBA{R: 66, G: 66, B: 66, A: 255}
+	homunculusInfoHPColor  = PlayerHPBarColor
+	homunculusInfoSPColor  = PlayerSPBarColor
+	homunculusInfoExpColor = WindowBorderColor
 )
 
 type HomunculusInfoActionKind uint8
@@ -182,7 +181,7 @@ func (w *HomunculusInfoWindow) detailsColumn(ctx Context) widget.Widget {
 		w.barRow("HP", w.companion.HP, w.companion.MaxHP, Color(homunculusInfoHPColor), true),
 		w.barRow("SP", w.companion.SP, w.companion.MaxSP, Color(homunculusInfoSPColor), true),
 		w.expBarRow("EXP", w.companion.Exp, w.companion.MaxExp, Color(homunculusInfoExpColor)),
-		w.barRow("Hunger", w.companion.Hunger, 100, Color(homunculusInfoFoodColor), true),
+		w.barRow("Hunger", w.companion.Hunger, 100, Color(HungerBarFillColor(w.companion.Hunger, 100)), true),
 		w.infoRow("Intimacy", HomunculusIntimacyText(w.companion.Intimacy)),
 		w.infoRow("Skill Pt", fmt.Sprintf("%d", w.companion.Skills.Points)),
 	).

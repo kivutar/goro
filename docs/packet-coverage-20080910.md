@@ -25,6 +25,29 @@ Status meaning:
 - Client-to-map accepted packets referenced by Goro: `94` / `177`
 - Unresolved packet aliases in this generated pass: `0`
 
+## Homunculus Compatibility Notes
+
+For `20080910`, homunculus status refreshes use the full `ZC_PROPERTY_HOMUN`
+packet (`0x022E`). `ZC_HO_PAR_CHANGE` (`0x07DB`) is a later packet, starting at
+`PACKETVER >= 20090610`, so it is not part of the effective 2008 rAthena map
+packet table. Goro still parses the later homunculus property and param-change
+variants so it can interoperate with nearby or patched servers.
+
+The rAthena setup patch makes `clif_homunculus_updatestatus` send a full
+`0x022E` refresh for `PACKETVER < 20090610`. Without that server-side fallback,
+the 2008 client flow can display stale HP, SP, or EXP values after the initial
+homunculus info packet.
+
+| Opcode | Direction | Status | Scope | Goro refs |
+|---:|---|---|---|---|
+| `0x022E` | S->C | implemented | 2008 full homunculus property and legacy refresh path | companion_packets.go, packet.go |
+| `0x07DB` | S->C | compatibility parser | 2009+ incremental homunculus param change | companion_packets.go, packet.go |
+| `0x09F7` | S->C | compatibility parser | later homunculus property layout with 32-bit HP | companion_packets.go, packet.go |
+| `0x0B2F` | S->C | compatibility parser | later homunculus property layout without equip item id | companion_packets.go, packet.go |
+| `0x0B76` | S->C | compatibility parser | later homunculus property layout with 32-bit HP/SP | companion_packets.go, packet.go |
+| `0x0BA4` | S->C | compatibility parser | later homunculus property layout with 64-bit EXP | companion_packets.go, packet.go |
+| `0x0BA5` | S->C | compatibility parser | later 64-bit homunculus param change | companion_packets.go, packet.go |
+
 ## High Priority Gaps
 
 | Opcode | Direction | rAthena symbol | Length | Handler | Priority |

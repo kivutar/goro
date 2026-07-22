@@ -78,3 +78,12 @@ func TestHomunculusEXPUsesUint64(t *testing.T) {
 		t.Fatalf("exp ratio = %f, want 0.5", got)
 	}
 }
+
+func TestHungerBarFillColorMatchesOverlayThreshold(t *testing.T) {
+	if got := HungerBarFillColor(24, 100); got != HungerBarLowColor {
+		t.Fatalf("24%% hunger color = %#v, want low hunger yellow %#v", got, HungerBarLowColor)
+	}
+	if got := HungerBarFillColor(25, 100); got != HungerBarColor {
+		t.Fatalf("25%% hunger color = %#v, want normal hunger color %#v", got, HungerBarColor)
+	}
+}

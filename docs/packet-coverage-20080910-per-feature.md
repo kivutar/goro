@@ -72,12 +72,16 @@
 
   Homunculus / Mercenary
 
-  - [x] Homunculus menu/feed/delete: 0x022D
-  - [x] Change homunculus name: 0x0231
+  - [x] Homunculus right-click menu, status window, feed/delete confirmations, and delete cleanup: 0x022D
+  - [x] Change homunculus name from the status window: 0x0231
+  - [x] Homunculus HP/SP/hunger bars, name placement, level-up effect, and low-hunger color parity
   - [x] Homunculus/mercenary move/attack/return to master: 0x0232, 0x0233, 0x0234
   - [x] Mercenary action: 0x029F
   - [x] Homunculus/mercenary property, parameter, and skill-list state: 0x022E, 0x022F, 0x0230, 0x0235, 0x0239, 0x027D, 0x029B, 0x029C, 0x029D, 0x029E, 0x02A2
+  - [x] Compatibility parsers for newer homunculus property/param packets: 0x07DB, 0x09F7, 0x0B2F, 0x0B76, 0x0BA4, 0x0BA5
+  - [x] Homunculus skill window, staged skill upgrades with confirm, and shortcut drag/use
   - [x] Gravity-style AI.lua / AI_M.lua loader and Lua API shim
+  - [x] rAthena compatibility note: 2008 clients need full 0x022E homunculus info refreshes instead of 0x07DB param-change packets
 
   Mail / Auction
 

@@ -1681,10 +1681,7 @@ func (m *WorldMode) drawActorLifeBar(screen *render.Frame, ctx client.Context, e
 	if life.hasHunger {
 		rowY += 4
 		hungerRatio := actorLifeRatio(life.hunger, life.maxHunger)
-		hungerFill := color.RGBA{R: 255, G: 231, B: 231, A: 255}
-		if hungerRatio < 0.25 {
-			hungerFill = color.RGBA{R: 255, G: 255, B: 0, A: 255}
-		}
+		hungerFill := ui.HungerBarFillColor(life.hunger, life.maxHunger)
 		render.DrawRect(screen, x+1, rowY-1, width-2, 1, color.RGBA{R: 66, G: 66, B: 66, A: 255})
 		if hungerWidth := math.Round((width - 2) * hungerRatio); hungerWidth > 0 {
 			render.DrawRect(screen, x+1, rowY, hungerWidth, 3, hungerFill)

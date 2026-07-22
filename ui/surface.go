@@ -23,6 +23,8 @@ var surfaceCache = map[surfaceKey]*render.Image{}
 
 const IconButtonSize = 17
 
+const HungerBarLowThreshold = 0.25
+
 var (
 	WindowRadius      = float32(6)
 	ButtonRadius      = float32(6)
@@ -47,11 +49,24 @@ var (
 	ButtonBorderColor = color.RGBA{R: 138, G: 174, B: 214, A: 255}
 	PlayerHPBarColor  = color.RGBA{R: 16, G: 239, B: 33, A: 255}
 	PlayerSPBarColor  = color.RGBA{R: 24, G: 99, B: 222, A: 255}
+	HungerBarColor    = color.RGBA{R: 255, G: 231, B: 231, A: 255}
+	HungerBarLowColor = color.RGBA{R: 255, G: 255, B: 0, A: 255}
 	SeparatorColor    = color.RGBA{R: 160, G: 190, B: 222, A: 190}
 	FooterLineColor   = color.RGBA{R: 174, G: 180, B: 188, A: 255}
 	SelectionColor    = color.RGBA{R: 206, G: 226, B: 248, A: 255}
 	SelectionBorder   = color.RGBA{R: 82, G: 138, B: 200, A: 255}
 )
+
+func HungerBarFillColor(current, maxValue int) color.RGBA {
+	ratio := 0.0
+	if maxValue > 0 {
+		ratio = clampUnit(float64(current) / float64(maxValue))
+	}
+	if ratio < HungerBarLowThreshold {
+		return HungerBarLowColor
+	}
+	return HungerBarColor
+}
 
 func DrawWindowFrame(screen *render.Frame, x, y, w, h int) {
 	DrawRoundedSurface(screen, x, y, w, h, WindowBodyColor, WindowBorderColor, WindowRadius)
