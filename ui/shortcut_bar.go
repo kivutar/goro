@@ -634,14 +634,21 @@ func skillForShortcut(s *session.Session, entry shortcutSlotState) (session.Skil
 }
 
 func shortcutSkillByID(s *session.Session, skillID uint16) (session.Skill, bool) {
-	if skill, ok := skillByID(s, skillID); ok {
-		return skill, true
-	}
 	if s == nil {
 		return session.Skill{}, false
 	}
-	if skill, ok := companionSkillByID(s.Mercenary, skillID); ok {
+	if s.Mercenary.Active {
+		if skill, ok := companionSkillByID(s.Mercenary, skillID); ok {
+			return skill, true
+		}
+	}
+	if s.Homunculus.Active {
+		if skill, ok := companionSkillByID(s.Homunculus, skillID); ok {
+			return skill, true
+		}
+	}
+	if skill, ok := skillByID(s, skillID); ok {
 		return skill, true
 	}
-	return companionSkillByID(s.Homunculus, skillID)
+	return session.Skill{}, false
 }

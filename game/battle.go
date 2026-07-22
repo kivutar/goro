@@ -1357,13 +1357,17 @@ func attackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange int
 }
 
 func attackApproachCell(ctx client.Context, actor world.Actor, attackRange int) (int, int, bool) {
+	playerX, playerY := currentPlayerCell(ctx, time.Now())
+	return attackApproachCellFrom(ctx, playerX, playerY, actor, attackRange)
+}
+
+func attackApproachCellFrom(ctx client.Context, sourceX, sourceY int, actor world.Actor, attackRange int) (int, int, bool) {
 	attackRange = maxInt(1, attackRange)
 	if attackRange > 1 {
-		if x, y, ok := rangedAttackApproachCell(ctx, actor, attackRange); ok {
+		if x, y, ok := rangedAttackApproachCellFrom(ctx, sourceX, sourceY, actor, attackRange); ok {
 			return x, y, true
 		}
 	}
-	playerX, playerY := currentPlayerCell(ctx, time.Now())
 	bestX, bestY := 0, 0
 	bestDistance := math.Inf(1)
 	for dy := -1; dy <= 1; dy++ {
@@ -1379,7 +1383,7 @@ func attackApproachCell(ctx client.Context, actor world.Actor, attackRange int) 
 			if ctx.World.GAT != nil && !ctx.World.GAT.Walkable(x, y) {
 				continue
 			}
-			distance := math.Hypot(float64(x-playerX), float64(y-playerY))
+			distance := math.Hypot(float64(x-sourceX), float64(y-sourceY))
 			if distance < bestDistance {
 				bestDistance = distance
 				bestX = x
@@ -1395,8 +1399,15 @@ func rangedAttackApproachCell(ctx client.Context, actor world.Actor, attackRange
 		return 0, 0, false
 	}
 	playerX, playerY := currentPlayerCell(ctx, time.Now())
-	stepX := approachSign(actor.X - playerX)
-	stepY := approachSign(actor.Y - playerY)
+	return rangedAttackApproachCellFrom(ctx, playerX, playerY, actor, attackRange)
+}
+
+func rangedAttackApproachCellFrom(ctx client.Context, sourceX, sourceY int, actor world.Actor, attackRange int) (int, int, bool) {
+	if ctx.World == nil {
+		return 0, 0, false
+	}
+	stepX := approachSign(actor.X - sourceX)
+	stepY := approachSign(actor.Y - sourceY)
 	preferredX := actor.X - stepX*attackRange
 	preferredY := actor.Y - stepY*attackRange
 	type candidate struct {
@@ -1423,7 +1434,7 @@ func rangedAttackApproachCell(ctx client.Context, actor world.Actor, attackRange
 			candidates = append(candidates, candidate{
 				x:                 x,
 				y:                 y,
-				sourceDistance:    maxInt(absInt(x-playerX), absInt(y-playerY)),
+				sourceDistance:    maxInt(absInt(x-sourceX), absInt(y-sourceY)),
 				preferredDistance: maxInt(absInt(x-preferredX), absInt(y-preferredY)),
 			})
 		}

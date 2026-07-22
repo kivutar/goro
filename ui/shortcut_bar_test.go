@@ -252,6 +252,43 @@ func TestSkillForShortcutResolvesHomunculusSkills(t *testing.T) {
 	}
 }
 
+func TestSkillForShortcutPrefersMercenaryThenHomunculusBeforePlayer(t *testing.T) {
+	s := &session.Session{
+		Skills: session.Skills{
+			List: []session.Skill{{ID: db.SkillMsBash, Level: 10, Type: 1, Name: "Player"}},
+		},
+		Homunculus: session.Companion{
+			Active: true,
+			Skills: session.Skills{
+				List: []session.Skill{{ID: db.SkillMsBash, Level: 4, Type: 1, Name: "Homunculus"}},
+			},
+		},
+		Mercenary: session.Companion{
+			Active: true,
+			Skills: session.Skills{
+				List: []session.Skill{{ID: db.SkillMsBash, Level: 2, Type: 1, Name: "Mercenary"}},
+			},
+		},
+	}
+
+	skill, ok := skillForShortcut(s, shortcutSlotState{kind: shortcutSkill, skillID: db.SkillMsBash})
+	if !ok {
+		t.Fatal("shortcut skill not found")
+	}
+	if skill.Name != "Mercenary" || skill.Level != 2 {
+		t.Fatalf("shortcut skill = %+v, want mercenary first", skill)
+	}
+
+	s.Mercenary.Active = false
+	skill, ok = skillForShortcut(s, shortcutSlotState{kind: shortcutSkill, skillID: db.SkillMsBash})
+	if !ok {
+		t.Fatal("shortcut skill not found after mercenary deactivated")
+	}
+	if skill.Name != "Homunculus" || skill.Level != 4 {
+		t.Fatalf("shortcut skill = %+v, want homunculus second", skill)
+	}
+}
+
 func TestShortcutSkillTooltipUsesHotkeyAndName(t *testing.T) {
 	bar := &ShortcutBar{}
 	bar.slots[1] = shortcutSlotState{kind: shortcutSkill, skillID: 6, skillLevel: 2}

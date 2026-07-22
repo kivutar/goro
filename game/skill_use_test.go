@@ -73,3 +73,129 @@ func TestTextGroundSkillClickOpensPrompt(t *testing.T) {
 		t.Fatal("skill text prompt was not opened")
 	}
 }
+
+func TestMercenaryTargetSkillChasesFromMercenaryPosition(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 200, X: 24, Y: 20}
+	world.GAT = flatWalkableGAT(64, 64)
+	world.UpsertActor(worldstate.Actor{
+		ID:            400,
+		X:             10,
+		Y:             20,
+		ObjectType:    actorObjectTypeMercenary,
+		HasObjectType: true,
+	})
+	target := worldstate.Actor{
+		ID:            300,
+		X:             25,
+		Y:             20,
+		ObjectType:    actorObjectTypeMob,
+		HasObjectType: true,
+	}
+	world.UpsertActor(target)
+	skill := session.Skill{ID: db.SkillMsBash, Level: 1, Type: skillTargetEnemy, Range: 1}
+	mode := &WorldMode{}
+	ctx := client.Context{
+		Session: &session.Session{
+			Mercenary: session.Companion{
+				ID:     400,
+				Active: true,
+				Skills: session.Skills{List: []session.Skill{skill}},
+			},
+		},
+		World: world,
+	}
+
+	if !mode.skills().chaseTargetIfNeeded(ctx, skill, target, "test") {
+		t.Fatal("mercenary skill did not chase even though only the player was in range")
+	}
+	if mode.pendingSkill.targetID != target.ID || mode.pendingSkill.skill.ID != db.SkillMsBash {
+		t.Fatalf("pending mercenary skill = %+v", mode.pendingSkill)
+	}
+}
+
+func TestMercenaryTargetSkillUsesRawServerRange(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 200, X: 15, Y: 20}
+	world.GAT = flatWalkableGAT(64, 64)
+	world.UpsertActor(worldstate.Actor{
+		ID:            400,
+		X:             10,
+		Y:             20,
+		ObjectType:    actorObjectTypeMercenary,
+		HasObjectType: true,
+	})
+	target := worldstate.Actor{
+		ID:            300,
+		X:             20,
+		Y:             20,
+		ObjectType:    actorObjectTypeMob,
+		HasObjectType: true,
+	}
+	world.UpsertActor(target)
+	skill := session.Skill{ID: db.SkillMaDouble, Level: 2, Type: skillTargetEnemy, Range: 9}
+	mode := &WorldMode{}
+	ctx := client.Context{
+		Session: &session.Session{
+			Mercenary: session.Companion{
+				ID:     400,
+				Active: true,
+				Skills: session.Skills{List: []session.Skill{skill}},
+			},
+		},
+		World: world,
+	}
+
+	if !mode.skills().chaseTargetIfNeeded(ctx, skill, target, "test") {
+		t.Fatal("mercenary skill at distance 10 should chase for raw range 9")
+	}
+	if mode.pendingSkill.targetID != target.ID || mode.pendingSkill.skill.ID != db.SkillMaDouble {
+		t.Fatalf("pending mercenary skill = %+v", mode.pendingSkill)
+	}
+}
+
+func TestMercenaryPendingTargetSkillSchedulesFromMercenaryPosition(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 200, X: 10, Y: 20}
+	world.UpsertActor(worldstate.Actor{
+		ID:            400,
+		X:             24,
+		Y:             20,
+		ObjectType:    actorObjectTypeMercenary,
+		HasObjectType: true,
+	})
+	world.UpsertActor(worldstate.Actor{
+		ID:            300,
+		X:             25,
+		Y:             20,
+		ObjectType:    actorObjectTypeMob,
+		HasObjectType: true,
+	})
+	skill := session.Skill{ID: db.SkillMsBash, Level: 1, Type: skillTargetEnemy, Range: 1}
+	mode := &WorldMode{
+		pendingSkill: pendingSkillTarget{
+			skill:    skill,
+			targetID: 300,
+			expires:  time.Now().Add(time.Second),
+		},
+	}
+	ctx := client.Context{
+		Session: &session.Session{
+			Mercenary: session.Companion{
+				ID:     400,
+				Active: true,
+				Skills: session.Skills{List: []session.Skill{skill}},
+			},
+		},
+		World: world,
+	}
+
+	mode.skills().UpdatePendingTarget(ctx, "test", false)
+
+	if mode.pendingSkill.targetID != 300 {
+		t.Fatal("pending mercenary skill was cleared")
+	}
+	if mode.pendingSkill.readyAt.IsZero() {
+		t.Fatal("pending mercenary skill was not scheduled from the mercenary position")
+	}
+}

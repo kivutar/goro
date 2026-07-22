@@ -7487,6 +7487,37 @@ func TestAcolyteSkillEffectMappings(t *testing.T) {
 	expectEffectIDs(t, "AL_CURE", skillEffectIDs(35), effectCure)
 }
 
+func TestMercenarySupportSkillEffectMappings(t *testing.T) {
+	expectEffectIDs(t, "MER_MAGNIFICAT", skillEffectIDs(db.SkillMerMagnificat), effectMagnificat)
+	expectEffectIDs(t, "MER_QUICKEN", skillEffectIDs(db.SkillMerQuicken), effectTwoHandQuicken)
+	expectEffectIDs(t, "MER_PROVOKE success", skillSuccessEffectIDs(db.SkillMerProvoke), effectProvoke)
+	expectEffectIDs(t, "MER_DECAGI", skillEffectIDs(db.SkillMerDecagi), effectDecAgility)
+	expectEffectIDs(t, "MER_LEXDIVINA", skillEffectIDs(db.SkillMerLexdivina), effectLexDivina)
+	expectEffectIDs(t, "MER_ESTIMATION", skillEffectIDs(db.SkillMerEstimation))
+	expectEffectIDs(t, "MER_KYRIE", skillEffectIDs(db.SkillMerKyrie), effectKyrie)
+	expectEffectIDs(t, "MER_BLESSING", skillEffectIDs(db.SkillMerBlessing), effectBlessing)
+	expectEffectIDs(t, "MER_INCAGI", skillEffectIDs(db.SkillMerIncagi), effectIncAgility)
+
+	for _, tc := range []struct {
+		name    string
+		skillID uint16
+	}{
+		{"MER_SIGHT", db.SkillMerSight},
+		{"MER_CRASH", db.SkillMerCrash},
+		{"MER_REGAIN", db.SkillMerRegain},
+		{"MER_TENDER", db.SkillMerTender},
+		{"MER_BENEDICTION", db.SkillMerBenediction},
+		{"MER_RECUPERATE", db.SkillMerRecuperate},
+		{"MER_MENTALCURE", db.SkillMerMentalcure},
+		{"MER_COMPRESS", db.SkillMerCompress},
+		{"MER_AUTOBERSERK", db.SkillMerAutoberserk},
+		{"MER_SCAPEGOAT", db.SkillMerScapegoat},
+	} {
+		expectEffectIDs(t, tc.name, skillEffectIDs(tc.skillID))
+		expectEffectIDs(t, tc.name+" success", skillSuccessEffectIDs(tc.skillID))
+	}
+}
+
 func TestImportedSkillEffectFallback(t *testing.T) {
 	expectEffectIDs(t, "PR_IMPOSITIO imported", skillEffectIDs(db.SkillPRImpositio), effectImpositio)
 	expectEffectIDs(t, "ALL_RESURRECTION imported", skillEffectIDs(db.SkillALLResurrection), effectResurrection, 140)
