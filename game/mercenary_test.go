@@ -61,6 +61,74 @@ func TestApplyMercenaryParamChangeUpdatesRobrowserStatusFields(t *testing.T) {
 	}
 }
 
+func TestMercenaryPropertyStoresDisplayLife(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				400: {ID: 400, HasObjectType: true, ObjectType: actorObjectTypeMercenary},
+			},
+		},
+	}
+
+	mode.applyMercenaryProperty(ctx, network.MercenaryProperty{
+		ID:          400,
+		Name:        "David",
+		Level:       1,
+		HP:          123,
+		MaxHP:       456,
+		SP:          78,
+		MaxSP:       90,
+		AttackRange: 2,
+	})
+
+	life, ok := mode.actorLifeForDisplay(ctx, ctx.World.Actors[400])
+	if !ok {
+		t.Fatal("mercenary display life missing")
+	}
+	if life.hp != 123 || life.maxHP != 456 || life.sp != 78 || life.maxSP != 90 || !life.hasSP || !life.friendly {
+		t.Fatalf("mercenary display life = %+v", life)
+	}
+	if actor := ctx.World.Actors[400]; actor.Name != "David" || actor.AttackRange != 2 {
+		t.Fatalf("mercenary actor = %+v", actor)
+	}
+}
+
+func TestMercenaryLifeForDisplayUsesCachedParamChanges(t *testing.T) {
+	mode := NewWorldMode()
+	sess := &session.Session{
+		Mercenary: session.Companion{
+			ID:     400,
+			Active: true,
+			HP:     100,
+			MaxHP:  200,
+			SP:     30,
+			MaxSP:  60,
+		},
+	}
+	ctx := client.Context{
+		Session: sess,
+		World: &worldstate.World{
+			Actors: map[uint32]worldstate.Actor{
+				400: {ID: 400, HasObjectType: true, ObjectType: actorObjectTypeMercenary},
+			},
+		},
+	}
+
+	mode.applyMercenaryParamChange(ctx, network.MercenaryParamChange{Param: network.StatusHP, Value: 77})
+	mode.applyMercenaryParamChange(ctx, network.MercenaryParamChange{Param: network.StatusSP, Value: 12})
+
+	life, ok := mode.actorLifeForDisplay(ctx, ctx.World.Actors[400])
+	if !ok {
+		t.Fatal("mercenary display life missing")
+	}
+	if life.hp != 77 || life.maxHP != 200 || life.sp != 12 || life.maxSP != 60 || !life.hasSP || !life.friendly {
+		t.Fatalf("mercenary display life = %+v", life)
+	}
+}
+
 func TestPendingMercenaryDeleteVanishClearsSession(t *testing.T) {
 	mode := NewWorldMode()
 	mode.mercDeleteID = 400

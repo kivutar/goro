@@ -1766,6 +1766,9 @@ func (m *WorldMode) actorLifeForDisplay(ctx client.Context, actor world.Actor) (
 	if life, ok := m.homunculusLifeForDisplay(ctx, actor); ok {
 		return life, true
 	}
+	if life, ok := m.mercenaryLifeForDisplay(ctx, actor); ok {
+		return life, true
+	}
 	// Monster HP bars are a 2012+ client feature. The 2008 client exposes
 	// monster HP through WZ_ESTIMATION/Sense instead, so keep the combat HP
 	// cache hidden from the normal actor overlay.
@@ -1828,6 +1831,53 @@ func (m *WorldMode) homunculusLifeForDisplay(ctx client.Context, actor world.Act
 	}
 	if life.hasHunger {
 		life.hunger = clampGameInt(life.hunger, 0, life.maxHunger)
+	}
+	return life, true
+}
+
+func (m *WorldMode) mercenaryLifeForDisplay(ctx client.Context, actor world.Actor) (actorLife, bool) {
+	if ctx.Session == nil || actor.ID == 0 {
+		return actorLife{}, false
+	}
+	merc := ctx.Session.Mercenary
+	if !merc.Active {
+		return actorLife{}, false
+	}
+	if merc.ID != 0 {
+		if actor.ID != merc.ID {
+			return actorLife{}, false
+		}
+	} else if !actor.HasObjectType || actor.ObjectType != actorObjectTypeMercenary {
+		return actorLife{}, false
+	}
+
+	life := actorLife{
+		hp:       merc.HP,
+		maxHP:    merc.MaxHP,
+		sp:       merc.SP,
+		maxSP:    merc.MaxSP,
+		hasSP:    merc.MaxSP > 0,
+		friendly: true,
+	}
+	if m.actorLife != nil {
+		if cached, ok := m.actorLife[actor.ID]; ok {
+			if cached.maxHP > 0 {
+				life.hp = cached.hp
+				life.maxHP = cached.maxHP
+			}
+			if cached.hasSP && cached.maxSP > 0 {
+				life.sp = cached.sp
+				life.maxSP = cached.maxSP
+				life.hasSP = true
+			}
+		}
+	}
+	if life.maxHP <= 0 || life.hp < 0 {
+		return actorLife{}, false
+	}
+	life.hp = clampGameInt(life.hp, 0, life.maxHP)
+	if life.hasSP {
+		life.sp = clampGameInt(life.sp, 0, life.maxSP)
 	}
 	return life, true
 }
