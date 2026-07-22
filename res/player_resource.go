@@ -2,6 +2,7 @@ package res
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kivutar/goro/db"
 )
@@ -15,6 +16,7 @@ const (
 	playerIMFRoot         = "data\\imf\\"
 	playerBodyDir         = "몸통"
 	playerHeadDir         = "머리통"
+	mercenaryWeaponRoot   = "data\\sprite\\인간족\\용병\\"
 	playerPaletteBodyDir  = "몸"
 	playerPaletteHeadDir  = "머리"
 	playerPaletteHeadFile = "머리"
@@ -191,6 +193,55 @@ func PlayerWeaponOverlayResourceCandidates(job int, sex byte, weaponValue int, s
 		fmt.Sprintf("%s%s\\%s_%s_%s.%s", playerHumanSpriteRoot, jobToken, jobToken, sexToken, token, extension),
 	)
 	return out
+}
+
+func MercenaryWeaponOverlayResourceCandidates(resourceName string, weaponValue int, secondLayer bool, extension string) []string {
+	if resourceName == "" || weaponValue <= 0 {
+		return nil
+	}
+	weaponType := mercenaryWeaponOverlayType(db.PlayerWeaponType(weaponValue))
+	if weaponType <= 0 {
+		return nil
+	}
+	if secondLayer && !PlayerWeaponOverlaySupportsSecondLayer(weaponType) {
+		return nil
+	}
+	token := PlayerWeaponOverlayToken(weaponType)
+	if token == "" {
+		return nil
+	}
+	name := normalizeNonPCSpriteResourceName(resourceName)
+	lowerName := strings.ToLower(name)
+	suffix := "." + strings.ToLower(extension)
+	if strings.HasSuffix(lowerName, suffix) {
+		name = name[:len(name)-len(suffix)]
+	}
+	if i := strings.LastIndex(name, "\\"); i >= 0 {
+		name = name[i+1:]
+	}
+	if name == "" {
+		return nil
+	}
+	stem := fmt.Sprintf("%s_%s", name, token)
+	if secondLayer {
+		stem = fmt.Sprintf("%s_%s", stem, weaponLightSuffix)
+	}
+	return []string{
+		fmt.Sprintf("%s%s.%s", mercenaryWeaponRoot, stem, extension),
+	}
+}
+
+func mercenaryWeaponOverlayType(weaponType int) int {
+	switch weaponType {
+	case db.WeaponSword, db.WeaponTwoHandSword:
+		return db.WeaponSword
+	case db.WeaponSpear, db.WeaponTwoHandSpear:
+		return db.WeaponSpear
+	case db.WeaponBow:
+		return db.WeaponBow
+	default:
+		return weaponType
+	}
 }
 
 func (m *Manager) PlayerWeaponViewID(weaponValue int) int {

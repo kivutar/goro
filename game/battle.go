@@ -1160,7 +1160,7 @@ func (m *WorldMode) actorAnimation(id uint32, now time.Time) (actorAnimation, bo
 
 func attackActionFamilyForActor(actor world.Actor) int {
 	if actorIsMercenary(actor) {
-		return spriteActionPCAttack1
+		return mercenaryAttackActionFamily(int(actor.Job), actor.Sex, int(actor.Weapon))
 	}
 	if res.HasPlayerJobToken(int(actor.Job)) {
 		weapon, _ := res.NormalizePlayerWeaponShield(int(actor.Weapon), int(actor.Shield))

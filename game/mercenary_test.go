@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
@@ -110,13 +111,20 @@ func TestPendingMercenaryDeleteVanishClearsSession(t *testing.T) {
 	}
 }
 
-func TestMercenaryActionFamiliesFollowRobrowserMapping(t *testing.T) {
+func TestMercenaryActionFamiliesUseGuildWeaponActions(t *testing.T) {
 	archer := worldstate.Actor{Job: 6017, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+	lancer := worldstate.Actor{Job: 6027, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
 	sword := worldstate.Actor{Job: 6037, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
 	mob := worldstate.Actor{Job: 1002, HasObjectType: true, ObjectType: actorObjectTypeMob}
 
-	if got := attackActionFamilyForActor(archer); got != spriteActionPCAttack1 {
-		t.Fatalf("archer mercenary attack action = %d, want %d", got, spriteActionPCAttack1)
+	if got := attackActionFamilyForActor(archer); got != spriteActionPCAttack2 {
+		t.Fatalf("archer mercenary attack action = %d, want %d", got, spriteActionPCAttack2)
+	}
+	if got := attackActionFamilyForActor(lancer); got != spriteActionPCAttack3 {
+		t.Fatalf("lancer mercenary attack action = %d, want %d", got, spriteActionPCAttack3)
+	}
+	if got := attackActionFamilyForActor(sword); got != spriteActionPCAttack2 {
+		t.Fatalf("sword mercenary attack action = %d, want %d", got, spriteActionPCAttack2)
 	}
 	if got := hurtActionFamilyForActor(archer); got != spriteActionPCHurt {
 		t.Fatalf("archer mercenary hurt action = %d, want %d", got, spriteActionPCHurt)
@@ -147,5 +155,50 @@ func TestMercenarySpriteKeyDerivesSexFromMercenaryResource(t *testing.T) {
 	}
 	if got := mercenarySpriteKeyForActor(sword).sex; got != 1 {
 		t.Fatalf("sword mercenary sex = %d, want male resource sex 1", got)
+	}
+}
+
+func TestMercenarySpriteKeyUsesGuildDefaultWeapon(t *testing.T) {
+	cases := []struct {
+		name string
+		job  int16
+		want int
+	}{
+		{name: "archer", job: 6017, want: db.WeaponBow},
+		{name: "lancer", job: 6027, want: db.WeaponSpear},
+		{name: "sword", job: 6037, want: db.WeaponSword},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actor := worldstate.Actor{Job: tc.job, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+			if got := mercenarySpriteKeyForActor(actor).weapon; got != tc.want {
+				t.Fatalf("default weapon = %d, want %d", got, tc.want)
+			}
+		})
+	}
+
+	actor := worldstate.Actor{Job: 6037, Weapon: 7, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+	if got := mercenarySpriteKeyForActor(actor).weapon; got != 7 {
+		t.Fatalf("explicit weapon = %d, want 7", got)
+	}
+}
+
+func TestMercenaryWeaponBaseJobUsesGuildHumanoidResources(t *testing.T) {
+	cases := []struct {
+		name string
+		job  int
+		want int
+	}{
+		{name: "archer", job: 6017, want: db.JobArcher},
+		{name: "lancer", job: 6027, want: db.JobSwordman},
+		{name: "sword", job: 6037, want: db.JobSwordman},
+		{name: "unknown", job: 9999, want: db.JobNovice},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := mercenaryWeaponBaseJob(tc.job); got != tc.want {
+				t.Fatalf("weapon base job = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }

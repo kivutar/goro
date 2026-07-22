@@ -1,11 +1,12 @@
 package game
 
 import (
-	"github.com/kivutar/goro/client"
+	"image"
 	"image/color"
 	"math"
 	"time"
 
+	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 )
@@ -36,7 +37,7 @@ const (
 )
 
 const (
-	humanoidBillboardWidth   = 160
+	humanoidBillboardWidth   = 224
 	humanoidBillboardHeight  = 160
 	humanoidBillboardAnchorX = 80
 	humanoidBillboardAnchorY = 120
@@ -46,6 +47,14 @@ const (
 	actorSpriteTerrainLift = 0.2
 	actorShadowTerrainLift = 0.05
 	actorShadowDepthBias   = 0.001
+)
+
+const (
+	humanoidCompositionWidth   = 512
+	humanoidCompositionHeight  = 384
+	humanoidCompositionAnchorX = 256
+	humanoidCompositionAnchorY = 320
+	humanoidCompositionPadding = 4
 )
 
 const (
@@ -583,7 +592,7 @@ func composeHumanoidBillboard(view *humanoidSpriteView, actionFamily, direction 
 	if bodyMotion < 0 || bodyMotion >= len(bodyAction.Animations) {
 		return nil, false
 	}
-	target := render.NewImage(humanoidBillboardWidth, humanoidBillboardHeight)
+	target := render.NewImage(humanoidCompositionWidth, humanoidCompositionHeight)
 	bodyActionIndex := actionFamily*8 + direction
 	drawn := false
 	if view.imf != nil {
@@ -594,11 +603,61 @@ func composeHumanoidBillboard(view *humanoidSpriteView, actionFamily, direction 
 	if !drawn {
 		return nil, false
 	}
+	return cropHumanoidBillboard(target)
+}
+
+func cropHumanoidBillboard(source *render.Image) (*spriteBillboard, bool) {
+	minX, minY, maxX, maxY, ok := renderImageOpaqueBounds(source)
+	if !ok {
+		return nil, false
+	}
+	bounds := source.Bounds()
+	minX = max(0, minX-humanoidCompositionPadding)
+	minY = max(0, minY-humanoidCompositionPadding)
+	maxX = min(bounds.Dx()-1, maxX+humanoidCompositionPadding)
+	maxY = min(bounds.Dy()-1, maxY+humanoidCompositionPadding)
+	cropRect := image.Rect(minX, minY, maxX+1, maxY+1)
+	cropped := render.NewImageFromImage(source.RGBA().SubImage(cropRect))
 	return &spriteBillboard{
-		image:   target,
-		anchorX: humanoidBillboardAnchorX,
-		anchorY: humanoidBillboardAnchorY,
+		image:   cropped,
+		anchorX: humanoidCompositionAnchorX - float64(minX),
+		anchorY: humanoidCompositionAnchorY - float64(minY),
 	}, true
+}
+
+func renderImageOpaqueBounds(source *render.Image) (int, int, int, int, bool) {
+	rgba := source.RGBA()
+	if rgba == nil {
+		return 0, 0, 0, 0, false
+	}
+	bounds := rgba.Bounds()
+	minX, minY := bounds.Max.X, bounds.Max.Y
+	maxX, maxY := bounds.Min.X, bounds.Min.Y
+	ok := false
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if rgba.RGBAAt(x, y).A == 0 {
+				continue
+			}
+			if x < minX {
+				minX = x
+			}
+			if y < minY {
+				minY = y
+			}
+			if x > maxX {
+				maxX = x
+			}
+			if y > maxY {
+				maxY = y
+			}
+			ok = true
+		}
+	}
+	if !ok {
+		return 0, 0, 0, 0, false
+	}
+	return minX - bounds.Min.X, minY - bounds.Min.Y, maxX - bounds.Min.X, maxY - bounds.Min.Y, true
 }
 
 func composeSingleSpriteBillboard(view *spriteView, anim res.ACTAnimation) (*spriteBillboard, bool) {
@@ -685,18 +744,44 @@ func spriteLayerFrameSize(view *spriteView, index int32, sprType int32) (float64
 
 func drawFallbackHumanoidLayers(target *render.Image, view *humanoidSpriteView, actionFamily, direction int, bodyAction res.ACTAction, bodyMotion, headMotion int) bool {
 	bodyAnim := bodyAction.Animations[bodyMotion]
-	drawn := drawSpriteAnimation(target, view.body, bodyAnim, humanoidBillboardAnchorX, humanoidBillboardAnchorY, 0, 0)
-	if view.head != nil && view.head.act != nil && view.head.spr != nil {
-		if _, headAction, ok := resolveSpriteAction(view.head.act, actionFamily, direction); ok && len(headAction.Animations) > 0 {
-			if headMotion < 0 || headMotion >= len(headAction.Animations) {
-				headMotion = 0
-			}
-			headAnim := headAction.Animations[headMotion]
-			headPosX, headPosY := attachmentDelta(bodyAnim, headAnim)
-			drawn = drawSpriteAnimation(target, view.head, headAnim, humanoidBillboardAnchorX, humanoidBillboardAnchorY, headPosX, headPosY) || drawn
+	actionIndex := actionFamily*8 + direction
+	drawn := false
+	for _, layer := range playerRenderLayerOrder(nil, actionIndex, bodyMotion) {
+		switch layer {
+		case humanoidLayerBody:
+			drawn = drawSpriteAnimation(target, view.body, bodyAnim, humanoidCompositionAnchorX, humanoidCompositionAnchorY, 0, 0) || drawn
+		case humanoidLayerHead:
+			drawn = drawFallbackHeadMotion(target, view, bodyAnim, actionIndex, headMotion) || drawn
+		case humanoidLayerAccessoryBottom:
+			drawn = drawAttachedAccessoryMotion(target, view.accessoryBottom, view.head, bodyAnim, actionIndex, headMotion) || drawn
+		case humanoidLayerAccessoryMid:
+			drawn = drawAttachedAccessoryMotion(target, view.accessoryMid, view.head, bodyAnim, actionIndex, headMotion) || drawn
+		case humanoidLayerAccessoryTop:
+			drawn = drawAttachedAccessoryMotion(target, view.accessoryTop, view.head, bodyAnim, actionIndex, headMotion) || drawn
+		case humanoidLayerWeapon:
+			drawn = drawFallbackOverlayMotion(target, view.weapon, view.body, actionIndex, bodyMotion) || drawn
+		case humanoidLayerWeaponLight:
+			drawn = drawFallbackOverlayMotion(target, view.weaponLight, view.body, actionIndex, bodyMotion) || drawn
+		case humanoidLayerShield:
+			drawn = drawFallbackOverlayMotion(target, view.shield, view.body, actionIndex, bodyMotion) || drawn
 		}
 	}
 	return drawn
+}
+
+func drawFallbackHeadMotion(target *render.Image, view *humanoidSpriteView, bodyAnim res.ACTAnimation, actionIndex, headMotion int) bool {
+	if view.head == nil || view.head.act == nil || view.head.spr == nil {
+		return false
+	}
+	headAnim, ok := actionAnimation(view.head.act, actionIndex, headMotion)
+	if !ok {
+		headAnim, ok = actionAnimation(view.head.act, actionIndex, 0)
+	}
+	if !ok {
+		return false
+	}
+	headPosX, headPosY := attachmentDelta(bodyAnim, headAnim)
+	return drawSpriteAnimation(target, view.head, headAnim, humanoidCompositionAnchorX, humanoidCompositionAnchorY, headPosX, headPosY)
 }
 
 func drawPlayerIMFLayers(target *render.Image, view *humanoidSpriteView, actionIndex, bodyMotion, headMotion int) bool {
@@ -771,7 +856,7 @@ func drawPlayerIMFLayer(target *render.Image, sprite *spriteView, imf *res.IMF, 
 		pointX += dx
 		pointY += dy
 	}
-	return drawSpriteLayerByValue(target, sprite, layer, humanoidBillboardAnchorX+float64(pointX), humanoidBillboardAnchorY+float64(pointY))
+	return drawSpriteLayerByValue(target, sprite, layer, humanoidCompositionAnchorX+float64(pointX), humanoidCompositionAnchorY+float64(pointY))
 }
 
 func visibleACTLayerIndex(anim res.ACTAnimation, candidates ...int) int {
@@ -817,7 +902,7 @@ func drawAttachedAccessoryMotion(target *render.Image, accessory *spriteView, he
 	}
 	headDX, headDY := attachmentDelta(bodyAnim, headAnim)
 	accessoryDX, accessoryDY := attachmentDelta(headAnim, accessoryAnim)
-	return drawSpriteAnimation(target, accessory, accessoryAnim, humanoidBillboardAnchorX, humanoidBillboardAnchorY, headDX+accessoryDX, headDY+accessoryDY)
+	return drawSpriteAnimation(target, accessory, accessoryAnim, humanoidCompositionAnchorX, humanoidCompositionAnchorY, headDX+accessoryDX, headDY+accessoryDY)
 }
 
 func drawPlayerOverlayMotion(target *render.Image, overlay *spriteView, body *spriteView, imf *res.IMF, layerPriority, actionIndex, bodyMotion int) bool {
@@ -833,7 +918,29 @@ func drawPlayerOverlayMotion(target *render.Image, overlay *spriteView, body *sp
 		return false
 	}
 	pointX, pointY := imf.Point(layerPriority, actionIndex, bodyMotion)
-	return drawSpriteAnimation(target, overlay, overlayAnim, humanoidBillboardAnchorX, humanoidBillboardAnchorY, pointX, pointY)
+	return drawSpriteAnimation(target, overlay, overlayAnim, humanoidCompositionAnchorX, humanoidCompositionAnchorY, pointX, pointY)
+}
+
+func drawFallbackOverlayMotion(target *render.Image, overlay *spriteView, body *spriteView, actionIndex, bodyMotion int) bool {
+	if overlay == nil || overlay.act == nil || overlay.spr == nil || body == nil || body.act == nil {
+		return false
+	}
+	if len(overlay.act.Actions) == 0 {
+		return false
+	}
+	resolvedActionIndex := actionIndex % len(overlay.act.Actions)
+	if resolvedActionIndex < 0 {
+		resolvedActionIndex += len(overlay.act.Actions)
+	}
+	motionIndex := resolveOverlayMotionIndex(overlay.act, body.act, resolvedActionIndex, bodyMotion)
+	overlayAnim, ok := actionAnimation(overlay.act, resolvedActionIndex, motionIndex)
+	if !ok {
+		overlayAnim, ok = actionAnimation(overlay.act, resolvedActionIndex, 0)
+	}
+	if !ok {
+		return false
+	}
+	return drawSpriteAnimation(target, overlay, overlayAnim, humanoidCompositionAnchorX, humanoidCompositionAnchorY, 0, 0)
 }
 
 func resolveOverlayMotionIndex(overlayAct *res.ACT, bodyAct *res.ACT, actionIndex, bodyMotion int) int {
@@ -1236,7 +1343,7 @@ func drawSpriteLayerWithOptions(target *render.Image, img *render.Image, layer r
 	opts.GeoM.Translate(-width/2, -height/2)
 	opts.GeoM.Scale(scaleX, scaleY)
 	if layer.Angle != 0 && !ignoreLayerAngle {
-		opts.GeoM.Rotate(float64(layer.Angle) * math.Pi / 180)
+		opts.GeoM.Rotate(float64(-layer.Angle) * math.Pi / 180)
 	}
 	layerCenterX, layerCenterY := spriteLayerCenter(centerX, centerY, layer)
 	opts.GeoM.Translate(layerCenterX, layerCenterY)

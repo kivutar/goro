@@ -1,6 +1,10 @@
 package res
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/kivutar/goro/db"
+)
 
 func TestPlayerSexTokenUsesRagnarokSexEnum(t *testing.T) {
 	if got := PlayerSexToken(0); got != playerFemaleSex {
@@ -57,6 +61,30 @@ func TestPlayerWeaponOverlayResourceCandidates(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("weapon overlay[%d] = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+func TestMercenaryWeaponOverlayResourceCandidates(t *testing.T) {
+	got := MercenaryWeaponOverlayResourceCandidates(`남\검용병`, db.WeaponSword, false, "act")
+	want := `data\sprite\인간족\용병\검용병_검.act`
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("sword mercenary overlay = %q, want %q", got, want)
+	}
+
+	got = MercenaryWeaponOverlayResourceCandidates(`남\검용병`, db.WeaponTwoHandSword, true, "spr")
+	want = `data\sprite\인간족\용병\검용병_검_검광.spr`
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("sword mercenary light overlay = %q, want %q", got, want)
+	}
+
+	got = MercenaryWeaponOverlayResourceCandidates(`남\창용병`, db.WeaponTwoHandSpear, false, "act")
+	want = `data\sprite\인간족\용병\창용병_창.act`
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("lancer mercenary overlay = %q, want %q", got, want)
+	}
+
+	if got := MercenaryWeaponOverlayResourceCandidates(`여\활용병`, db.WeaponBow, true, "act"); len(got) != 0 {
+		t.Fatalf("bow mercenary light overlay = %q, want none", got)
 	}
 }
 

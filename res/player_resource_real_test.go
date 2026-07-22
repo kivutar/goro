@@ -1,6 +1,10 @@
 package res
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/kivutar/goro/db"
+)
 
 func TestPlayerBodyResourceRealWhenConfigured(t *testing.T) {
 	job := 0
@@ -94,5 +98,45 @@ func TestPlayerMageEquippedRodOverlayRealWhenConfigured(t *testing.T) {
 		if actionIndex == 80 && visible == 0 {
 			t.Fatalf("mage rod attack action has no visible frames")
 		}
+	}
+}
+
+func TestMercenaryWeaponOverlayResourceRealWhenConfigured(t *testing.T) {
+	manager := realDataManager(t)
+	for _, tc := range []struct {
+		name        string
+		resource    string
+		weapon      int
+		secondLayer bool
+	}{
+		{name: "archer bow", resource: `여\활용병`, weapon: db.WeaponBow},
+		{name: "lancer spear", resource: `남\창용병`, weapon: db.WeaponSpear},
+		{name: "lancer spear light", resource: `남\창용병`, weapon: db.WeaponSpear, secondLayer: true},
+		{name: "sword sword", resource: `남\검용병`, weapon: db.WeaponSword},
+		{name: "sword sword light", resource: `남\검용병`, weapon: db.WeaponSword, secondLayer: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actCandidates := MercenaryWeaponOverlayResourceCandidates(tc.resource, tc.weapon, tc.secondLayer, "act")
+			sprCandidates := MercenaryWeaponOverlayResourceCandidates(tc.resource, tc.weapon, tc.secondLayer, "spr")
+			actSource, actData, ok := manager.ReadFirst(actCandidates)
+			if !ok {
+				t.Fatalf("mercenary weapon act not found candidates=%q", actCandidates)
+			}
+			sprSource, sprData, ok := manager.ReadFirst(sprCandidates)
+			if !ok {
+				t.Fatalf("mercenary weapon spr not found candidates=%q", sprCandidates)
+			}
+			act, err := ParseACT(actData)
+			if err != nil {
+				t.Fatalf("parse %s: %v", actSource, err)
+			}
+			spr, err := ParseSPR(sprData)
+			if err != nil {
+				t.Fatalf("parse %s: %v", sprSource, err)
+			}
+			if len(act.Actions) == 0 || len(spr.Frames) == 0 {
+				t.Fatalf("empty mercenary weapon resources act=%s spr=%s actions=%d frames=%d", actSource, sprSource, len(act.Actions), len(spr.Frames))
+			}
+		})
 	}
 }

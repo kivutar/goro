@@ -111,11 +111,57 @@ func mercenarySpriteKeyForActor(actor worldstate.Actor) actorSpriteKey {
 		sex:         mercenarySexForJob(int(actor.Job), actor.Sex),
 		bodyPalette: int(actor.BodyPal),
 		headPalette: int(actor.HeadPal),
-		weapon:      int(actor.Weapon),
+		weapon:      mercenaryWeaponForAppearance(int(actor.Job), int(actor.Weapon)),
 		shield:      int(actor.Shield),
 		headTop:     int(actor.HeadTop),
 		headMid:     int(actor.HeadMid),
 		headLow:     int(actor.HeadLow),
+	}
+}
+
+func mercenaryWeaponForAppearance(job int, weapon int) int {
+	if weapon > 0 {
+		return weapon
+	}
+	return mercenaryDefaultWeapon(job)
+}
+
+func mercenaryWeaponBaseJob(job int) int {
+	switch {
+	case job >= 6017 && job <= 6026:
+		return db.JobArcher
+	case job >= 6027 && job <= 6046:
+		return db.JobSwordman
+	default:
+		return db.JobNovice
+	}
+}
+
+func mercenaryDefaultWeapon(job int) int {
+	switch {
+	case job >= 6017 && job <= 6026:
+		return db.WeaponBow
+	case job >= 6027 && job <= 6036:
+		return db.WeaponSpear
+	case job >= 6037 && job <= 6046:
+		return db.WeaponSword
+	default:
+		return 0
+	}
+}
+
+func mercenaryAttackActionFamily(job int, sex byte, weapon int) int {
+	weapon = mercenaryWeaponForAppearance(job, weapon)
+	if weapon <= 0 {
+		return spriteActionPCAttack1
+	}
+	switch db.PlayerWeaponAction(mercenaryWeaponBaseJob(job), mercenarySexForJob(job, sex), weapon) {
+	case db.PlayerWeaponActionAttack2:
+		return spriteActionPCAttack2
+	case db.PlayerWeaponActionAttack3:
+		return spriteActionPCAttack3
+	default:
+		return spriteActionPCAttack1
 	}
 }
 

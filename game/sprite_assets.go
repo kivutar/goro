@@ -124,6 +124,11 @@ func loadHumanoidSpriteViewWithAppearance(manager *res.Manager, appearance human
 
 func loadMercenaryHumanoidSpriteView(manager *res.Manager, appearance humanoidAppearance, label string) (*humanoidSpriteView, string) {
 	appearance.sex = mercenarySexForJob(appearance.job, appearance.sex)
+	appearance.weapon = mercenaryWeaponForAppearance(appearance.job, appearance.weapon)
+	resourceName := ""
+	if manager != nil {
+		resourceName, _ = manager.NonPCResourceName(appearance.job)
+	}
 	body, bodyStatus := loadNonPCSpriteView(manager, appearance.job, label+" body")
 	if body == nil {
 		return nil, bodyStatus
@@ -132,8 +137,8 @@ func loadMercenaryHumanoidSpriteView(manager *res.Manager, appearance humanoidAp
 	accessoryBottom, accessoryBottomStatus := loadAccessorySpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headLow, "", label+" accessory-bottom")
 	accessoryMid, accessoryMidStatus := loadAccessorySpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headMid, "", label+" accessory-mid")
 	accessoryTop, accessoryTopStatus := loadAccessorySpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headTop, "", label+" accessory-top")
-	weapon, weaponStatus := loadWeaponOverlaySpriteView(manager, appearance.job, appearance.sex, appearance.weapon, false, label+" weapon")
-	weaponLight, weaponLightStatus := loadWeaponOverlaySpriteView(manager, appearance.job, appearance.sex, appearance.weapon, true, label+" weapon-light")
+	weapon, weaponStatus := loadMercenaryWeaponOverlaySpriteView(manager, resourceName, appearance.job, appearance.sex, appearance.weapon, false, label+" weapon")
+	weaponLight, weaponLightStatus := loadMercenaryWeaponOverlaySpriteView(manager, resourceName, appearance.job, appearance.sex, appearance.weapon, true, label+" weapon-light")
 	shield, shieldStatus := loadShieldOverlaySpriteView(manager, appearance.job, appearance.sex, appearance.shield, label+" shield")
 	view := &humanoidSpriteView{
 		body:            body,
@@ -187,6 +192,24 @@ func loadWeaponOverlaySpriteView(manager *res.Manager, job int, sex byte, weapon
 		weapon = manager.PlayerWeaponViewID(weapon)
 	}
 	return loadSpriteView(manager, res.PlayerWeaponOverlayResourceCandidates(job, sex, weapon, secondLayer, "act"), res.PlayerWeaponOverlayResourceCandidates(job, sex, weapon, secondLayer, "spr"), nil, label)
+}
+
+func loadMercenaryWeaponOverlaySpriteView(manager *res.Manager, resourceName string, job int, sex byte, weapon int, secondLayer bool, label string) (*spriteView, string) {
+	if weapon <= 0 {
+		return nil, ""
+	}
+	viewID := weapon
+	if manager != nil {
+		viewID = manager.PlayerWeaponViewID(weapon)
+	}
+	actCandidates := res.MercenaryWeaponOverlayResourceCandidates(resourceName, viewID, secondLayer, "act")
+	sprCandidates := res.MercenaryWeaponOverlayResourceCandidates(resourceName, viewID, secondLayer, "spr")
+	if len(actCandidates) > 0 && len(sprCandidates) > 0 {
+		if view, status := loadSpriteView(manager, actCandidates, sprCandidates, nil, label); view != nil {
+			return view, status
+		}
+	}
+	return loadWeaponOverlaySpriteView(manager, mercenaryWeaponBaseJob(job), sex, viewID, secondLayer, label)
 }
 
 func loadShieldOverlaySpriteView(manager *res.Manager, job int, sex byte, shield int, label string) (*spriteView, string) {

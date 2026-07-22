@@ -1,8 +1,10 @@
 package game
 
 import (
+	"image/color"
 	"math"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -424,6 +426,27 @@ func TestSpriteLayerCenterTreatsPositiveYAsScreenDown(t *testing.T) {
 	}
 }
 
+func TestSpriteLayerAngleMatchesReferenceSign(t *testing.T) {
+	source := render.NewImage(3, 3)
+	source.RGBA().SetRGBA(1, 0, color.RGBA{R: 255, A: 255})
+	target := render.NewImage(21, 21)
+
+	drawSpriteLayerWithOptions(target, source, res.ACTLayer{
+		ScaleX: 1,
+		ScaleY: 1,
+		Angle:  90,
+		Color:  [4]float32{1, 1, 1, 1},
+	}, 10, 10, false)
+
+	minX, _, maxX, _, opaque := billboardOpaqueBounds(target)
+	if !opaque {
+		t.Fatal("rotated layer drew no pixels")
+	}
+	if minX >= 10 || maxX >= 10 {
+		t.Fatalf("positive ACT angle rotated to x=%d..%d, want left of center like robr 3D renderer", minX, maxX)
+	}
+}
+
 func TestDebugPlayerSpriteBillboard(t *testing.T) {
 	if os.Getenv("GORO_DEBUG_PLAYER_SPRITE") != "1" {
 		t.Skip("set GORO_DEBUG_PLAYER_SPRITE=1")
@@ -506,9 +529,9 @@ func TestMercenaryHumanoidSpriteCompositionRealWhenConfigured(t *testing.T) {
 		death  int
 		attack int
 	}{
-		{name: "archer", job: 6017, sex: 1, death: spriteActionNonPCDeath, attack: spriteActionPCAttack1},
-		{name: "lancer", job: 6027, sex: 0, death: spriteActionPCDeath, attack: spriteActionPCAttack1},
-		{name: "sword", job: 6037, sex: 0, death: spriteActionPCDeath, attack: spriteActionPCAttack1},
+		{name: "archer", job: 6017, sex: 1, death: spriteActionNonPCDeath, attack: spriteActionPCAttack2},
+		{name: "lancer", job: 6027, sex: 0, death: spriteActionPCDeath, attack: spriteActionPCAttack3},
+		{name: "sword", job: 6037, sex: 0, death: spriteActionPCDeath, attack: spriteActionPCAttack2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -529,6 +552,150 @@ func TestMercenaryHumanoidSpriteCompositionRealWhenConfigured(t *testing.T) {
 			}
 			if _, ok := humanoidBillboardForState(view, spriteState{actionFamily: tc.death, direction: 0}, time.Now()); !ok {
 				t.Fatalf("death billboard unavailable action=%d status=%s", tc.death, status)
+			}
+		})
+	}
+}
+
+func TestMercenaryAttackBillboardDoesNotClipRealWhenConfigured(t *testing.T) {
+	manager := realDataManager(t)
+	for _, tc := range []struct {
+		name string
+		job  int
+		sex  byte
+	}{
+		{name: "archer", job: 6017, sex: 0},
+		{name: "lancer", job: 6027, sex: 1},
+		{name: "sword", job: 6037, sex: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			view, status := loadMercenaryHumanoidSpriteView(manager, humanoidAppearance{job: tc.job, head: 1, sex: tc.sex}, "mercenary")
+			if view == nil {
+				t.Skipf("mercenary sprite unavailable: %s", status)
+			}
+			actionFamily := mercenaryAttackActionFamily(tc.job, tc.sex, 0)
+			renderDirection := spriteDirectionFromWorldDir(0)
+			_, action, ok := resolveSpriteAction(view.body.act, actionFamily, renderDirection)
+			if !ok {
+				t.Fatalf("mercenary attack action missing: %s", status)
+			}
+			for motion := range action.Animations {
+				billboard, ok := humanoidBillboardForState(view, spriteState{
+					actionFamily:   actionFamily,
+					direction:      0,
+					fixedMotion:    motion,
+					hasFixedMotion: true,
+				}, time.Now())
+				if !ok {
+					t.Fatalf("attack motion %d billboard unavailable: %s", motion, status)
+				}
+				minX, minY, maxX, maxY, opaque := billboardOpaqueBounds(billboard.image)
+				if !opaque {
+					t.Fatalf("attack motion %d drew no opaque pixels: %s", motion, status)
+				}
+				bounds := billboard.image.Bounds()
+				if minX <= 0 || minY <= 0 || maxX >= bounds.Dx()-1 || maxY >= bounds.Dy()-1 {
+					t.Fatalf("attack motion %d touches billboard edge opaque=(%d,%d)-(%d,%d) image=%dx%d anchor=(%.0f,%.0f) status=%s", motion, minX, minY, maxX, maxY, bounds.Dx(), bounds.Dy(), billboard.anchorX, billboard.anchorY, status)
+				}
+			}
+		})
+	}
+}
+
+func TestMercenaryAttackBillboardIncludesDefaultWeaponRealWhenConfigured(t *testing.T) {
+	manager := realDataManager(t)
+	for _, tc := range []struct {
+		name string
+		job  int
+		sex  byte
+	}{
+		{name: "archer", job: 6017, sex: 0},
+		{name: "lancer", job: 6027, sex: 1},
+		{name: "sword", job: 6037, sex: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			view, status := loadMercenaryHumanoidSpriteView(manager, humanoidAppearance{job: tc.job, head: 1, sex: tc.sex}, "mercenary")
+			if view == nil {
+				t.Skipf("mercenary sprite unavailable: %s", status)
+			}
+			if view.weapon == nil {
+				t.Fatalf("mercenary default weapon unavailable: %s", status)
+			}
+			actionFamily := mercenaryAttackActionFamily(tc.job, tc.sex, 0)
+			renderDirection := spriteDirectionFromWorldDir(0)
+			bodyActionIndex, action, ok := resolveSpriteAction(view.body.act, actionFamily, renderDirection)
+			if !ok {
+				t.Fatalf("mercenary attack action missing: %s", status)
+			}
+			withoutWeaponView := *view
+			withoutWeaponView.weapon = nil
+			withoutWeaponView.weaponLight = nil
+			withoutWeaponView.billboards = make(map[humanoidBillboardKey]*spriteBillboard)
+			changed := false
+			expectedVisible := false
+			for motion := range action.Animations {
+				state := spriteState{
+					actionFamily:   actionFamily,
+					direction:      0,
+					fixedMotion:    motion,
+					hasFixedMotion: true,
+				}
+				withWeapon, ok := humanoidBillboardForState(view, state, time.Now())
+				if !ok {
+					t.Fatalf("mercenary attack billboard unavailable with weapon: %s", status)
+				}
+				withoutWeapon, ok := humanoidBillboardForState(&withoutWeaponView, state, time.Now())
+				if !ok {
+					t.Fatalf("mercenary attack billboard unavailable without weapon: %s", status)
+				}
+				if overlayMotionHasVisibleLayer(view.weapon, view.body, bodyActionIndex, motion) || overlayMotionHasVisibleLayer(view.weaponLight, view.body, bodyActionIndex, motion) {
+					expectedVisible = true
+				}
+				if imageRGBAFingerprint(withWeapon.image) != imageRGBAFingerprint(withoutWeapon.image) {
+					changed = true
+					break
+				}
+			}
+			if !expectedVisible {
+				t.Logf("mercenary default weapon overlay has no visible layers for action=%d status=%s", bodyActionIndex, status)
+				return
+			}
+			if !changed {
+				t.Fatalf("mercenary attack frames did not change after drawing default weapon: %s", status)
+			}
+		})
+	}
+}
+
+func TestMercenaryUsesDedicatedWeaponOverlayRealWhenConfigured(t *testing.T) {
+	manager := realDataManager(t)
+	for _, tc := range []struct {
+		name       string
+		job        int
+		sex        byte
+		weaponPath string
+		lightPath  string
+	}{
+		{name: "archer", job: 6017, sex: 0, weaponPath: `data\sprite\인간족\용병\활용병_활.spr`},
+		{name: "lancer", job: 6027, sex: 1, weaponPath: `data\sprite\인간족\용병\창용병_창.spr`, lightPath: `data\sprite\인간족\용병\창용병_창_검광.spr`},
+		{name: "sword", job: 6037, sex: 1, weaponPath: `data\sprite\인간족\용병\검용병_검.spr`, lightPath: `data\sprite\인간족\용병\검용병_검_검광.spr`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			view, status := loadMercenaryHumanoidSpriteView(manager, humanoidAppearance{job: tc.job, head: 1, sex: tc.sex}, "mercenary")
+			if view == nil {
+				t.Skipf("mercenary sprite unavailable: %s", status)
+			}
+			if view.weapon == nil || !strings.Contains(view.weapon.source, tc.weaponPath) {
+				t.Fatalf("weapon source = %q, want dedicated mercenary path %q status=%s", spriteSource(view.weapon), tc.weaponPath, status)
+			}
+			if tc.lightPath == "" {
+				if view.weaponLight != nil {
+					t.Fatalf("weapon light source = %q, want none status=%s", spriteSource(view.weaponLight), status)
+				}
+				return
+			}
+			if view.weaponLight == nil || !strings.Contains(view.weaponLight.source, tc.lightPath) {
+				t.Fatalf("weapon light source = %q, want dedicated mercenary path %q status=%s", spriteSource(view.weaponLight), tc.lightPath, status)
 			}
 		})
 	}
@@ -666,6 +833,77 @@ func layerOrderContains(order [8]int, layer int) bool {
 		}
 	}
 	return false
+}
+
+func billboardOpaqueBounds(img *render.Image) (int, int, int, int, bool) {
+	if img == nil || img.RGBA() == nil {
+		return 0, 0, 0, 0, false
+	}
+	rgba := img.RGBA()
+	bounds := rgba.Bounds()
+	minX, minY := bounds.Dx(), bounds.Dy()
+	maxX, maxY := -1, -1
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if rgba.Pix[rgba.PixOffset(x, y)+3] == 0 {
+				continue
+			}
+			relX := x - bounds.Min.X
+			relY := y - bounds.Min.Y
+			if relX < minX {
+				minX = relX
+			}
+			if relY < minY {
+				minY = relY
+			}
+			if relX > maxX {
+				maxX = relX
+			}
+			if relY > maxY {
+				maxY = relY
+			}
+		}
+	}
+	if maxX < minX || maxY < minY {
+		return 0, 0, 0, 0, false
+	}
+	return minX, minY, maxX, maxY, true
+}
+
+func imageRGBAFingerprint(img *render.Image) uint64 {
+	if img == nil || img.RGBA() == nil {
+		return 0
+	}
+	rgba := img.RGBA()
+	var out uint64 = 1469598103934665603
+	for _, value := range rgba.Pix {
+		out ^= uint64(value)
+		out *= 1099511628211
+	}
+	return out
+}
+
+func overlayMotionHasVisibleLayer(overlay *spriteView, body *spriteView, actionIndex, bodyMotion int) bool {
+	if overlay == nil || overlay.act == nil || body == nil || body.act == nil || len(overlay.act.Actions) == 0 {
+		return false
+	}
+	resolvedActionIndex := actionIndex % len(overlay.act.Actions)
+	if resolvedActionIndex < 0 {
+		resolvedActionIndex += len(overlay.act.Actions)
+	}
+	motionIndex := resolveOverlayMotionIndex(overlay.act, body.act, resolvedActionIndex, bodyMotion)
+	anim, ok := actionAnimation(overlay.act, resolvedActionIndex, motionIndex)
+	if !ok {
+		anim, ok = actionAnimation(overlay.act, resolvedActionIndex, 0)
+	}
+	return ok && visibleACTLayerIndex(anim) >= 0
+}
+
+func spriteSource(view *spriteView) string {
+	if view == nil {
+		return ""
+	}
+	return view.source
 }
 
 func spriteAnimationBounds(view *spriteView, anim res.ACTAnimation, anchorX, anchorY float64, posX, posY int32) (float64, float64, float64, float64) {
