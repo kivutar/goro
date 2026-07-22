@@ -11909,6 +11909,87 @@ func TestUseItemAckAddsItemUseEffect(t *testing.T) {
 	}
 }
 
+func TestMercenaryPotionItemEffectsTargetVisibleMercenary(t *testing.T) {
+	testCases := []struct {
+		name     string
+		itemID   uint16
+		effectID int
+	}{
+		{"red", 12184, effectFood},
+		{"blue", 12185, effectFood},
+		{"concentration", 12241, effectItemFast},
+		{"awakening", 12242, effectItemFast2},
+		{"berserk", 12243, effectItemFast3},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			world := worldstate.New()
+			world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+			world.UpsertActor(worldstate.Actor{ID: 400, X: 13, Y: 24, HasObjectType: true, ObjectType: actorObjectTypeMercenary})
+			sessionState := &session.Session{
+				AccountID: 2000000,
+				Mercenary: session.Companion{
+					ID:     400,
+					Active: true,
+				},
+			}
+			mode := &WorldMode{}
+			ctx := client.Context{Session: sessionState, World: world}
+
+			mode.addItemUseEffect(ctx, network.UseItemAck{Index: 12, ItemID: tc.itemID, AID: 2000000, Amount: 2, Result: 1})
+
+			if len(mode.worldEffects) != 1 {
+				t.Fatalf("world effects = %d, want 1", len(mode.worldEffects))
+			}
+			if effect := mode.worldEffects[0]; effect.actorID != 400 || effect.effectID != tc.effectID || effect.x != 13 || effect.y != 24 {
+				t.Fatalf("effect = %+v", effect)
+			}
+		})
+	}
+}
+
+func TestMercenaryPotionItemEffectsFallbackToAckActorWithoutMercenary(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	sessionState := &session.Session{AccountID: 2000000}
+	mode := &WorldMode{}
+	ctx := client.Context{Session: sessionState, World: world}
+
+	mode.addItemUseEffect(ctx, network.UseItemAck{Index: 12, ItemID: 12184, AID: 2000000, Amount: 2, Result: 1})
+
+	if len(mode.worldEffects) != 1 {
+		t.Fatalf("world effects = %d, want 1", len(mode.worldEffects))
+	}
+	if effect := mode.worldEffects[0]; effect.actorID != 2000000 || effect.effectID != effectFood || effect.x != 10 || effect.y != 20 {
+		t.Fatalf("effect = %+v", effect)
+	}
+}
+
+func TestRemoteMercenaryPotionItemEffectKeepsAckActor(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	world.UpsertActor(worldstate.Actor{ID: 400, X: 13, Y: 24, HasObjectType: true, ObjectType: actorObjectTypeMercenary})
+	world.UpsertActor(worldstate.Actor{ID: 1100, X: 30, Y: 40})
+	sessionState := &session.Session{
+		AccountID: 2000000,
+		Mercenary: session.Companion{
+			ID:     400,
+			Active: true,
+		},
+	}
+	mode := &WorldMode{}
+	ctx := client.Context{Session: sessionState, World: world}
+
+	mode.addItemUseEffect(ctx, network.UseItemAck{Index: 12, ItemID: 12184, AID: 1100, Amount: 2, Result: 1})
+
+	if len(mode.worldEffects) != 1 {
+		t.Fatalf("world effects = %d, want 1", len(mode.worldEffects))
+	}
+	if effect := mode.worldEffects[0]; effect.actorID != 1100 || effect.effectID != effectFood || effect.x != 30 || effect.y != 40 {
+		t.Fatalf("effect = %+v", effect)
+	}
+}
+
 func TestUseItemAckDispatchesAllMappedItemEffectArrays(t *testing.T) {
 	const itemID uint16 = 65000
 	itemEffectSpecs[itemID] = itemEffectSpec{

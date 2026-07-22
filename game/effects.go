@@ -874,18 +874,13 @@ func (m *WorldMode) addItemUseEffect(ctx client.Context, ack network.UseItemAck)
 	if ack.Result == 0 {
 		return
 	}
-	effectIDs := itemUseEffectIDs(ack.ItemID)
-	casterEffectIDs := itemUseEffectOnCasterIDs(ack.ItemID)
+	spec := itemUseEffectSpec(ack.ItemID)
+	effectIDs := spec.effectIDs
+	casterEffectIDs := spec.effectIDsOnCaster
 	if len(effectIDs) == 0 && len(casterEffectIDs) == 0 {
 		return
 	}
-	actorID := ack.AID
-	if actorID == 0 && ctx.Session != nil {
-		actorID = ctx.Session.AccountID
-		if actorID == 0 {
-			actorID = ctx.Session.CharID
-		}
-	}
+	actorID := itemUseEffectActorID(ctx, ack, spec.target)
 	for _, effectID := range effectIDs {
 		targetID := actorID
 		if effectDetachesLocalActor(effectID) && isLocalActor(ctx, targetID) {
@@ -904,6 +899,39 @@ func (m *WorldMode) addItemUseEffect(ctx client.Context, ack network.UseItemAck)
 			glog.Debugf("item caster effect item=%d actor=%d effect=%d", ack.ItemID, casterID, effectID)
 		}
 	}
+}
+
+func itemUseEffectActorID(ctx client.Context, ack network.UseItemAck, target itemEffectTarget) uint32 {
+	ackActorID := itemUseAckActorID(ctx, ack)
+	if target == itemEffectTargetMercenary && (ackActorID == 0 || isLocalActor(ctx, ackActorID)) {
+		if actorID := visibleMercenaryActorID(ctx); actorID != 0 {
+			return actorID
+		}
+	}
+	return ackActorID
+}
+
+func itemUseAckActorID(ctx client.Context, ack network.UseItemAck) uint32 {
+	actorID := ack.AID
+	if actorID == 0 && ctx.Session != nil {
+		actorID = ctx.Session.AccountID
+		if actorID == 0 {
+			actorID = ctx.Session.CharID
+		}
+	}
+	return actorID
+}
+
+func visibleMercenaryActorID(ctx client.Context) uint32 {
+	if ctx.World == nil {
+		return 0
+	}
+	if ctx.Session != nil && ctx.Session.Mercenary.ID != 0 {
+		if actor, ok := ctx.World.Actors[ctx.Session.Mercenary.ID]; ok && actorIsMercenary(actor) {
+			return actor.ID
+		}
+	}
+	return findCompanionActorID(ctx, actorObjectTypeMercenary)
 }
 
 func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.SkillNoDamageNotify) {
@@ -1475,7 +1503,15 @@ func effectAnchor(ctx client.Context, actorID uint32) (int, int, bool) {
 type itemEffectSpec struct {
 	effectIDs         []int
 	effectIDsOnCaster []int
+	target            itemEffectTarget
 }
+
+type itemEffectTarget uint8
+
+const (
+	itemEffectTargetAck itemEffectTarget = iota
+	itemEffectTargetMercenary
+)
 
 // This mirrors reference client's DB/Items/ItemEffect.js shape. Keep item effects as
 // data so future imports can preserve array-valued effectId/effectIdOnCaster.
@@ -1487,6 +1523,13 @@ func buildItemEffects() map[uint16]itemEffectSpec {
 		for _, itemID := range itemIDs {
 			itemEffect := effects[itemID]
 			itemEffect.effectIDs = append(itemEffect.effectIDs, effectID)
+			effects[itemID] = itemEffect
+		}
+	}
+	target := func(target itemEffectTarget, itemIDs ...uint16) {
+		for _, itemID := range itemIDs {
+			itemEffect := effects[itemID]
+			itemEffect.target = target
 			effects[itemID] = itemEffect
 		}
 	}
@@ -1547,15 +1590,24 @@ func buildItemEffects() map[uint16]itemEffectSpec {
 	// reference client does not route Butterfly Wing through ItemEffect; keep Goro's
 	// local map-change anticipation here but use the same table shape.
 	add(effectTeleportation, 602)
+
+	// eAthena/rAthena send the normal item-use ACK with the player's AID even
+	// though these scripts apply to sd->md. Keep the robr effect IDs above, but
+	// bind their visual target to the current mercenary when one is visible.
+	target(itemEffectTargetMercenary, 12184, 12185, 12241, 12242, 12243)
 	return effects
 }
 
 func itemUseEffectIDs(itemID uint16) []int {
-	return itemEffectSpecs[itemID].effectIDs
+	return itemUseEffectSpec(itemID).effectIDs
 }
 
 func itemUseEffectOnCasterIDs(itemID uint16) []int {
-	return itemEffectSpecs[itemID].effectIDsOnCaster
+	return itemUseEffectSpec(itemID).effectIDsOnCaster
+}
+
+func itemUseEffectSpec(itemID uint16) itemEffectSpec {
+	return itemEffectSpecs[itemID]
 }
 
 type skillEffectSpec struct {
