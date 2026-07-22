@@ -96,6 +96,7 @@ These are tutorials on how to setup a development environment.
 
 - [Server setup](docs/rathena-setup.md)
 - [Client setup](docs/client-setup.md)
+- [Homunculus and mercenary support](docs/companions-20080910.md)
 
 Runtime data is discovered from, in order:
 

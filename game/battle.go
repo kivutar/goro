@@ -544,11 +544,15 @@ func (m *WorldMode) addSkillBeginEffect(ctx client.Context, action network.Actor
 }
 
 func (m *WorldMode) addNormalAttackBeforeHitEffect(ctx client.Context, action network.ActorActionNotify, source world.Actor, sourceOK bool, starts time.Time) {
-	if action.SkillID != 0 || !sourceOK || !actorUsesBow(ctx.Resources, source) {
+	if action.SkillID != 0 || !sourceOK {
 		return
 	}
-	if m.addWorldEffectBetweenAt(ctx, effectArrowShot, action.TargetID, action.SourceID, starts) {
-		glog.Debugf("normal attack before-hit effect src=%d target=%d effect=%d", action.SourceID, action.TargetID, effectArrowShot)
+	effectID, ok := normalAttackBeforeHitEffectID(ctx.Resources, source)
+	if !ok {
+		return
+	}
+	if m.addWorldEffectBetweenAt(ctx, effectID, action.TargetID, action.SourceID, starts) {
+		glog.Debugf("normal attack before-hit effect src=%d target=%d effect=%d", action.SourceID, action.TargetID, effectID)
 	}
 }
 
@@ -591,6 +595,22 @@ func actorUsesBow(manager *res.Manager, actor world.Actor) bool {
 		return false
 	}
 	return res.PlayerWeaponViewID(manager, int(actor.Weapon)) == 11
+}
+
+func normalAttackBeforeHitEffectID(manager *res.Manager, actor world.Actor) (int, bool) {
+	if res.HasPlayerJobToken(int(actor.Job)) && actorUsesBow(manager, actor) {
+		return effectArrowShot, true
+	}
+	return normalAttackProjectileEffectIDForName(db.MonsterAttackProjectile[int(actor.Job)])
+}
+
+func normalAttackProjectileEffectIDForName(name string) (int, bool) {
+	switch name {
+	case "ef_arrow_projectile":
+		return effectArrowShot, true
+	default:
+		return 0, false
+	}
 }
 
 func (m *WorldMode) addSkillEffect(ctx client.Context, action network.ActorActionNotify, starts time.Time) {

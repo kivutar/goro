@@ -8354,6 +8354,51 @@ func TestBowNormalAttackAddsArrowProjectileEffect(t *testing.T) {
 	}
 }
 
+func TestArcherMercenaryNormalAttackAddsArrowProjectileEffect(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	world.UpsertActor(worldstate.Actor{
+		ID:            400,
+		X:             10,
+		Y:             20,
+		Job:           6017,
+		ObjectType:    actorObjectTypeMercenary,
+		HasObjectType: true,
+	})
+	world.UpsertActor(worldstate.Actor{
+		ID:            300,
+		X:             15,
+		Y:             20,
+		Job:           1002,
+		ObjectType:    actorObjectTypeMob,
+		HasObjectType: true,
+	})
+	mode := &WorldMode{}
+	ctx := client.Context{Session: &session.Session{AccountID: 2000000}, World: world}
+
+	mode.applyActorActionNotify(ctx, network.ActorActionNotify{
+		SourceID:    400,
+		TargetID:    300,
+		Damage:      12,
+		HitCount:    1,
+		Action:      0,
+		SourceSpeed: 500,
+		TargetSpeed: 500,
+	})
+
+	if len(mode.worldEffects) != 2 {
+		t.Fatalf("world effects = %d, want arrow projectile and regular hit", len(mode.worldEffects))
+	}
+	projectile := mode.worldEffects[0]
+	if projectile.effectID != effectArrowShot || projectile.actorID != 300 || projectile.targetID != 400 {
+		t.Fatalf("mercenary arrow projectile = %+v", projectile)
+	}
+	hit := mode.worldEffects[1]
+	if hit.effectID != effectHit1 || hit.actorID != 300 || !hit.starts.After(projectile.starts) {
+		t.Fatalf("mercenary bow hit = %+v projectile=%+v", hit, projectile)
+	}
+}
+
 func TestWarpEffectMappings(t *testing.T) {
 	expectEffectIDs(t, "AL_TELEPORT begin", skillBeginEffectIDs(26))
 	expectEffectIDs(t, "Butterfly Wing item", itemUseEffectIDs(602), effectTeleportation)

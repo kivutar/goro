@@ -38,6 +38,9 @@ The rAthena setup patch makes `clif_homunculus_updatestatus` send a full
 the 2008 client flow can display stale HP, SP, or EXP values after the initial
 homunculus info packet.
 
+See [homunculus and mercenary support](companions-20080910.md) for the current
+companion UI, AI, skill, and visual coverage.
+
 | Opcode | Direction | Status | Scope | Goro refs |
 |---:|---|---|---|---|
 | `0x022E` | S->C | implemented | 2008 full homunculus property and legacy refresh path | companion_packets.go, packet.go |

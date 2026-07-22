@@ -80,6 +80,7 @@
   - [x] Homunculus/mercenary property, parameter, and skill-list state: 0x022E, 0x022F, 0x0230, 0x0235, 0x0239, 0x027D, 0x029B, 0x029C, 0x029D, 0x029E, 0x02A2
   - [x] Compatibility parsers for newer homunculus property/param packets: 0x07DB, 0x09F7, 0x0B2F, 0x0B76, 0x0BA4, 0x0BA5
   - [x] Homunculus skill window, staged skill upgrades with confirm, and shortcut drag/use
+  - [x] Mercenary right-click/status/skill windows, humanoid display, skill shortcuts, attack sounds, and archer projectiles
   - [x] Gravity-style AI.lua / AI_M.lua loader and Lua API shim
   - [x] rAthena compatibility note: 2008 clients need full 0x022E homunculus info refreshes instead of 0x07DB param-change packets
 
