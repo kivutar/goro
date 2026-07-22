@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,6 +25,9 @@ import (
 )
 
 const companionAITickInterval = 100 * time.Millisecond
+
+// Older Ragnarok AI scripts use `for k,v in Table do` as shorthand for pairs(Table).
+var companionAILegacyTableForRe = regexp.MustCompile(`(?m)^([ \t]*for[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*[ \t]+in[ \t]+)([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)[ \t]+do([ \t]*(?:--[^\r\n]*)?)(\r?)$`)
 
 type companionAIKind int
 
@@ -700,6 +704,7 @@ func (ai *companionAI) doAIFile(manager *res.Manager, path string) error {
 		return err
 	}
 	text := decodeAILua(data)
+	text = companionAICompatSource(text)
 	ai.loaded[path] = true
 	if err := ai.state.DoString(text); err != nil {
 		return fmt.Errorf("%s: %w", path, err)
@@ -728,6 +733,10 @@ func decodeAILua(data []byte) string {
 		return string(data)
 	}
 	return string(decoded)
+}
+
+func companionAICompatSource(text string) string {
+	return companionAILegacyTableForRe.ReplaceAllString(text, `${1}pairs($2) do$3$4`)
 }
 
 func (m *WorldMode) luaCompanionGetV(L *lua.LState, ctx client.Context, kind companionAIKind, actorDeaths map[uint32]time.Time) int {

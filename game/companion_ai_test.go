@@ -3,6 +3,7 @@ package game
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -150,6 +151,41 @@ function AI(id) end
 	defer ai.close()
 
 	assertLuaGlobalString(t, ai.state, "matched", "1.56")
+}
+
+func TestCompanionAILegacyTableForLoopUsesPairs(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "AI", "USER_AI"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := strings.Join([]string{
+		"LegacyList = {10, 20, 30}",
+		"legacy_count = 0",
+		"legacy_total = 0",
+		"for i,v in LegacyList do",
+		"\tlegacy_count = legacy_count + 1",
+		"\tlegacy_total = legacy_total + v",
+		"end",
+		"function AI(id) end",
+	}, "\r\n")
+	if err := os.WriteFile(filepath.Join(root, "AI", "USER_AI", "AI.lua"), []byte(script), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := res.NewManager(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := client.Context{Resources: manager, Session: session.New()}
+	ctx.Session.HomunculusCustomAI = true
+
+	ai, err := newCompanionAI(ctx, NewWorldMode(), companionAIHomunculus, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ai.close()
+
+	assertLuaGlobalNumber(t, ai.state, "legacy_count", 3)
+	assertLuaGlobalNumber(t, ai.state, "legacy_total", 60)
 }
 
 func TestCompanionAIReloadsWhenCustomToggleChanges(t *testing.T) {
