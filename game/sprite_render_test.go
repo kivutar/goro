@@ -497,6 +497,43 @@ func TestPlayerSpriteCompositionIncludesHeadWithWeapon(t *testing.T) {
 	t.Logf("head bounds=(%.1f,%.1f)-(%.1f,%.1f) point=(%d,%d) attach=(%d,%d) layer=%+v", minX, minY, maxX, maxY, pointX, pointY, dx, dy, layer)
 }
 
+func TestMercenaryHumanoidSpriteCompositionRealWhenConfigured(t *testing.T) {
+	manager := realDataManager(t)
+	cases := []struct {
+		name   string
+		job    int
+		sex    byte
+		death  int
+		attack int
+	}{
+		{name: "archer", job: 6017, sex: 1, death: spriteActionNonPCDeath, attack: spriteActionPCAttack1},
+		{name: "lancer", job: 6027, sex: 0, death: spriteActionPCDeath, attack: spriteActionPCAttack1},
+		{name: "sword", job: 6037, sex: 0, death: spriteActionPCDeath, attack: spriteActionPCAttack1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			view, status := loadMercenaryHumanoidSpriteView(manager, humanoidAppearance{job: tc.job, head: 1, sex: tc.sex}, "mercenary")
+			if view == nil {
+				t.Skipf("mercenary sprite unavailable: %s", status)
+			}
+			if view.body == nil || view.head == nil {
+				t.Fatalf("mercenary view body=%t head=%t status=%s", view.body != nil, view.head != nil, status)
+			}
+			for _, action := range []int{tc.attack, spriteActionPCHurt, tc.death} {
+				if _, _, ok := resolveSpriteAction(view.body.act, action, 0); !ok {
+					t.Fatalf("missing body action=%d status=%s", action, status)
+				}
+			}
+			if _, ok := humanoidBillboardForState(view, spriteState{actionFamily: tc.attack, direction: 0}, time.Now()); !ok {
+				t.Fatalf("attack billboard unavailable status=%s", status)
+			}
+			if _, ok := humanoidBillboardForState(view, spriteState{actionFamily: tc.death, direction: 0}, time.Now()); !ok {
+				t.Fatalf("death billboard unavailable action=%d status=%s", tc.death, status)
+			}
+		})
+	}
+}
+
 func TestComposeSingleSpriteBillboardUsesAnimationBounds(t *testing.T) {
 	view := &spriteView{
 		spr: &res.SPR{

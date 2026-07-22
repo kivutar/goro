@@ -1,9 +1,11 @@
 package game
 
 import (
+	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
@@ -96,6 +98,49 @@ func currentMercenaryID(ctx client.Context) uint32 {
 		return ctx.Session.Mercenary.ID
 	}
 	return findCompanionActorID(ctx, actorObjectTypeMercenary)
+}
+
+func actorIsMercenary(actor worldstate.Actor) bool {
+	return actor.HasObjectType && actor.ObjectType == actorObjectTypeMercenary
+}
+
+func mercenarySpriteKeyForActor(actor worldstate.Actor) actorSpriteKey {
+	return actorSpriteKey{
+		job:         int(actor.Job),
+		head:        int(actor.Head),
+		sex:         mercenarySexForJob(int(actor.Job), actor.Sex),
+		bodyPalette: int(actor.BodyPal),
+		headPalette: int(actor.HeadPal),
+		weapon:      int(actor.Weapon),
+		shield:      int(actor.Shield),
+		headTop:     int(actor.HeadTop),
+		headMid:     int(actor.HeadMid),
+		headLow:     int(actor.HeadLow),
+	}
+}
+
+func mercenarySexForJob(job int, fallback byte) byte {
+	if resource, ok := db.MonsterResourceName[job]; ok {
+		normalized := strings.ReplaceAll(resource, "/", "\\")
+		switch {
+		case strings.HasPrefix(normalized, "남\\"):
+			return 1
+		case strings.HasPrefix(normalized, "여\\"):
+			return 0
+		}
+	}
+	switch {
+	case job >= 6017 && job <= 6026:
+		return 0
+	case job >= 6027 && job <= 6046:
+		return 1
+	default:
+		return fallback
+	}
+}
+
+func mercenaryUsesArcherActions(job int16) bool {
+	return job >= 6017 && job <= 6026
 }
 
 func (m *WorldMode) clearDeletedMercenary(ctx client.Context) {

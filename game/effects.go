@@ -1657,7 +1657,8 @@ func (s skillActionSpec) actionFamilyForActor(actor worldstate.Actor) int {
 	if s.action == skillActorActionNone {
 		return -1
 	}
-	if !res.HasPlayerJobToken(int(actor.Job)) {
+	mercenary := actorIsMercenary(actor)
+	if !res.HasPlayerJobToken(int(actor.Job)) && !mercenary {
 		return spriteActionNonPCAttack
 	}
 	switch s.action {
@@ -1674,6 +1675,9 @@ func (s skillActionSpec) actionFamilyForActor(actor worldstate.Actor) int {
 	case skillActorActionPickup:
 		return spriteActionPickup
 	case skillActorActionReadyFight:
+		if mercenary {
+			return spriteActionPCSkill
+		}
 		return spriteActionPCReadyFight
 	default:
 		return spriteActionPCSkill

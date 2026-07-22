@@ -1097,6 +1097,9 @@ func actorCastBarY(baseY, scale float64) float64 {
 
 func (m *WorldMode) drawActorSprite3D(screen *render.Frame, ctx client.Context, projection sceneProjection, entry sceneActorDrawEntry, cameraYaw float64, shadow float64) bool {
 	actor := entry.actor
+	if actorIsMercenary(actor) {
+		return m.drawMercenarySprite3D(screen, ctx, projection, entry, cameraYaw, shadow)
+	}
 	if !res.HasPlayerJobToken(int(actor.Job)) {
 		return m.drawNonPCSprite3D(screen, ctx, projection, entry, cameraYaw, shadow)
 	}
@@ -1157,6 +1160,71 @@ func (m *WorldMode) drawActorSprite3D(screen *render.Frame, ctx client.Context, 
 	}
 	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), 1, shadow, m.actorRenderTint(actor, now))
 	return true
+}
+
+func (m *WorldMode) drawMercenarySprite3D(screen *render.Frame, ctx client.Context, projection sceneProjection, entry sceneActorDrawEntry, cameraYaw float64, shadow float64) bool {
+	actor := entry.actor
+	view := m.mercenaryHumanoidSpriteView(ctx, actor)
+	if view == nil {
+		return false
+	}
+	now := time.Now()
+	state := spriteState{
+		actionFamily: spriteActionIdle,
+		direction:    actor.Dir,
+		headDir:      actor.HeadDir,
+		headTurn:     true,
+		cameraYaw:    cameraYaw,
+		moving:       actorIsMovingAt(actor, now),
+		moveSpeedMS:  actor.Speed,
+	}
+	if state.moving {
+		state.actionFamily = spriteActionWalk
+		state.loop = true
+		state.walkDistance = actorRenderWalkDistance(actor, now)
+	} else if actor.Sitting {
+		state.actionFamily = spriteActionSit
+	}
+	if anim, ok := m.actorAnimation(actor.ID, now); ok {
+		applyActorAnimationToSpriteState(&state, anim, true)
+	}
+	if !isDeathActionFamily(state.actionFamily) {
+		applyActorBodyState(actor, &state)
+	}
+	billboard, ok := humanoidBillboardForState(view, state, now)
+	if !ok {
+		return false
+	}
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorDeathAlpha(actor.ID, now), shadow, m.actorRenderTint(actor, now))
+	return true
+}
+
+func (m *WorldMode) mercenaryHumanoidSpriteView(ctx client.Context, actor worldstate.Actor) *humanoidSpriteView {
+	key := mercenarySpriteKeyForActor(actor)
+	if _, ok := m.mercenaryViewMiss[key]; ok {
+		return nil
+	}
+	if m.mercenaryViews == nil {
+		m.mercenaryViews = make(map[actorSpriteKey]*humanoidSpriteView)
+	}
+	if view, ok := m.mercenaryViews[key]; ok {
+		return view
+	}
+	if ctx.Resources == nil {
+		return nil
+	}
+	loaded, status := loadMercenaryHumanoidSpriteView(ctx.Resources, humanoidAppearance(key), "mercenary")
+	if loaded == nil {
+		if m.mercenaryViewMiss == nil {
+			m.mercenaryViewMiss = make(map[actorSpriteKey]struct{})
+		}
+		m.mercenaryViewMiss[key] = struct{}{}
+		glog.Warnf("mercenary sprite unavailable id=%d job=%d head=%d sex=%d: %s", actor.ID, key.job, key.head, key.sex, status)
+		return nil
+	}
+	m.mercenaryViews[key] = loaded
+	glog.Debugf("mercenary sprite resources id=%d job=%d head=%d sex=%d %s", actor.ID, key.job, key.head, key.sex, status)
+	return loaded
 }
 
 func (m *WorldMode) drawNonPCSprite3D(screen *render.Frame, ctx client.Context, projection sceneProjection, entry sceneActorDrawEntry, cameraYaw float64, shadow float64) bool {

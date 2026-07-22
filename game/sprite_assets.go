@@ -122,6 +122,40 @@ func loadHumanoidSpriteViewWithAppearance(manager *res.Manager, appearance human
 	return view, status
 }
 
+func loadMercenaryHumanoidSpriteView(manager *res.Manager, appearance humanoidAppearance, label string) (*humanoidSpriteView, string) {
+	appearance.sex = mercenarySexForJob(appearance.job, appearance.sex)
+	body, bodyStatus := loadNonPCSpriteView(manager, appearance.job, label+" body")
+	if body == nil {
+		return nil, bodyStatus
+	}
+	headView, headStatus := loadHeadSpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headPalette, label+" head")
+	accessoryBottom, accessoryBottomStatus := loadAccessorySpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headLow, "", label+" accessory-bottom")
+	accessoryMid, accessoryMidStatus := loadAccessorySpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headMid, "", label+" accessory-mid")
+	accessoryTop, accessoryTopStatus := loadAccessorySpriteView(manager, appearance.job, appearance.head, appearance.sex, appearance.headTop, "", label+" accessory-top")
+	weapon, weaponStatus := loadWeaponOverlaySpriteView(manager, appearance.job, appearance.sex, appearance.weapon, false, label+" weapon")
+	weaponLight, weaponLightStatus := loadWeaponOverlaySpriteView(manager, appearance.job, appearance.sex, appearance.weapon, true, label+" weapon-light")
+	shield, shieldStatus := loadShieldOverlaySpriteView(manager, appearance.job, appearance.sex, appearance.shield, label+" shield")
+	view := &humanoidSpriteView{
+		body:            body,
+		head:            headView,
+		accessoryBottom: accessoryBottom,
+		accessoryMid:    accessoryMid,
+		accessoryTop:    accessoryTop,
+		weapon:          weapon,
+		weaponLight:     weaponLight,
+		shield:          shield,
+		billboards:      make(map[humanoidBillboardKey]*spriteBillboard),
+		started:         time.Now(),
+	}
+	status := bodyStatus + " " + headStatus
+	for _, overlayStatus := range []string{accessoryBottomStatus, accessoryMidStatus, accessoryTopStatus, weaponStatus, weaponLightStatus, shieldStatus} {
+		if overlayStatus != "" {
+			status += " " + overlayStatus
+		}
+	}
+	return view, status
+}
+
 func loadBodySpriteView(manager *res.Manager, job int, sex byte, palette int, label string) (*spriteView, string) {
 	return loadSpriteView(manager, res.PlayerBodyResourceCandidates(job, sex, "act"), res.PlayerBodyResourceCandidates(job, sex, "spr"), res.PlayerBodyPaletteResourceCandidates(job, sex, palette, "pal"), label)
 }

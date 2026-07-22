@@ -91,6 +91,9 @@ func (m *WorldMode) humanoidSpriteViewForActor(ctx client.Context, actor world.A
 	if isLocalActor(ctx, actor.ID) {
 		return m.playerView
 	}
+	if actorIsMercenary(actor) {
+		return m.mercenaryHumanoidSpriteView(ctx, actor)
+	}
 	weapon, shield := res.NormalizePlayerWeaponShield(int(actor.Weapon), int(actor.Shield))
 	key := actorSpriteKey{
 		job:         int(actor.Job),
@@ -117,7 +120,7 @@ func (m *WorldMode) nonPCResolvedAction(ctx client.Context, actor world.Actor, a
 }
 
 func (m *WorldMode) actorResolvedAction(ctx client.Context, actor world.Actor, actionFamily int) (res.ACTAction, bool) {
-	if res.HasPlayerJobToken(int(actor.Job)) {
+	if res.HasPlayerJobToken(int(actor.Job)) || actorIsMercenary(actor) {
 		view := m.humanoidSpriteViewForActor(ctx, actor)
 		if view == nil || view.body == nil {
 			return res.ACTAction{}, false
@@ -148,7 +151,7 @@ func (m *WorldMode) nonPCActionACT(ctx client.Context, actor world.Actor) *res.A
 }
 
 func (m *WorldMode) actorActionACT(ctx client.Context, actor world.Actor) *res.ACT {
-	if res.HasPlayerJobToken(int(actor.Job)) {
+	if res.HasPlayerJobToken(int(actor.Job)) || actorIsMercenary(actor) {
 		view := m.humanoidSpriteViewForActor(ctx, actor)
 		if view == nil || view.body == nil {
 			return nil
@@ -1156,6 +1159,9 @@ func (m *WorldMode) actorAnimation(id uint32, now time.Time) (actorAnimation, bo
 }
 
 func attackActionFamilyForActor(actor world.Actor) int {
+	if actorIsMercenary(actor) {
+		return spriteActionPCAttack1
+	}
 	if res.HasPlayerJobToken(int(actor.Job)) {
 		weapon, _ := res.NormalizePlayerWeaponShield(int(actor.Weapon), int(actor.Shield))
 		switch db.PlayerWeaponAction(int(actor.Job), actor.Sex, weapon) {
@@ -1178,6 +1184,9 @@ func skillActionFamilyForActor(actor world.Actor, skillID uint16) int {
 }
 
 func skillCastActionFamilyForActor(actor world.Actor, skillID uint16) int {
+	if actorIsMercenary(actor) {
+		return spriteActionPCSkill
+	}
 	if !res.HasPlayerJobToken(int(actor.Job)) {
 		return spriteActionNonPCAttack
 	}
@@ -1192,6 +1201,9 @@ func skillTargetUsesHitReaction(action network.ActorActionNotify, sourceLocal, t
 }
 
 func hurtActionFamilyForActor(actor world.Actor) int {
+	if actorIsMercenary(actor) {
+		return spriteActionPCHurt
+	}
 	if res.HasPlayerJobToken(int(actor.Job)) {
 		return spriteActionPCHurt
 	}
@@ -1199,6 +1211,12 @@ func hurtActionFamilyForActor(actor world.Actor) int {
 }
 
 func deathActionFamilyForActor(actor world.Actor) int {
+	if actorIsMercenary(actor) {
+		if mercenaryUsesArcherActions(actor.Job) {
+			return spriteActionNonPCDeath
+		}
+		return spriteActionPCDeath
+	}
 	if res.HasPlayerJobToken(int(actor.Job)) {
 		return spriteActionPCDeath
 	}

@@ -109,3 +109,43 @@ func TestPendingMercenaryDeleteVanishClearsSession(t *testing.T) {
 		t.Fatal("mercenary AI response message remained after delete")
 	}
 }
+
+func TestMercenaryActionFamiliesFollowRobrowserMapping(t *testing.T) {
+	archer := worldstate.Actor{Job: 6017, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+	sword := worldstate.Actor{Job: 6037, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+	mob := worldstate.Actor{Job: 1002, HasObjectType: true, ObjectType: actorObjectTypeMob}
+
+	if got := attackActionFamilyForActor(archer); got != spriteActionPCAttack1 {
+		t.Fatalf("archer mercenary attack action = %d, want %d", got, spriteActionPCAttack1)
+	}
+	if got := hurtActionFamilyForActor(archer); got != spriteActionPCHurt {
+		t.Fatalf("archer mercenary hurt action = %d, want %d", got, spriteActionPCHurt)
+	}
+	if got := deathActionFamilyForActor(archer); got != spriteActionNonPCDeath {
+		t.Fatalf("archer mercenary death action = %d, want %d", got, spriteActionNonPCDeath)
+	}
+	if got := deathActionFamilyForActor(sword); got != spriteActionPCDeath {
+		t.Fatalf("sword mercenary death action = %d, want %d", got, spriteActionPCDeath)
+	}
+	if got := skillCastActionFamilyForActor(sword, 0); got != spriteActionPCSkill {
+		t.Fatalf("sword mercenary cast action = %d, want %d", got, spriteActionPCSkill)
+	}
+	if got := readyFightSkillActionSpec.actionFamilyForActor(sword); got != spriteActionPCSkill {
+		t.Fatalf("sword mercenary readyfight skill action = %d, want %d", got, spriteActionPCSkill)
+	}
+	if got := attackActionFamilyForActor(mob); got != spriteActionNonPCAttack {
+		t.Fatalf("mob attack action = %d, want %d", got, spriteActionNonPCAttack)
+	}
+}
+
+func TestMercenarySpriteKeyDerivesSexFromMercenaryResource(t *testing.T) {
+	archer := worldstate.Actor{Job: 6017, Sex: 1, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+	sword := worldstate.Actor{Job: 6037, Sex: 0, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
+
+	if got := mercenarySpriteKeyForActor(archer).sex; got != 0 {
+		t.Fatalf("archer mercenary sex = %d, want female resource sex 0", got)
+	}
+	if got := mercenarySpriteKeyForActor(sword).sex; got != 1 {
+		t.Fatalf("sword mercenary sex = %d, want male resource sex 1", got)
+	}
+}
