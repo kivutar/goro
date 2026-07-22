@@ -478,8 +478,8 @@ func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.Ac
 	if sourceOK {
 		if actionDef, ok := m.actorResolvedAction(ctx, source, attackFamily); ok {
 			hitDelay = combatHitDelayFromAction(actionDef, attackDuration)
-			if sound := actionSoundName(m.actorActionACT(ctx, source), actionDef, firstActionSoundMotion(actionDef)); sound != "" {
-				m.scheduleSound(now.Add(hitDelay), sound)
+			if sounds := actionSFXCandidatesForActor(source, m.actorActionACT(ctx, source), actionDef, firstActionSoundMotion(actionDef)); len(sounds) > 0 {
+				m.scheduleSound(now.Add(hitDelay), sounds...)
 			}
 		}
 	}

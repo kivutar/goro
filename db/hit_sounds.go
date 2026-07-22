@@ -7,6 +7,13 @@ func WeaponHitSounds(weaponType int) []string {
 	return weaponHitSoundTable[MaxWeaponType]
 }
 
+func WeaponAttackSounds(weaponType int) []string {
+	if sounds, ok := weaponAttackSoundTable[weaponType]; ok {
+		return sounds
+	}
+	return weaponAttackSoundTable[MaxWeaponType]
+}
+
 func JobHitSounds(job int) []string {
 	if sounds, ok := jobHitSoundTable[job]; ok {
 		return sounds
@@ -47,6 +54,41 @@ var weaponHitSoundTable = map[int][]string{
 	29:                 {"_hit_sword.wav"},
 	30:                 {"_hit_sword.wav"},
 	MaxWeaponType:      {"_hit_mace.wav"},
+}
+
+var weaponAttackSoundTable = map[int][]string{
+	WeaponNone:                 {"attack_fist.wav"},
+	WeaponShortsword:           {"attack_short_sword.wav", "attack_short_sword_.wav"},
+	WeaponSword:                {"attack_sword.wav"},
+	WeaponTwoHandSword:         {"attack_twohand_sword.wav"},
+	WeaponSpear:                {"attack_spear.wav"},
+	WeaponTwoHandSpear:         {"attack_spear.wav"},
+	WeaponAxe:                  {"attack_axe.wav"},
+	WeaponTwoHandAxe:           {"attack_axe.wav"},
+	WeaponMace:                 {"attack_mace.wav"},
+	WeaponTwoHandMace:          {"attack_mace.wav"},
+	WeaponRod:                  {"attack_rod.wav"},
+	WeaponBow:                  {"attack_bow1.wav", "attack_bow2.wav"},
+	WeaponKnuckle:              {"attack_fist.wav"},
+	WeaponInstrument:           {"attack_mace.wav"},
+	WeaponWhip:                 {"attack_whip.wav"},
+	WeaponBook:                 {"attack_book.wav"},
+	WeaponKatar:                {"attack_katar.wav"},
+	WeaponGunHandgun:           nil,
+	WeaponGunRifle:             nil,
+	WeaponGunGatling:           nil,
+	WeaponGunShotgun:           nil,
+	WeaponGunGrenade:           nil,
+	WeaponShuriken:             {"attack_sword.wav"},
+	WeaponTwoHandRod:           {"attack_rod.wav"},
+	24:                         {"attack_fist.wav"},
+	WeaponShortswordShortsword: {"attack_mace.wav"},
+	WeaponSwordSword:           {"attack_mace.wav"},
+	WeaponAxeAxe:               {"attack_mace.wav"},
+	WeaponShortswordSword:      {"attack_mace.wav"},
+	WeaponShortswordAxe:        {"attack_mace.wav"},
+	WeaponSwordAxe:             {"attack_mace.wav"},
+	MaxWeaponType:              {"attack_fist.wav"},
 }
 
 var jobHitSoundTable = map[int][]string{}

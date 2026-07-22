@@ -9728,6 +9728,21 @@ func humanoidTimingView(actionFamily int, frames int) *humanoidSpriteView {
 	return &humanoidSpriteView{body: &spriteView{act: &res.ACT{Actions: actions}}}
 }
 
+func humanoidSoundView(actionFamily int, frames int, soundMotion int, sounds []string) *humanoidSpriteView {
+	actions := make([]res.ACTAction, actionFamily*8+8)
+	for dir := 0; dir < 8; dir++ {
+		animations := make([]res.ACTAnimation, frames)
+		for i := range animations {
+			animations[i].Sound = -1
+		}
+		if soundMotion >= 0 && soundMotion < len(animations) {
+			animations[soundMotion].Sound = 0
+		}
+		actions[actionFamily*8+dir] = res.ACTAction{DelayMS: 150, Animations: animations}
+	}
+	return &humanoidSpriteView{body: &spriteView{act: &res.ACT{Actions: actions, Sounds: sounds}}}
+}
+
 func TestActionSoundNameResolvesACTSound(t *testing.T) {
 	act := &res.ACT{Sounds: []string{"attack.wav"}}
 	action := res.ACTAction{Animations: []res.ACTAnimation{{Sound: -1}, {Sound: 0}}}
@@ -9741,6 +9756,54 @@ func TestActionSoundNameIgnoresAttackMarker(t *testing.T) {
 	action := res.ACTAction{Animations: []res.ACTAnimation{{Sound: 0}}}
 	if got := actionSoundName(act, action, 0); got != "" {
 		t.Fatalf("sound = %q, want empty marker", got)
+	}
+}
+
+func TestMercenaryAttackSchedulesWeaponSwingAndHitSounds(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 8, Y: 20, Dir: 4}
+	mercenary := worldstate.Actor{
+		ID:            400,
+		X:             10,
+		Y:             20,
+		Job:           6037,
+		ObjectType:    actorObjectTypeMercenary,
+		HasObjectType: true,
+	}
+	world.UpsertActor(mercenary)
+	world.UpsertActor(worldstate.Actor{
+		ID:            300,
+		X:             11,
+		Y:             20,
+		Job:           1002,
+		ObjectType:    actorObjectTypeMob,
+		HasObjectType: true,
+	})
+	actionFamily := attackActionFamilyForActor(mercenary)
+	mode := &WorldMode{
+		mercenaryViews: map[actorSpriteKey]*humanoidSpriteView{
+			mercenarySpriteKeyForActor(mercenary): humanoidSoundView(actionFamily, 2, 1, []string{"atk"}),
+		},
+	}
+	ctx := client.Context{Session: &session.Session{AccountID: 2000000, CharID: 150000}, World: world}
+
+	mode.applyActorActionNotify(ctx, network.ActorActionNotify{
+		SourceID:    400,
+		TargetID:    300,
+		SourceSpeed: 800,
+		TargetSpeed: 480,
+		Damage:      42,
+		Action:      0,
+	})
+
+	if len(mode.scheduledSounds) != 2 {
+		t.Fatalf("scheduled sounds = %+v, want swing and hit sounds", mode.scheduledSounds)
+	}
+	if got := mode.scheduledSounds[0].paths; len(got) != 1 || got[0] != "attack_sword.wav" {
+		t.Fatalf("swing sound = %+v", mode.scheduledSounds[0])
+	}
+	if got := mode.scheduledSounds[1].paths; len(got) != 1 || got[0] != "_hit_sword.wav" {
+		t.Fatalf("hit sound = %+v", mode.scheduledSounds[1])
 	}
 }
 

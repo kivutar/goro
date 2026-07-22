@@ -191,12 +191,48 @@ func actionSoundName(act *res.ACT, action res.ACTAction, motion int) string {
 	return sound
 }
 
+func actionSFXCandidatesForActor(actor worldstate.Actor, act *res.ACT, action res.ACTAction, motion int) []string {
+	if act == nil || motion < 0 || motion >= len(action.Animations) {
+		return nil
+	}
+	soundIndex := action.Animations[motion].Sound
+	if soundIndex < 0 || soundIndex >= len(act.Sounds) {
+		return nil
+	}
+	sound := strings.TrimSpace(act.Sounds[soundIndex])
+	if strings.EqualFold(sound, "atk") {
+		return weaponAttackSFXCandidates(actor)
+	}
+	if sound == "" {
+		return nil
+	}
+	return []string{sound}
+}
+
+func weaponAttackSFXCandidates(actor worldstate.Actor) []string {
+	if !actorUsesWeaponSounds(actor) {
+		return nil
+	}
+	return db.WeaponAttackSounds(db.PlayerWeaponType(actorWeaponForSounds(actor)))
+}
+
 func combatHitSFXCandidates(source worldstate.Actor, sourceOK bool, target worldstate.Actor, targetOK bool) []string {
 	if targetOK && res.HasPlayerJobToken(int(target.Job)) {
 		return db.JobHitSounds(int(target.Job))
 	}
-	if sourceOK && res.HasPlayerJobToken(int(source.Job)) {
-		return db.WeaponHitSounds(db.PlayerWeaponType(int(source.Weapon)))
+	if sourceOK && actorUsesWeaponSounds(source) {
+		return db.WeaponHitSounds(db.PlayerWeaponType(actorWeaponForSounds(source)))
 	}
 	return nil
+}
+
+func actorUsesWeaponSounds(actor worldstate.Actor) bool {
+	return res.HasPlayerJobToken(int(actor.Job)) || actorIsMercenary(actor)
+}
+
+func actorWeaponForSounds(actor worldstate.Actor) int {
+	if actorIsMercenary(actor) {
+		return mercenaryWeaponForAppearance(int(actor.Job), int(actor.Weapon))
+	}
+	return int(actor.Weapon)
 }
