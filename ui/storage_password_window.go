@@ -165,7 +165,7 @@ func (w *StoragePasswordWindow) footer(ctx Context) []widget.Widget {
 
 func (w *StoragePasswordWindow) fieldRow(label string, field *textfield.Widget) widget.Widget {
 	return primitives.HBox(
-		primitives.Box(rotheme.SectionLabel(label)).
+		primitives.Box(rotheme.Label(label)).
 			Width(storagePasswordLabelW).
 			Height(storagePasswordFieldH),
 		primitives.Expanded(

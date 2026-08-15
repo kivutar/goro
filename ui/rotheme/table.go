@@ -80,7 +80,11 @@ func (w *tableWidget) Draw(_ widget.Context, canvas widget.Canvas) {
 			rect := geometry.NewRect(x, y, cell.Width, w.rowHeight)
 			canvas.DrawRect(rect, bg)
 			textRect := geometry.NewRect(rect.Min.X+w.cellPadX, rect.Min.Y, rect.Width()-2*w.cellPadX, rect.Height())
-			DrawText(canvas, cell.Text, textRect, Default.Typography.TextSize, Default.Colors.Text, false, cell.Align)
+			if cell.Head {
+				DrawLabel(canvas, cell.Text, textRect, cell.Align)
+			} else {
+				DrawText(canvas, cell.Text, textRect, Default.Typography.TextSize, Default.Colors.Text, false, cell.Align)
+			}
 			x += cell.Width + w.gap
 		}
 	}
