@@ -144,7 +144,7 @@ func (w *StatsWindow) statRowsWidget(ctx Context) widget.Widget {
 		row := row
 		children = append(children,
 			primitives.HBox(
-				statsTextCell(row.label, statsPrimaryLabelWidth, rotheme.Default.Colors.Text).
+				statsLabelCell(row.label, statsPrimaryLabelWidth).
 					Height(statsRowH).
 					Background(rotheme.Default.Colors.ButtonHover),
 				statsTextCell(formatStatValue(row.value, row.bonus), statsPrimaryValueWidth, rotheme.Default.Colors.Text),
@@ -176,8 +176,16 @@ func (w *StatsWindow) requestStatIncrease(ctx Context, row statRow) {
 }
 
 func statsTextCell(text string, width float32, color widget.Color) *primitives.BoxWidget {
+	return statsWidgetCell(rotheme.Text(text).Color(color), width)
+}
+
+func statsLabelCell(text string, width float32) *primitives.BoxWidget {
+	return statsWidgetCell(rotheme.Label(text), width)
+}
+
+func statsWidgetCell(content widget.Widget, width float32) *primitives.BoxWidget {
 	return primitives.HBox(
-		rotheme.Text(text).Color(color),
+		content,
 	).
 		Width(width).
 		PaddingXY(rotheme.TableCellPadX, 0).

@@ -1,6 +1,10 @@
 package rotheme
 
-import "github.com/gogpu/ui/primitives"
+import (
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
+	"github.com/gogpu/ui/widget"
+)
 
 func Text(content string) *primitives.TextWidget {
 	return primitives.Text(content).
@@ -21,4 +25,12 @@ func Label(content string) *primitives.TextWidget {
 		FontSize(Default.Typography.TextSize).
 		Color(Default.Colors.LabelText).
 		Bold()
+}
+
+// DrawLabel renders the semantic label style on a canvas.
+func DrawLabel(canvas widget.Canvas, content string, bounds geometry.Rect, align widget.TextAlign) {
+	if content == "" {
+		return
+	}
+	canvas.DrawText(content, bounds, Default.Typography.TextSize, Default.Colors.LabelText, true, align)
 }
