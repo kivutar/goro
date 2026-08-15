@@ -57,7 +57,7 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 
 func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 	return primitives.Box(
-		rotheme.SectionLabel("Display"),
+		rotheme.Label("Display"),
 
 		rotheme.Checkbox(
 			checkbox.Checked(settingsRuntimeFullscreen(ctx)),
@@ -95,7 +95,7 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 			}),
 		),
 
-		rotheme.SectionLabel("Sound"),
+		rotheme.Label("Sound"),
 
 		primitives.HBox(
 			rotheme.Text("BGM Vol"),
@@ -133,7 +133,7 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 			),
 		).Gap(8),
 
-		rotheme.SectionLabel("Gameplay"),
+		rotheme.Label("Gameplay"),
 
 		rotheme.Checkbox(
 			checkbox.Checked(settingsNoShift(ctx)),
