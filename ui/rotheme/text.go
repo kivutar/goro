@@ -14,7 +14,11 @@ func Title(content string) *primitives.TextWidget {
 		Color(Default.Colors.TitleText)
 }
 
-func SectionLabel(content string) *primitives.TextWidget {
-	return Title(content).
-		FontFamily(Default.Typography.BoldFontFamily)
+func Label(content string) *primitives.TextWidget {
+	// gogpu/ui's built-in family registers regular and bold as distinct weights.
+	// Goro's custom DejaVu faces are registered as separate families.
+	return primitives.Text(content).
+		FontSize(Default.Typography.TextSize).
+		Color(Default.Colors.LabelText).
+		Bold()
 }

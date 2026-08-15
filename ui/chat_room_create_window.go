@@ -94,13 +94,13 @@ func (w *ChatRoomCreateWindow) widgetTree(ctx Context) widget.Widget {
 		Size(chatRoomCreateW, ROWindowTitleHeight+chatRoomCreateContentH+ROWindowFooterHeight),
 		Content(
 			primitives.Box(
-				rotheme.SectionLabel("Title"),
+				rotheme.Label("Title"),
 				primitives.Box(w.titleInput(ctx)).
 					Height(24).
 					CrossAlign(primitives.CrossAxisStretch),
 				primitives.HBox(
 					primitives.Box(
-						rotheme.SectionLabel("Limit"),
+						rotheme.Label("Limit"),
 						primitives.Box(w.limitInput(ctx)).
 							Height(24).
 							CrossAlign(primitives.CrossAxisStretch),
@@ -108,7 +108,7 @@ func (w *ChatRoomCreateWindow) widgetTree(ctx Context) widget.Widget {
 						Width(72).
 						Gap(4),
 					primitives.Box(
-						rotheme.SectionLabel("Type"),
+						rotheme.Label("Type"),
 						primitives.Box(
 							rotheme.Radio(
 								radio.Items(
@@ -126,7 +126,7 @@ func (w *ChatRoomCreateWindow) widgetTree(ctx Context) widget.Widget {
 						Gap(4),
 				).
 					Gap(12),
-				rotheme.SectionLabel("Password"),
+				rotheme.Label("Password"),
 				primitives.Box(w.passwordInput(ctx)).
 					Height(24).
 					CrossAlign(primitives.CrossAxisStretch),

@@ -83,11 +83,11 @@ func (w *PartyCreateWindow) widgetTree(ctx Context) widget.Widget {
 		Size(partyCreateW, ROWindowTitleHeight+partyCreateContentH+ROWindowFooterHeight),
 		Content(
 			primitives.Box(
-				rotheme.SectionLabel("Party Name"),
+				rotheme.Label("Party Name"),
 				primitives.Box(w.nameInput(ctx)).
 					Height(24).
 					CrossAlign(primitives.CrossAxisStretch),
-				rotheme.SectionLabel("Item Pickup"),
+				rotheme.Label("Item Pickup"),
 				rotheme.Radio(
 					radio.Items(
 						radio.ItemDef{Value: "0", Label: "Each Take"},
@@ -98,7 +98,7 @@ func (w *PartyCreateWindow) widgetTree(ctx Context) widget.Widget {
 						w.itemPickup = parsePartySettingUint8(value)
 					}),
 				),
-				rotheme.SectionLabel("Item Sharing"),
+				rotheme.Label("Item Sharing"),
 				rotheme.Radio(
 					radio.Items(
 						radio.ItemDef{Value: "0", Label: "Individual"},
