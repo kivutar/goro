@@ -8,14 +8,14 @@
       name="description"
       content="Loliruri is an open-source Ragnarok Online client recreation, built in pure Go with a modern GPU renderer."
     >
-    <meta property="og:title" content="Loliruri — a modern client for a familiar world">
+    <meta property="og:title" content="Loliruri — A modern open-source RO client.">
     <meta
       property="og:description"
       content="An open-source Ragnarok Online client recreation, built in pure Go."
     >
     <meta property="og:image" content="assets/loliruri-hero.webp">
     <meta property="og:type" content="website">
-    <title>Loliruri — a modern client for a familiar world</title>
+    <title>Loliruri — A modern open-source RO client.</title>
     <link rel="icon" href="assets/icon.png" type="image/png">
     <link rel="stylesheet" href="styles.css">
     <script>document.documentElement.classList.add("js");</script>
@@ -110,12 +110,12 @@
           </article>
           <article class="feature reveal">
             <img class="feature-art" src="assets/features/quve.webp" alt="" width="61" height="81">
-            <h3>Modern renderer</h3>
+            <h3>Modern GPU stack</h3>
             <p>Powered by GoGPU, with Vulkan and Wayland support, high-refresh displays, and a themeable UI.</p>
           </article>
           <article class="feature reveal">
             <img class="feature-art" src="assets/features/hylozoist.webp" alt="" width="54" height="122">
-            <h3>Made to tinker</h3>
+            <h3>For tinkerers</h3>
             <p>Designed from the start as a reusable client foundation that people can study, reshape, and use to build an MMO of their own.</p>
           </article>
         </div>
@@ -124,8 +124,8 @@
       <section class="media-section section" id="media" aria-labelledby="media-title">
         <div class="section-heading section-heading-row reveal">
           <div>
-            <p class="eyebrow"><span></span> See it running</p>
-            <h2 id="media-title">Back in Midgard.</h2>
+            <p class="eyebrow"><span></span> Showcase</p>
+            <h2 id="media-title">Rune-Midgard at modern resolutions.</h2>
           </div>
           <a
             class="text-link"
@@ -150,7 +150,7 @@
               class="gallery-image"
               href="assets/screenshots/mount-mjolnir.webp"
               data-lightbox
-              data-caption="Client systems in Mt. Mjolnir"
+              data-caption="Game windows rebuilt with gogpu/ui"
             >
               <img
                 src="assets/screenshots/mount-mjolnir.webp"
@@ -163,8 +163,10 @@
               <span class="media-expand" aria-hidden="true">↗</span>
             </a>
             <figcaption>
-              <span>Client systems</span>
-              <strong>Everything at your fingertips</strong>
+              <span>Interface</span>
+              <strong>Retained-mode game UI</strong>
+              <p>Every game window is rebuilt as a clean gogpu/ui widget tree, using its retained-mode model and layout system for consistent composition, input, and overlapping windows.</p>
+              <p>We deliberately do not reproduce RO’s skin exactly: the cleaner, consistent theme makes the UI a saner foundation for building entirely different MMORPGs.</p>
             </figcaption>
           </figure>
 
@@ -173,7 +175,7 @@
               class="gallery-image"
               href="assets/screenshots/izlude.webp"
               data-lightbox
-              data-caption="A bright day in Izlude"
+              data-caption="Performance on complex maps"
             >
               <img
                 src="assets/screenshots/izlude.webp"
@@ -186,8 +188,9 @@
               <span class="media-expand" aria-hidden="true">↗</span>
             </a>
             <figcaption>
-              <span>Exploration</span>
-              <strong>A bright day in Izlude</strong>
+              <span>Performance</span>
+              <strong>Fast frames, not just high FPS</strong>
+              <p>GoGPU, profiling, and retained rendering caches keep complex maps fast enough for high-refresh displays. We also track individual slow frames—not only averages—to reduce stalls and keep motion smooth.</p>
             </figcaption>
           </figure>
 
@@ -196,7 +199,7 @@
               class="gallery-image"
               href="assets/screenshots/character-select.webp"
               data-lightbox
-              data-caption="Character selection, rebuilt"
+              data-caption="A 2008 pre-Renewal foundation"
             >
               <img
                 src="assets/screenshots/character-select.webp"
@@ -209,8 +212,10 @@
               <span class="media-expand" aria-hidden="true">↗</span>
             </a>
             <figcaption>
-              <span>Your journey</span>
-              <strong>Character selection, rebuilt</strong>
+              <span>Client eras</span>
+              <strong>Pre-Renewal first</strong>
+              <p>Loliruri focuses first on the 2008 experience, including the interface language used before Renewal. Its client-date-aware foundation is designed to leave room for newer versions later.</p>
+              <p>With enough contributors joining the effort, we would also like to support earlier eras, including the beta and alpha versions.</p>
             </figcaption>
           </figure>
 
@@ -219,7 +224,7 @@
               class="gallery-image"
               href="assets/screenshots/byalan-dungeon.webp"
               data-lightbox
-              data-caption="Combat in Byalan Dungeon"
+              data-caption="Small gameplay details in motion"
             >
               <img
                 src="assets/screenshots/byalan-dungeon.webp"
@@ -232,8 +237,10 @@
               <span class="media-expand" aria-hidden="true">↗</span>
             </a>
             <figcaption>
-              <span>Combat</span>
-              <strong>Into Byalan Dungeon</strong>
+              <span>Gameplay fidelity</span>
+              <strong>Care in the small details</strong>
+              <p>We put care into the details that shape how play feels: reference-matched timing, visual and sound effects, pathfinding behavior, and sprite animation.</p>
+              <p>There are still details to refine, and we need testers to help uncover them across more maps, classes, and servers. The project is on a good path, and we intend to keep improving it.</p>
             </figcaption>
           </figure>
 
@@ -256,7 +263,8 @@
             </a>
             <figcaption>
               <span>Companions</span>
-              <strong>A homunculus at your side</strong>
+              <strong>Lua-powered companion AI</strong>
+              <p>Homunculi and mercenaries support their original Lua AI interfaces, including default and custom USER_AI scripts. We have tested the system with AzzyAI, including its MirAI-compatible behavior.</p>
             </figcaption>
           </figure>
           </div>
@@ -267,7 +275,7 @@
                 class="gallery-image"
                 href="assets/screenshots/niflheim-sanctuary.webp"
                 data-lightbox
-                data-caption="Among the graves in Niflheim"
+                data-caption="Map ambience and visual effects"
               >
                 <img
                   src="assets/screenshots/niflheim-sanctuary.webp"
@@ -280,8 +288,10 @@
                 <span class="media-expand" aria-hidden="true">↗</span>
               </a>
               <figcaption>
-                <span>Niflheim</span>
-                <strong>Among the graves</strong>
+                <span>Visual effects</span>
+                <strong>Rebuilt from the references</strong>
+                <p>We recreate each effect we encounter as faithfully as our references allow—from map ambience, weather, skills, and status feedback to client-side details such as NPC warp portals and the level-99 player aura.</p>
+                <p>Any effect that does not match its reference is considered a bug and will be fixed.</p>
               </figcaption>
             </figure>
 
@@ -290,7 +300,7 @@
                 class="gallery-image"
                 href="assets/screenshots/niflheim-combat.webp"
                 data-lightbox
-                data-caption="Combat in the streets of Niflheim"
+                data-caption="Optional Lua character automation"
               >
                 <img
                   src="assets/screenshots/niflheim-combat.webp"
@@ -303,8 +313,9 @@
                 <span class="media-expand" aria-hidden="true">↗</span>
               </a>
               <figcaption>
-                <span>Combat</span>
-                <strong>Trouble in Niflheim</strong>
+                <span>Automation</span>
+                <strong>Scriptable character control</strong>
+                <p>An optional Lua API exposes player state, enemies, items, attacks, skills, and looting for scriptable character automation. We use it for repeatable in-game testing, while the same hooks can provide auto-hunt behavior when desired.</p>
               </figcaption>
             </figure>
 
@@ -313,7 +324,7 @@
                 class="gallery-image"
                 href="assets/screenshots/payon.webp"
                 data-lightbox
-                data-caption="A quiet stop in Payon"
+                data-caption="Animated map models and 3D NPCs"
               >
                 <img
                   src="assets/screenshots/payon.webp"
@@ -326,8 +337,9 @@
                 <span class="media-expand" aria-hidden="true">↗</span>
               </a>
               <figcaption>
-                <span>Exploration</span>
-                <strong>A quiet stop in Payon</strong>
+                <span>World rendering</span>
+                <strong>Animated maps and 3D NPCs</strong>
+                <p>Map models play their authored keyframe animations, while 3D NPCs use skinned GR2 models with stand, move, attack, damage, and death animations.</p>
               </figcaption>
             </figure>
 

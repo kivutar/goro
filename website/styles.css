@@ -590,12 +590,11 @@ h2 em {
 .gallery-image img {
   width: 100%;
   height: 100%;
-  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 300ms ease;
+  transition: filter 300ms ease;
   object-fit: cover;
 }
 
 .gallery-image:hover img {
-  transform: scale(1.02);
   filter: brightness(1.06);
 }
 
@@ -636,6 +635,13 @@ h2 em {
   font-family: var(--serif);
   font-size: 1.12rem;
   font-weight: 500;
+}
+
+.gallery-card figcaption p {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.7;
 }
 
 .playlist-card {
