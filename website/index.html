@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#17121f">
+    <meta
+      name="description"
+      content="Loliruri is an open-source Ragnarok Online client recreation, built in pure Go with a modern GPU renderer."
+    >
+    <meta property="og:title" content="Loliruri — a modern client for a familiar world">
+    <meta
+      property="og:description"
+      content="An open-source Ragnarok Online client recreation, built in pure Go."
+    >
+    <meta property="og:image" content="assets/loliruri-hero.webp">
+    <meta property="og:type" content="website">
+    <title>Loliruri — a modern client for a familiar world</title>
+    <link rel="icon" href="assets/icon.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+    <script>document.documentElement.classList.add("js");</script>
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <div class="nav-shell">
+        <a class="brand" href="#top" aria-label="Loliruri home">
+          <img src="assets/icon.png" width="32" height="32" alt="">
+          <span>Loliruri</span>
+        </a>
+
+        <nav aria-label="Main navigation">
+          <a href="#about">About</a>
+          <a href="#media">Media</a>
+          <a href="#download">Download</a>
+        </nav>
+
+        <a
+          class="nav-github"
+          href="https://github.com/kivutar/goro"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="View Loliruri on GitHub"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 .7a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2.2c-3.4.7-4.1-1.4-4.1-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.6.1-3.1 0 0 1-.3 3.2 1.2a11.2 11.2 0 0 1 5.8 0C15.4 5 16.4 5.3 16.4 5.3c.6 1.5.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.8 5.4-5.5 5.7.4.4.8 1.1.8 2.2v3.1c0 .4.2.7.8.6A11.5 11.5 0 0 0 12 .7Z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-art" aria-hidden="true"></div>
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p class="eyebrow"><span></span> Open source · Pure Go</p>
+          <h1 id="hero-title">A Classic RO client,<br><em>rebuilt in Go.</em></h1>
+          <p class="hero-copy">
+            Loliruri is an MIT-licensed reimplementation of the pre-renewal
+            Ragnarok Online client, built for private servers, experimentation,
+            and reuse.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" data-primary-download href="#download">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14"/>
+              </svg>
+              <span data-primary-label>Choose your download</span>
+            </a>
+            <a
+              class="button button-ghost"
+              href="https://github.com/kivutar/goro"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Explore the source
+            </a>
+          </div>
+          <p class="hero-note">Free and open source · MIT Licensed</p>
+        </div>
+        <a class="scroll-cue" href="#about" aria-label="Scroll to learn more">
+          <span></span>
+        </a>
+      </section>
+
+      <section class="intro section" id="about" aria-labelledby="about-title">
+        <div class="section-heading reveal">
+          <p class="eyebrow"><span></span> About the project</p>
+          <h2 id="about-title">Old memories,<br><em>modern foundations.</em></h2>
+          <p>
+            Loliruri rebuilds the classic client experience in readable, reusable
+            Go—without carrying over the limitations of the original executable.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature reveal">
+            <img class="feature-art" src="assets/features/deviruchi.webp" alt="" width="42" height="70">
+            <h3>Faithful first</h3>
+            <p>Focused on the pre-renewal 2008 experience, from maps and jobs to combat and social systems.</p>
+          </article>
+          <article class="feature reveal">
+            <img class="feature-art" src="assets/features/lude.webp" alt="" width="68" height="82">
+            <h3>Pure Go</h3>
+            <p>Built without CGO for straightforward cross-compilation and compact, self-contained releases.</p>
+          </article>
+          <article class="feature reveal">
+            <img class="feature-art" src="assets/features/quve.webp" alt="" width="61" height="81">
+            <h3>Modern renderer</h3>
+            <p>Powered by GoGPU, with Vulkan and Wayland support, high-refresh displays, and a themeable UI.</p>
+          </article>
+          <article class="feature reveal">
+            <img class="feature-art" src="assets/features/hylozoist.webp" alt="" width="54" height="122">
+            <h3>Made to tinker</h3>
+            <p>Designed from the start as a reusable client foundation that people can study, reshape, and use to build an MMO of their own.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="media-section section" id="media" aria-labelledby="media-title">
+        <div class="section-heading section-heading-row reveal">
+          <div>
+            <p class="eyebrow"><span></span> See it running</p>
+            <h2 id="media-title">Back in Midgard.</h2>
+          </div>
+          <a
+            class="text-link"
+            href="https://www.youtube.com/watch?v=LRD5zkninWE&amp;list=PLQhSdCGUOBwc"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Watch the full playlist <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <div
+          class="gallery-pages"
+          data-gallery
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Gameplay screenshots"
+        >
+          <div class="gallery-grid gallery-page" data-gallery-page>
+          <figure class="gallery-card gallery-feature gallery-slide is-active is-visible reveal">
+            <a
+              class="gallery-image"
+              href="assets/screenshots/mount-mjolnir.webp"
+              data-lightbox
+              data-caption="Client systems in Mt. Mjolnir"
+            >
+              <img
+                src="assets/screenshots/mount-mjolnir.webp"
+                alt="Loliruri in Mt. Mjolnir with status, skill tree, equipment, settings, inventory, chat, and minimap windows open"
+                loading="lazy"
+                decoding="async"
+                width="1600"
+                height="1066"
+              >
+              <span class="media-expand" aria-hidden="true">↗</span>
+            </a>
+            <figcaption>
+              <span>Client systems</span>
+              <strong>Everything at your fingertips</strong>
+            </figcaption>
+          </figure>
+
+          <figure class="gallery-card gallery-side gallery-slide reveal">
+            <a
+              class="gallery-image"
+              href="assets/screenshots/izlude.webp"
+              data-lightbox
+              data-caption="A bright day in Izlude"
+            >
+              <img
+                src="assets/screenshots/izlude.webp"
+                alt="Loliruri standing in the bright cobbled town square of Izlude"
+                loading="lazy"
+                decoding="async"
+                width="1600"
+                height="1067"
+              >
+              <span class="media-expand" aria-hidden="true">↗</span>
+            </a>
+            <figcaption>
+              <span>Exploration</span>
+              <strong>A bright day in Izlude</strong>
+            </figcaption>
+          </figure>
+
+          <figure class="gallery-card gallery-side gallery-slide reveal">
+            <a
+              class="gallery-image"
+              href="assets/screenshots/character-select.webp"
+              data-lightbox
+              data-caption="Character selection, rebuilt"
+            >
+              <img
+                src="assets/screenshots/character-select.webp"
+                alt="Loliruri character selection screen showing a knight and two additional characters"
+                loading="lazy"
+                decoding="async"
+                width="1600"
+                height="1067"
+              >
+              <span class="media-expand" aria-hidden="true">↗</span>
+            </a>
+            <figcaption>
+              <span>Your journey</span>
+              <strong>Character selection, rebuilt</strong>
+            </figcaption>
+          </figure>
+
+          <figure class="gallery-card gallery-half gallery-slide reveal">
+            <a
+              class="gallery-image"
+              href="assets/screenshots/byalan-dungeon.webp"
+              data-lightbox
+              data-caption="Combat in Byalan Dungeon"
+            >
+              <img
+                src="assets/screenshots/byalan-dungeon.webp"
+                alt="Loliruri fighting a monster in the purple-lit caverns of Byalan Dungeon"
+                loading="lazy"
+                decoding="async"
+                width="1600"
+                height="1067"
+              >
+              <span class="media-expand" aria-hidden="true">↗</span>
+            </a>
+            <figcaption>
+              <span>Combat</span>
+              <strong>Into Byalan Dungeon</strong>
+            </figcaption>
+          </figure>
+
+          <figure class="gallery-card gallery-half gallery-slide reveal">
+            <a
+              class="gallery-image"
+              href="assets/screenshots/ant-hell-homunculus.webp"
+              data-lightbox
+              data-caption="A homunculus companion in Ant Hell"
+            >
+              <img
+                src="assets/screenshots/ant-hell-homunculus.webp"
+                alt="Loliruri and a homunculus companion exploring Ant Hell with the companion status window open"
+                loading="lazy"
+                decoding="async"
+                width="1600"
+                height="1067"
+              >
+              <span class="media-expand" aria-hidden="true">↗</span>
+            </a>
+            <figcaption>
+              <span>Companions</span>
+              <strong>A homunculus at your side</strong>
+            </figcaption>
+          </figure>
+          </div>
+
+          <div class="gallery-grid gallery-page" data-gallery-page>
+            <figure class="gallery-card gallery-half gallery-slide reveal">
+              <a
+                class="gallery-image"
+                href="assets/screenshots/niflheim-sanctuary.webp"
+                data-lightbox
+                data-caption="Among the graves in Niflheim"
+              >
+                <img
+                  src="assets/screenshots/niflheim-sanctuary.webp"
+                  alt="Loliruri standing among graves and candlelight inside a Niflheim building"
+                  loading="lazy"
+                  decoding="async"
+                  width="1600"
+                  height="1067"
+                >
+                <span class="media-expand" aria-hidden="true">↗</span>
+              </a>
+              <figcaption>
+                <span>Niflheim</span>
+                <strong>Among the graves</strong>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card gallery-half gallery-slide reveal">
+              <a
+                class="gallery-image"
+                href="assets/screenshots/niflheim-combat.webp"
+                data-lightbox
+                data-caption="Combat in the streets of Niflheim"
+              >
+                <img
+                  src="assets/screenshots/niflheim-combat.webp"
+                  alt="Loliruri riding through Niflheim while taking damage"
+                  loading="lazy"
+                  decoding="async"
+                  width="1600"
+                  height="1067"
+                >
+                <span class="media-expand" aria-hidden="true">↗</span>
+              </a>
+              <figcaption>
+                <span>Combat</span>
+                <strong>Trouble in Niflheim</strong>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card gallery-half gallery-slide reveal">
+              <a
+                class="gallery-image"
+                href="assets/screenshots/payon.webp"
+                data-lightbox
+                data-caption="A quiet stop in Payon"
+              >
+                <img
+                  src="assets/screenshots/payon.webp"
+                  alt="A mounted knight standing by the market and mill in Payon"
+                  loading="lazy"
+                  decoding="async"
+                  width="1600"
+                  height="1067"
+                >
+                <span class="media-expand" aria-hidden="true">↗</span>
+              </a>
+              <figcaption>
+                <span>Exploration</span>
+                <strong>A quiet stop in Payon</strong>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card gallery-half gallery-slide reveal">
+              <a
+                class="gallery-image"
+                href="assets/screenshots/geffen-dialogue.webp"
+                data-lightbox
+                data-caption="Dialogue and party systems in Geffen"
+              >
+                <img
+                  src="assets/screenshots/geffen-dialogue.webp"
+                  alt="Loliruri speaking to Nia in Geffen with dialogue choices and the party window open"
+                  loading="lazy"
+                  decoding="async"
+                  width="1600"
+                  height="1067"
+                >
+                <span class="media-expand" aria-hidden="true">↗</span>
+              </a>
+              <figcaption>
+                <span>World systems</span>
+                <strong>Conversations in Geffen</strong>
+              </figcaption>
+            </figure>
+          </div>
+
+          <nav class="gallery-pager" aria-label="Screenshot pages">
+            <button type="button" data-gallery-previous>
+              <span aria-hidden="true">←</span> Previous
+            </button>
+            <p aria-live="polite"><span data-gallery-current>1</span> / <span data-gallery-total>9</span></p>
+            <button type="button" data-gallery-next>
+              Next <span aria-hidden="true">→</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="playlist-card reveal">
+          <div class="playlist-copy">
+            <p class="eyebrow"><span></span> Gameplay playlist</p>
+            <h3>See every step<br>of the rebuild.</h3>
+            <p>Maps, combat, effects, UI, and all the small details that bring the world back to life.</p>
+            <a
+              class="text-link"
+              href="https://www.youtube.com/watch?v=LRD5zkninWE&amp;list=PLQhSdCGUOBwc"
+              target="_blank"
+              rel="noreferrer"
+            >Watch on YouTube <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="video-frame">
+            <iframe
+              src="https://www.youtube-nocookie.com/embed/LRD5zkninWE?list=PLQhSdCGUOBwc&amp;rel=0"
+              title="Loliruri gameplay playlist"
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allowfullscreen
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
+      <dialog class="lightbox" data-lightbox-dialog aria-label="Screenshot preview">
+        <div class="lightbox-shell">
+          <button type="button" class="lightbox-close" data-lightbox-close aria-label="Close screenshot preview">×</button>
+          <figure>
+            <img data-lightbox-image src="" alt="">
+            <figcaption>
+              <span>Screenshot</span>
+              <strong data-lightbox-caption></strong>
+            </figcaption>
+          </figure>
+        </div>
+      </dialog>
+
+      <section class="download-section section" id="download" aria-labelledby="download-title">
+        <div class="download-glow" aria-hidden="true"></div>
+        <div class="section-heading section-heading-centered reveal">
+          <p class="eyebrow"><span></span> Latest stable release</p>
+          <h2 id="download-title">Downloads.</h2>
+          <p>Standalone builds are available for Windows, macOS, and Linux.</p>
+        </div>
+
+        <div class="download-grid">
+          <article class="download-card reveal" data-platform-card="windows">
+            <div class="platform-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m3 5 8-1.1v7.6H3V5Zm9.2-1.3L21 2.5v9h-8.8V3.7ZM3 12.7h8v7.5L3 19.1v-6.4Zm9.2 0H21v8.8l-8.8-1.2v-7.6Z"/></svg>
+            </div>
+            <div>
+              <h3>Windows</h3>
+              <p>Windows 10 or later</p>
+            </div>
+            <div class="download-options">
+              <a href="https://github.com/kivutar/goro/releases/latest/download/goro-windows-x86_64.exe">x86_64 <span>↓</span></a>
+              <a href="https://github.com/kivutar/goro/releases/latest/download/goro-windows-arm64.exe">ARM64 <span>↓</span></a>
+            </div>
+          </article>
+
+          <article class="download-card reveal" data-platform-card="macos">
+            <div class="platform-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M17.1 12.5c0-2.8 2.3-4.1 2.4-4.2a5 5 0 0 0-4-2.2c-1.7-.2-3.3 1-4.2 1-.9 0-2.2-1-3.7-1A5.5 5.5 0 0 0 3 8.9c-2 3.5-.5 8.7 1.4 11.5 1 1.4 2.1 3 3.6 2.9 1.4 0 2-1 3.7-1s2.2 1 3.7 1c1.6 0 2.6-1.4 3.5-2.8a12.6 12.6 0 0 0 1.6-3.4 4.8 4.8 0 0 1-3.4-4.6ZM14.4 4.3A4.8 4.8 0 0 0 15.5.8a5 5 0 0 0-3.3 1.7A4.5 4.5 0 0 0 11 5.9a4.1 4.1 0 0 0 3.4-1.6Z"/></svg>
+            </div>
+            <div>
+              <h3>macOS</h3>
+              <p>Apple Silicon or Intel</p>
+            </div>
+            <div class="download-options">
+              <a href="https://github.com/kivutar/goro/releases/latest/download/goro-osx-arm64">Apple Silicon <span>↓</span></a>
+              <a href="https://github.com/kivutar/goro/releases/latest/download/goro-osx-x86_64">Intel <span>↓</span></a>
+            </div>
+          </article>
+
+          <article class="download-card reveal" data-platform-card="linux">
+            <div class="platform-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2.2c-3.5 0-4.2 2.5-4 5.2.1 1-.3 2.2-1 3.2-1 1.5-2.1 3.2-2.2 5.2 0 1.3.4 2.4 1.3 2.6.8.2 1.6-.3 2.4-1.1.8 1 2 1.6 3.5 1.6s2.7-.6 3.5-1.6c.8.8 1.6 1.3 2.4 1.1.9-.2 1.3-1.3 1.3-2.6 0-2-1.1-3.7-2.2-5.2-.7-1-1.1-2.1-1-3.2.2-2.7-.5-5.2-4-5.2Zm-1.4 3.4c.5 0 .9.5.9 1.1 0 .7-.4 1.2-.9 1.2s-.9-.5-.9-1.2c0-.6.4-1.1.9-1.1Zm2.8 0c.5 0 .9.5.9 1.1 0 .7-.4 1.2-.9 1.2s-.9-.5-.9-1.2c0-.6.4-1.1.9-1.1Zm-1.4 3c.8 0 1.5.4 1.5.9s-.7.9-1.5.9-1.5-.4-1.5-.9.7-.9 1.5-.9Zm-3 6.1c.7.5 1.7.7 3 .7s2.3-.2 3-.7c-.2 1.6-1.3 2.8-3 2.8s-2.8-1.2-3-2.8Z"/></svg>
+            </div>
+            <div>
+              <h3>Linux</h3>
+              <p>Vulkan or GLES</p>
+            </div>
+            <div class="download-options">
+              <a href="https://github.com/kivutar/goro/releases/latest/download/goro-linux-x86_64">x86_64 <span>↓</span></a>
+              <a href="https://github.com/kivutar/goro/releases/latest/download/goro-linux-arm64">ARM64 <span>↓</span></a>
+            </div>
+          </article>
+        </div>
+
+        <div class="download-footnote reveal">
+          <p>
+            Loliruri does not ship copyrighted game data. You’ll need a legally
+            obtained Ragnarok Online data directory to play.
+          </p>
+          <a
+            href="https://github.com/kivutar/goro/blob/main/docs/client-setup.md"
+            target="_blank"
+            rel="noreferrer"
+          >Setup guide <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
+      <section class="contribute-section section" aria-labelledby="contribute-title">
+        <div class="contribute-card reveal">
+          <div>
+            <p class="eyebrow"><span></span> Build it with us</p>
+            <h2 id="contribute-title">Join the<br>preservation effort.</h2>
+          </div>
+          <div class="contribute-copy">
+            <p>
+              Explore the code, report a bug, or help recreate another corner of
+              Midgard. Every contribution moves the client forward.
+            </p>
+            <a
+              class="button button-primary"
+              href="https://github.com/kivutar/goro"
+              target="_blank"
+              rel="noreferrer"
+            >Contribute on GitHub <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-main">
+        <a class="brand footer-brand" href="#top">
+          <img src="assets/icon.png" width="32" height="32" alt="">
+          <span>Loliruri</span>
+        </a>
+        <p>A modern open-source RO client.</p>
+        <div class="footer-links">
+          <a href="https://github.com/kivutar/goro" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/kivutar/goro/issues" target="_blank" rel="noreferrer">Issues</a>
+          <a href="https://github.com/kivutar/goro/releases" target="_blank" rel="noreferrer">Releases</a>
+        </div>
+      </div>
+      <div class="footer-legal">
+        <p>© <span data-year>2026</span> Loliruri contributors. Project source released under the MIT License.</p>
+        <p>Ragnarok Online and its game imagery belong to their respective rights holders. This fan project is not affiliated with or endorsed by Gravity.</p>
+      </div>
+    </footer>
+  </body>
+</html>
