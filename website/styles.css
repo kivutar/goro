@@ -161,8 +161,10 @@ nav a:hover,
 
 .hero {
   position: relative;
+  overflow: hidden;
   min-height: 760px;
   height: 100svh;
+  background: #191722;
   isolation: isolate;
 }
 
@@ -174,9 +176,13 @@ nav a:hover,
 
 .hero-art {
   z-index: -3;
-  background-image: url("assets/loliruri-hero.webp");
+  background-image: url("assets/loliruri-hero-outpaint.webp");
   background-position: center;
+  background-repeat: no-repeat;
   background-size: cover;
+  transform: translateY(64px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 36px, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 36px, #000 100%);
 }
 
 .hero-shade {
