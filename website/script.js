@@ -81,8 +81,8 @@ if (lightbox && lightboxImage && lightboxCaption && typeof lightbox.showModal ==
 
       const preview = link.querySelector("img");
       lightboxImage.src = link.href;
-      lightboxImage.alt = preview?.alt || "Loliruri gameplay screenshot";
-      lightboxCaption.textContent = link.dataset.caption || "Loliruri in game";
+      lightboxImage.alt = preview?.alt || "Goro gameplay screenshot";
+      lightboxCaption.textContent = link.dataset.caption || "Goro in game";
       lightbox.showModal();
     });
   });

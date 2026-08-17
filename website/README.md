@@ -1,4 +1,4 @@
-# Loliruri website
+# Goro website
 
 This directory contains the dependency-free static project website.
 
