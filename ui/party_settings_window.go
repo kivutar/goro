@@ -59,7 +59,7 @@ func (w *PartySettingsWindow) widgetTree(ctx Context) widget.Widget {
 		Size(partySettingsW, ROWindowTitleHeight+partySettingsContent+ROWindowFooterHeight),
 		Content(
 			primitives.Box(
-				rotheme.SectionLabel("EXP"),
+				rotheme.Label("EXP"),
 				rotheme.Radio(
 					radio.Items(
 						radio.ItemDef{Value: "0", Label: "Each Take"},

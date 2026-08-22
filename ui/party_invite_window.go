@@ -72,7 +72,7 @@ func (w *PartyInviteWindow) widgetTree(ctx Context) widget.Widget {
 		Size(partyInviteW, ROWindowTitleHeight+partyInviteContentH+ROWindowFooterHeight),
 		Content(
 			primitives.Box(
-				rotheme.SectionLabel("Player Name"),
+				rotheme.Label("Player Name"),
 				primitives.Box(w.nameInput(ctx)).
 					Height(24).
 					CrossAlign(primitives.CrossAxisStretch),

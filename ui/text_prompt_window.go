@@ -86,7 +86,7 @@ func (w *TextPromptWindow) widgetTree(ctx Context) widget.Widget {
 		Size(textPromptW, ROWindowTitleHeight+textPromptContentH+ROWindowFooterHeight),
 		Content(
 			primitives.Box(
-				rotheme.SectionLabel(w.label),
+				rotheme.Label(w.label),
 				primitives.Box(w.input(ctx)).
 					Height(24).
 					CrossAlign(primitives.CrossAxisStretch),
@@ -96,10 +96,10 @@ func (w *TextPromptWindow) widgetTree(ctx Context) widget.Widget {
 		),
 		Footer(
 			primitives.Expanded(primitives.Box()),
-				rotheme.Button("OK", func() {
-					w.submit(ctx)
-				}),
-				rotheme.Button("Cancel", w.Close),
+			rotheme.Button("OK", func() {
+				w.submit(ctx)
+			}),
+			rotheme.Button("Cancel", w.Close),
 		),
 	)
 }

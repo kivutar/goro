@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/session"
 	"github.com/kivutar/goro/ui/rotheme"
@@ -112,6 +113,18 @@ func TestStatsPrimaryRowsUseTableRhythm(t *testing.T) {
 		wantY := float32(i) * (statsRowH + statsRowGap)
 		if bounds.Min.Y != wantY {
 			t.Fatalf("primary row %d y = %.1f, want %.1f", i, bounds.Min.Y, wantY)
+		}
+		rowChildren := child.Children()
+		if len(rowChildren) == 0 || len(rowChildren[0].Children()) != 1 {
+			t.Fatalf("primary row %d label cell is missing", i)
+		}
+		label, ok := rowChildren[0].Children()[0].(*primitives.TextWidget)
+		if !ok {
+			t.Fatalf("primary row %d label = %T, want text", i, rowChildren[0].Children()[0])
+		}
+		style := label.Style()
+		if style.Color != rotheme.Default.Colors.LabelText || !style.Bold || style.FontFamily != "" {
+			t.Fatalf("primary row %d label does not use semantic label style", i)
 		}
 	}
 }

@@ -120,9 +120,11 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 			primitives.Box(
 				primitives.HBox(
 					primitives.Box(
-						rotheme.Text("Account").
+						rotheme.Label("Account").
+							Align(widget.TextAlignRight).
 							LineHeight(fieldH/rotheme.Default.Typography.TextSize),
 					).
+						CrossAlign(primitives.CrossAxisStretch).
 						Width(labelW).
 						Height(fieldH),
 					primitives.Box(user).
@@ -133,9 +135,11 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 					Gap(12),
 				primitives.HBox(
 					primitives.Box(
-						rotheme.Text("Password").
+						rotheme.Label("Password").
+							Align(widget.TextAlignRight).
 							LineHeight(fieldH/rotheme.Default.Typography.TextSize),
 					).
+						CrossAlign(primitives.CrossAxisStretch).
 						Width(labelW).
 						Height(fieldH),
 					primitives.Box(password).
