@@ -162,6 +162,33 @@ func TestParseNotifyChat(t *testing.T) {
 	}
 }
 
+func TestParseBroadcastAnnouncements(t *testing.T) {
+	legacy := []byte{0x9a, 0x00, 0x0c, 0x00, 's', 's', 's', 's', 'W', 'o', 'E', 0}
+	chat, ok, err := ParseChatMessage(Packet{ID: PacketZCBroadcast, Data: legacy})
+	if !ok || err != nil || !chat.Announcement || !chat.HasColor || chat.Text != "WoE" || chat.Color != 0x0000FFFF {
+		t.Fatalf("legacy broadcast ok=%t err=%v chat=%+v", ok, err, chat)
+	}
+	legacy = []byte{0x9a, 0x00, 0x0d, 0x00, 'b', 'l', 'u', 'e', 'I', 'n', 'f', 'o', 0}
+	chat, ok, err = ParseChatMessage(Packet{ID: PacketZCBroadcast, Data: legacy})
+	if !ok || err != nil || chat.Text != "Info" || chat.Color != 0x00FFFF00 {
+		t.Fatalf("blue broadcast ok=%t err=%v chat=%+v", ok, err, chat)
+	}
+
+	formatted := make([]byte, 16+8)
+	binary.LittleEndian.PutUint16(formatted[0:2], PacketZCBroadcast2)
+	binary.LittleEndian.PutUint16(formatted[2:4], uint16(len(formatted)))
+	binary.LittleEndian.PutUint32(formatted[4:8], 0x00112233)
+	binary.LittleEndian.PutUint16(formatted[8:10], 1)
+	binary.LittleEndian.PutUint16(formatted[10:12], 14)
+	binary.LittleEndian.PutUint16(formatted[12:14], 2)
+	binary.LittleEndian.PutUint16(formatted[14:16], 50)
+	copy(formatted[16:], "Castle\x00")
+	chat, ok, err = ParseChatMessage(Packet{ID: PacketZCBroadcast2, Data: formatted})
+	if !ok || err != nil || !chat.Announcement || chat.Text != "Castle" || chat.Color != 0x00332211 || chat.FontType != 1 || chat.FontSize != 14 || chat.FontAlign != 2 || chat.FontY != 50 {
+		t.Fatalf("formatted broadcast ok=%t err=%v chat=%+v", ok, err, chat)
+	}
+}
+
 func TestParseWhisperMessage(t *testing.T) {
 	data := make([]byte, 4+24+6)
 	binary.LittleEndian.PutUint16(data[0:2], PacketZCWhisper)

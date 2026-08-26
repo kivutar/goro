@@ -59,3 +59,16 @@ func TestDamageFloaterProgressUsesAnimationDuration(t *testing.T) {
 		t.Fatalf("progress = %.3f, want 0.500", got)
 	}
 }
+
+func TestSiegeHidesCombatDamageButKeepsMissAndRecovery(t *testing.T) {
+	for _, kind := range []damageFloaterKind{damageFloaterNormal, damageFloaterCritical, damageFloaterIncoming, damageFloaterCombo} {
+		if !damageFloaterHiddenInSiege(kind) {
+			t.Fatalf("combat floater %d remained visible in siege", kind)
+		}
+	}
+	for _, kind := range []damageFloaterKind{damageFloaterMiss, damageFloaterRecoveryHP, damageFloaterRecoverySP} {
+		if damageFloaterHiddenInSiege(kind) {
+			t.Fatalf("non-combat floater %d was hidden in siege", kind)
+		}
+	}
+}

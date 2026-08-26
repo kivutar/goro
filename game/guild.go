@@ -27,6 +27,118 @@ func guildCanInvitePlayer(s *session.Session, targetGuildID uint32) bool {
 	return guildID != 0 && s.Guild.Right&guildPermissionInvite != 0
 }
 
+func guildCanManageRelations(s *session.Session, targetGuildID uint32) bool {
+	if s == nil || !s.Guild.IsMaster || targetGuildID == 0 {
+		return false
+	}
+	guildID := s.Guild.ID
+	if guildID == 0 {
+		guildID = s.GuildID
+	}
+	return guildID != 0 && guildID != targetGuildID
+}
+
+func (m *WorldMode) sendGuildAllianceRequest(ctx client.Context, actorID uint32, name string) {
+	if actorID == 0 || ctx.Session == nil || ctx.Network == nil {
+		m.ui.console.AddErrorMessage("Guild alliance request failed: not connected.")
+		return
+	}
+	if err := ctx.Network.SendGuildAllianceRequest(actorID, ctx.Session.AccountID, ctx.Session.CharID); err != nil {
+		glog.Warnf("guild alliance request failed target=%d name=%q: %v", actorID, name, err)
+		m.ui.console.AddErrorMessage("Guild alliance request failed.")
+		return
+	}
+	m.ui.console.AddSystemMessage("Alliance request sent to %s's guild.", guildDisplayName(name))
+}
+
+func (m *WorldMode) sendGuildHostilityRequest(ctx client.Context, actorID uint32, name string) {
+	if actorID == 0 || ctx.Network == nil {
+		m.ui.console.AddErrorMessage("Declare hostility failed: not connected.")
+		return
+	}
+	if err := ctx.Network.SendGuildHostilityRequest(actorID); err != nil {
+		glog.Warnf("declare guild hostility failed target=%d name=%q: %v", actorID, name, err)
+		m.ui.console.AddErrorMessage("Declare hostility failed.")
+		return
+	}
+	m.ui.console.AddSystemMessage("Hostility request sent to %s's guild.", guildDisplayName(name))
+}
+
+func (m *WorldMode) openGuildAllianceRequest(ctx client.Context, request network.GuildAllianceRequest) {
+	name := guildDisplayName(request.GuildName)
+	m.ui.guildAllianceRequest.Open(ctx, "Guild Alliance", fmt.Sprintf("Accept an alliance with %s?", name), func() {
+		if ctx.Network == nil {
+			m.ui.console.AddErrorMessage("Guild alliance reply failed: not connected.")
+			return
+		}
+		if err := ctx.Network.SendGuildAllianceReply(request.AccountID, true); err != nil {
+			glog.Warnf("guild alliance accept failed account=%d guild=%q: %v", request.AccountID, request.GuildName, err)
+		}
+	}, func() {
+		if ctx.Network == nil {
+			return
+		}
+		if err := ctx.Network.SendGuildAllianceReply(request.AccountID, false); err != nil {
+			glog.Warnf("guild alliance reject failed account=%d guild=%q: %v", request.AccountID, request.GuildName, err)
+		}
+	})
+}
+
+func (m *WorldMode) handleGuildAllianceResult(result network.GuildAllianceResult) {
+	switch result.Result {
+	case 0:
+		m.ui.console.AddErrorMessage("The guilds are already allied.")
+	case 1:
+		m.ui.console.AddErrorMessage("The alliance request was rejected.")
+	case 2:
+		m.ui.console.AddBlueMessage("The guild alliance was established.")
+	case 3:
+		m.ui.console.AddErrorMessage("The other guild cannot accept more alliances.")
+	case 4:
+		m.ui.console.AddErrorMessage("Your guild cannot accept more alliances.")
+	case 5:
+		m.ui.console.AddErrorMessage("Guild alliances are disabled.")
+	default:
+		m.ui.console.AddErrorMessage("Guild alliance request failed.")
+	}
+}
+
+func (m *WorldMode) handleGuildHostilityResult(result network.GuildHostilityResult) {
+	switch result.Result {
+	case 0:
+		m.ui.console.AddBlueMessage("The guild has been declared hostile.")
+	case 1:
+		m.ui.console.AddErrorMessage("Your guild cannot declare more hostilities.")
+	case 2:
+		m.ui.console.AddErrorMessage("That guild is already hostile.")
+	case 3:
+		m.ui.console.AddErrorMessage("Guild hostility is disabled.")
+	default:
+		m.ui.console.AddErrorMessage("Declare hostility failed.")
+	}
+}
+
+func (m *WorldMode) openDeleteGuildRelationConfirm(ctx client.Context, relation session.GuildRelation) {
+	if ctx.Session == nil || !ctx.Session.Guild.IsMaster || relation.GuildID == 0 {
+		return
+	}
+	kind := "alliance"
+	if relation.Relation == session.GuildRelationOpposition {
+		kind = "hostility"
+	}
+	name := guildDisplayName(relation.Name)
+	m.ui.guildRelationConfirm.Open(ctx, "Guild Relations", fmt.Sprintf("End the %s with %s?", kind, name), func() {
+		if ctx.Network == nil {
+			m.ui.console.AddErrorMessage("Guild relation update failed: not connected.")
+			return
+		}
+		if err := ctx.Network.SendDeleteGuildRelation(relation.GuildID, relation.Relation); err != nil {
+			glog.Warnf("delete guild relation failed guild=%d relation=%d name=%q: %v", relation.GuildID, relation.Relation, relation.Name, err)
+			m.ui.console.AddErrorMessage("Guild relation update failed.")
+		}
+	}, nil)
+}
+
 func (m *WorldMode) sendGuildInvite(ctx client.Context, actorID uint32, name string) {
 	name = strings.TrimSpace(name)
 	if actorID == 0 {
@@ -363,6 +475,7 @@ func applyLocalGuildDetails(ctx client.Context, info network.GuildInfo) {
 		expelHistory := ctx.Session.Guild.ExpelHistory
 		noticeSubject := ctx.Session.Guild.NoticeSubject
 		notice := ctx.Session.Guild.Notice
+		relations := ctx.Session.Guild.Relations
 		ctx.Session.Guild = session.Guild{
 			ID:               info.GuildID,
 			IsMaster:         isMaster,
@@ -388,6 +501,7 @@ func applyLocalGuildDetails(ctx client.Context, info network.GuildInfo) {
 			ExpelHistory:     expelHistory,
 			NoticeSubject:    noticeSubject,
 			Notice:           notice,
+			Relations:        relations,
 		}
 	}
 }
@@ -404,7 +518,7 @@ func applyLocalGuildMembers(ctx client.Context, members []network.GuildMember) {
 		}
 		ctx.Session.Guild.Members = append(ctx.Session.Guild.Members, sessionGuildMemberFromNetwork(member))
 	}
-	ctx.Session.Guild.UserNum = uint32(len(members))
+	ctx.Session.Guild.UserNum = online
 	glog.Debugf("guild member list received members=%d online=%d", len(members), online)
 }
 
@@ -416,13 +530,100 @@ func applyLocalGuildMember(ctx client.Context, member network.GuildMember) {
 	for i := range ctx.Session.Guild.Members {
 		if ctx.Session.Guild.Members[i].AccountID == sessionMember.AccountID && ctx.Session.Guild.Members[i].CharID == sessionMember.CharID {
 			ctx.Session.Guild.Members[i] = sessionMember
+			recountGuildOnlineMembers(&ctx.Session.Guild)
 			glog.Debugf("guild member updated account=%d char=%d position=%d", sessionMember.AccountID, sessionMember.CharID, sessionMember.PositionID)
 			return
 		}
 	}
 	ctx.Session.Guild.Members = append(ctx.Session.Guild.Members, sessionMember)
-	ctx.Session.Guild.UserNum = uint32(len(ctx.Session.Guild.Members))
+	recountGuildOnlineMembers(&ctx.Session.Guild)
 	glog.Debugf("guild member added account=%d char=%d position=%d", sessionMember.AccountID, sessionMember.CharID, sessionMember.PositionID)
+}
+
+func applyLocalGuildRelations(ctx client.Context, relations []network.GuildRelation) {
+	if ctx.Session == nil {
+		return
+	}
+	ctx.Session.Guild.Relations = make([]session.GuildRelation, 0, len(relations))
+	for _, relation := range relations {
+		ctx.Session.Guild.Relations = append(ctx.Session.Guild.Relations, session.GuildRelation{
+			Relation: relation.Relation,
+			GuildID:  relation.GuildID,
+			Name:     strings.TrimSpace(relation.Name),
+		})
+	}
+}
+
+func applyLocalGuildRelation(ctx client.Context, relation network.GuildRelation) {
+	if ctx.Session == nil || relation.GuildID == 0 {
+		return
+	}
+	for i := range ctx.Session.Guild.Relations {
+		current := &ctx.Session.Guild.Relations[i]
+		if current.GuildID == relation.GuildID && current.Relation == relation.Relation {
+			current.Name = strings.TrimSpace(relation.Name)
+			return
+		}
+	}
+	ctx.Session.Guild.Relations = append(ctx.Session.Guild.Relations, session.GuildRelation{
+		Relation: relation.Relation,
+		GuildID:  relation.GuildID,
+		Name:     strings.TrimSpace(relation.Name),
+	})
+}
+
+func applyLocalGuildRelationDeleted(ctx client.Context, deleted network.GuildRelationDeleted) {
+	if ctx.Session == nil {
+		return
+	}
+	relations := ctx.Session.Guild.Relations
+	for i := range relations {
+		if relations[i].GuildID != deleted.GuildID || relations[i].Relation != deleted.Relation {
+			continue
+		}
+		copy(relations[i:], relations[i+1:])
+		ctx.Session.Guild.Relations = relations[:len(relations)-1]
+		return
+	}
+}
+
+func applyLocalGuildMemberState(ctx client.Context, state network.GuildMemberState) bool {
+	if ctx.Session == nil {
+		return false
+	}
+	for i := range ctx.Session.Guild.Members {
+		member := &ctx.Session.Guild.Members[i]
+		if member.AccountID != state.AccountID || member.CharID != state.CharID {
+			continue
+		}
+		changed := member.CurrentState != state.State
+		member.CurrentState = state.State
+		if state.HasAppearance {
+			changed = changed || member.Sex != state.Sex || member.HeadType != state.HeadType || member.HeadPalette != state.HeadPalette
+			member.Sex = state.Sex
+			member.HeadType = state.HeadType
+			member.HeadPalette = state.HeadPalette
+		}
+		if !changed {
+			return false
+		}
+		recountGuildOnlineMembers(&ctx.Session.Guild)
+		return true
+	}
+	return false
+}
+
+func recountGuildOnlineMembers(guild *session.Guild) {
+	if guild == nil {
+		return
+	}
+	var online uint32
+	for _, member := range guild.Members {
+		if member.Online() {
+			online++
+		}
+	}
+	guild.UserNum = online
 }
 
 func applyLocalGuildMemberPositions(ctx client.Context, positions []network.GuildMemberPosition) {

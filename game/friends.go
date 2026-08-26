@@ -2,14 +2,15 @@ package game
 
 import (
 	"fmt"
-	"github.com/kivutar/goro/glog"
-	"github.com/kivutar/goro/input"
 	"strings"
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/glog"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
+	gameui "github.com/kivutar/goro/ui"
 )
 
 func (m *WorldMode) openFriendRequest(ctx client.Context, request network.FriendRequest) {
@@ -66,7 +67,15 @@ func (m *WorldMode) openPlayerContextFromInput(ctx client.Context, now time.Time
 	if !ok {
 		return false
 	}
-	m.ui.playerContext.Open(ctx, ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, !friendNameInSession(ctx.Session, actor.Name), partyCanInvite(ctx.Session), guildCanInvitePlayer(ctx.Session, actor.GuildID), canRequestAdoption(ctx.Session, actor))
+	canManageGuildRelations := guildCanManageRelations(ctx.Session, actor.GuildID)
+	m.ui.playerContext.Open(ctx, ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, gameui.PlayerContextOptions{
+		CanAddFriend:       !friendNameInSession(ctx.Session, actor.Name),
+		CanInviteParty:     partyCanInvite(ctx.Session),
+		CanInviteGuild:     guildCanInvitePlayer(ctx.Session, actor.GuildID),
+		CanAdopt:           canRequestAdoption(ctx.Session, actor),
+		CanRequestAlliance: canManageGuildRelations,
+		CanDeclareHostile:  canManageGuildRelations,
+	})
 	return true
 }
 

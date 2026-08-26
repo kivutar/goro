@@ -118,9 +118,13 @@ func skillTargetFlagsForActor(ctx client.Context, actor worldstate.Actor) (uint3
 }
 
 func skillTargetMapStateAllowsMismatch(ctx client.Context, actor worldstate.Actor) bool {
-	return ctx.World != nil &&
-		ctx.World.MapProperty.PlayerCombatEnabled() &&
-		actorRepresentsPlayer(actor)
+	if ctx.World == nil {
+		return false
+	}
+	if actorRepresentsPlayer(actor) {
+		return actorCanBePlayerCombatTarget(ctx, actor)
+	}
+	return ctx.World.MapProperty.IsGvG() && actorCanBeEnemyHomunculus(ctx, actor)
 }
 
 func actorCanOpenPlayerContext(ctx client.Context, actor worldstate.Actor) bool {
@@ -135,9 +139,45 @@ func actorCanBeAttackClicked(ctx client.Context, actor worldstate.Actor) bool {
 		return false
 	}
 	if actorRepresentsPlayer(actor) {
-		return ctx.World != nil && ctx.World.MapProperty.PlayerCombatEnabled()
+		return actorCanBePlayerCombatTarget(ctx, actor)
+	}
+	if actorCanBeEnemyHomunculus(ctx, actor) {
+		return true
 	}
 	return actorHasMobObjectType(actor)
+}
+
+func actorCanBePlayerCombatTarget(ctx client.Context, actor worldstate.Actor) bool {
+	if ctx.World == nil || !actorRepresentsPlayer(actor) || isLocalActor(ctx, actor.ID) {
+		return false
+	}
+	if ctx.World.MapProperty.IsPvP() {
+		return true
+	}
+	if !ctx.World.MapProperty.IsGvG() {
+		return false
+	}
+	return actor.GuildID == 0 || localGuildID(ctx) == 0 || actor.GuildID != localGuildID(ctx)
+}
+
+func actorCanBeEnemyHomunculus(ctx client.Context, actor worldstate.Actor) bool {
+	if ctx.World == nil || !ctx.World.MapProperty.IsGvG() || !actor.HasObjectType || actor.ObjectType != actorObjectTypeHomunculus {
+		return false
+	}
+	if ctx.Session != nil && ctx.Session.Homunculus.ID != 0 && actor.ID == ctx.Session.Homunculus.ID {
+		return false
+	}
+	return actor.GuildID == 0 || localGuildID(ctx) == 0 || actor.GuildID != localGuildID(ctx)
+}
+
+func localGuildID(ctx client.Context) uint32 {
+	if ctx.Session == nil {
+		return 0
+	}
+	if ctx.Session.Guild.ID != 0 {
+		return ctx.Session.Guild.ID
+	}
+	return ctx.Session.GuildID
 }
 
 func actorRepresentsPlayer(actor worldstate.Actor) bool {
@@ -725,6 +765,7 @@ func (m *WorldMode) drawSceneActors(screen *render.Frame, ctx client.Context, pr
 }
 
 func (m *WorldMode) drawSceneActorOverlays(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time, entries []sceneActorDrawEntry) {
+	m.drawSiegeGuildEmblems(screen, ctx, entries)
 	for _, entry := range entries {
 		m.drawActorCastBar(screen, entry, now)
 		m.drawActorLifeBar(screen, ctx, entry)
@@ -739,7 +780,7 @@ func (m *WorldMode) drawSceneActorOverlays(screen *render.Frame, ctx client.Cont
 }
 
 func (m *WorldMode) drawHoveredLocalPlayerNameLabel(screen *render.Frame, ctx client.Context, entries []sceneActorDrawEntry) {
-	if ctx.Input == nil {
+	if ctx.Input == nil || playerNameLabelsHidden(ctx) {
 		return
 	}
 	for _, entry := range entries {
@@ -783,7 +824,7 @@ func (m *WorldMode) collectSceneActorEntries(screen *render.Frame, ctx client.Co
 	}
 	if ctx.Session != nil {
 		if player.GuildID == 0 {
-			player.GuildID = ctx.Session.GuildID
+			player.GuildID = localGuildID(ctx)
 		}
 		if player.EmblemVersion == 0 {
 			player.EmblemVersion = ctx.Session.EmblemVersion
@@ -1125,6 +1166,9 @@ func (m *WorldMode) hoveredActorDisplayName(ctx client.Context, actor worldstate
 }
 
 func (m *WorldMode) hoveredActorDisplayLabels(ctx client.Context, actor worldstate.Actor, now time.Time) []string {
+	if actorRepresentsPlayer(actor) && playerNameLabelsHidden(ctx) {
+		return nil
+	}
 	if isLocalActor(ctx, actor.ID) {
 		return actorDisplayLabels(ctx, actor, true)
 	}
@@ -1148,6 +1192,10 @@ func (m *WorldMode) hoveredActorDisplayLabels(ctx client.Context, actor worldsta
 		return []string{name}
 	}
 	return []string{"Entity"}
+}
+
+func playerNameLabelsHidden(ctx client.Context) bool {
+	return ctx.World != nil && ctx.World.MapProperty.IsSiege()
 }
 
 func actorResourceDisplayName(ctx client.Context, actor worldstate.Actor) string {

@@ -243,6 +243,18 @@ type Guild struct {
 	ExpelHistory     []GuildExpelHistory
 	NoticeSubject    string
 	Notice           string
+	Relations        []GuildRelation
+}
+
+const (
+	GuildRelationAlliance   uint32 = 0
+	GuildRelationOpposition uint32 = 1
+)
+
+type GuildRelation struct {
+	Relation uint32
+	GuildID  uint32
+	Name     string
 }
 
 type GuildMember struct {
@@ -258,6 +270,10 @@ type GuildMember struct {
 	PositionID   uint32
 	Memo         string
 	CharName     string
+}
+
+func (m GuildMember) Online() bool {
+	return m.CurrentState != 0
 }
 
 type GuildPosition struct {

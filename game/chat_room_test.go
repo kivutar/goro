@@ -56,6 +56,32 @@ func TestHandleChatMessageRoutesToOpenChatRoomOnly(t *testing.T) {
 	}
 }
 
+func TestHandleAnnouncementBypassesOpenChatRoom(t *testing.T) {
+	mode := &WorldMode{}
+	ctx := client.Context{UIManager: &worldModeTestUIManager{}}
+	mode.ui.chatRoom.Open(ctx, "Room", 20, true, []string{"Kivutar"})
+	now := time.Now()
+	mode.handleChatMessage(ctx, network.ChatMessage{
+		Text:         "The Emperium has been destroyed.",
+		Color:        0x0000FFFF,
+		HasColor:     true,
+		Announcement: true,
+		FontType:     700,
+		FontSize:     20,
+	}, now)
+
+	if lines := chatRoomLineTexts(t, mode); len(lines) != 0 {
+		t.Fatalf("announcement entered chat-room transcript: %q", lines)
+	}
+	if !mode.ui.announcement.Visible(now) {
+		t.Fatal("announcement overlay was not shown")
+	}
+	messages := mode.ui.console.Messages()
+	if len(messages) != 1 || messages[0].Text != "The Emperium has been destroyed." {
+		t.Fatalf("console messages = %+v", messages)
+	}
+}
+
 func chatRoomLineTexts(t *testing.T, mode *WorldMode) []string {
 	t.Helper()
 	lines := reflect.ValueOf(&mode.ui.chatRoom).Elem().FieldByName("lines")

@@ -269,6 +269,19 @@ func (m *WorldMode) addChatRoomMessage(ctx client.Context, chat network.ChatMess
 }
 
 func (m *WorldMode) handleChatMessage(ctx client.Context, chat network.ChatMessage, now time.Time) {
+	if chat.Announcement {
+		text := formatConsoleMessage(ctx.Resources, chat)
+		if text == "" {
+			return
+		}
+		m.ui.announcement.Show(text, roClientColor(chat.Color), gameui.AnnouncementStyle{
+			Y:        int(chat.FontY),
+			FontSize: int(chat.FontSize),
+			Bold:     chat.FontType >= 700,
+		}, now)
+		addConsoleMessage(&m.ui.console, ctx.Resources, chat)
+		return
+	}
 	if m.ui.chatRoom.IsOpen() && !chat.HasColor {
 		m.addChatRoomMessage(ctx, chat)
 		return

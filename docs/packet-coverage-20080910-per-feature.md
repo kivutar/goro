@@ -34,11 +34,11 @@
 
   - [x] Create guild/result: 0x0165, 0x0167
   - [x] Invite/reply to guild: 0x0168, 0x0169, 0x016A, 0x016B
-  - [x] Guild info, menu, member/position list state, skills, and ban history: 0x014F, 0x0150, 0x0154, 0x0160, 0x0162, 0x0163, 0x0166, 0x016C, 0x0174, 0x0176, 0x01B6
+  - [x] Guild info, menu, member/position list state, online/location updates, skills, and ban history: 0x014F, 0x0150, 0x0154, 0x0160, 0x0162, 0x0163, 0x0166, 0x016C, 0x016D, 0x0174, 0x0176, 0x01B6, 0x01EB, 0x01F2
   - [x] Guild emblem request/upload/image/change: 0x0151, 0x0152, 0x0153, 0x01B4
   - [x] Change guild member positions and position info: 0x0155, 0x0156, 0x0161
   - [x] Change guild notice: 0x016E
-  - [ ] Guild alliance request/reply/delete/opposition: 0x0170, 0x0172, 0x0180, 0x0183
+  - [x] Guild alliances and opposition, including requests, replies, result/list updates, and deletion: 0x014C, 0x0170-0x0173, 0x0180, 0x0181, 0x0183-0x0185
   - [x] Guild message send: 0x017E
 
   Items / Crafting / Equipment
@@ -59,6 +59,7 @@
 
   - [x] PvP map property and actor ranking: 0x0199, 0x019A
   - [x] PvP info: 0x020F, 0x0210
+  - [x] Legacy WoE/GvG map semantics, targeting, announcements, guild minimap markers, siege emblems, and hidden combat damage: 0x009A, 0x0199, 0x01C3
   - [ ] Blacksmith rank: 0x0217
   - [ ] Alchemist rank: 0x0218
   - [x] Taekwon mission and rank: 0x020E, 0x0224, 0x0225, 0x0226

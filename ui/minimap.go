@@ -32,6 +32,7 @@ var (
 	minimapTextColor   = TextColor
 	minimapMutedColor  = MutedTextColor
 	minimapPlayerColor = color.RGBA{R: 255, G: 232, B: 96, A: 255}
+	minimapGuildColor  = color.RGBA{R: 255, G: 140, B: 26, A: 255}
 )
 
 type Minimap struct {
@@ -55,6 +56,11 @@ type Minimap struct {
 	compass          map[uint8]minimapCompassMarker
 	compassRevision  uint64
 	compassDrawnRev  uint64
+	guild            map[uint32]minimapGuildMarker
+	guildRevision    uint64
+	guildDrawnRev    uint64
+	guildSnapshotRev uint64
+	guildSnapshotBuf []minimapGuildMarker
 	pendingMarker    bool
 	pendingMarkerOld minimapPlayerMarkerState
 }
@@ -73,6 +79,12 @@ type minimapCompassMarker struct {
 	y       int
 	color   color.RGBA
 	expires time.Time
+}
+
+type minimapGuildMarker struct {
+	accountID uint32
+	x         int
+	y         int
 }
 
 type minimapPlayerMarkerState struct {
@@ -102,6 +114,7 @@ func (m *Minimap) Update(ctx Context) bool {
 	compassChanged := false
 	if mapChanged && previousMap != "" {
 		compassChanged = m.clearCompassMarkers()
+		m.clearGuildMarkers()
 	}
 	if m.pruneCompassMarkers(now) {
 		compassChanged = true
@@ -115,11 +128,12 @@ func (m *Minimap) Update(ctx Context) bool {
 	m.widget.arrow = m.playerArrow(ctx.World.Player.Dir)
 	m.widget.now = now
 	m.widget.compassMarkers = m.compassSnapshot()
+	m.widget.guildMarkers = m.guildSnapshot()
 	markerChanged := m.playerMarkerChanged(ctx.World.Player.X, ctx.World.Player.Y, ctx.World.Player.Dir)
 	visualKey := m.currentVisualKey(ctx, now)
 	visualChanged := visualKey != m.visualKey
 	needsPublish := false
-	fullRedraw := mapChanged || visualChanged || compassChanged || m.compassDrawnRev != m.compassRevision || len(m.widget.compassMarkers) > 0
+	fullRedraw := mapChanged || visualChanged || compassChanged || m.compassDrawnRev != m.compassRevision || m.guildDrawnRev != m.guildRevision || len(m.widget.compassMarkers) > 0
 	markerOnly := markerChanged && !fullRedraw
 	drawPendingMarker := m.pendingMarker && !markerChanged
 	needsRedraw := fullRedraw || drawPendingMarker
@@ -139,6 +153,7 @@ func (m *Minimap) Update(ctx Context) bool {
 		m.clearPendingMarker()
 		m.markRedraw(ctx)
 		m.compassDrawnRev = m.compassRevision
+		m.guildDrawnRev = m.guildRevision
 	} else if needsRedraw {
 		if fullRedraw {
 			m.clearPendingMarker()
@@ -148,6 +163,7 @@ func (m *Minimap) Update(ctx Context) bool {
 			m.clearPendingMarker()
 		}
 		m.compassDrawnRev = m.compassRevision
+		m.guildDrawnRev = m.guildRevision
 	}
 	if markerOnly {
 		m.queuePendingMarker(oldMarker)
@@ -304,6 +320,39 @@ func (m *Minimap) ApplyCompass(id uint8, typ, x, y int, rgb uint32, now time.Tim
 	m.markCompassDirty()
 }
 
+// ApplyGuildMemberPosition updates one guild member marker. The server uses
+// negative coordinates to remove a member who left the map or went offline.
+func (m *Minimap) ApplyGuildMemberPosition(accountID uint32, x, y int) {
+	if accountID == 0 {
+		return
+	}
+	if x < 0 || y < 0 {
+		if _, ok := m.guild[accountID]; !ok {
+			return
+		}
+		delete(m.guild, accountID)
+		m.guildRevision++
+		m.markGuildDirty()
+		return
+	}
+	if m.guild == nil {
+		m.guild = make(map[uint32]minimapGuildMarker)
+	}
+	marker := minimapGuildMarker{accountID: accountID, x: x, y: y}
+	if current, ok := m.guild[accountID]; ok && current == marker {
+		return
+	}
+	m.guild[accountID] = marker
+	m.guildRevision++
+	m.markGuildDirty()
+}
+
+func (m *Minimap) markGuildDirty() {
+	if m.widget != nil {
+		m.widget.SetNeedsRedraw(true)
+	}
+}
+
 func (m *Minimap) markCompassDirty() {
 	if m.widget != nil {
 		m.widget.SetNeedsRedraw(true)
@@ -362,6 +411,16 @@ func (m *Minimap) clearCompassMarkers() bool {
 	return true
 }
 
+func (m *Minimap) clearGuildMarkers() bool {
+	if len(m.guild) == 0 {
+		return false
+	}
+	clear(m.guild)
+	m.guildRevision++
+	m.markGuildDirty()
+	return true
+}
+
 func (m *Minimap) pruneCompassMarkers(now time.Time) bool {
 	if len(m.compass) == 0 {
 		return false
@@ -395,12 +454,36 @@ func (m *Minimap) compassSnapshot() []minimapCompassMarker {
 	return markers
 }
 
+func (m *Minimap) guildSnapshot() []minimapGuildMarker {
+	if m.guildSnapshotRev == m.guildRevision {
+		return m.guildSnapshotBuf
+	}
+	if len(m.guild) == 0 {
+		m.guildSnapshotBuf = m.guildSnapshotBuf[:0]
+		m.guildSnapshotRev = m.guildRevision
+		return m.guildSnapshotBuf
+	}
+	markers := m.guildSnapshotBuf[:0]
+	if cap(markers) < len(m.guild) {
+		markers = make([]minimapGuildMarker, 0, len(m.guild))
+	}
+	for _, marker := range m.guild {
+		markers = append(markers, marker)
+	}
+	sort.Slice(markers, func(i, j int) bool {
+		return markers[i].accountID < markers[j].accountID
+	})
+	m.guildSnapshotBuf = markers
+	m.guildSnapshotRev = m.guildRevision
+	return m.guildSnapshotBuf
+}
+
 func (m *Minimap) currentVisualKey(ctx Context, now time.Time) string {
 	if ctx.World == nil {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "map=%s|img=%s|compass=%d", m.mapName, minimapImageStateKey(m.widget.image), m.compassRevision)
+	fmt.Fprintf(&b, "map=%s|img=%s|compass=%d|guild=%d", m.mapName, minimapImageStateKey(m.widget.image), m.compassRevision, m.guildRevision)
 	if len(m.widget.compassMarkers) > 0 {
 		fmt.Fprintf(&b, "|blink=%d", minimapCompassBlinkPhase(now, ctx.Started))
 		for _, marker := range m.widget.compassMarkers {
@@ -475,6 +558,7 @@ type minimapWidget struct {
 	arrow          image.Image
 	now            time.Time
 	compassMarkers []minimapCompassMarker
+	guildMarkers   []minimapGuildMarker
 	dirtyRect      geometry.Rect
 }
 
@@ -504,9 +588,10 @@ func (w *minimapWidget) Draw(_ widget.Context, canvas widget.Canvas) {
 	if w.ctx.World != nil {
 		mapW, mapH := minimapWorldSize(w.ctx.World)
 		if mapW > 0 && mapH > 0 {
+			drawMinimapGuildMarkers(canvas, rect, mapW, mapH, w.ctx, w.guildMarkers)
+			drawMinimapPartyMarkers(canvas, rect, mapW, mapH, w.ctx)
 			drawMinimapPlayerMarker(canvas, rect, mapW, mapH, w.ctx.World.Player.X, w.ctx.World.Player.Y, w.arrow)
 			drawMinimapCompassMarkers(canvas, rect, mapW, mapH, w.compassMarkers, w.now, w.ctx.Started)
-			drawMinimapPartyMarkers(canvas, rect, mapW, mapH, w.ctx)
 		}
 		label := minimapDisplayName(w.ctx.World.MapName)
 		footerY := bounds.Min.Y + bounds.Height() - 19
@@ -643,6 +728,26 @@ func drawMinimapPartyMarkers(canvas widget.Canvas, rect minimapRect, mapW, mapH 
 		}
 		drawMinimapSquareCentered(canvas, x, y, 6, color.RGBA{R: 255, G: 255, B: 255, A: 255})
 		drawMinimapSquareCentered(canvas, x, y, 4, minimapMemberColor(member.AccountID))
+	}
+}
+
+func drawMinimapGuildMarkers(canvas widget.Canvas, rect minimapRect, mapW, mapH int, ctx Context, markers []minimapGuildMarker) {
+	if len(markers) == 0 {
+		return
+	}
+	localAccountID := uint32(0)
+	if ctx.Session != nil {
+		localAccountID = ctx.Session.AccountID
+	}
+	for _, marker := range markers {
+		if marker.accountID == localAccountID {
+			continue
+		}
+		x, y, ok := minimapCellToScreen(rect, mapW, mapH, marker.x, marker.y)
+		if !ok {
+			continue
+		}
+		drawMinimapSquareCentered(canvas, x, y, 3, minimapGuildColor)
 	}
 }
 

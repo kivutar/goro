@@ -34,12 +34,26 @@ const (
 )
 
 func (p MapProperty) PlayerCombatEnabled() bool {
+	return p.IsPvP() || p.IsGvG()
+}
+
+func (p MapProperty) IsPvP() bool {
 	switch p {
 	case MapPropertyFreePvPZone, MapPropertyEventPvPZone, MapPropertyPvPServerZone:
 		return true
 	default:
 		return false
 	}
+}
+
+// IsGvG reports the legacy 2008 WoE map property. PvP and GvG deliberately
+// remain separate because only PvP maps have the client-side ranking display.
+func (p MapProperty) IsGvG() bool {
+	return p == MapPropertyAgitZone
+}
+
+func (p MapProperty) IsSiege() bool {
+	return p.IsGvG()
 }
 
 func (p MapProperty) PvPRankingEnabled() bool {

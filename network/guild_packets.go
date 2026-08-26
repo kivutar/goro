@@ -11,36 +11,49 @@ import (
 )
 
 const (
-	PacketCZReqMakeGuild    uint16 = 0x0165
-	PacketZCResultMakeGuild uint16 = 0x0167
-	PacketCZReqJoinGuild    uint16 = 0x0168
-	PacketZCAckReqJoinGuild uint16 = 0x0169
-	PacketZCReqJoinGuild    uint16 = 0x016A
-	PacketCZJoinGuild       uint16 = 0x016B
-	PacketCZGuildNotice     uint16 = 0x016E
-	PacketZCGuildInfo       uint16 = 0x0150
-	PacketZCGuildInfo2      uint16 = 0x01B6
-	PacketZCGuildMembers    uint16 = 0x0154
-	PacketCZReqChangeMember uint16 = 0x0155
-	PacketZCAckChangeMember uint16 = 0x0156
-	PacketCZReqOpenMember   uint16 = 0x0157
-	PacketZCAckOpenMember   uint16 = 0x0158
-	PacketZCGuildPositions  uint16 = 0x0160
-	PacketCZRegGuildPosInfo uint16 = 0x0161
-	PacketZCGuildSkillInfo  uint16 = 0x0162
-	PacketZCGuildBanList    uint16 = 0x0163
-	PacketZCGuildPosNames   uint16 = 0x0166
-	PacketZCGuildNotice     uint16 = 0x016F
-	PacketZCAckGuildPosInfo uint16 = 0x0174
-	PacketCZReqGuildMember  uint16 = 0x0175
-	PacketZCGuildMemberInfo uint16 = 0x0176
-	PacketCZGuildMessage    uint16 = 0x017E
-	PacketZCUpdateGuildID   uint16 = 0x016C
-	PacketCZReqGuildMenu    uint16 = 0x014F
-	PacketCZReqGuildEmblem  uint16 = 0x0151
-	PacketZCGuildEmblem     uint16 = 0x0152
-	PacketCZRegGuildEmblem  uint16 = 0x0153
-	PacketZCChangeGuild     uint16 = 0x01B4
+	PacketCZReqMakeGuild         uint16 = 0x0165
+	PacketZCResultMakeGuild      uint16 = 0x0167
+	PacketCZReqJoinGuild         uint16 = 0x0168
+	PacketZCAckReqJoinGuild      uint16 = 0x0169
+	PacketZCReqJoinGuild         uint16 = 0x016A
+	PacketCZJoinGuild            uint16 = 0x016B
+	PacketCZGuildNotice          uint16 = 0x016E
+	PacketZCGuildInfo            uint16 = 0x0150
+	PacketZCGuildInfo2           uint16 = 0x01B6
+	PacketZCGuildMembers         uint16 = 0x0154
+	PacketCZReqChangeMember      uint16 = 0x0155
+	PacketZCAckChangeMember      uint16 = 0x0156
+	PacketCZReqOpenMember        uint16 = 0x0157
+	PacketZCAckOpenMember        uint16 = 0x0158
+	PacketZCGuildPositions       uint16 = 0x0160
+	PacketCZRegGuildPosInfo      uint16 = 0x0161
+	PacketZCGuildSkillInfo       uint16 = 0x0162
+	PacketZCGuildBanList         uint16 = 0x0163
+	PacketZCGuildPosNames        uint16 = 0x0166
+	PacketZCGuildNotice          uint16 = 0x016F
+	PacketZCAckGuildPosInfo      uint16 = 0x0174
+	PacketCZReqGuildMember       uint16 = 0x0175
+	PacketZCGuildMemberInfo      uint16 = 0x0176
+	PacketCZGuildMessage         uint16 = 0x017E
+	PacketZCUpdateGuildID        uint16 = 0x016C
+	PacketCZReqGuildMenu         uint16 = 0x014F
+	PacketCZReqGuildEmblem       uint16 = 0x0151
+	PacketZCGuildEmblem          uint16 = 0x0152
+	PacketCZRegGuildEmblem       uint16 = 0x0153
+	PacketZCChangeGuild          uint16 = 0x01B4
+	PacketZCGuildRelations       uint16 = 0x014C
+	PacketZCGuildMemberState     uint16 = 0x016D
+	PacketZCGuildMemberState2    uint16 = 0x01F2
+	PacketCZReqGuildAlliance     uint16 = 0x0170
+	PacketZCGuildAllianceRequest uint16 = 0x0171
+	PacketCZGuildAllianceReply   uint16 = 0x0172
+	PacketZCGuildAllianceResult  uint16 = 0x0173
+	PacketCZReqGuildHostility    uint16 = 0x0180
+	PacketZCGuildHostilityResult uint16 = 0x0181
+	PacketCZDeleteGuildRelation  uint16 = 0x0183
+	PacketZCGuildRelationDeleted uint16 = 0x0184
+	PacketZCGuildRelationAdded   uint16 = 0x0185
+	PacketZCGuildMemberLocation  uint16 = 0x01EB
 )
 
 const (
@@ -144,6 +157,169 @@ type GuildEmblemChange struct {
 	ActorID       uint32
 	GuildID       uint32
 	EmblemVersion uint32
+}
+
+type GuildRelation struct {
+	Relation uint32
+	GuildID  uint32
+	Name     string
+}
+
+type GuildAllianceRequest struct {
+	AccountID uint32
+	GuildName string
+}
+
+type GuildAllianceResult struct {
+	Result uint8
+}
+
+type GuildHostilityResult struct {
+	Result uint8
+}
+
+type GuildRelationDeleted struct {
+	GuildID  uint32
+	Relation uint32
+}
+
+type GuildMemberState struct {
+	AccountID     uint32
+	CharID        uint32
+	State         uint32
+	HasAppearance bool
+	Sex           uint16
+	HeadType      uint16
+	HeadPalette   uint16
+}
+
+type GuildMemberLocation struct {
+	AccountID uint32
+	X         int16
+	Y         int16
+}
+
+func ParseGuildRelations(packet Packet) ([]GuildRelation, bool, error) {
+	if packet.ID != PacketZCGuildRelations {
+		return nil, false, nil
+	}
+	const entrySize = 32
+	if len(packet.Data) < 4 {
+		return nil, true, fmt.Errorf("ZC_GUILD_ALLIANCE_LIST too short: %d", len(packet.Data))
+	}
+	if (len(packet.Data)-4)%entrySize != 0 {
+		return nil, true, fmt.Errorf("ZC_GUILD_ALLIANCE_LIST invalid length: %d", len(packet.Data))
+	}
+	body := packet.Data[4:]
+	relations := make([]GuildRelation, 0, len(body)/entrySize)
+	for offset := 0; offset < len(body); offset += entrySize {
+		entry := body[offset : offset+entrySize]
+		relations = append(relations, GuildRelation{
+			Relation: binary.LittleEndian.Uint32(entry[0:4]),
+			GuildID:  binary.LittleEndian.Uint32(entry[4:8]),
+			Name:     decodeROFixedString(entry[8:32]),
+		})
+	}
+	return relations, true, nil
+}
+
+func ParseGuildAllianceRequest(packet Packet) (GuildAllianceRequest, bool, error) {
+	if packet.ID != PacketZCGuildAllianceRequest {
+		return GuildAllianceRequest{}, false, nil
+	}
+	if len(packet.Data) < 30 {
+		return GuildAllianceRequest{}, true, fmt.Errorf("ZC_REQ_ALLY_GUILD too short: %d", len(packet.Data))
+	}
+	return GuildAllianceRequest{
+		AccountID: binary.LittleEndian.Uint32(packet.Data[2:6]),
+		GuildName: decodeROFixedString(packet.Data[6:30]),
+	}, true, nil
+}
+
+func ParseGuildAllianceResult(packet Packet) (GuildAllianceResult, bool, error) {
+	if packet.ID != PacketZCGuildAllianceResult {
+		return GuildAllianceResult{}, false, nil
+	}
+	if len(packet.Data) < 3 {
+		return GuildAllianceResult{}, true, fmt.Errorf("ZC_ACK_REQ_ALLY_GUILD too short: %d", len(packet.Data))
+	}
+	return GuildAllianceResult{Result: packet.Data[2]}, true, nil
+}
+
+func ParseGuildHostilityResult(packet Packet) (GuildHostilityResult, bool, error) {
+	if packet.ID != PacketZCGuildHostilityResult {
+		return GuildHostilityResult{}, false, nil
+	}
+	if len(packet.Data) < 3 {
+		return GuildHostilityResult{}, true, fmt.Errorf("ZC_ACK_REQ_HOSTILE_GUILD too short: %d", len(packet.Data))
+	}
+	return GuildHostilityResult{Result: packet.Data[2]}, true, nil
+}
+
+func ParseGuildRelationDeleted(packet Packet) (GuildRelationDeleted, bool, error) {
+	if packet.ID != PacketZCGuildRelationDeleted {
+		return GuildRelationDeleted{}, false, nil
+	}
+	if len(packet.Data) < 10 {
+		return GuildRelationDeleted{}, true, fmt.Errorf("ZC_DELETE_RELATED_GUILD too short: %d", len(packet.Data))
+	}
+	return GuildRelationDeleted{
+		GuildID:  binary.LittleEndian.Uint32(packet.Data[2:6]),
+		Relation: binary.LittleEndian.Uint32(packet.Data[6:10]),
+	}, true, nil
+}
+
+func ParseGuildRelationAdded(packet Packet) (GuildRelation, bool, error) {
+	if packet.ID != PacketZCGuildRelationAdded {
+		return GuildRelation{}, false, nil
+	}
+	if len(packet.Data) < 34 {
+		return GuildRelation{}, true, fmt.Errorf("ZC_ADD_RELATED_GUILD too short: %d", len(packet.Data))
+	}
+	return GuildRelation{
+		Relation: binary.LittleEndian.Uint32(packet.Data[2:6]),
+		GuildID:  binary.LittleEndian.Uint32(packet.Data[6:10]),
+		Name:     decodeROFixedString(packet.Data[10:34]),
+	}, true, nil
+}
+
+func ParseGuildMemberState(packet Packet) (GuildMemberState, bool, error) {
+	if packet.ID != PacketZCGuildMemberState && packet.ID != PacketZCGuildMemberState2 {
+		return GuildMemberState{}, false, nil
+	}
+	minimumLength := 14
+	if packet.ID == PacketZCGuildMemberState2 {
+		minimumLength = 20
+	}
+	if len(packet.Data) < minimumLength {
+		return GuildMemberState{}, true, fmt.Errorf("ZC_GUILD_MEMBER_STATE too short: %d", len(packet.Data))
+	}
+	state := GuildMemberState{
+		AccountID: binary.LittleEndian.Uint32(packet.Data[2:6]),
+		CharID:    binary.LittleEndian.Uint32(packet.Data[6:10]),
+		State:     binary.LittleEndian.Uint32(packet.Data[10:14]),
+	}
+	if packet.ID == PacketZCGuildMemberState2 {
+		state.HasAppearance = true
+		state.Sex = binary.LittleEndian.Uint16(packet.Data[14:16])
+		state.HeadType = binary.LittleEndian.Uint16(packet.Data[16:18])
+		state.HeadPalette = binary.LittleEndian.Uint16(packet.Data[18:20])
+	}
+	return state, true, nil
+}
+
+func ParseGuildMemberLocation(packet Packet) (GuildMemberLocation, bool, error) {
+	if packet.ID != PacketZCGuildMemberLocation {
+		return GuildMemberLocation{}, false, nil
+	}
+	if len(packet.Data) < 10 {
+		return GuildMemberLocation{}, true, fmt.Errorf("ZC_NOTIFY_POSITION_TO_GUILDM too short: %d", len(packet.Data))
+	}
+	return GuildMemberLocation{
+		AccountID: binary.LittleEndian.Uint32(packet.Data[2:6]),
+		X:         int16(binary.LittleEndian.Uint16(packet.Data[6:8])),
+		Y:         int16(binary.LittleEndian.Uint16(packet.Data[8:10])),
+	}, true, nil
 }
 
 func ParseGuildNotice(packet Packet) (GuildNotice, bool, error) {
@@ -491,6 +667,40 @@ func BuildGuildInviteReplyPacket(guildID uint32, accept bool) []byte {
 	return packet
 }
 
+func BuildGuildAllianceRequestPacket(targetAID, accountID, charID uint32) []byte {
+	packet := make([]byte, 14)
+	binary.LittleEndian.PutUint16(packet[0:2], PacketCZReqGuildAlliance)
+	binary.LittleEndian.PutUint32(packet[2:6], targetAID)
+	binary.LittleEndian.PutUint32(packet[6:10], accountID)
+	binary.LittleEndian.PutUint32(packet[10:14], charID)
+	return packet
+}
+
+func BuildGuildAllianceReplyPacket(accountID uint32, accept bool) []byte {
+	packet := make([]byte, 10)
+	binary.LittleEndian.PutUint16(packet[0:2], PacketCZGuildAllianceReply)
+	binary.LittleEndian.PutUint32(packet[2:6], accountID)
+	if accept {
+		binary.LittleEndian.PutUint32(packet[6:10], 1)
+	}
+	return packet
+}
+
+func BuildGuildHostilityRequestPacket(targetAID uint32) []byte {
+	packet := make([]byte, 6)
+	binary.LittleEndian.PutUint16(packet[0:2], PacketCZReqGuildHostility)
+	binary.LittleEndian.PutUint32(packet[2:6], targetAID)
+	return packet
+}
+
+func BuildDeleteGuildRelationPacket(guildID, relation uint32) []byte {
+	packet := make([]byte, 10)
+	binary.LittleEndian.PutUint16(packet[0:2], PacketCZDeleteGuildRelation)
+	binary.LittleEndian.PutUint32(packet[2:6], guildID)
+	binary.LittleEndian.PutUint32(packet[6:10], relation)
+	return packet
+}
+
 func BuildChangeGuildMemberPositionPacket(members []GuildMemberPosition) []byte {
 	packet := make([]byte, 4+len(members)*12)
 	binary.LittleEndian.PutUint16(packet[0:2], PacketCZReqChangeMember)
@@ -607,6 +817,50 @@ func (c *Client) SendGuildInviteReply(guildID uint32, accept bool) error {
 		glog.Debugf("sent CZ_JOIN_GUILD opcode=0x%04X guild_id=%d accept=%t client_date=%d", ID(packet), guildID, accept, c.clientDate)
 	} else {
 		glog.Warnf("send CZ_JOIN_GUILD failed opcode=0x%04X len=%d guild_id=%d accept=%t client_date=%d: %v", ID(packet), len(packet), guildID, accept, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendGuildAllianceRequest(targetAID, accountID, charID uint32) error {
+	packet := BuildGuildAllianceRequestPacket(targetAID, accountID, charID)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_REQ_ALLY_GUILD opcode=0x%04X target=%d account=%d char=%d client_date=%d", ID(packet), targetAID, accountID, charID, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_REQ_ALLY_GUILD failed opcode=0x%04X target=%d client_date=%d: %v", ID(packet), targetAID, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendGuildAllianceReply(accountID uint32, accept bool) error {
+	packet := BuildGuildAllianceReplyPacket(accountID, accept)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_ALLY_GUILD opcode=0x%04X account=%d accept=%t client_date=%d", ID(packet), accountID, accept, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_ALLY_GUILD failed opcode=0x%04X account=%d accept=%t client_date=%d: %v", ID(packet), accountID, accept, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendGuildHostilityRequest(targetAID uint32) error {
+	packet := BuildGuildHostilityRequestPacket(targetAID)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_REQ_HOSTILE_GUILD opcode=0x%04X target=%d client_date=%d", ID(packet), targetAID, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_REQ_HOSTILE_GUILD failed opcode=0x%04X target=%d client_date=%d: %v", ID(packet), targetAID, c.clientDate, err)
+	}
+	return err
+}
+
+func (c *Client) SendDeleteGuildRelation(guildID, relation uint32) error {
+	packet := BuildDeleteGuildRelationPacket(guildID, relation)
+	err := c.Send(packet)
+	if err == nil {
+		glog.Debugf("sent CZ_REQ_DELETE_RELATED_GUILD opcode=0x%04X guild=%d relation=%d client_date=%d", ID(packet), guildID, relation, c.clientDate)
+	} else {
+		glog.Warnf("send CZ_REQ_DELETE_RELATED_GUILD failed opcode=0x%04X guild=%d relation=%d client_date=%d: %v", ID(packet), guildID, relation, c.clientDate, err)
 	}
 	return err
 }

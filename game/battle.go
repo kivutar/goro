@@ -590,7 +590,7 @@ func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.Ac
 	} else if isLocalActor(ctx, action.TargetID) {
 		x, y = ctx.World.Player.X, ctx.World.Player.Y
 	}
-	m.addActionDamageFloaters(action, target, targetOK, targetLocal, sourceLocal, x, y, hitAt)
+	m.addActionDamageFloaters(ctx, action, target, targetOK, targetLocal, sourceLocal, x, y, hitAt)
 	if sourceLocal {
 		m.maybeSendPetHuntingTalk(ctx, now)
 	}
@@ -789,9 +789,12 @@ func actionVisualHitCount(action network.ActorActionNotify) int {
 	return maxInt(1, int(action.HitCount))
 }
 
-func (m *WorldMode) addActionDamageFloaters(action network.ActorActionNotify, target world.Actor, targetOK, targetLocal, sourceLocal bool, x, y int, hitAt time.Time) {
+func (m *WorldMode) addActionDamageFloaters(ctx client.Context, action network.ActorActionNotify, target world.Actor, targetOK, targetLocal, sourceLocal bool, x, y int, hitAt time.Time) {
 	text, kind, floaterColor := actionDamageFloater(action, targetLocal, sourceLocal)
 	if text == "" {
+		return
+	}
+	if ctx.World != nil && ctx.World.MapProperty.IsSiege() && damageFloaterHiddenInSiege(kind) {
 		return
 	}
 	count := actionVisualHitCount(action)
@@ -808,6 +811,15 @@ func (m *WorldMode) addActionDamageFloaters(action network.ActorActionNotify, ta
 		if combo {
 			m.addComboDamageFloater(action.TargetID, x, y, actionComboDamageFloaterValue(action, count, i), starts, i+1 == count)
 		}
+	}
+}
+
+func damageFloaterHiddenInSiege(kind damageFloaterKind) bool {
+	switch kind {
+	case damageFloaterNormal, damageFloaterCritical, damageFloaterIncoming, damageFloaterCombo:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1688,6 +1700,9 @@ func (m *WorldMode) drawDamageFloaters(screen *render.Frame, ctx client.Context,
 		}
 		active = append(active, floater)
 		if now.Before(floater.starts) {
+			continue
+		}
+		if ctx.World != nil && ctx.World.MapProperty.IsSiege() && damageFloaterHiddenInSiege(floater.kind) {
 			continue
 		}
 		x, y := float64(floater.x), float64(floater.y)

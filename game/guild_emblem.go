@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"math"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
@@ -20,6 +22,8 @@ type guildEmblem struct {
 	requestedVersion uint32
 	image            *render.Image
 }
+
+const siegeGuildEmblemSize = 24
 
 func (m *WorldMode) requestActorGuildEmblem(ctx client.Context, guildID, version uint32) {
 	m.requestGuildEmblem(ctx, guildID, version, false)
@@ -110,6 +114,9 @@ func (m *WorldMode) actorGuildEmblem(ctx client.Context, actor worldstate.Actor,
 	if isPlayer && ctx.Session != nil {
 		if guildID == 0 {
 			guildID = ctx.Session.GuildID
+			if guildID == 0 {
+				guildID = ctx.Session.Guild.ID
+			}
 		}
 		if version == 0 {
 			version = ctx.Session.EmblemVersion
@@ -128,4 +135,43 @@ func (m *WorldMode) actorGuildEmblem(ctx client.Context, actor worldstate.Actor,
 		return nil
 	}
 	return emblem.image
+}
+
+func (m *WorldMode) drawSiegeGuildEmblems(screen *render.Frame, ctx client.Context, entries []sceneActorDrawEntry) {
+	if screen == nil || ctx.World == nil || !ctx.World.MapProperty.IsSiege() {
+		return
+	}
+	for _, entry := range entries {
+		if !siegeActorShowsGuildEmblem(entry) {
+			continue
+		}
+		emblem := m.actorGuildEmblem(ctx, entry.actor, entry.isPlayer)
+		if emblem == nil {
+			continue
+		}
+		bounds := emblem.Bounds()
+		if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
+			continue
+		}
+		x, y := siegeGuildEmblemPosition(entry, siegeGuildEmblemSize)
+		var opts render.DrawImageOptions
+		opts.Filter = render.FilterNearest
+		opts.GeoM.Scale(float64(siegeGuildEmblemSize)/float64(bounds.Dx()), float64(siegeGuildEmblemSize)/float64(bounds.Dy()))
+		opts.GeoM.Translate(x, y)
+		screen.DrawImage(emblem, &opts)
+	}
+}
+
+func siegeActorShowsGuildEmblem(entry sceneActorDrawEntry) bool {
+	const hiddenEffectMask = db.EffectStateHide | db.EffectStateCloak | db.EffectStateInvisible | db.EffectStateChasewalk
+	return !entry.hidden && entry.actor.EffectState&hiddenEffectMask == 0 && entry.actor.GuildID != 0 && entry.actor.EmblemVersion != 0
+}
+
+func siegeGuildEmblemPosition(entry sceneActorDrawEntry, size int) (float64, float64) {
+	if size <= 0 {
+		size = siegeGuildEmblemSize
+	}
+	x := math.Round(entry.screenX - float64(size)/2)
+	y := math.Round(actorSpriteTopY(entry.screenY, entry.scale) - float64(size) - 4)
+	return x, y
 }

@@ -3,15 +3,27 @@ package world
 import "testing"
 
 func TestMapPropertyPlayerCombatModes(t *testing.T) {
-	for _, property := range []MapProperty{MapPropertyFreePvPZone, MapPropertyEventPvPZone, MapPropertyPvPServerZone} {
+	for _, property := range []MapProperty{MapPropertyFreePvPZone, MapPropertyEventPvPZone, MapPropertyAgitZone, MapPropertyPvPServerZone} {
 		if !property.PlayerCombatEnabled() {
 			t.Fatalf("property %d did not enable player combat", property)
 		}
 	}
-	for _, property := range []MapProperty{MapPropertyNothing, MapPropertyAgitZone, MapPropertyPKServerZone, MapPropertyDenySkillZone} {
+	for _, property := range []MapProperty{MapPropertyNothing, MapPropertyPKServerZone, MapPropertyDenySkillZone} {
 		if property.PlayerCombatEnabled() {
 			t.Fatalf("property %d unexpectedly enabled player combat", property)
 		}
+	}
+}
+
+func TestMapPropertySeparatesPvPAndGvG(t *testing.T) {
+	if !MapPropertyAgitZone.IsGvG() || !MapPropertyAgitZone.IsSiege() || MapPropertyAgitZone.IsPvP() {
+		t.Fatal("agit property was not classified as siege-only GvG")
+	}
+	if !MapPropertyFreePvPZone.IsPvP() || MapPropertyFreePvPZone.IsGvG() || MapPropertyFreePvPZone.IsSiege() {
+		t.Fatal("free PvP property was not classified as PvP-only")
+	}
+	if MapPropertyAgitZone.PvPRankingEnabled() {
+		t.Fatal("WoE unexpectedly enabled PvP rankings")
 	}
 }
 

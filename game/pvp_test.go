@@ -2,6 +2,7 @@ package game
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
@@ -68,6 +69,65 @@ func TestPvPTargetsLegacyPlayerEntryWithoutObjectType(t *testing.T) {
 	moveOnly := worldstate.Actor{ID: 400, Job: db.JobNovice}
 	if actorRepresentsPlayer(moveOnly) || actorCanBeAttackClicked(ctx, moveOnly) {
 		t.Fatal("movement-only actor was classified as a player from its zero-value job")
+	}
+}
+
+func TestWoETargetingUsesGuildRelationship(t *testing.T) {
+	world := worldstate.New()
+	world.MapProperty = worldstate.MapPropertyAgitZone
+	ctx := client.Context{
+		Session: &session.Session{AccountID: 100, CharID: 200, Guild: session.Guild{ID: 10}},
+		World:   world,
+	}
+	enemy := worldstate.Actor{ID: 300, GuildID: 20, ObjectType: actorObjectTypePC, HasObjectType: true}
+	guildless := worldstate.Actor{ID: 301, ObjectType: actorObjectTypePC, HasObjectType: true}
+	mate := worldstate.Actor{ID: 302, GuildID: 10, ObjectType: actorObjectTypePC, HasObjectType: true}
+
+	for _, actor := range []worldstate.Actor{enemy, guildless} {
+		if !actorCanBeAttackClicked(ctx, actor) || !actorCanBeSkillTargeted(ctx, session.Skill{Type: skillTargetEnemy}, actor) {
+			t.Fatalf("WoE enemy was not targetable: %+v", actor)
+		}
+	}
+	if actorCanBeAttackClicked(ctx, mate) || actorCanBeSkillTargeted(ctx, session.Skill{Type: skillTargetEnemy}, mate) {
+		t.Fatal("guild member was targetable as a WoE enemy")
+	}
+}
+
+func TestWoETargetingIncludesEnemyHomunculi(t *testing.T) {
+	world := worldstate.New()
+	world.MapProperty = worldstate.MapPropertyAgitZone
+	ctx := client.Context{
+		Session: &session.Session{
+			Guild:      session.Guild{ID: 10},
+			Homunculus: session.Companion{ID: 400},
+		},
+		World: world,
+	}
+	enemy := worldstate.Actor{ID: 401, GuildID: 20, ObjectType: actorObjectTypeHomunculus, HasObjectType: true}
+	own := worldstate.Actor{ID: 400, GuildID: 10, ObjectType: actorObjectTypeHomunculus, HasObjectType: true}
+
+	if !actorCanBeAttackClicked(ctx, enemy) || !actorCanBeSkillTargeted(ctx, session.Skill{Type: skillTargetEnemy}, enemy) {
+		t.Fatal("enemy homunculus was not targetable in WoE")
+	}
+	if actorCanBeAttackClicked(ctx, own) || actorCanBeSkillTargeted(ctx, session.Skill{Type: skillTargetEnemy}, own) {
+		t.Fatal("local homunculus was targetable in WoE")
+	}
+}
+
+func TestWoEHidesPlayerNameLabels(t *testing.T) {
+	state := worldstate.New()
+	ctx := client.Context{World: state}
+	actor := worldstate.Actor{Name: "Enemy", ObjectType: actorObjectTypePC, HasObjectType: true}
+	if playerNameLabelsHidden(ctx) {
+		t.Fatal("ordinary map hid player name labels")
+	}
+	state.MapProperty = worldstate.MapPropertyAgitZone
+	if !playerNameLabelsHidden(ctx) {
+		t.Fatal("siege map did not hide player name labels")
+	}
+	mode := &WorldMode{}
+	if labels := mode.hoveredActorDisplayLabels(ctx, actor, time.Time{}); len(labels) != 0 {
+		t.Fatalf("siege player labels = %q", labels)
 	}
 }
 

@@ -87,6 +87,32 @@ func TestGuildSkillLevelUpStaysPendingUntilConfirm(t *testing.T) {
 	}
 }
 
+func TestGuildRelationRowUsesRightClickForDeletion(t *testing.T) {
+	relation := session.GuildRelation{Relation: session.GuildRelationAlliance, GuildID: 10, Name: "Allies"}
+	window := &GuildWindow{}
+	row := &guildRelationRowWidget{
+		relation:  relation,
+		canDelete: true,
+		onDelete: func() {
+			window.action.DeleteRelation = &GuildRelationDelete{Relation: relation}
+		},
+	}
+	row.Event(widget.NewContext(), event.NewMouseEvent(event.MousePress, event.ButtonRight, 0, geometry.Point{}, geometry.Point{}, 0))
+	action := window.PopAction()
+	if action.DeleteRelation == nil || action.DeleteRelation.Relation != relation {
+		t.Fatalf("delete relation action = %+v", action)
+	}
+}
+
+func TestGuildWindowSnapshotIncludesRelations(t *testing.T) {
+	s := &session.Session{Guild: session.Guild{Relations: []session.GuildRelation{{Relation: 0, GuildID: 10, Name: "Allies"}}}}
+	before := guildWindowSnapshot(s)
+	s.Guild.Relations[0].Name = "New Allies"
+	if after := guildWindowSnapshot(s); after == before {
+		t.Fatal("guild relation change did not invalidate guild window snapshot")
+	}
+}
+
 func TestGuildMemberPositionChangeStaysPendingUntilConfirm(t *testing.T) {
 	s := &session.Session{Guild: session.Guild{
 		IsMaster: true,

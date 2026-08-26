@@ -384,6 +384,64 @@ func TestMinimapCompassLifecycle(t *testing.T) {
 	}
 }
 
+func TestMinimapGuildMarkerLifecycle(t *testing.T) {
+	m := &Minimap{}
+	m.ApplyGuildMemberPosition(20, 30, 40)
+	if m.guildRevision != 1 || len(m.guild) != 1 {
+		t.Fatalf("first guild marker revision=%d markers=%+v", m.guildRevision, m.guild)
+	}
+	m.ApplyGuildMemberPosition(20, 30, 40)
+	if m.guildRevision != 1 {
+		t.Fatalf("unchanged guild marker advanced revision to %d", m.guildRevision)
+	}
+	m.ApplyGuildMemberPosition(10, 11, 12)
+	snapshot := m.guildSnapshot()
+	if len(snapshot) != 2 || snapshot[0].accountID != 10 || snapshot[1].accountID != 20 {
+		t.Fatalf("guild marker snapshot = %+v", snapshot)
+	}
+	if cached := m.guildSnapshot(); &cached[0] != &snapshot[0] {
+		t.Fatal("unchanged guild marker snapshot was allocated again")
+	}
+	m.ApplyGuildMemberPosition(20, 31, 41)
+	updated := m.guildSnapshot()
+	if &updated[0] != &snapshot[0] {
+		t.Fatal("changed guild marker snapshot did not reuse its allocation")
+	}
+	m.ApplyGuildMemberPosition(20, -1, -1)
+	if m.guildRevision != 4 || len(m.guild) != 1 {
+		t.Fatalf("removed guild marker revision=%d markers=%+v", m.guildRevision, m.guild)
+	}
+	m.ApplyGuildMemberPosition(20, -1, -1)
+	if m.guildRevision != 4 {
+		t.Fatalf("missing marker removal advanced revision to %d", m.guildRevision)
+	}
+	if !m.clearGuildMarkers() || len(m.guild) != 0 || m.guildRevision != 5 {
+		t.Fatalf("clear guild markers revision=%d markers=%+v", m.guildRevision, m.guild)
+	}
+}
+
+func TestMinimapMapChangeClearsGuildMarkers(t *testing.T) {
+	world := worldstate.New()
+	world.MapName = "prontera"
+	ctx := Context{
+		Session:   &session.Session{AccountID: 1},
+		World:     world,
+		Input:     input.NewState(),
+		UIApp:     &minimapTestUIApp{},
+		UIManager: &escapeMenuTestUIManager{},
+		ScreenW:   800,
+		ScreenH:   600,
+	}
+	m := &Minimap{}
+	m.Update(ctx)
+	m.ApplyGuildMemberPosition(2, 10, 20)
+	world.MapName = "payon"
+	m.Update(ctx)
+	if len(m.guild) != 0 {
+		t.Fatalf("guild markers survived map change: %+v", m.guild)
+	}
+}
+
 func TestMinimapMemberColorStable(t *testing.T) {
 	first := minimapMemberColor(1234)
 	second := minimapMemberColor(1234)

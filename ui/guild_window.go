@@ -83,6 +83,11 @@ type GuildWindowAction struct {
 	UpdateNotice       bool
 	NoticeSubject      string
 	Notice             string
+	DeleteRelation     *GuildRelationDelete
+}
+
+type GuildRelationDelete struct {
+	Relation session.GuildRelation
 }
 
 type GuildMemberPositionUpdate struct {
@@ -232,7 +237,8 @@ func (a GuildWindowAction) hasAction() bool {
 		len(a.MemberPositions) > 0 ||
 		len(a.LevelUpSkillIDs) > 0 ||
 		a.UpdatePositions ||
-		a.UpdateNotice
+		a.UpdateNotice ||
+		a.DeleteRelation != nil
 }
 
 func (w *GuildWindow) SetEmblemOptions(ctx Context, options []GuildEmblemOption) {
@@ -1313,9 +1319,9 @@ func (w *GuildWindow) infoTab(ctx Context) widget.Widget {
 		w.guildEmblemControl(ctx, guild),
 		guildInfoRow("Tax Point", guildNumberAllowZero(guild.Point)),
 		guildInfoSection("Alliance"),
-		guildListBox(""),
+		w.guildRelationList(guild, session.GuildRelationAlliance),
 		guildInfoSection("Antagonist"),
-		guildListBox(""),
+		w.guildRelationList(guild, session.GuildRelationOpposition),
 	}
 	return primitives.HBox(
 		primitives.Box(leftRows...).
@@ -1448,9 +1454,79 @@ func (w *GuildWindow) guildEmblemBox(ctx Context, version uint32) widget.Widget 
 	return guildFramedBox(guildEmblemSize, guildEmblemSize, text)
 }
 
-func guildListBox(text string) widget.Widget {
-	return guildFramedBox(168, 42, text)
+func (w *GuildWindow) guildRelationList(guild session.Guild, kind uint32) widget.Widget {
+	rows := make([]widget.Widget, 0, 3)
+	for _, relation := range guild.Relations {
+		if relation.Relation != kind || relation.GuildID == 0 || len(rows) == 3 {
+			continue
+		}
+		relation := relation
+		rows = append(rows, &guildRelationRowWidget{
+			relation:  relation,
+			canDelete: guild.IsMaster,
+			onDelete: func() {
+				w.action.DeleteRelation = &GuildRelationDelete{Relation: relation}
+			},
+		})
+	}
+	return primitives.Box(rows...).
+		Width(168).
+		Height(42).
+		PaddingXY(3, 1).
+		CrossAlign(primitives.CrossAxisStretch).
+		Background(rotheme.Default.Colors.WindowFooter).
+		BorderStyle(1, rotheme.Default.Colors.FooterLine)
 }
+
+type guildRelationRowWidget struct {
+	widget.WidgetBase
+	relation  session.GuildRelation
+	canDelete bool
+	onDelete  func()
+	hovered   bool
+}
+
+func (w *guildRelationRowWidget) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {
+	size := constraints.Constrain(geometry.Sz(160, 13))
+	w.SetBounds(geometry.FromPointSize(w.Position(), size))
+	return size
+}
+
+func (w *guildRelationRowWidget) Draw(_ widget.Context, canvas widget.Canvas) {
+	bounds := w.Bounds()
+	if w.hovered && w.canDelete {
+		canvas.DrawRect(bounds, rotheme.Default.Colors.ButtonHover)
+	}
+	name := guildText(w.relation.Name)
+	rotheme.DrawText(canvas, trimRunes(name, 24), geometry.NewRect(bounds.Min.X+2, bounds.Min.Y, bounds.Width()-4, bounds.Height()), rotheme.Default.Typography.TextSize, rotheme.Default.Colors.Text, false, widget.TextAlignLeft)
+}
+
+func (w *guildRelationRowWidget) Event(ctx widget.Context, e event.Event) bool {
+	mouse, ok := e.(*event.MouseEvent)
+	if !ok {
+		return false
+	}
+	switch mouse.MouseType {
+	case event.MouseEnter, event.MouseMove:
+		w.hovered = true
+		if w.canDelete {
+			ctx.SetCursor(widget.CursorPointer)
+		}
+		return true
+	case event.MouseLeave:
+		w.hovered = false
+		ctx.SetCursor(widget.CursorDefault)
+		return true
+	case event.MousePress:
+		if mouse.Button == event.ButtonRight && w.canDelete && w.onDelete != nil {
+			w.onDelete()
+		}
+		return true
+	}
+	return true
+}
+
+func (w *guildRelationRowWidget) Children() []widget.Widget { return nil }
 
 func guildFramedBox(width, height float32, text string) widget.Widget {
 	content := widget.Widget(rotheme.Text(text))
@@ -1540,7 +1616,11 @@ func guildWindowSnapshot(s *session.Session) string {
 			entry.Reason,
 		)
 	}
-	return fmt.Sprintf("%d|%d|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%d|%s|%s%s%s%s%s",
+	relationSnapshot := strings.Builder{}
+	for _, relation := range s.Guild.Relations {
+		fmt.Fprintf(&relationSnapshot, "|%d:%d:%s", relation.Relation, relation.GuildID, relation.Name)
+	}
+	return fmt.Sprintf("%d|%d|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%d|%s|%s%s%s%s%s%s",
 		s.GuildID,
 		s.EmblemVersion,
 		s.GuildName,
@@ -1565,6 +1645,7 @@ func guildWindowSnapshot(s *session.Session) string {
 		positionSnapshot.String(),
 		skillSnapshot.String(),
 		historySnapshot.String(),
+		relationSnapshot.String(),
 	)
 }
 

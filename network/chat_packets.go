@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/kivutar/goro/glog"
 	"strings"
+
+	"github.com/kivutar/goro/glog"
 )
 
 const (
@@ -32,6 +33,7 @@ const (
 	PacketZCChatRoomLeave     uint16 = 0x00DD
 	PacketZCChatRoomRole      uint16 = 0x00E1
 	PacketZCBroadcast         uint16 = 0x009A
+	PacketZCBroadcast2        uint16 = 0x01C3
 	PacketZCNPCChat           uint16 = 0x02C1
 	PacketZCMsg               uint16 = 0x0291
 	PacketZCMsgValue          uint16 = 0x07E2
@@ -40,13 +42,18 @@ const (
 )
 
 type ChatMessage struct {
-	GID       uint32
-	Text      string
-	MessageID int
-	Value     int32
-	SkillID   uint16
-	Color     uint32
-	HasColor  bool
+	GID          uint32
+	Text         string
+	MessageID    int
+	Value        int32
+	SkillID      uint16
+	Color        uint32
+	HasColor     bool
+	Announcement bool
+	FontType     int16
+	FontSize     int16
+	FontAlign    int16
+	FontY        int16
 }
 
 type WhisperMessage struct {
@@ -246,8 +253,28 @@ func ParseChatMessage(packet Packet) (ChatMessage, bool, error) {
 		if len(packet.Data) < 4 {
 			return ChatMessage{}, false, fmt.Errorf("ZC_BROADCAST too short: %d", len(packet.Data))
 		}
+		text := packetCString(packet.Data[4:])
+		messageColor := uint32(0x0000FFFF)
+		if strings.HasPrefix(text, "blue") {
+			text = text[4:]
+			messageColor = 0x00FFFF00
+		} else if strings.HasPrefix(text, "ssss") {
+			text = text[4:]
+		}
+		return ChatMessage{Text: text, Color: messageColor, HasColor: true, Announcement: true}, true, nil
+	case PacketZCBroadcast2:
+		if len(packet.Data) < 16 {
+			return ChatMessage{}, false, fmt.Errorf("ZC_BROADCAST2 too short: %d", len(packet.Data))
+		}
 		return ChatMessage{
-			Text: packetCString(packet.Data[4:]),
+			Text:         packetCString(packet.Data[16:]),
+			Color:        rgbToROClientColor(binary.LittleEndian.Uint32(packet.Data[4:8])),
+			HasColor:     true,
+			Announcement: true,
+			FontType:     int16(binary.LittleEndian.Uint16(packet.Data[8:10])),
+			FontSize:     int16(binary.LittleEndian.Uint16(packet.Data[10:12])),
+			FontAlign:    int16(binary.LittleEndian.Uint16(packet.Data[12:14])),
+			FontY:        int16(binary.LittleEndian.Uint16(packet.Data[14:16])),
 		}, true, nil
 	case PacketZCNPCChat:
 		if len(packet.Data) < 12 {
@@ -288,6 +315,10 @@ func ParseChatMessage(packet Packet) (ChatMessage, bool, error) {
 	default:
 		return ChatMessage{}, false, nil
 	}
+}
+
+func rgbToROClientColor(rgb uint32) uint32 {
+	return (rgb&0xff)<<16 | (rgb & 0xff00) | (rgb>>16)&0xff
 }
 
 func ParseWhisperMessage(packet Packet) (WhisperMessage, bool, error) {
