@@ -50,6 +50,7 @@ const (
 	PacketZCGuildAllianceResult  uint16 = 0x0173
 	PacketCZReqGuildHostility    uint16 = 0x0180
 	PacketZCGuildHostilityResult uint16 = 0x0181
+	PacketZCGuildMemberAdded     uint16 = 0x0182
 	PacketCZDeleteGuildRelation  uint16 = 0x0183
 	PacketZCGuildRelationDeleted uint16 = 0x0184
 	PacketZCGuildRelationAdded   uint16 = 0x0185
@@ -475,11 +476,11 @@ func ParseGuildMembers(packet Packet) ([]GuildMember, bool, error) {
 }
 
 func ParseGuildMemberInfo(packet Packet) (GuildMember, bool, error) {
-	if packet.ID != PacketZCGuildMemberInfo {
+	if packet.ID != PacketZCGuildMemberInfo && packet.ID != PacketZCGuildMemberAdded {
 		return GuildMember{}, false, nil
 	}
 	if len(packet.Data) < 106 {
-		return GuildMember{}, true, fmt.Errorf("ZC_ACK_GUILD_MEMBER_INFO too short: %d", len(packet.Data))
+		return GuildMember{}, true, fmt.Errorf("guild member info too short: %d", len(packet.Data))
 	}
 	member := parseGuildMemberEntry(packet.Data[2:106])
 	return member, true, nil

@@ -113,6 +113,23 @@ func TestParseWoEGuildMemberUpdates(t *testing.T) {
 	}
 }
 
+func TestParseGuildMemberAddedUsesMemberInfoLayout(t *testing.T) {
+	packet := make([]byte, 106)
+	binary.LittleEndian.PutUint16(packet[0:2], PacketZCGuildMemberAdded)
+	binary.LittleEndian.PutUint32(packet[2:6], 10)
+	binary.LittleEndian.PutUint32(packet[6:10], 20)
+	binary.LittleEndian.PutUint16(packet[10:12], 7)
+	binary.LittleEndian.PutUint16(packet[16:18], 1)
+	binary.LittleEndian.PutUint16(packet[18:20], 99)
+	binary.LittleEndian.PutUint32(packet[24:28], 1)
+	copy(packet[82:106], "New Member")
+
+	member, ok, err := ParseGuildMemberInfo(Packet{ID: PacketZCGuildMemberAdded, Data: packet})
+	if !ok || err != nil || member.AccountID != 10 || member.CharID != 20 || member.HeadType != 7 || member.Job != 1 || member.Level != 99 || member.CurrentState != 1 || member.CharName != "New Member" {
+		t.Fatalf("member added ok=%t err=%v member=%+v", ok, err, member)
+	}
+}
+
 func TestPacketLengths2008FramesGuildRelationResponses(t *testing.T) {
 	data := make([]byte, 3+10+34+20)
 	binary.LittleEndian.PutUint16(data[0:2], PacketZCGuildHostilityResult)
