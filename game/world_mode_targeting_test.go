@@ -484,6 +484,81 @@ func TestGroundClickCancelsPendingAttackChase(t *testing.T) {
 	}
 }
 
+func TestNPCClickIgnoresWalkCooldown(t *testing.T) {
+	networkClient, serverConn := newBotTestConnection(t, 20080910)
+	defer networkClient.Close()
+	defer serverConn.Close()
+
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	world.GAT = flatWalkableGAT(64, 64)
+	npc := worldstate.Actor{
+		ID:            300,
+		X:             11,
+		Y:             20,
+		ObjectType:    actorObjectTypeNPC,
+		HasObjectType: true,
+	}
+	world.UpsertActor(npc)
+
+	inputState := input.NewState()
+	mode := &WorldMode{
+		walkCooldownUntil: time.Now().Add(time.Hour),
+		tickCooldown:      2,
+	}
+	ctx := client.Context{
+		Input:   inputState,
+		Network: networkClient,
+		Session: &session.Session{AccountID: 2000000, CharID: 150000},
+		World:   world,
+		ScreenW: 800,
+		ScreenH: 600,
+	}
+	projection := mode.sceneProjection(ctx, ctx.ScreenW, ctx.ScreenH, time.Now())
+	point := projection.Project(cellCenter(float64(npc.X)), cellCenter(float64(npc.Y)), 0)
+	inputState.SetMousePosition(int(point.x), int(point.y))
+	inputState.SetMouseButton(input.MouseButtonLeft, true)
+
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	readBotTestPackets(t, serverConn, network.BuildNPCContactPacket(npc.ID, 0))
+}
+
+func TestGroundClickRespectsWalkCooldown(t *testing.T) {
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	world.GAT = flatWalkableGAT(64, 64)
+
+	inputState := input.NewState()
+	networkClient := network.NewClient(20080910, false)
+	defer networkClient.Close()
+	blockedUntil := time.Now().Add(time.Hour)
+	mode := &WorldMode{walkCooldownUntil: blockedUntil, tickCooldown: 2}
+	ctx := client.Context{
+		Input:   inputState,
+		Network: networkClient,
+		Session: &session.Session{AccountID: 2000000, CharID: 150000},
+		World:   world,
+		ScreenW: 800,
+		ScreenH: 600,
+	}
+	projection := mode.sceneProjection(ctx, ctx.ScreenW, ctx.ScreenH, time.Now())
+	point := projection.Project(cellCenter(12), cellCenter(20), 0)
+	inputState.SetMousePosition(int(point.x), int(point.y))
+	inputState.SetMouseButton(input.MouseButtonLeft, true)
+
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !mode.walkCooldownUntil.Equal(blockedUntil) {
+		t.Fatalf("walk cooldown changed to %s, want blocked until %s", mode.walkCooldownUntil, blockedUntil)
+	}
+	if mode.nextHeldWalkAt.IsZero() {
+		t.Fatal("initial throttled click did not delay held-walk repeat")
+	}
+}
+
 func TestPendingAttackReadyAtWaitsForWalkEnd(t *testing.T) {
 	now := time.Unix(100, 0)
 	player := worldstate.Actor{

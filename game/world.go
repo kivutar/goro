@@ -972,16 +972,21 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	m.updateBot(ctx, now)
 
 	leftClick := !pointerBlocked && ctx.Input.MouseJustPressed(input.MouseButtonLeft)
-	if leftClick && m.pendingSkill.skill.ID != 0 {
+	if leftClick {
+		// One-shot interactions must not be delayed by the short throttle used
+		// for repeated walk requests. Scheduling the held-click repeat here also
+		// prevents a throttled ground click from turning into a walk on the next
+		// frame merely because the button is still down.
 		m.nextHeldWalkAt = now.Add(heldWalkRepeatInterval)
+	}
+	if leftClick && m.pendingSkill.skill.ID != 0 {
 		screenW, screenH := ctx.ScreenSize()
 		projection := m.sceneProjection(ctx, screenW, screenH, now)
 		m.skills().HandleClick(ctx, projection, now)
 		return nil, nil
 	}
 
-	if leftClick && m.walkReady(now) {
-		m.nextHeldWalkAt = now.Add(heldWalkRepeatInterval)
+	if leftClick {
 		screenW, screenH := ctx.ScreenSize()
 		projection := m.sceneProjection(ctx, screenW, screenH, now)
 		if m.handlePetCaptureClick(ctx, projection, now) {
@@ -1027,7 +1032,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			m.requestNPCTalk(ctx, actor, "click")
 			return nil, nil
 		}
-		if targetX, targetY, ok := clickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); ok {
+		if targetX, targetY, ok := clickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); ok && m.walkReady(now) {
 			glog.Debugf("click walk target mouse=%d,%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, playerX, playerY, targetX, targetY)
 			m.cancelAttackIntent()
 			if shouldUseTurnOnlyGroundClick(ctx) {
