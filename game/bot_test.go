@@ -131,6 +131,37 @@ end
 	assertLuaBool(t, seen, "second_inventory_usable", false)
 }
 
+func TestLuaPlayersIncludeUnnamedPlayers(t *testing.T) {
+	sess := session.New()
+	sess.AccountID = 2000000
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: sess.AccountID, X: 10, Y: 20}
+	world.Actors[2000001] = worldstate.Actor{
+		ID:         2000001,
+		X:          12,
+		Y:          20,
+		Job:        db.JobKnight,
+		Appearance: true,
+	}
+
+	L := lua.NewState()
+	defer L.Close()
+	players := luaPlayerList(L, client.Context{Session: sess, World: world}, &WorldMode{})
+	if players.Len() != 1 {
+		t.Fatalf("unnamed players = %d, want 1", players.Len())
+	}
+	player, ok := players.RawGetInt(1).(*lua.LTable)
+	if !ok {
+		t.Fatalf("player entry = %T, want table", players.RawGetInt(1))
+	}
+	if got := player.RawGetString("id"); got != lua.LNumber(2000001) {
+		t.Fatalf("player id = %v, want 2000001", got)
+	}
+	if got := player.RawGetString("name"); got != lua.LString("") {
+		t.Fatalf("player name = %q, want empty", got)
+	}
+}
+
 func TestLuaBotCanUseInventoryItem(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bot.lua")
 	if err := os.WriteFile(path, []byte(`

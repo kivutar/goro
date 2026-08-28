@@ -377,7 +377,7 @@ func luaPlayerList(L *lua.LState, ctx client.Context, mode *WorldMode) *lua.LTab
 	playerX, playerY := currentPlayerCell(ctx, time.Now())
 	ids := make([]int, 0, len(ctx.World.Actors))
 	for id, actor := range ctx.World.Actors {
-		if actorCanOpenPlayerContext(ctx, actor) {
+		if actorRepresentsPlayer(actor) && !isLocalActor(ctx, actor.ID) {
 			ids = append(ids, int(id))
 		}
 	}

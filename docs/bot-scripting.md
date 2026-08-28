@@ -120,6 +120,7 @@ Each player has:
 - `dead`
 
 HP and death information is available for party members when the server has provided it. For other players, `hp` and `max_hp` are `0`.
+`name` can be empty until the client has received that actor's name; use `id` as the stable identity.
 
 ### `goro.companions()`
 
