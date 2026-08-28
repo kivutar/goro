@@ -14,6 +14,9 @@ const (
 	announcementMaxWidth = 500
 	announcementPadding  = 10
 	announcementFontSize = 12
+	// UI text labels include two pixels of transparent canvas padding. Starting
+	// them here centers the visible glyphs in the banner's visual padding.
+	announcementTextTop = 2
 )
 
 type AnnouncementStyle struct {
@@ -101,7 +104,7 @@ func (a *Announcement) Draw(screen *render.Frame, now time.Time) {
 	render.DrawRect(screen, float64(boxX), float64(boxY), float64(boxWidth), float64(boxHeight), color.RGBA{A: 128})
 	centerX := float64(screenW) / 2
 	for i, line := range a.lines {
-		render.DrawCenteredUIOutlinedTextAtSize(screen, line, centerX, float64(boxY+5+i*lineHeight), a.color, color.RGBA{A: 210}, float32(a.fontSize), a.bold)
+		render.DrawCenteredUITextAtSize(screen, line, centerX, float64(boxY+announcementTextTop+i*lineHeight), a.color, float32(a.fontSize), a.bold)
 	}
 }
 
