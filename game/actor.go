@@ -780,7 +780,7 @@ func (m *WorldMode) drawSceneActorOverlays(screen *render.Frame, ctx client.Cont
 }
 
 func (m *WorldMode) drawHoveredLocalPlayerNameLabel(screen *render.Frame, ctx client.Context, entries []sceneActorDrawEntry) {
-	if ctx.Input == nil || playerNameLabelsHidden(ctx) {
+	if ctx.Input == nil {
 		return
 	}
 	for _, entry := range entries {
@@ -1166,9 +1166,6 @@ func (m *WorldMode) hoveredActorDisplayName(ctx client.Context, actor worldstate
 }
 
 func (m *WorldMode) hoveredActorDisplayLabels(ctx client.Context, actor worldstate.Actor, now time.Time) []string {
-	if actorRepresentsPlayer(actor) && playerNameLabelsHidden(ctx) {
-		return nil
-	}
 	if isLocalActor(ctx, actor.ID) {
 		return actorDisplayLabels(ctx, actor, true)
 	}
@@ -1192,10 +1189,6 @@ func (m *WorldMode) hoveredActorDisplayLabels(ctx client.Context, actor worldsta
 		return []string{name}
 	}
 	return []string{"Entity"}
-}
-
-func playerNameLabelsHidden(ctx client.Context) bool {
-	return ctx.World != nil && ctx.World.MapProperty.IsSiege()
 }
 
 func actorResourceDisplayName(ctx client.Context, actor worldstate.Actor) string {

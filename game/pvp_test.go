@@ -114,19 +114,16 @@ func TestWoETargetingIncludesEnemyHomunculi(t *testing.T) {
 	}
 }
 
-func TestWoEHidesPlayerNameLabels(t *testing.T) {
+func TestWoEShowsPlayerNameLabels(t *testing.T) {
 	state := worldstate.New()
 	ctx := client.Context{World: state}
 	actor := worldstate.Actor{Name: "Enemy", ObjectType: actorObjectTypePC, HasObjectType: true}
-	if playerNameLabelsHidden(ctx) {
-		t.Fatal("ordinary map hid player name labels")
+	mode := &WorldMode{}
+	if labels := mode.hoveredActorDisplayLabels(ctx, actor, time.Time{}); len(labels) == 0 || labels[0] != "Enemy" {
+		t.Fatalf("ordinary-map player labels = %q", labels)
 	}
 	state.MapProperty = worldstate.MapPropertyAgitZone
-	if !playerNameLabelsHidden(ctx) {
-		t.Fatal("siege map did not hide player name labels")
-	}
-	mode := &WorldMode{}
-	if labels := mode.hoveredActorDisplayLabels(ctx, actor, time.Time{}); len(labels) != 0 {
+	if labels := mode.hoveredActorDisplayLabels(ctx, actor, time.Time{}); len(labels) == 0 || labels[0] != "Enemy" {
 		t.Fatalf("siege player labels = %q", labels)
 	}
 }
