@@ -20,6 +20,7 @@ func TestUpsertActorMovePreservesAppearance(t *testing.T) {
 	w.UpsertActor(Actor{
 		ID:         2000001,
 		Name:       "remote",
+		PartyName:  "Adventurers",
 		X:          10,
 		Y:          20,
 		Job:        3,
@@ -59,6 +60,9 @@ func TestUpsertActorMovePreservesAppearance(t *testing.T) {
 	}
 	if actor.Name != "remote" {
 		t.Fatalf("name = %q, want remote", actor.Name)
+	}
+	if actor.PartyName != "Adventurers" {
+		t.Fatalf("party name = %q, want Adventurers", actor.PartyName)
 	}
 }
 

@@ -25,10 +25,13 @@ func TestApplyActorNameAckUpdatesWorldActor(t *testing.T) {
 		World:   world,
 	}
 
-	applyActorNameAck(ctx, network.ActorNameAck{ID: 300, Name: "Guide#prontera", GuildName: "Knights"})
+	applyActorNameAck(ctx, network.ActorNameAck{ID: 300, Name: "Guide#prontera", PartyName: "Adventurers", GuildName: "Knights"})
 
 	if got := world.Actors[300].Name; got != "Guide" {
 		t.Fatalf("actor name = %q, want Guide", got)
+	}
+	if got := world.Actors[300].PartyName; got != "Adventurers" {
+		t.Fatalf("actor party = %q, want Adventurers", got)
 	}
 	if got := world.Actors[300].GuildName; got != "Knights" {
 		t.Fatalf("actor guild = %q, want Knights", got)
@@ -42,10 +45,13 @@ func TestApplyActorNameAckUpdatesLocalPlayer(t *testing.T) {
 		World:   world,
 	}
 
-	applyActorNameAck(ctx, network.ActorNameAck{ID: 200, Name: "Kivutar", GuildName: "Goro"})
+	applyActorNameAck(ctx, network.ActorNameAck{ID: 200, Name: "Kivutar", PartyName: "Adventurers", GuildName: "Goro"})
 
 	if got := world.Player.Name; got != "Kivutar" {
 		t.Fatalf("player name = %q, want Kivutar", got)
+	}
+	if got := world.Player.PartyName; got != "Adventurers" {
+		t.Fatalf("player party = %q, want Adventurers", got)
 	}
 	if got := world.Player.GuildName; got != "Goro" {
 		t.Fatalf("player guild = %q, want Goro", got)
@@ -67,6 +73,21 @@ func TestApplyActorNameAckPreservesLocalGuildOnEmptyNameAck(t *testing.T) {
 	}
 	if got := ctx.Session.GuildName; got != "Goro" {
 		t.Fatalf("session guild = %q, want Goro", got)
+	}
+}
+
+func TestApplyActorNameAckClearsRemotePartyName(t *testing.T) {
+	world := worldstate.New()
+	world.UpsertActor(worldstate.Actor{ID: 300, Name: "Alice", PartyName: "Old Party"})
+	ctx := client.Context{
+		Session: &session.Session{AccountID: 100, CharID: 200},
+		World:   world,
+	}
+
+	applyActorNameAck(ctx, network.ActorNameAck{ID: 300, Name: "Alice"})
+
+	if got := world.Actors[300].PartyName; got != "" {
+		t.Fatalf("actor party = %q, want cleared", got)
 	}
 }
 
@@ -378,14 +399,14 @@ func TestActorDisplayNameIncludesPartyName(t *testing.T) {
 		},
 	}}
 
-	if got := actorDisplayName(ctx, worldstate.Actor{Name: "Player"}, true); got != "Kivutar (Goro)" {
+	if got := actorDisplayName(ctx, worldstate.Actor{Name: "Player", PartyName: "Goro"}, true); got != "Kivutar (Goro)" {
 		t.Fatalf("local display name = %q, want Kivutar (Goro)", got)
 	}
-	if got := actorDisplayName(ctx, worldstate.Actor{ID: 300, Name: "Alice"}, false); got != "Alice (Goro)" {
-		t.Fatalf("party member display name = %q, want Alice (Goro)", got)
+	if got := actorDisplayName(ctx, worldstate.Actor{ID: 300, Name: "Alice", PartyName: "Other Party"}, false); got != "Alice (Other Party)" {
+		t.Fatalf("remote display name = %q, want Alice (Other Party)", got)
 	}
 	if got := actorDisplayName(ctx, worldstate.Actor{ID: 400, Name: "Bob"}, false); got != "Bob" {
-		t.Fatalf("non-party display name = %q, want Bob", got)
+		t.Fatalf("remote without packet party name = %q, want Bob", got)
 	}
 }
 

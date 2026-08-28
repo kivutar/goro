@@ -621,6 +621,7 @@ func worldActorForSelectedCharacter(ctx client.Context) worldstate.Actor {
 		Level:         ctx.Session.Progress.BaseLevel,
 		HasLevel:      ctx.Session.Progress.BaseLevel > 0,
 		AttackRange:   ctx.Session.AttackRange,
+		PartyName:     ctx.Session.Party.Name,
 		GuildID:       ctx.Session.GuildID,
 		EmblemVersion: ctx.Session.EmblemVersion,
 		GuildName:     ctx.Session.GuildName,
@@ -639,8 +640,10 @@ func applyActorNameAck(ctx client.Context, ack network.ActorNameAck) {
 		return
 	}
 	guildName := strings.TrimSpace(ack.GuildName)
+	partyName := strings.TrimSpace(ack.PartyName)
 	if isLocalActor(ctx, ack.ID) {
 		ctx.World.Player.Name = name
+		ctx.World.Player.PartyName = partyName
 		if guildName != "" {
 			ctx.World.Player.GuildName = guildName
 		}
@@ -655,6 +658,7 @@ func applyActorNameAck(ctx client.Context, ack network.ActorNameAck) {
 		return
 	}
 	actor.Name = name
+	actor.PartyName = partyName
 	actor.GuildName = guildName
 	ctx.World.Actors[ack.ID] = actor
 }
@@ -1053,38 +1057,21 @@ func actorCanDisplayGuildName(actor worldstate.Actor, isPlayer bool) bool {
 
 func actorDisplayNameWithParty(ctx client.Context, actor worldstate.Actor, name string, isPlayer bool) string {
 	name = strings.TrimSpace(name)
-	partyName := actorPartyDisplayName(ctx, actor, name, isPlayer)
+	partyName := actorPartyDisplayName(ctx, actor, isPlayer)
 	if name == "" || partyName == "" {
 		return name
 	}
 	return name + " (" + partyName + ")"
 }
 
-func actorPartyDisplayName(ctx client.Context, actor worldstate.Actor, actorName string, isPlayer bool) string {
-	if ctx.Session == nil || !ctx.Session.Party.Active() {
-		return ""
-	}
-	name := strings.TrimSpace(ctx.Session.Party.Name)
-	if name == "" {
-		return ""
-	}
-	if isPlayer {
+func actorPartyDisplayName(ctx client.Context, actor worldstate.Actor, isPlayer bool) string {
+	if name := strings.TrimSpace(actor.PartyName); name != "" {
 		return name
 	}
-	if !actorCanDisplayPartyName(actor) {
-		return ""
+	if isPlayer && ctx.Session != nil {
+		return strings.TrimSpace(ctx.Session.Party.Name)
 	}
-	if !actorIsPartyMember(ctx.Session, actor, actorName) {
-		return ""
-	}
-	return name
-}
-
-func actorCanDisplayPartyName(actor worldstate.Actor) bool {
-	if actor.HasObjectType {
-		return actor.ObjectType == actorObjectTypePC
-	}
-	return res.HasPlayerJobToken(int(actor.Job))
+	return ""
 }
 
 func actorIsPartyMember(s *session.Session, actor worldstate.Actor, actorName string) bool {
