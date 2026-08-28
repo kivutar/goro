@@ -1,6 +1,8 @@
 package game
 
 import (
+	"image"
+	"image/color"
 	"testing"
 
 	"github.com/kivutar/goro/client"
@@ -9,6 +11,25 @@ import (
 	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
 )
+
+func TestBuildGuildFlagEmblemTextureAddsTransparentMarginAndColorBleed(t *testing.T) {
+	source := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	source.SetNRGBA(0, 0, color.NRGBA{R: 240, G: 80, B: 40, A: 255})
+
+	texture := buildGuildFlagEmblemTexture(source)
+	if texture == nil {
+		t.Fatal("flag emblem texture is nil")
+	}
+	if got := texture.Bounds(); got != image.Rect(0, 0, 4, 4) {
+		t.Fatalf("flag emblem bounds = %v, want 4x4", got)
+	}
+	if got := texture.RGBA().RGBAAt(1, 1); got != (color.RGBA{R: 240, G: 80, B: 40, A: 255}) {
+		t.Fatalf("centered emblem pixel = %+v", got)
+	}
+	if got := texture.RGBA().RGBAAt(0, 1); got != (color.RGBA{R: 240, G: 80, B: 40, A: 0}) {
+		t.Fatalf("transparent edge bleed = %+v", got)
+	}
+}
 
 func TestApplyLocalGuildDetailsInfersMasterFromSelectedCharacter(t *testing.T) {
 	s := &session.Session{

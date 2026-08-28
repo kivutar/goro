@@ -110,7 +110,12 @@ func (m *WorldMode) gr2ActorGuildEmblemTexture(ctx client.Context, actor worldst
 		m.requestActorGuildEmblem(ctx, actor.GuildID, actor.EmblemVersion)
 		return nil
 	}
-	return m.actorGuildEmblem(ctx, actor, false)
+	emblem := m.guildEmblems[actor.GuildID]
+	if emblem.flagImage == nil || emblem.version < actor.EmblemVersion {
+		m.requestActorGuildEmblem(ctx, actor.GuildID, actor.EmblemVersion)
+		return nil
+	}
+	return emblem.flagImage
 }
 
 func (m *WorldMode) nonPCGR2ModelView(ctx client.Context, actor worldstate.Actor) *gr2ModelView {

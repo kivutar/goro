@@ -41,6 +41,16 @@ func TestParseActorStandEntryLegacy(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[13:15], 0x0040)
 	binary.LittleEndian.PutUint16(data[15:17], 1011)
 	binary.LittleEndian.PutUint16(data[17:19], 2)
+	binary.LittleEndian.PutUint16(data[19:21], 3)
+	binary.LittleEndian.PutUint16(data[21:23], 4)
+	binary.LittleEndian.PutUint16(data[23:25], 5)
+	binary.LittleEndian.PutUint16(data[25:27], 6)
+	binary.LittleEndian.PutUint16(data[27:29], 7)
+	binary.LittleEndian.PutUint16(data[29:31], 8)
+	binary.LittleEndian.PutUint16(data[31:33], 9)
+	binary.LittleEndian.PutUint16(data[33:35], 2)
+	binary.LittleEndian.PutUint32(data[35:39], 0x01020304)
+	binary.LittleEndian.PutUint16(data[39:41], 11)
 	data[46] = 0
 	data[47], data[48], data[49] = packPosition(44, 55, 6)
 
@@ -56,6 +66,38 @@ func TestParseActorStandEntryLegacy(t *testing.T) {
 	}
 	if !entry.HasState || entry.BodyState != 2 || entry.HealthState != 0x0010 || entry.EffectState != 0x0040 {
 		t.Fatalf("unexpected state: %+v", entry)
+	}
+	if entry.Weapon != 3 || entry.HeadLow != 4 || entry.Shield != 5 || entry.HeadTop != 6 || entry.HeadMid != 7 || entry.HeadPal != 8 || entry.BodyPal != 9 || entry.HeadDir != 2 {
+		t.Fatalf("unexpected appearance: %+v", entry)
+	}
+	if entry.GuildID != 0x01020304 || entry.EmblemVersion != 11 {
+		t.Fatalf("unexpected guild identity: %+v", entry)
+	}
+}
+
+func TestParseGuildFlagSpawnEntry2008(t *testing.T) {
+	data := make([]byte, 42)
+	binary.LittleEndian.PutUint16(data[0:2], 0x007C)
+	data[2] = 6
+	binary.LittleEndian.PutUint32(data[3:7], 110005864)
+	binary.LittleEndian.PutUint16(data[21:23], uint16(legacyGuildFlagJob))
+	binary.LittleEndian.PutUint16(data[23:25], 4)
+	binary.LittleEndian.PutUint16(data[25:27], 0x0102)
+	binary.LittleEndian.PutUint16(data[27:29], 0x0304)
+	data[37], data[38], data[39] = packPosition(155, 190, 4)
+
+	entry, ok, err := ParseActorEntry(Packet{ID: 0x007C, Data: data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("not parsed")
+	}
+	if entry.Job != legacyGuildFlagJob || entry.GuildID != 0x01020304 || entry.EmblemVersion != 4 {
+		t.Fatalf("unexpected guild flag identity: %+v", entry)
+	}
+	if entry.X != 155 || entry.Y != 190 || entry.Dir != 4 {
+		t.Fatalf("unexpected guild flag position: %+v", entry)
 	}
 }
 

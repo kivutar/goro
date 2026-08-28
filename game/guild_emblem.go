@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"fmt"
 	"image"
+	"image/draw"
 	"io"
 	"time"
 
@@ -21,9 +22,13 @@ type guildEmblem struct {
 	version          uint32
 	requestedVersion uint32
 	image            *render.Image
+	flagImage        *render.Image
 }
 
-const siegeGuildEmblemSize = 24
+const (
+	siegeGuildEmblemSize       = 24
+	guildFlagEmblemCanvasScale = 2
+)
 
 func (m *WorldMode) requestActorGuildEmblem(ctx client.Context, guildID, version uint32) {
 	m.requestGuildEmblem(ctx, guildID, version, false)
@@ -52,7 +57,7 @@ func (m *WorldMode) requestGuildEmblem(ctx client.Context, guildID, version uint
 }
 
 func (m *WorldMode) applyGuildEmblemImage(ctx client.Context, packet network.GuildEmblemImage) {
-	image, err := decodeGuildEmblemImage(packet.Data)
+	decodedImage, err := decodeGuildEmblemImage(packet.Data)
 	if err != nil {
 		glog.Warnf("decode guild emblem failed guild=%d version=%d: %v", packet.GuildID, packet.EmblemVersion, err)
 		return
@@ -63,10 +68,67 @@ func (m *WorldMode) applyGuildEmblemImage(ctx client.Context, packet network.Gui
 	m.guildEmblems[packet.GuildID] = guildEmblem{
 		version:          packet.EmblemVersion,
 		requestedVersion: packet.EmblemVersion,
-		image:            render.NewImageFromImage(image),
+		image:            render.NewImageFromImage(decodedImage),
+		flagImage:        buildGuildFlagEmblemTexture(decodedImage),
 	}
 	m.ui.guildWindow.Refresh(ctx)
-	glog.Debugf("guild emblem loaded guild=%d version=%d size=%dx%d", packet.GuildID, packet.EmblemVersion, image.Bounds().Dx(), image.Bounds().Dy())
+	glog.Debugf("guild emblem loaded guild=%d version=%d size=%dx%d", packet.GuildID, packet.EmblemVersion, decodedImage.Bounds().Dx(), decodedImage.Bounds().Dy())
+}
+
+func buildGuildFlagEmblemTexture(source image.Image) *render.Image {
+	if source == nil {
+		return nil
+	}
+	bounds := source.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	canvas := image.NewNRGBA(image.Rect(0, 0, width*guildFlagEmblemCanvasScale, height*guildFlagEmblemCanvasScale))
+	offset := image.Pt((canvas.Bounds().Dx()-width)/2, (canvas.Bounds().Dy()-height)/2)
+	draw.Draw(canvas, image.Rectangle{Min: offset, Max: offset.Add(bounds.Size())}, source, bounds.Min, draw.Src)
+	bleedGuildFlagTransparentEdges(canvas)
+	return render.NewImageFromStraightAlpha(canvas)
+}
+
+func bleedGuildFlagTransparentEdges(img *image.NRGBA) {
+	if img == nil {
+		return
+	}
+	source := append([]byte(nil), img.Pix...)
+	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+			offset := img.PixOffset(x, y)
+			if source[offset+3] != 0 {
+				continue
+			}
+			var red, green, blue, count int
+			for dy := -1; dy <= 1; dy++ {
+				for dx := -1; dx <= 1; dx++ {
+					if dx == 0 && dy == 0 {
+						continue
+					}
+					nx, ny := x+dx, y+dy
+					if !image.Pt(nx, ny).In(img.Bounds()) {
+						continue
+					}
+					neighbor := img.PixOffset(nx, ny)
+					if source[neighbor+3] == 0 {
+						continue
+					}
+					red += int(source[neighbor])
+					green += int(source[neighbor+1])
+					blue += int(source[neighbor+2])
+					count++
+				}
+			}
+			if count > 0 {
+				img.Pix[offset] = byte(red / count)
+				img.Pix[offset+1] = byte(green / count)
+				img.Pix[offset+2] = byte(blue / count)
+			}
+		}
+	}
 }
 
 func decodeGuildEmblemImage(data []byte) (image.Image, error) {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+const legacyGuildFlagJob int16 = 722
+
 type ActorEntry struct {
 	ID               uint32
 	GuildID          uint32
@@ -165,6 +167,13 @@ func ParseActorEntry(packet Packet) (ActorEntry, bool, error) {
 			return ActorEntry{}, false, fmt.Errorf("ZC_NOTIFY_STANDENTRY too short: %d", len(packet.Data))
 		}
 		x, y, dir := unpackPos(packet.Data[47:50])
+		job := int16(binary.LittleEndian.Uint16(packet.Data[15:17]))
+		shield := int16(binary.LittleEndian.Uint16(packet.Data[23:25]))
+		headTop := int16(binary.LittleEndian.Uint16(packet.Data[25:27]))
+		headMid := int16(binary.LittleEndian.Uint16(packet.Data[27:29]))
+		guildID := binary.LittleEndian.Uint32(packet.Data[35:39])
+		emblemVersion := uint32(binary.LittleEndian.Uint16(packet.Data[39:41]))
+		guildID, emblemVersion = legacyGuildFlagIdentity(job, shield, headTop, headMid, guildID, emblemVersion)
 		return ActorEntry{
 			ObjectType:    packet.Data[2],
 			HasObjectType: true,
@@ -174,13 +183,18 @@ func ParseActorEntry(packet Packet) (ActorEntry, bool, error) {
 			HealthState:   binary.LittleEndian.Uint16(packet.Data[11:13]),
 			EffectState:   uint32(binary.LittleEndian.Uint16(packet.Data[13:15])),
 			HasState:      true,
-			Job:           int16(binary.LittleEndian.Uint16(packet.Data[15:17])),
+			Job:           job,
 			Head:          int16(binary.LittleEndian.Uint16(packet.Data[17:19])),
 			Weapon:        int16(binary.LittleEndian.Uint16(packet.Data[19:21])),
-			HeadLow:       int16(binary.LittleEndian.Uint16(packet.Data[27:29])),
-			Shield:        int16(binary.LittleEndian.Uint16(packet.Data[29:31])),
-			HeadTop:       int16(binary.LittleEndian.Uint16(packet.Data[31:33])),
-			HeadMid:       int16(binary.LittleEndian.Uint16(packet.Data[33:35])),
+			HeadLow:       int16(binary.LittleEndian.Uint16(packet.Data[21:23])),
+			Shield:        shield,
+			HeadTop:       headTop,
+			HeadMid:       headMid,
+			HeadPal:       int16(binary.LittleEndian.Uint16(packet.Data[29:31])),
+			BodyPal:       int16(binary.LittleEndian.Uint16(packet.Data[31:33])),
+			HeadDir:       uint8(binary.LittleEndian.Uint16(packet.Data[33:35])),
+			GuildID:       guildID,
+			EmblemVersion: emblemVersion,
 			Sex:           packet.Data[46],
 			Appearance:    true,
 			X:             x,
@@ -248,6 +262,11 @@ func ParseActorEntry(packet Packet) (ActorEntry, bool, error) {
 			return ActorEntry{}, false, fmt.Errorf("ZC_NOTIFY_STANDENTRY_NPC too short: %d", len(packet.Data))
 		}
 		x, y, dir := unpackPos(packet.Data[37:40])
+		job := int16(binary.LittleEndian.Uint16(packet.Data[21:23]))
+		shield := int16(binary.LittleEndian.Uint16(packet.Data[23:25]))
+		headTop := int16(binary.LittleEndian.Uint16(packet.Data[25:27]))
+		headMid := int16(binary.LittleEndian.Uint16(packet.Data[27:29]))
+		guildID, emblemVersion := legacyGuildFlagIdentity(job, shield, headTop, headMid, 0, 0)
 		return ActorEntry{
 			ObjectType:    packet.Data[2],
 			HasObjectType: true,
@@ -257,8 +276,18 @@ func ParseActorEntry(packet Packet) (ActorEntry, bool, error) {
 			HealthState:   binary.LittleEndian.Uint16(packet.Data[11:13]),
 			EffectState:   uint32(binary.LittleEndian.Uint16(packet.Data[13:15])),
 			HasState:      true,
-			Job:           int16(binary.LittleEndian.Uint16(packet.Data[21:23])),
+			Job:           job,
 			Head:          int16(binary.LittleEndian.Uint16(packet.Data[15:17])),
+			Weapon:        int16(binary.LittleEndian.Uint16(packet.Data[17:19])),
+			HeadLow:       int16(binary.LittleEndian.Uint16(packet.Data[19:21])),
+			Shield:        shield,
+			HeadTop:       headTop,
+			HeadMid:       headMid,
+			HeadPal:       int16(binary.LittleEndian.Uint16(packet.Data[29:31])),
+			BodyPal:       int16(binary.LittleEndian.Uint16(packet.Data[31:33])),
+			HeadDir:       uint8(binary.LittleEndian.Uint16(packet.Data[33:35])),
+			GuildID:       guildID,
+			EmblemVersion: emblemVersion,
 			Sex:           packet.Data[36],
 			Appearance:    true,
 			X:             x,
@@ -446,6 +475,19 @@ func ParseActorEntry(packet Packet) (ActorEntry, bool, error) {
 	default:
 		return ActorEntry{}, false, nil
 	}
+}
+
+func legacyGuildFlagIdentity(job, shield, headTop, headMid int16, guildID, emblemVersion uint32) (uint32, uint32) {
+	if job != legacyGuildFlagJob {
+		return guildID, emblemVersion
+	}
+	if guildID == 0 {
+		guildID = uint32(uint16(headTop))<<16 | uint32(uint16(headMid))
+	}
+	if emblemVersion == 0 {
+		emblemVersion = uint32(uint16(shield))
+	}
+	return guildID, emblemVersion
 }
 
 func parseActorMoveEntryModern(packet Packet) (ActorEntry, error) {
