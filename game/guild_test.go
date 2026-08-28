@@ -1,7 +1,6 @@
 package game
 
 import (
-	"math"
 	"testing"
 
 	"github.com/kivutar/goro/client"
@@ -174,8 +173,8 @@ func TestSiegeGuildEmblemEligibilityAndPosition(t *testing.T) {
 		t.Fatal("cloaked actor qualified for a siege emblem")
 	}
 	entry.actor.EffectState = 0
-	x, y := siegeGuildEmblemPosition(entry, 24)
-	if x != 88 || y != math.Round(actorSpriteTopY(200, 1)-28) {
+	x, y := siegeGuildEmblemPosition(entry.screenX, actorSpriteTopY(entry.screenY, entry.scale), 24)
+	if x != 88 || y != actorSpriteTopY(200, 1)-28 {
 		t.Fatalf("siege emblem position = %.0f,%.0f", x, y)
 	}
 }

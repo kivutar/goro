@@ -765,7 +765,7 @@ func (m *WorldMode) drawSceneActors(screen *render.Frame, ctx client.Context, pr
 }
 
 func (m *WorldMode) drawSceneActorOverlays(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time, entries []sceneActorDrawEntry) {
-	m.drawSiegeGuildEmblems(screen, ctx, entries)
+	m.drawSiegeGuildEmblems(screen, ctx, projection, now, entries)
 	for _, entry := range entries {
 		m.drawActorCastBar(screen, entry, now)
 		m.drawActorLifeBar(screen, ctx, entry)

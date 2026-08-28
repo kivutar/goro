@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"math"
+	"time"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
@@ -137,7 +137,7 @@ func (m *WorldMode) actorGuildEmblem(ctx client.Context, actor worldstate.Actor,
 	return emblem.image
 }
 
-func (m *WorldMode) drawSiegeGuildEmblems(screen *render.Frame, ctx client.Context, entries []sceneActorDrawEntry) {
+func (m *WorldMode) drawSiegeGuildEmblems(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time, entries []sceneActorDrawEntry) {
 	if screen == nil || ctx.World == nil || !ctx.World.MapProperty.IsSiege() {
 		return
 	}
@@ -153,9 +153,11 @@ func (m *WorldMode) drawSiegeGuildEmblems(screen *render.Frame, ctx client.Conte
 		if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
 			continue
 		}
-		x, y := siegeGuildEmblemPosition(entry, siegeGuildEmblemSize)
+		centerX, topY := m.siegeGuildEmblemAnchor(ctx, projection, now, entry)
+		x, y := siegeGuildEmblemPosition(centerX, topY, siegeGuildEmblemSize)
+		x, y = render.SnapScreenPoint(screen, x, y)
 		var opts render.DrawImageOptions
-		opts.Filter = render.FilterNearest
+		opts.Filter = render.FilterLinear
 		opts.GeoM.Scale(float64(siegeGuildEmblemSize)/float64(bounds.Dx()), float64(siegeGuildEmblemSize)/float64(bounds.Dy()))
 		opts.GeoM.Translate(x, y)
 		screen.DrawImage(emblem, &opts)
@@ -167,11 +169,37 @@ func siegeActorShowsGuildEmblem(entry sceneActorDrawEntry) bool {
 	return !entry.hidden && entry.actor.EffectState&hiddenEffectMask == 0 && entry.actor.GuildID != 0 && entry.actor.EmblemVersion != 0
 }
 
-func siegeGuildEmblemPosition(entry sceneActorDrawEntry, size int) (float64, float64) {
+func (m *WorldMode) siegeGuildEmblemAnchor(ctx client.Context, projection sceneProjection, now time.Time, entry sceneActorDrawEntry) (float64, float64) {
+	centerX := entry.screenX
+	topY := actorSpriteTopY(entry.screenY, entry.scale)
+	if entry.isPlayer || !m.nonPCActorHasGR2Model(ctx, entry.actor) {
+		return centerX, topY
+	}
+
+	view := m.nonPCGR2ModelView(ctx, entry.actor)
+	if view == nil || view.geometry == nil {
+		return centerX, topY
+	}
+	scale := gr2ModelWorldScale * m.actorBodySizeMultiplier(entry.actor.ID, now)
+	top := modelPoint3{
+		x: float64(view.geometry.Center[0]),
+		y: float64(view.geometry.Center[1]),
+		z: float64(view.geometry.Center[2] + view.geometry.Size[2]/2),
+	}
+	matrix := gr2ActorModelMatrix(entry.worldX, entry.worldY, entry.worldZ, entry.actor.Dir, scale)
+	worldTop := mat4TransformPoint(matrix, top)
+	projected := projection.Project(worldTop.x, worldTop.z, worldTop.y)
+	if !isFinite(float64(projected.x)) || !isFinite(float64(projected.y)) {
+		return centerX, topY
+	}
+	return float64(projected.x), float64(projected.y)
+}
+
+func siegeGuildEmblemPosition(centerX, topY float64, size int) (float64, float64) {
 	if size <= 0 {
 		size = siegeGuildEmblemSize
 	}
-	x := math.Round(entry.screenX - float64(size)/2)
-	y := math.Round(actorSpriteTopY(entry.screenY, entry.scale) - float64(size) - 4)
+	x := centerX - float64(size)/2
+	y := topY - float64(size) - 4
 	return x, y
 }
