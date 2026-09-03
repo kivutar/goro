@@ -9,12 +9,16 @@ import (
 	"strings"
 
 	charm "github.com/charmbracelet/log"
-	"github.com/kivutar/goro/config"
 )
 
 var logger = charm.Default()
 
-func Configure(cfg config.LogConfig) (func() error, error) {
+type LogConfig struct {
+	Level string
+	File  string
+}
+
+func Configure(cfg LogConfig) (func() error, error) {
 	level, err := parseLevel(cfg.Level)
 	if err != nil {
 		return nil, err

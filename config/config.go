@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/kivutar/goro/glog"
 )
 
 type Config struct {
@@ -23,7 +26,7 @@ type Config struct {
 	Fog      FogConfig
 	Gameplay GameplayConfig
 	Script   ScriptConfig
-	Log      LogConfig
+	Log      glog.LogConfig
 }
 
 type WindowConfig struct {
@@ -85,11 +88,6 @@ type GameplayConfig struct {
 
 type ScriptConfig struct {
 	Path string
-}
-
-type LogConfig struct {
-	Level string
-	File  string
 }
 
 func LoadConfig(args []string) (Config, error) {
@@ -241,7 +239,7 @@ func defaultConfig() Config {
 		Gameplay: GameplayConfig{
 			NoCtrl: true,
 		},
-		Log: LogConfig{
+		Log: glog.LogConfig{
 			Level: "info",
 		},
 	}
@@ -336,113 +334,14 @@ func applyCLI(cfg *Config, args []string) error {
 }
 
 func applyINI(cfg *Config, r io.Reader) error {
-	scanner := bufio.NewScanner(r)
-	section := ""
-	lineNo := 0
-	for scanner.Scan() {
-		lineNo++
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
-			continue
-		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			section = normalizeKey(strings.TrimSpace(line[1 : len(line)-1]))
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			return fmt.Errorf("line %d: expected key=value", lineNo)
-		}
-		if err := applyConfigValue(cfg, section, normalizeKey(key), cleanINIValue(value)); err != nil {
-			return fmt.Errorf("line %d: %w", lineNo, err)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	return validateConfig(cfg)
-}
+	b := bufio.NewScanner(r)
 
-func applyConfigValue(cfg *Config, section, key, value string) error {
-	switch section + "." + key {
-	case ".datadir", "data.dir", "data.datadir", "config.datadir", "core.datadir":
-		cfg.DataDir = value
-	case "window.title":
-		cfg.Window.Title = value
-	case "window.width":
-		return setInt(value, &cfg.Window.Width)
-	case "window.height":
-		return setInt(value, &cfg.Window.Height)
-	case "window.fullscreen":
-		return setBool(value, &cfg.Window.Fullscreen)
-	case "packet.clientdate":
-		return setInt(value, &cfg.Packet.ClientDate)
-	case "packet.profile":
-		return setInt(value, &cfg.Packet.Profile)
-	case "login.username":
-		cfg.Login.Username = value
-	case "login.password":
-		cfg.Login.Password = value
-	case "login.autologin":
-		return setBool(value, &cfg.Login.AutoLogin)
-	case "login.charslot":
-		return setInt(value, &cfg.Login.CharSlot)
-	case "audio.bgm":
-		return setBool(value, &cfg.Audio.BGM)
-	case "audio.noaudio":
-		return setBool(value, &cfg.Audio.Disabled)
-	case "audio.bgmvolume":
-		return setFloat(value, &cfg.Audio.BGMVolume)
-	case "audio.sfxvolume":
-		return setFloat(value, &cfg.Audio.SFXVolume)
-	case "render.graphicsapi":
-		cfg.Render.GraphicsAPI = value
-	case "render.vsync":
-		return setBool(value, &cfg.Render.VSync)
-	case "render.fps":
-		return setBool(value, &cfg.Render.FPS)
-	case "render.noui":
-		return setBool(value, &cfg.Render.NoUI)
-	case "render.asyncui":
-		return setBool(value, &cfg.Render.AsyncUI)
-	case "render.profileui":
-		return setBool(value, &cfg.Render.UIProfile)
-	case "render.benchseconds":
-		return setInt(value, &cfg.Render.BenchSeconds)
-	case "render.benchwarmupseconds":
-		return setInt(value, &cfg.Render.BenchWarmupSeconds)
-	case "render.cpuprofile":
-		cfg.Render.CPUProfile = value
-	case "render.stats":
-		return setBool(value, &cfg.Render.Stats)
-	case "render.worlddebugstats":
-		return setBool(value, &cfg.Render.WorldDebugStats)
-	case "network.trace":
-		return setBool(value, &cfg.Network.Trace)
-	case "fog.enabled":
-		return setBool(value, &cfg.Fog.Enabled)
-	case "gameplay.noshift":
-		return setBool(value, &cfg.Gameplay.NoShift)
-	case "gameplay.noctrl":
-		return setBool(value, &cfg.Gameplay.NoCtrl)
-	case "gameplay.lesseffects", "gameplay.lesseffect", "gameplay.mineffect", "gameplay.less_effects", "gameplay.less_effect":
-		return setBool(value, &cfg.Gameplay.LessEffects)
-	case "gameplay.snap", "gameplay.snaptargets", "gameplay.targetsnap":
-		return setBool(value, &cfg.Gameplay.SnapTargets)
-	case "gameplay.itemsnap", "gameplay.snapitems", "gameplay.itemsnapping":
-		return setBool(value, &cfg.Gameplay.SnapItems)
-	case "gameplay.forceuserai":
-		return setBool(value, &cfg.Gameplay.ForceUserAI)
-	case ".script", "script.path":
-		cfg.Script.Path = value
-	case "log.level":
-		cfg.Log.Level = strings.ToLower(value)
-	case "log.file":
-		cfg.Log.File = value
-	default:
-		return fmt.Errorf("unknown key %q in section %q", key, section)
+	_, err := toml.Decode(string(b.Bytes()), cfg)
+	if err != nil {
+		glog.Errorf("error decoding toml/ini file %v", err)
 	}
-	return nil
+
+	return validateConfig(cfg)
 }
 
 func validateConfig(cfg *Config) error {
@@ -587,42 +486,6 @@ func normalizeKey(value string) string {
 	value = strings.ReplaceAll(value, "-", "")
 	value = strings.ReplaceAll(value, "_", "")
 	return value
-}
-
-func setBool(raw string, dst *bool) error {
-	value, err := strconv.ParseBool(raw)
-	if err == nil {
-		*dst = value
-		return nil
-	}
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "yes", "on", "enabled":
-		*dst = true
-		return nil
-	case "no", "off", "disabled":
-		*dst = false
-		return nil
-	default:
-		return fmt.Errorf("invalid bool %q", raw)
-	}
-}
-
-func setInt(raw string, dst *int) error {
-	value, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil {
-		return fmt.Errorf("invalid int %q", raw)
-	}
-	*dst = value
-	return nil
-}
-
-func setFloat(raw string, dst *float64) error {
-	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-	if err != nil {
-		return fmt.Errorf("invalid float %q", raw)
-	}
-	*dst = value
-	return nil
 }
 
 func resolveDataDir(value string) string {
