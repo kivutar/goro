@@ -32,6 +32,7 @@ type Colors struct {
 	Disabled       widget.Color
 	Text           widget.Color
 	TitleText      widget.Color
+	LabelText      widget.Color
 	MutedText      widget.Color
 	InputBorder    widget.Color
 	InputFocus     widget.Color
@@ -64,6 +65,7 @@ var Default = Theme{
 		Disabled:       fromRGBA(color.RGBA{R: 226, G: 230, B: 235, A: 255}),
 		Text:           fromRGBA(color.RGBA{R: 38, G: 48, B: 58, A: 255}),
 		TitleText:      fromRGBA(color.RGBA{R: 22, G: 54, B: 88, A: 255}),
+		LabelText:      fromRGBA(color.RGBA{R: 58, G: 104, B: 156, A: 255}),
 		MutedText:      fromRGBA(color.RGBA{R: 98, G: 112, B: 126, A: 255}),
 		InputBorder:    fromRGBA(color.RGBA{R: 138, G: 174, B: 214, A: 255}),
 		InputFocus:     fromRGBA(color.RGBA{R: 82, G: 138, B: 200, A: 255}),
