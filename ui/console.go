@@ -16,6 +16,7 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -356,8 +357,14 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 	case "/memo":
 		c.submitMemo(ctx)
 		return true
+	case "/blacksmith":
+		c.submitFameRanking(ctx, network.FameRankingBlacksmith)
+		return true
+	case "/alchemist":
+		c.submitFameRanking(ctx, network.FameRankingAlchemist)
+		return true
 	case "/taekwon":
-		c.submitTaekwonRanking(ctx)
+		c.submitFameRanking(ctx, network.FameRankingTaekwon)
 		return true
 	case "/screenshot":
 		c.submitScreenshot(ctx)
@@ -817,14 +824,14 @@ func (c *ChatConsole) submitMemo(ctx client.Context) {
 	c.setActive(false)
 }
 
-func (c *ChatConsole) submitTaekwonRanking(ctx client.Context) {
+func (c *ChatConsole) submitFameRanking(ctx client.Context, kind network.FameRankingKind) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
 		c.setInput("")
 		c.setActive(false)
 		return
 	}
-	if err := ctx.Network.SendTaekwonRankRequest(); err != nil {
+	if err := ctx.Network.SendFameRankingRequest(kind); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
 		return
 	}

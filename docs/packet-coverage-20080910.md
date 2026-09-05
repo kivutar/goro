@@ -22,8 +22,8 @@ Status meaning:
 - Effective unique map opcodes: `603`
 - Overwritten historical/remap declarations: `283`
 - Client-to-map packets accepted by rAthena: `177`
-- Effective map opcodes referenced by Goro: `226`
-- Client-to-map accepted packets referenced by Goro: `102` / `177`
+- Effective map opcodes referenced by Goro: `232`
+- Client-to-map accepted packets referenced by Goro: `104` / `177`
 - Unresolved packet aliases in this generated pass: `0`
 
 ## Homunculus Compatibility Notes
@@ -436,8 +436,12 @@ email check.
 | `0x0213` | C->S | missing | `0x0213` | `26` | `clif_parse_Check` | - |
 | `0x0214` | S->C | referenced | `0x0214` | `42` | `-` | packet.go |
 | `0x0216` | S->C | implemented | `0x0216` | `6` | `-` | adoption_packets.go, packet.go |
-| `0x0217` | C->S | missing | `HEADER_CZ_BLACKSMITH_RANK` | `sizeof( PACKET_CZ_BLACKSMITH_RANK )` | `clif_parse_ranklist_blacksmith` | - |
-| `0x0218` | C->S | missing | `HEADER_CZ_ALCHEMIST_RANK` | `sizeof( PACKET_CZ_ALCHEMIST_RANK )` | `clif_parse_ranklist_alchemist` | - |
+| `0x0217` | C->S | implemented | `HEADER_CZ_BLACKSMITH_RANK` | `sizeof( PACKET_CZ_BLACKSMITH_RANK )` | `clif_parse_ranklist_blacksmith` | ranking_packets.go |
+| `0x0218` | C->S | implemented | `HEADER_CZ_ALCHEMIST_RANK` | `sizeof( PACKET_CZ_ALCHEMIST_RANK )` | `clif_parse_ranklist_alchemist` | ranking_packets.go |
+| `0x0219` | S->C | implemented | `HEADER_ZC_BLACKSMITH_RANK` | `282` | `-` | ranking_packets.go, packet.go |
+| `0x021A` | S->C | implemented | `HEADER_ZC_ALCHEMIST_RANK` | `282` | `-` | ranking_packets.go, packet.go |
+| `0x021B` | S->C | implemented | `HEADER_ZC_BLACKSMITH_POINT` | `10` | `-` | ranking_packets.go, packet.go |
+| `0x021C` | S->C | implemented | `HEADER_ZC_ALCHEMIST_POINT` | `10` | `-` | ranking_packets.go, packet.go |
 | `0x021D` | C->S | implemented | `HEADER_CZ_LESSEFFECT` | `sizeof( PACKET_CZ_LESSEFFECT )` | `clif_parse_LessEffect` | effect_packets.go |
 | `0x021E` | S->C | implemented | `0x021e` | `6` | `-` | effect_packets.go, packet.go |
 | `0x021F` | S->C | untracked | `0x021f` | `66` | `-` | - |
@@ -445,9 +449,9 @@ email check.
 | `0x0221` | S->C | implemented | `HEADER_ZC_NOTIFY_WEAPONITEMLIST` | `-1` | `-` | item_packets.go, packet.go |
 | `0x0222` | C->S | implemented | `0x0222` | `6` | `clif_parse_WeaponRefine` | item_packets.go |
 | `0x0223` | S->C | implemented | `HEADER_ZC_ACK_WEAPONREFINE` | `8` | `-` | item_packets.go, packet.go |
-| `0x0224` | S->C | implemented | `0x0224` | `10` | `-` | taekwon_packets.go, packet.go |
-| `0x0225` | C->S | implemented | `HEADER_CZ_TAEKWON_RANK` | `sizeof( PACKET_CZ_TAEKWON_RANK )` | `clif_parse_ranklist_taekwon` | taekwon_packets.go |
-| `0x0226` | S->C | implemented | `0x0226` | `282` | `-` | taekwon_packets.go, packet.go |
+| `0x0224` | S->C | implemented | `0x0224` | `10` | `-` | ranking_packets.go, packet.go |
+| `0x0225` | C->S | implemented | `HEADER_CZ_TAEKWON_RANK` | `sizeof( PACKET_CZ_TAEKWON_RANK )` | `clif_parse_ranklist_taekwon` | ranking_packets.go |
+| `0x0226` | S->C | implemented | `0x0226` | `282` | `-` | ranking_packets.go, packet.go |
 | `0x0227` | S->C | untracked | `0x0227` | `18` | `-` | - |
 | `0x0228` | S->C | untracked | `0x0228` | `18` | `-` | - |
 | `0x0229` | S->C | referenced | `0x0229` | `15` | `-` | actor_packets.go, packet.go |

@@ -119,16 +119,16 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		m.applyTaekwonMission(ctx, mission)
 		return nil, false
 	}
-	if point, ok, err := network.ParseTaekwonPoint(pkt); err != nil {
-		glog.Errorf("parse taekwon point 0x%04X: %v", pkt.ID, err)
+	if point, ok, err := network.ParseFamePointUpdate(pkt); err != nil {
+		glog.Errorf("parse fame point update 0x%04X: %v", pkt.ID, err)
 	} else if ok {
-		glog.Debugf("taekwon points current=%d total=%d", point.Point, point.TotalPoint)
+		m.applyFamePointUpdate(ctx, point)
 		return nil, false
 	}
-	if ranking, ok, err := network.ParseTaekwonRanking(pkt); err != nil {
-		glog.Errorf("parse taekwon ranking 0x%04X: %v", pkt.ID, err)
+	if ranking, ok, err := network.ParseFameRanking(pkt); err != nil {
+		glog.Errorf("parse fame ranking 0x%04X: %v", pkt.ID, err)
 	} else if ok {
-		m.applyTaekwonRanking(ctx, ranking)
+		m.applyFameRanking(ctx, ranking)
 		return nil, false
 	}
 	if place, ok, err := network.ParseStarPlace(pkt); err != nil {

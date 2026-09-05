@@ -84,11 +84,11 @@ This means the legacy mail system, not a newer RODEX-only implementation. See
 
 ### Rankings and fame feedback
 
-- [ ] Implement `/blacksmith` top-ten ranking request and response (`0x0217`).
-- [ ] Implement `/alchemist` top-ten ranking request and response (`0x0218`).
-- [ ] Format ranking entries consistently in the console.
-- [ ] Handle Blacksmith and Alchemist fame-point gain notifications.
-- [ ] Preserve the existing TaeKwon mission and ranking implementation.
+- [x] Implement `/blacksmith` top-ten ranking request and response (`0x0217`).
+- [x] Implement `/alchemist` top-ten ranking request and response (`0x0218`).
+- [x] Format ranking entries consistently in the console.
+- [x] Handle Blacksmith and Alchemist fame-point gain notifications.
+- [x] Preserve the existing TaeKwon mission and ranking implementation.
 - [ ] Investigate the `0x0237` killer ranking separately before treating it as a 2008 parity requirement.
 
 ## Client UI and quality-of-life

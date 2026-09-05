@@ -63,8 +63,8 @@
   - [x] PvP map property and actor ranking: 0x0199, 0x019A
   - [x] PvP info: 0x020F, 0x0210
   - [x] Legacy WoE/GvG map semantics, targeting, announcements, guild minimap markers, siege emblems, and hidden combat damage: 0x009A, 0x0199, 0x01C3
-  - [ ] Blacksmith rank: 0x0217
-  - [ ] Alchemist rank: 0x0218
+  - [x] Blacksmith rank and fame feedback: 0x0217, 0x0219, 0x021B
+  - [x] Alchemist rank and fame feedback: 0x0218, 0x021A, 0x021C
   - [x] Taekwon mission and rank: 0x020E, 0x0224, 0x0225, 0x0226
   - [ ] Killer rank: 0x0237
 
