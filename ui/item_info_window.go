@@ -38,12 +38,18 @@ type ItemInfoWindow struct {
 	illustration    image.Image
 	bookAvailable   bool
 	readBookRequest ItemInfoReadBookRequest
+	cardArtRequest  ItemInfoCardIllustrationRequest
 	tooltip         tooltipState
 	slotIcons       map[string]image.Image
 	slotIconMiss    map[string]struct{}
 }
 
 type ItemInfoReadBookRequest struct {
+	ItemID uint16
+	Title  string
+}
+
+type ItemInfoCardIllustrationRequest struct {
 	ItemID uint16
 	Title  string
 }
@@ -59,6 +65,7 @@ func (w *ItemInfoWindow) openItem(ctx Context, item session.InventoryItem, mouse
 	w.illustration = nil
 	w.bookAvailable = itemInfoShowsReadBook(ctx, item)
 	w.readBookRequest = ItemInfoReadBookRequest{}
+	w.cardArtRequest = ItemInfoCardIllustrationRequest{}
 	w.tooltip.Hide()
 
 	height := w.windowHeight(ctx)
@@ -231,7 +238,10 @@ func (w *ItemInfoWindow) cardSlotsFooter(ctx Context) []widget.Widget {
 }
 
 func (w *ItemInfoWindow) footerWidgets(ctx Context) []widget.Widget {
-	children := make([]widget.Widget, 0, 5)
+	children := make([]widget.Widget, 0, 6)
+	if itemInfoShowsCardIllustration(ctx, w.item) {
+		children = append(children, rotheme.Button("View", w.requestCardIllustration))
+	}
 	if w.bookAvailable {
 		children = append(children, rotheme.Button("Read", func() {
 			w.readBookRequest = ItemInfoReadBookRequest{ItemID: w.item.ItemID, Title: w.title}
@@ -243,9 +253,19 @@ func (w *ItemInfoWindow) footerWidgets(ctx Context) []widget.Widget {
 	return children
 }
 
+func (w *ItemInfoWindow) requestCardIllustration() {
+	w.cardArtRequest = ItemInfoCardIllustrationRequest{ItemID: w.item.ItemID, Title: w.title}
+}
+
 func (w *ItemInfoWindow) PopReadBookRequest() ItemInfoReadBookRequest {
 	request := w.readBookRequest
 	w.readBookRequest = ItemInfoReadBookRequest{}
+	return request
+}
+
+func (w *ItemInfoWindow) PopCardIllustrationRequest() ItemInfoCardIllustrationRequest {
+	request := w.cardArtRequest
+	w.cardArtRequest = ItemInfoCardIllustrationRequest{}
 	return request
 }
 
@@ -350,10 +370,18 @@ func (w *ItemInfoWindow) bodyHeight(ctx Context) int {
 }
 
 func (w *ItemInfoWindow) footerHeight(ctx Context) int {
-	if w.bookAvailable || itemInfoShowsCardSlots(ctx, w.item) {
+	if w.bookAvailable || itemInfoShowsCardIllustration(ctx, w.item) || itemInfoShowsCardSlots(ctx, w.item) {
 		return ROWindowFooterHeight
 	}
 	return 0
+}
+
+func itemInfoShowsCardIllustration(ctx Context, item session.InventoryItem) bool {
+	if ctx.Resources == nil || item.ItemID == 0 || item.Type != db.ItemTypeCard {
+		return false
+	}
+	_, ok := ctx.Resources.ItemCardIllustrationName(int(item.ItemID))
+	return ok
 }
 
 func itemInfoShowsReadBook(ctx Context, item session.InventoryItem) bool {

@@ -73,6 +73,22 @@ func TestAppleItemSpriteRealWhenConfigured(t *testing.T) {
 	}
 }
 
+func TestCardIllustrationRealWhenConfigured(t *testing.T) {
+	manager := realDataManager(t)
+	resource, ok := manager.ItemCardIllustrationName(4001)
+	if !ok || resource == "" {
+		t.Fatalf("card 4001 illustration resource missing: %q ok=%v", resource, ok)
+	}
+	img, source, err := LoadImage(manager, CardIllustrationTextureCandidates(resource))
+	if err != nil {
+		t.Fatalf("card 4001 illustration %q missing: %v", resource, err)
+	}
+	if got := img.Bounds().Size(); got.X != 300 || got.Y != 400 {
+		t.Fatalf("card 4001 illustration %s size = %v, want 300x400", source, got)
+	}
+	t.Logf("card 4001 illustration=%q source=%s", resource, source)
+}
+
 func dominantImageRGB(img *image.NRGBA) (int, int, int) {
 	var red, green, blue, count int
 	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {

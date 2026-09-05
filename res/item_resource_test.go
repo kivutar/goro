@@ -90,6 +90,14 @@ func TestItemCollectionTextureCandidates(t *testing.T) {
 	}
 }
 
+func TestCardIllustrationTextureCandidates(t *testing.T) {
+	got := CardIllustrationTextureCandidates("poring_card")
+	want := "data\\texture\\유저인터페이스\\cardbmp\\poring_card.bmp"
+	if len(got) == 0 || got[0] != want {
+		t.Fatalf("card illustration candidates = %#v, want %q first", got, want)
+	}
+}
+
 func TestItemMetadataLookupFallbacks(t *testing.T) {
 	manager := &Manager{
 		itemMetadataLoaded: true,
@@ -102,6 +110,9 @@ func TestItemMetadataLookupFallbacks(t *testing.T) {
 				SlotCount:               1,
 				ClassNum:                10,
 				ClassNumSet:             true,
+			},
+			4001: {
+				CardIllustration: "poring_card",
 			},
 		},
 	}
@@ -122,6 +133,9 @@ func TestItemMetadataLookupFallbacks(t *testing.T) {
 	}
 	if got, ok := manager.ItemSlotCount(909); !ok || got != 1 {
 		t.Fatalf("slot count = %d ok=%v, want 1/true", got, ok)
+	}
+	if got, ok := manager.ItemCardIllustrationName(4001); !ok || got != "poring_card" {
+		t.Fatalf("card illustration = %q ok=%v, want poring_card/true", got, ok)
 	}
 	manager.itemMetadata[4001] = ItemMetadata{CardPrefixName: "Poring"}
 	if got, ok := manager.ItemCardPrefixName(4001); !ok || got != "Poring" {

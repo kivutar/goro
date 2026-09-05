@@ -353,3 +353,51 @@ func ItemCollectionTextureCandidates(resource string) []string {
 	}
 	return out
 }
+
+func CardIllustrationTextureCandidates(resource string) []string {
+	resource = strings.TrimSpace(strings.TrimSuffix(resource, ".bmp"))
+	if resource == "" {
+		return nil
+	}
+	stem := strings.ReplaceAll(resource, "/", "\\")
+	filenameOnly := stem
+	if pos := strings.LastIndexAny(filenameOnly, `\/`); pos >= 0 && pos+1 < len(filenameOnly) {
+		filenameOnly = filenameOnly[pos+1:]
+	}
+
+	const uiKorPrefix = "data\\texture\\유저인터페이스\\cardbmp\\"
+	prefixes := []string{
+		uiKorPrefix,
+		strings.ReplaceAll(uiKorPrefix, "\\", "/"),
+		"texture\\유저인터페이스\\cardbmp\\",
+		"data\\texture\\interface\\cardbmp\\",
+		"data/texture/interface/cardbmp/",
+		"texture\\interface\\cardbmp\\",
+		"texture/interface/cardbmp/",
+		"cardbmp\\",
+		"cardbmp/",
+	}
+	seen := make(map[string]struct{}, len(prefixes)*2+2)
+	out := make([]string, 0, len(prefixes)*2+2)
+	add := func(candidate string) {
+		if candidate == "" {
+			return
+		}
+		if _, ok := seen[candidate]; ok {
+			return
+		}
+		seen[candidate] = struct{}{}
+		out = append(out, candidate)
+	}
+	for _, prefix := range prefixes {
+		add(prefix + stem + ".bmp")
+		if filenameOnly != stem {
+			add(prefix + filenameOnly + ".bmp")
+		}
+	}
+	add(stem + ".bmp")
+	if filenameOnly != stem {
+		add(filenameOnly + ".bmp")
+	}
+	return out
+}

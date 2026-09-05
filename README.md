@@ -256,7 +256,7 @@ Currently implemented (not a claim of complete reference-client parity):
    * Cart appearance modal
    * Trade window
    * Vending windows
-   * Card composition window
+   * Card composition and full card illustration windows
    * Show-equipment window
    * Alchemist crafting window
    * Blacksmith repair and refinement windows

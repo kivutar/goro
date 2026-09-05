@@ -16,6 +16,7 @@ type ItemMetadata struct {
 	IdentifiedDisplayName   string
 	UnidentifiedResource    string
 	IdentifiedResource      string
+	CardIllustration        string
 	UnidentifiedDescription []string
 	IdentifiedDescription   []string
 	SlotCount               int
@@ -66,6 +67,10 @@ var itemSlotCountTableFiles = []string{
 
 var itemCardPrefixTableFiles = []string{
 	"cardprefixnametable.txt",
+}
+
+var itemCardIllustrationTableFiles = []string{
+	"num2cardillustnametable.txt",
 }
 
 var itemCardPostfixTableFiles = []string{
@@ -189,6 +194,18 @@ func (m *Manager) ItemCardPrefixName(itemID int) (string, bool) {
 	return metadata.CardPrefixName, true
 }
 
+func (m *Manager) ItemCardIllustrationName(itemID int) (string, bool) {
+	if itemID <= 0 {
+		return "", false
+	}
+	m.loadItemMetadata()
+	metadata, ok := m.itemMetadata[itemID]
+	if !ok || metadata.CardIllustration == "" {
+		return "", false
+	}
+	return metadata.CardIllustration, true
+}
+
 func (m *Manager) ItemCardPostfix(itemID int) bool {
 	if itemID <= 0 {
 		return false
@@ -252,6 +269,17 @@ func (m *Manager) loadItemMetadata() {
 			}
 			metadata := m.itemMetadata[id]
 			metadata.SlotCount = slotCount
+			m.itemMetadata[id] = metadata
+		}
+	}
+	for _, table := range itemCardIllustrationTableFiles {
+		for id, value := range m.readItemPairTable(table) {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				continue
+			}
+			metadata := m.itemMetadata[id]
+			metadata.CardIllustration = value
 			m.itemMetadata[id] = metadata
 		}
 	}

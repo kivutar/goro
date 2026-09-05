@@ -53,6 +53,7 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 - [x] Trade window
 - [x] Vending setup and buyer shop windows
 - [x] Card composition window
+- [x] Card illustration window
 - [x] Friend/party window
   - Friends tab, party tab, party settings, invitations, and party HP rows.
 - [x] Show-equipment window

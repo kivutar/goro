@@ -222,7 +222,7 @@ missing work.
 - [x] Same-map guild-member minimap markers.
 - [x] Server compass markers.
 - [x] Status-icon tooltips and remaining-duration presentation.
-- [x] Item information illustrations and card-slot/card composition support.
+- [x] Item information illustrations, full card illustrations, and card-slot/card composition support.
 - [x] Talkie Box and Graffiti text prompts and outbound talkbox skill packet.
 - [x] Positional actor, effect, and RSW audio.
 - [x] Party creation, invitation by name, settings, and member actions.
