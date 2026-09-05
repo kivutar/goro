@@ -64,3 +64,24 @@ func TestParseSkillSPAmountMaxLevels(t *testing.T) {
 		t.Fatal("zero skill id should not be populated")
 	}
 }
+
+func TestParseSkillTreePositionsInvertsClientTable(t *testing.T) {
+	table := luaValue{kind: luaTable, table: map[interface{}]luaValue{
+		18: {kind: luaTable, table: map[interface{}]luaValue{
+			0:  {kind: luaNumber, num: 225},
+			14: {kind: luaNumber, num: 228},
+		}},
+		"invalid": {kind: luaTable},
+	}}
+
+	positions := parseSkillTreePositions(table)
+	if got := positions[18][225]; got != 0 {
+		t.Fatalf("skill 225 position = %d, want 0", got)
+	}
+	if got := positions[18][228]; got != 14 {
+		t.Fatalf("skill 228 position = %d, want 14", got)
+	}
+	if _, ok := positions[0]; ok {
+		t.Fatal("invalid job key produced a position table")
+	}
+}

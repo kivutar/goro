@@ -1706,6 +1706,115 @@ func SkillTreeSkillIDs(job int) []uint16 {
 	return out
 }
 
+// SkillTreeLayoutJobs returns the client skill-tree tables which contribute
+// positions to a class-level tab. Base and transcendent second classes share
+// one tab, matching the classic expanded skill window.
+func SkillTreeLayoutJobs(job, classLevel int) []int {
+	first, second, advanced := skillTreeLineage(job)
+	switch classLevel {
+	case 1:
+		jobs := []int{JobNovice}
+		if first != JobNovice {
+			jobs = append(jobs, first)
+		}
+		return jobs
+	case 2:
+		jobs := make([]int, 0, 2)
+		if second >= 0 {
+			jobs = append(jobs, second)
+		}
+		if advanced >= 0 && advanced != second {
+			jobs = append(jobs, advanced)
+		}
+		return jobs
+	default:
+		return nil
+	}
+}
+
+func skillTreeLineage(job int) (first, second, advanced int) {
+	first, second, advanced = JobNovice, -1, -1
+	switch job {
+	case JobSwordman, JobSwordmanH, JobSwordmanB:
+		first = JobSwordman
+	case JobKnight, JobKnight2, JobKnightB, JobKnight2B:
+		first, second = JobSwordman, JobKnight
+	case JobKnightH, JobKnight2H:
+		first, second, advanced = JobSwordman, JobKnight, JobKnightH
+	case JobCrusader, JobCrusader2, JobCrusaderB, JobCrusader2B:
+		first, second = JobSwordman, JobCrusader
+	case JobCrusaderH, JobCrusader2H:
+		first, second, advanced = JobSwordman, JobCrusader, JobCrusaderH
+	case JobMagician, JobMagicianH, JobMagicianB:
+		first = JobMagician
+	case JobWizard, JobWizardB:
+		first, second = JobMagician, JobWizard
+	case JobWizardH:
+		first, second, advanced = JobMagician, JobWizard, JobWizardH
+	case JobSage, JobSageB:
+		first, second = JobMagician, JobSage
+	case JobSageH:
+		first, second, advanced = JobMagician, JobSage, JobSageH
+	case JobArcher, JobArcherH, JobArcherB:
+		first = JobArcher
+	case JobHunter, JobHunterB:
+		first, second = JobArcher, JobHunter
+	case JobHunterH:
+		first, second, advanced = JobArcher, JobHunter, JobHunterH
+	case JobBard, JobBardB:
+		first, second = JobArcher, JobBard
+	case JobBardH:
+		first, second, advanced = JobArcher, JobBard, JobBardH
+	case JobDancer, JobDancerB:
+		first, second = JobArcher, JobDancer
+	case JobDancerH:
+		first, second, advanced = JobArcher, JobDancer, JobDancerH
+	case JobAcolyte, JobAcolyteH, JobAcolyteB:
+		first = JobAcolyte
+	case JobPriest, JobPriestB:
+		first, second = JobAcolyte, JobPriest
+	case JobPriestH:
+		first, second, advanced = JobAcolyte, JobPriest, JobPriestH
+	case JobMonk, JobMonkB:
+		first, second = JobAcolyte, JobMonk
+	case JobMonkH:
+		first, second, advanced = JobAcolyte, JobMonk, JobMonkH
+	case JobMerchant, JobMerchantH, JobMerchantB:
+		first = JobMerchant
+	case JobBlacksmith, JobBlacksmithB:
+		first, second = JobMerchant, JobBlacksmith
+	case JobBlacksmithH:
+		first, second, advanced = JobMerchant, JobBlacksmith, JobBlacksmithH
+	case JobAlchemist, JobAlchemistB:
+		first, second = JobMerchant, JobAlchemist
+	case JobAlchemistH:
+		first, second, advanced = JobMerchant, JobAlchemist, JobAlchemistH
+	case JobThief, JobThiefH, JobThiefB:
+		first = JobThief
+	case JobAssassin, JobAssassinB:
+		first, second = JobThief, JobAssassin
+	case JobAssassinH:
+		first, second, advanced = JobThief, JobAssassin, JobAssassinH
+	case JobRogue, JobRogueB:
+		first, second = JobThief, JobRogue
+	case JobRogueH:
+		first, second, advanced = JobThief, JobRogue, JobRogueH
+	case JobSuperNovice, JobSuperNoviceB:
+		first = JobSuperNovice
+	case JobGunslinger, JobGunslingerB:
+		first = JobGunslinger
+	case JobNinja, JobNinjaB:
+		first = JobNinja
+	case JobTaekwon, JobTaekwonB:
+		first = JobTaekwon
+	case JobStar, JobStar2, JobStarB, JobStar2B:
+		first, second = JobTaekwon, JobStar
+	case JobLinker, JobLinkerB:
+		first, second = JobTaekwon, JobLinker
+	}
+	return first, second, advanced
+}
+
 func SkillMaxLevel(skillID uint16) (int, bool) {
 	level, ok := SkillMaxLevels[skillID]
 	return level, ok && level > 0

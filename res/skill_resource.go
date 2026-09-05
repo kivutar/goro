@@ -16,6 +16,21 @@ var skillIDLuaCandidates = []string{
 	"lua files\\skillinfo\\skillid.lub",
 }
 
+var skillTreeViewLuaCandidates = []string{
+	"data\\luafiles514\\lua files\\skillinfoz\\skilltreeview.lub",
+	"data\\lua files\\skillinfoz\\skilltreeview.lub",
+	"lua files\\skillinfoz\\skilltreeview.lub",
+	"data\\luafiles514\\lua files\\skillinfo\\skilltreeview.lub",
+	"data\\lua files\\skillinfo\\skilltreeview.lub",
+	"lua files\\skillinfo\\skilltreeview.lub",
+}
+
+var jobIdentityLuaCandidates = []string{
+	"data\\luafiles514\\lua files\\datainfo\\jobidentity.lub",
+	"data\\lua files\\datainfo\\jobidentity.lub",
+	"lua files\\datainfo\\jobidentity.lub",
+}
+
 var skillSPAmountCandidates = []string{
 	"leveluseskillspamount.txt",
 	"data\\leveluseskillspamount.txt",
@@ -59,6 +74,20 @@ func (m *Manager) SkillMaxLevel(skillID int) (int, bool) {
 	m.loadSkillMaxLevels()
 	level, ok := m.skillMaxLevels[skillID]
 	return level, ok && level > 0
+}
+
+// SkillTreePositions returns the read-only client-defined grid position for
+// each skill belonging to job. Positions are zero-based in seven columns.
+func (m *Manager) SkillTreePositions(job int) (map[int]int, bool) {
+	if job < 0 {
+		return nil, false
+	}
+	m.loadSkillTreePositions()
+	positions, ok := m.skillTreePositions[job]
+	if !ok || len(positions) == 0 {
+		return nil, false
+	}
+	return positions, true
 }
 
 func (m *Manager) loadSkillResourceNames() {
@@ -134,6 +163,71 @@ func (m *Manager) loadSkillMaxLevels() {
 			m.skillMaxLevels[id] = level
 		}
 	}
+}
+
+func (m *Manager) loadSkillTreePositions() {
+	if m.skillTreePositionsLoaded {
+		return
+	}
+	m.skillTreePositionsLoaded = true
+	m.skillTreePositions = make(map[int]map[int]int)
+	m.loadSkillResourceNames()
+
+	globals := make(map[string]luaValue)
+	_, jobData, ok := m.ReadFirst(jobIdentityLuaCandidates)
+	if !ok || executeLua51Bytecode(jobData, globals) != nil {
+		return
+	}
+	// Older clients expose job constants as JTtbl while SkillTreeView expects
+	// the same table under JOBID.
+	jobs := globals["JOBID"]
+	if jobs.kind != luaTable {
+		jobs = globals["JTtbl"]
+		if jobs.kind != luaTable {
+			return
+		}
+		globals["JOBID"] = jobs
+	}
+	skillIDs := make(map[interface{}]luaValue, len(m.skillResourceNames))
+	for id, name := range m.skillResourceNames {
+		if id > 0 && name != "" {
+			skillIDs[name] = luaValue{kind: luaNumber, num: float64(id)}
+		}
+	}
+	globals["SKID"] = luaValue{kind: luaTable, table: skillIDs}
+	_, treeData, ok := m.ReadFirst(skillTreeViewLuaCandidates)
+	if !ok || executeLua51Bytecode(treeData, globals) != nil {
+		return
+	}
+	m.skillTreePositions = parseSkillTreePositions(globals["SKILL_TREEVIEW_FOR_JOB"])
+}
+
+func parseSkillTreePositions(table luaValue) map[int]map[int]int {
+	out := make(map[int]map[int]int)
+	if table.kind != luaTable {
+		return out
+	}
+	for rawJob, rawPositions := range table.table {
+		job, ok := rawJob.(int)
+		if !ok || job < 0 || rawPositions.kind != luaTable {
+			continue
+		}
+		positions := make(map[int]int)
+		for rawPosition, rawSkill := range rawPositions.table {
+			position, ok := rawPosition.(int)
+			if !ok || position < 0 || rawSkill.kind != luaNumber {
+				continue
+			}
+			skillID := int(rawSkill.num)
+			if skillID > 0 {
+				positions[skillID] = position
+			}
+		}
+		if len(positions) > 0 {
+			out[job] = positions
+		}
+	}
+	return out
 }
 
 func (m *Manager) skillNameToID() map[string]int {

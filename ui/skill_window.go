@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogpu/ui/core/scrollview"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
@@ -33,6 +34,15 @@ const (
 	skillHeaderH      = 24
 	skillTableViewH   = skillWindowHeight - ROWindowTitleHeight - ROWindowFooterHeight
 	skillTableBodyH   = skillTableViewH - skillHeaderH
+
+	skillGridColumns      = 7
+	skillGridCellW        = 62
+	skillGridCellH        = 58
+	skillGridMinRows      = 6
+	skillGridViewW        = skillGridColumns*skillGridCellW + ROScrollbarGutter
+	skillGridViewH        = skillGridMinRows * skillGridCellH
+	skillGridWindowWidth  = skillTabRailW + verticalTabDividerW + skillGridViewW
+	skillGridWindowHeight = ROWindowTitleHeight + skillGridViewH + ROWindowFooterHeight
 )
 
 const (
@@ -84,6 +94,9 @@ type SkillWindow struct {
 	assets         AssetProvider
 	actions        GameActions
 	table          *rotheme.TableViewWidget
+	grid           *skillGridWidget
+	gridMode       bool
+	gridRows       int
 	selectedLevels map[uint16]int
 }
 
@@ -132,11 +145,11 @@ func (w *SkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameAc
 	}
 	snapshot := w.skillSnapshot(ctx.Session)
 	w.ensureSkillViewForSnapshot(ctx, snapshot)
-	w.clampScrollCount(len(w.activeSkills()))
 	if snapshot != w.snapshot {
 		w.snapshot = snapshot
 		w.SetContent(w.widgetTree(ctx, actions))
 	}
+	w.clampScroll(ctx)
 	consumed := w.Window.Update(ctx)
 	if w.dirty {
 		w.dirty = false
@@ -204,7 +217,9 @@ func (w *SkillWindow) Rebind(ctx Context, actions GameActions) {
 }
 
 func (w *SkillWindow) openAtDefault(ctx Context) {
-	x, y := skillDefaultPosition(ctx)
+	width, height := w.windowSize()
+	w.SetSize(width, height)
+	x, y := skillWindowDefaultPosition(ctx, width, height)
 	w.snapshot = w.skillSnapshot(ctx.Session)
 	w.ensureSkillViewForSnapshot(ctx, w.snapshot)
 	w.ensureScrollSignal().Set(0)
@@ -231,24 +246,36 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 	if assets == nil {
 		assets = w.assets
 	}
+	width, height := w.windowSize()
+	var body widget.Widget
+	viewWidth := 0
+	viewBackground := rotheme.Default.Colors.PanelBody
+	if w.gridMode {
+		body = w.skillGridWidget(ctx, assets, actions)
+		viewWidth = skillGridViewW
+		viewBackground = rotheme.Default.Colors.WindowBody
+	} else {
+		body = w.skillTableWidget(ctx, assets, actions)
+		viewWidth = skillTableViewW
+	}
 	w.setTitleButtonCount(2) // Minus and close.
 	return Win(
 		Title("Skill Tree"),
-		TitleButton(rotheme.IconButtonMinus, nil),
+		TitleButton(rotheme.IconButtonMinus, func() {
+			w.toggleGridMode(ctx, assets, actions)
+		}),
 		CloseButton(true),
 		OnClose(func() {
 			w.close(ctx)
 		}),
-		Size(skillWindowWidth, skillWindowHeight),
+		Size(float32(width), float32(height)),
 		Content(
 			verticalTabFrame(
 				w.skillTabColumn(ctx, assets, actions),
-				primitives.Box(
-					w.skillTableWidget(ctx, assets, actions),
-				).
-					Width(skillTableViewW).
-					Height(skillTableViewH).
-					Background(rotheme.Default.Colors.PanelBody),
+				primitives.Box(body).
+					Width(float32(viewWidth)).
+					Height(float32(w.contentHeight())).
+					Background(viewBackground),
 			),
 		),
 		Footer(
@@ -288,7 +315,51 @@ func (w *SkillWindow) skillTableWidget(ctx Context, assets AssetProvider, action
 		}),
 	)
 	w.table = table
+	w.grid = nil
 	return table
+}
+
+func (w *SkillWindow) skillGridWidget(ctx Context, assets AssetProvider, actions GameActions) widget.Widget {
+	entries := w.skillGridEntries(ctx, assets)
+	grid := newSkillGridWidget(skillGridConfig{
+		entries: entries,
+		onPress: func(skill session.Skill, mx, my int) {
+			w.pressSkill(ctx, actions, skill, mx, my)
+		},
+		onStage: func(skill session.Skill) {
+			if !w.canStageSkill(ctx.Session, skill) {
+				return
+			}
+			w.stageSkill(skill.ID)
+			w.dirty = true
+		},
+		selectedLevel: w.selectedSkillLevel,
+		onAdjustLevel: func(skill session.Skill, delta int) int {
+			w.changeSelectedSkillLevel(skill, delta)
+			return w.selectedSkillLevel(skill)
+		},
+		onHover: func(skill session.Skill, mx, my int) {
+			w.hoveredSkill = skill
+			w.hasHover = true
+			w.hoverX = mx
+			w.hoverY = my
+			w.showTooltip(ctx, skill, mx, my)
+		},
+		onLeave: func() {
+			w.hasHover = false
+			w.hideTooltip()
+		},
+	})
+	w.grid = grid
+	w.table = nil
+	w.gridRows = grid.totalRows()
+	return scrollview.New(
+		grid,
+		scrollview.DirectionOpt(scrollview.Vertical),
+		scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+		scrollview.ScrollYSignal(w.ensureScrollSignal()),
+		scrollview.ScrollStep(skillGridCellH),
+	)
 }
 
 func (w *SkillWindow) skillTabColumn(ctx Context, assets AssetProvider, actions GameActions) widget.Widget {
@@ -317,7 +388,7 @@ func (w *SkillWindow) skillTabColumn(ctx Context, assets AssetProvider, actions 
 	}
 	return primitives.Box(tabs...).
 		Width(skillTabRailW).
-		Height(skillTableViewH).
+		Height(float32(w.contentHeight())).
 		Gap(-skillTabOver)
 }
 
@@ -444,8 +515,23 @@ func (w *SkillWindow) refresh(ctx Context, actions GameActions) {
 	}
 	w.snapshot = w.skillSnapshot(ctx.Session)
 	w.ensureSkillViewForSnapshot(ctx, w.snapshot)
-	w.clampScrollCount(len(w.activeSkills()))
 	w.SetContent(w.widgetTreeWithAssets(ctx, w.assets, w.actions))
+	w.clampScroll(ctx)
+	w.Publish(ctx)
+}
+
+func (w *SkillWindow) toggleGridMode(ctx Context, assets AssetProvider, actions GameActions) {
+	w.gridMode = !w.gridMode
+	w.dragActive = false
+	w.hasHover = false
+	w.hideTooltip()
+	w.ensureScrollSignal().Set(0)
+	width, height := w.windowSize()
+	w.SetSize(width, height)
+	screenW, screenH := ctx.ScreenSize()
+	w.x = clampWindowInt(w.x, windowScreenMargin, maxInt(windowScreenMargin, screenW-width-windowScreenMargin))
+	w.y = clampWindowInt(w.y, windowScreenMargin, maxInt(windowScreenMargin, screenH-height-windowScreenMargin))
+	w.SetContent(w.widgetTreeWithAssets(ctx, assets, actions))
 	w.Publish(ctx)
 }
 
@@ -504,6 +590,9 @@ func (w *SkillWindow) updateTooltipHover(ctx Context) {
 }
 
 func (w *SkillWindow) skillAtMouse(ctx Context, mouseX, mouseY int) (session.Skill, bool) {
+	if w.gridMode {
+		return w.skillGridAtMouse(mouseX, mouseY)
+	}
 	x, y := w.skillTableBodyOrigin()
 	if !pointInRect(mouseX, mouseY, x, y, scrollbarSafeIntWidth(skillTableViewW), skillTableBodyH) {
 		return session.Skill{}, false
@@ -599,6 +688,16 @@ func (w *SkillWindow) selectedSkillLevel(skill session.Skill) int {
 }
 
 func (w *SkillWindow) adjustSelectedSkillLevel(ctx widget.Context, skill session.Skill, row, delta int) bool {
+	if !w.changeSelectedSkillLevel(skill, delta) {
+		return false
+	}
+	if w.table != nil && ctx != nil {
+		w.table.InvalidateRow(ctx, row)
+	}
+	return true
+}
+
+func (w *SkillWindow) changeSelectedSkillLevel(skill session.Skill, delta int) bool {
 	selectable, known := db.SkillLevelSelectable(skill.ID)
 	if !known || !selectable || skill.Level <= 0 || delta == 0 {
 		return false
@@ -615,9 +714,6 @@ func (w *SkillWindow) adjustSelectedSkillLevel(ctx widget.Context, skill session
 		delete(w.selectedLevels, skill.ID)
 	} else {
 		w.selectedLevels[skill.ID] = next
-	}
-	if w.table != nil && ctx != nil {
-		w.table.InvalidateRow(ctx, row)
 	}
 	return true
 }
@@ -664,11 +760,15 @@ func (w *SkillWindow) confirmPending(ctx Context) {
 
 func (w *SkillWindow) clampScroll(ctx Context) {
 	w.ensureSkillView(ctx)
+	if w.gridMode {
+		w.clampScrollHeight(w.gridRows*skillGridCellH, skillGridViewH)
+		return
+	}
 	w.clampScrollCount(len(w.activeSkills()))
 }
 
-func (w *SkillWindow) clampScrollCount(skillCount int) {
-	maxScroll := float32(maxInt(0, skillCount*skillRowH-skillTableBodyH))
+func (w *SkillWindow) clampScrollHeight(contentHeight, viewHeight int) {
+	maxScroll := float32(maxInt(0, contentHeight-viewHeight))
 	scroll := w.ensureScrollSignal()
 	switch value := scroll.Get(); {
 	case value < 0:
@@ -676,6 +776,10 @@ func (w *SkillWindow) clampScrollCount(skillCount int) {
 	case value > maxScroll:
 		scroll.Set(maxScroll)
 	}
+}
+
+func (w *SkillWindow) clampScrollCount(skillCount int) {
+	w.clampScrollHeight(skillCount*skillRowH, skillTableBodyH)
 }
 
 func (w *SkillWindow) ClampScroll(s *session.Session) {
@@ -827,10 +931,26 @@ func (w *SkillWindow) skillRequirementsMet(job int, levels map[uint16]int, skill
 }
 
 func skillDefaultPosition(ctx Context) (int, int) {
+	return skillWindowDefaultPosition(ctx, skillWindowWidth, skillWindowHeight)
+}
+
+func skillWindowDefaultPosition(ctx Context, windowWidth, windowHeight int) (int, int) {
 	width, height := ctx.ScreenSize()
-	x := maxInt(windowScreenMargin, (width-skillWindowWidth)/2)
-	y := maxInt(windowScreenMargin, (height-skillWindowHeight)/2)
+	x := maxInt(windowScreenMargin, (width-windowWidth)/2)
+	y := maxInt(windowScreenMargin, (height-windowHeight)/2)
 	return x, y
+}
+
+func (w *SkillWindow) windowSize() (int, int) {
+	if w.gridMode {
+		return skillGridWindowWidth, skillGridWindowHeight
+	}
+	return skillWindowWidth, skillWindowHeight
+}
+
+func (w *SkillWindow) contentHeight() int {
+	_, height := w.windowSize()
+	return height - ROWindowTitleHeight - ROWindowFooterHeight
 }
 
 var skillTableColumns = []rotheme.TableViewColumn{

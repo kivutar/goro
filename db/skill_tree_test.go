@@ -21,6 +21,26 @@ func TestSkillTreeGroupsClassifyTranscendentSkillsAsSecondClass(t *testing.T) {
 	}
 }
 
+func TestSkillTreeLayoutJobsMergeInheritedClassicTables(t *testing.T) {
+	tests := []struct {
+		job        int
+		classLevel int
+		want       []int
+	}{
+		{JobAlchemistH, 1, []int{JobNovice, JobMerchant}},
+		{JobAlchemistH, 2, []int{JobAlchemist, JobAlchemistH}},
+		{JobKnight2B, 2, []int{JobKnight}},
+		{JobStarB, 1, []int{JobNovice, JobTaekwon}},
+		{JobStarB, 2, []int{JobStar}},
+		{JobNoviceH, 1, []int{JobNovice}},
+	}
+	for _, tc := range tests {
+		if got := SkillTreeLayoutJobs(tc.job, tc.classLevel); !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("SkillTreeLayoutJobs(%d, %d) = %v, want %v", tc.job, tc.classLevel, got, tc.want)
+		}
+	}
+}
+
 func TestWizardSkillTreeIncludesRobrowserBeforeJobs(t *testing.T) {
 	wizard := SkillTreeSkillIDs(JobWizard)
 	if !containsSkillID(wizard, SkillMGFirebolt) || !containsSkillID(wizard, SkillWZMeteor) {
