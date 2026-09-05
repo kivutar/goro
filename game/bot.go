@@ -149,6 +149,10 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 			L.Push(lua.LBool(scriptUseItem(ctx, L.CheckInt(1))))
 			return 1
 		},
+		"revive": func(L *lua.LState) int {
+			L.Push(lua.LBool(scriptAutoRevive(ctx)))
+			return 1
+		},
 		"message": func(L *lua.LState) int {
 			L.Push(lua.LBool(scriptMessage(ctx, L.CheckString(1))))
 			return 1
@@ -294,6 +298,14 @@ func scriptUseItem(ctx client.Context, index int) bool {
 	}
 	if err := gameui.UseInventoryItem(ctx, item); err != nil {
 		glog.Debugf("script item use failed index=%d item=%d: %v", item.Index, item.ItemID, err)
+		return false
+	}
+	return true
+}
+
+func scriptAutoRevive(ctx client.Context) bool {
+	if err := client.RequestAutoRevive(ctx); err != nil {
+		glog.Debugf("script auto-revive failed: %v", err)
 		return false
 	}
 	return true
@@ -536,6 +548,7 @@ func luaPlayerTable(L *lua.LState, ctx client.Context) *lua.LTable {
 	result.RawSetString("max_hp", lua.LNumber(maxHP))
 	result.RawSetString("sp", lua.LNumber(sp))
 	result.RawSetString("max_sp", lua.LNumber(maxSP))
+	result.RawSetString("dead", lua.LBool(playerIsDead(ctx)))
 	return result
 }
 

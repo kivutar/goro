@@ -114,7 +114,7 @@
   - [x] Novice dori-dori command, head motion, and recovery bonus: 0x01E7
   - [ ] Novice explosion spirits: 0x01ED
   - [x] Star Gladiator feel save confirmation: 0x0253, 0x0254
-  - [ ] Auto-revive: 0x0292
+  - [x] Token of Siegfried self-revival: 0x0292
 
   GM / Admin
 

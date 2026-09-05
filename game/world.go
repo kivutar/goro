@@ -705,6 +705,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	if dead {
+		m.updateBot(ctx, now)
 		if m.updateDeathUIInput(ctx) {
 			return nil, nil
 		}
@@ -1171,6 +1172,8 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 
 func (m *WorldMode) handleEscapeMenuAction(ctx client.Context) {
 	switch m.ui.escapeMenu.ConsumeAction() {
+	case gameui.EscapeMenuActionAutoRevive:
+		m.ui.escapeMenu.RequestAutoRevive(ctx)
 	case gameui.EscapeMenuActionSavePoint:
 		m.ui.escapeMenu.ReturnToSavePoint(ctx)
 	case gameui.EscapeMenuActionCharacterSelect:

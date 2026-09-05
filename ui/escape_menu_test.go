@@ -8,6 +8,8 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/session"
+	worldstate "github.com/kivutar/goro/world"
 )
 
 type escapeMenuTestUIManager struct {
@@ -241,6 +243,22 @@ func TestEscapeMenuDeathModeUsesDeathActions(t *testing.T) {
 	buttons := collectEscapeMenuButtons(menu.widgetTree(client.Context{}))
 	if len(buttons) != 4 {
 		t.Fatalf("buttons = %d, want 4", len(buttons))
+	}
+}
+
+func TestEscapeMenuDeathModeOffersTokenOfSiegfried(t *testing.T) {
+	sessionState := &session.Session{Dead: true, Inventory: session.Inventory{Items: []session.InventoryItem{{ItemID: client.TokenOfSiegfriedItemID, Amount: 1}}}}
+	world := worldstate.New()
+	ctx := client.Context{Session: sessionState, World: world}
+	menu := EscapeMenu{}
+	menu.OpenDeath(ctx)
+
+	buttons := collectEscapeMenuButtons(menu.widgetTree(ctx))
+	if len(buttons) != 5 {
+		t.Fatalf("death buttons = %d, want 5 with Token of Siegfried", len(buttons))
+	}
+	if menu.height != escapeMenuReviveHeight {
+		t.Fatalf("death menu height = %d, want %d", menu.height, escapeMenuReviveHeight)
 	}
 }
 

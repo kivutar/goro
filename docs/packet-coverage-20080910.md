@@ -22,8 +22,8 @@ Status meaning:
 - Effective unique map opcodes: `603`
 - Overwritten historical/remap declarations: `283`
 - Client-to-map packets accepted by rAthena: `177`
-- Effective map opcodes referenced by Goro: `225`
-- Client-to-map accepted packets referenced by Goro: `101` / `177`
+- Effective map opcodes referenced by Goro: `226`
+- Client-to-map accepted packets referenced by Goro: `102` / `177`
 - Unresolved packet aliases in this generated pass: `0`
 
 ## Homunculus Compatibility Notes
@@ -548,7 +548,7 @@ email check.
 | `0x028E` | S->C | untracked | `0x028e` | `4` | `-` | - |
 | `0x028F` | S->C | untracked | `0x028f` | `6` | `-` | - |
 | `0x0290` | S->C | untracked | `0x0290` | `4` | `-` | - |
-| `0x0292` | C->S | missing | `0x0292` | `2` | `clif_parse_AutoRevive` | - |
+| `0x0292` | C->S | implemented | `0x0292` | `2` | `clif_parse_AutoRevive` | revive_packets.go |
 | `0x0293` | S->C | implemented | `0x0293` | `70` | `-` | packet.go, server_info_packets.go |
 | `0x0294` | S->C | untracked | `0x0294` | `10` | `-` | - |
 | `0x029B` | S->C | implemented | `0x029b` | `80` | `-` | companion_packets.go, packet.go |

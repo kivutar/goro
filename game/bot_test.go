@@ -39,6 +39,7 @@ function tick()
 		max_sp = max_sp,
 		player_x = player.x,
 		player_y = player.y,
+		player_dead = player.dead,
 		enemies = #enemies,
 		enemy_id = enemies[1].id,
 		players = #players,
@@ -106,6 +107,7 @@ end
 	assertLuaNumber(t, seen, "max_sp", 20)
 	assertLuaNumber(t, seen, "player_x", 10)
 	assertLuaNumber(t, seen, "player_y", 20)
+	assertLuaBool(t, seen, "player_dead", false)
 	assertLuaNumber(t, seen, "enemies", 1)
 	assertLuaNumber(t, seen, "enemy_id", 300)
 	assertLuaNumber(t, seen, "players", 1)
@@ -198,6 +200,42 @@ end
 
 	want := network.BuildUseInventoryItemPacketForClientDate(7, sess.AccountID, 20080910)
 	readBotTestPackets(t, serverConn, want)
+}
+
+func TestLuaBotCanAutoRevive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bot.lua")
+	if err := os.WriteFile(path, []byte(`
+function tick()
+	revived = goro.revive()
+end
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	networkClient, serverConn := newBotTestConnection(t, 20080910)
+	sess := session.New()
+	sess.Dead = true
+	sess.Inventory.Items = []session.InventoryItem{{
+		ItemID: client.TokenOfSiegfriedItemID,
+		Amount: 1,
+	}}
+	bot, err := newLuaBot(client.Context{
+		Session: sess,
+		World:   worldstate.New(),
+		Network: networkClient,
+	}, &WorldMode{}, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bot.close()
+	if err := bot.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if revived, _ := bot.state.GetGlobal("revived").(lua.LBool); !bool(revived) {
+		t.Fatal("goro.revive returned false")
+	}
+
+	readBotTestPackets(t, serverConn, network.BuildAutoRevivePacket())
 }
 
 func TestLuaBotCanSendMessages(t *testing.T) {

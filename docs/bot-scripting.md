@@ -55,6 +55,7 @@ Fields:
 - `max_hp`
 - `sp`
 - `max_sp`
+- `dead`
 
 ### `goro.hp()`
 
@@ -280,6 +281,16 @@ for _, item in ipairs(goro.inventory()) do
 	end
 end
 ```
+
+### `goro.revive()`
+
+Requests self-resurrection with a Token of Siegfried. It returns `true` when
+the character is dead, a token is available, the current map permits its use,
+and the request was sent. The server consumes the token and performs the
+resurrection.
+
+Bot ticks continue while the character is dead so scripts can decide whether
+to revive, return to the save point manually, or remain dead.
 
 ## Example
 

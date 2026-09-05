@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	escapeMenuWidth  = 252
-	escapeMenuHeight = 200
-	escapeMenuPad    = 16
-	escapeMenuGap    = 8
+	escapeMenuWidth        = 252
+	escapeMenuHeight       = 200
+	escapeMenuReviveHeight = 238
+	escapeMenuPad          = 16
+	escapeMenuGap          = 8
 )
 
 type EscapeMenu struct {
@@ -31,6 +32,7 @@ type EscapeMenuAction int
 
 const (
 	EscapeMenuActionNone EscapeMenuAction = iota
+	EscapeMenuActionAutoRevive
 	EscapeMenuActionSavePoint
 	EscapeMenuActionCharacterSelect
 	EscapeMenuActionSettings
@@ -40,7 +42,7 @@ const (
 
 func (m *EscapeMenu) Toggle(ctx client.Context) {
 	m.ctx = ctx
-	m.EnsureWindow(escapeMenuWidth, escapeMenuHeight)
+	m.ensureSize(ctx)
 	if m.IsOpen() {
 		m.Window.Close()
 		m.Publish(ctx)
@@ -60,8 +62,8 @@ func (m *EscapeMenu) Toggle(ctx client.Context) {
 // The death mode remains active if the player later hides the window with Escape.
 func (m *EscapeMenu) OpenDeath(ctx client.Context) {
 	m.ctx = ctx
-	m.EnsureWindow(escapeMenuWidth, escapeMenuHeight)
 	m.deathMode = true
+	m.ensureSize(ctx)
 	m.action = EscapeMenuActionNone
 	m.pending = false
 	m.pendingAction = EscapeMenuActionNone
@@ -84,6 +86,7 @@ func (m *EscapeMenu) ResetDeath(ctx client.Context) {
 	m.Window.Close()
 	m.Publish(ctx)
 	m.deathMode = false
+	m.SetSize(escapeMenuWidth, escapeMenuHeight)
 	m.action = EscapeMenuActionNone
 	m.pending = false
 	m.pendingAction = EscapeMenuActionNone
@@ -133,6 +136,12 @@ func (m *EscapeMenu) ReturnToSavePoint(ctx client.Context) {
 		glog.Warnf("escape menu respawn failed: %v", err)
 	}
 	m.refresh(ctx)
+}
+
+func (m *EscapeMenu) RequestAutoRevive(ctx client.Context) {
+	if err := client.RequestAutoRevive(ctx); err != nil {
+		glog.Warnf("escape menu auto-revive failed: %v", err)
+	}
 }
 
 func (m *EscapeMenu) RequestCharacterSelect(ctx client.Context) {
@@ -223,7 +232,7 @@ func (m *EscapeMenu) Action() EscapeMenuAction {
 }
 
 func (m *EscapeMenu) openWindow(ctx client.Context) {
-	m.EnsureWindow(escapeMenuWidth, escapeMenuHeight)
+	m.ensureSize(ctx)
 	if !m.IsOpen() {
 		return
 	}
@@ -234,12 +243,26 @@ func (m *EscapeMenu) openWindow(ctx client.Context) {
 }
 
 func (m *EscapeMenu) refresh(ctx client.Context) {
-	m.EnsureWindow(escapeMenuWidth, escapeMenuHeight)
+	m.ensureSize(ctx)
 	if !m.IsOpen() {
 		return
 	}
 	m.SetContent(m.widgetTree(ctx))
 	m.Publish(ctx)
+}
+
+func (m *EscapeMenu) ensureSize(ctx client.Context) {
+	height := m.menuHeight(ctx)
+	if !m.EnsureWindow(escapeMenuWidth, height) {
+		m.SetSize(escapeMenuWidth, height)
+	}
+}
+
+func (m *EscapeMenu) menuHeight(ctx client.Context) int {
+	if m.deathMode && client.AutoReviveAvailable(ctx) {
+		return escapeMenuReviveHeight
+	}
+	return escapeMenuHeight
 }
 
 func (m *EscapeMenu) widgetTree(ctx client.Context) widget.Widget {
@@ -275,27 +298,35 @@ func (m *EscapeMenu) widgetTree(ctx client.Context) widget.Widget {
 }
 
 func (m *EscapeMenu) deathWidgetTree(ctx client.Context) widget.Widget {
+	buttons := make([]widget.Widget, 0, 5)
+	if client.AutoReviveAvailable(ctx) {
+		buttons = append(buttons, rotheme.LargeButtonDisabled("Return to Life", m.pending, func() {
+			m.action = EscapeMenuActionAutoRevive
+			m.refresh(ctx)
+		}))
+	}
+	buttons = append(buttons,
+		rotheme.LargeButtonDisabled("Return to Save Point", m.pending, func() {
+			m.action = EscapeMenuActionSavePoint
+			m.refresh(ctx)
+		}),
+		rotheme.LargeButtonDisabled("Character Select", m.pending, func() {
+			m.action = EscapeMenuActionCharacterSelect
+			m.refresh(ctx)
+		}),
+		rotheme.LargeButtonDisabled("Exit to Windows", m.pending, func() {
+			m.RequestQuitGame(ctx)
+		}),
+		rotheme.LargeButton("Cancel", func() {
+			m.Window.Close()
+		}),
+	)
 	return Win(
 		Title("Menu"),
 		CloseButton(false),
-		Size(escapeMenuWidth, escapeMenuHeight),
+		Size(escapeMenuWidth, float32(m.menuHeight(ctx))),
 		Content(
-			primitives.Box(
-				rotheme.LargeButtonDisabled("Return to Save Point", m.pending, func() {
-					m.action = EscapeMenuActionSavePoint
-					m.refresh(ctx)
-				}),
-				rotheme.LargeButtonDisabled("Character Select", m.pending, func() {
-					m.action = EscapeMenuActionCharacterSelect
-					m.refresh(ctx)
-				}),
-				rotheme.LargeButtonDisabled("Exit to Windows", m.pending, func() {
-					m.RequestQuitGame(ctx)
-				}),
-				rotheme.LargeButton("Cancel", func() {
-					m.Window.Close()
-				}),
-			).
+			primitives.Box(buttons...).
 				Padding(escapeMenuPad).
 				Gap(escapeMenuGap).
 				CrossAlign(primitives.CrossAxisStretch),

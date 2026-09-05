@@ -56,6 +56,17 @@ func (p MapProperty) IsSiege() bool {
 	return p.IsGvG()
 }
 
+// IsAutoReviveRestricted matches the classic client restrictions for using a
+// Token of Siegfried.
+func (p MapProperty) IsAutoReviveRestricted() bool {
+	switch p {
+	case MapPropertyEventPvPZone, MapPropertyAgitZone, MapPropertyPKServerZone:
+		return true
+	default:
+		return false
+	}
+}
+
 func (p MapProperty) PvPRankingEnabled() bool {
 	return p == MapPropertyFreePvPZone || p == MapPropertyPvPServerZone
 }
