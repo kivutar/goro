@@ -353,6 +353,129 @@ func TestCollectStaleAsyncUIResultSubmitsReplacementList(t *testing.T) {
 	}
 }
 
+func TestCollectAsyncUIResultDoesNotPublishBeforePendingList(t *testing.T) {
+	rasterizer := &asyncUIRasterizer{
+		jobs: make(chan uiRasterJob, 1),
+		done: make(chan uiRasterResult, 1),
+	}
+	published := NewImage(8, 8)
+	intermediate := NewImage(8, 8)
+	replacement := uiDrawList{generation: 2, ops: []uiDrawOp{func(widget.Canvas) {}}}
+	r := &runner{
+		uiImage:        published,
+		uiDrawnOnce:    true,
+		uiAsync:        rasterizer,
+		uiAsyncBusy:    true,
+		uiGeneration:   2,
+		uiPendingLists: []uiDrawList{replacement},
+	}
+	rasterizer.done <- uiRasterResult{generation: 2, width: 800, height: 600, scale: 1, image: intermediate}
+
+	r.collectAsyncUIResults(800, 600, 1)
+
+	if r.uiImage != published {
+		t.Fatal("intermediate UI image was published while a newer draw list was pending")
+	}
+	if !r.uiDrawnOnce {
+		t.Fatal("withholding an intermediate image discarded the published UI state")
+	}
+	if !r.uiAsyncBusy {
+		t.Fatal("pending UI list was not submitted after withholding the intermediate image")
+	}
+	select {
+	case job := <-rasterizer.jobs:
+		if job.list.generation != replacement.generation {
+			t.Fatalf("replacement generation = %d, want %d", job.list.generation, replacement.generation)
+		}
+	default:
+		t.Fatal("replacement UI job was not queued")
+	}
+}
+
+func TestDrawUIAsyncPublishesFirstResultWithStaleDirtyBoundary(t *testing.T) {
+	app := uiapp.New(uiapp.WithRenderMode(uiapp.RenderModeFrameworkManaged))
+	root := primitives.Box().Width(24).Height(12)
+	app.SetRoot(root)
+	app.Frame()
+	if !app.Window().DrawTo(&uitest.MockCanvas{}) {
+		t.Fatal("initial UI draw did not render")
+	}
+	app.Window().AddDirtyBoundary(1)
+
+	rasterizer := &asyncUIRasterizer{
+		jobs: make(chan uiRasterJob, 1),
+		done: make(chan uiRasterResult, 1),
+	}
+	first := NewImage(8, 8)
+	r := &runner{
+		ui:              app,
+		uiAsync:         rasterizer,
+		uiAsyncBusy:     true,
+		uiGeneration:    2,
+		uiLogicalWidth:  800,
+		uiLogicalHeight: 600,
+		uiScale:         1,
+	}
+	rasterizer.done <- uiRasterResult{generation: 2, width: 800, height: 600, scale: 1, image: first}
+
+	if err := r.drawUIAsync(NewFrame(800, 600), 800, 600, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if r.uiImage != first || !r.uiDrawnOnce {
+		t.Fatal("first completed UI image was not published")
+	}
+}
+
+func TestDrawUIAsyncRecordsChangesBeforePublishingCompletedResult(t *testing.T) {
+	app := uiapp.New(uiapp.WithRenderMode(uiapp.RenderModeFrameworkManaged))
+	root := primitives.Box().Width(24).Height(12)
+	app.SetRoot(root)
+	app.Frame()
+	if !app.Window().DrawTo(&uitest.MockCanvas{}) {
+		t.Fatal("initial UI draw did not render")
+	}
+
+	rasterizer := &asyncUIRasterizer{
+		jobs: make(chan uiRasterJob, 1),
+		done: make(chan uiRasterResult, 1),
+	}
+	published := NewImage(8, 8)
+	obsolete := NewImage(8, 8)
+	r := &runner{
+		ui:              app,
+		uiImage:         published,
+		uiDrawnOnce:     true,
+		uiAsync:         rasterizer,
+		uiAsyncBusy:     true,
+		uiGeneration:    2,
+		uiLogicalWidth:  800,
+		uiLogicalHeight: 600,
+		uiScale:         1,
+	}
+	r.requestUIRedraw()
+	rasterizer.done <- uiRasterResult{generation: 2, width: 800, height: 600, scale: 1, image: obsolete}
+
+	if err := r.drawUIAsync(NewFrame(800, 600), 800, 600, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if r.uiImage != published {
+		t.Fatal("completed UI image was published before newer changes were recorded")
+	}
+	if !r.uiAsyncBusy {
+		t.Fatal("newer UI draw list was not submitted")
+	}
+	select {
+	case job := <-rasterizer.jobs:
+		if len(job.list.ops) == 0 {
+			t.Fatal("newer UI job did not contain draw operations")
+		}
+	default:
+		t.Fatal("newer UI job was not queued")
+	}
+}
+
 func TestDrawActorLabelOverlayUsesSharedSnappedOrigin(t *testing.T) {
 	screen := NewFrame(320, 240)
 	screen.SetScreenScale(1.25, 1.5)

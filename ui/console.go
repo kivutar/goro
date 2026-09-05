@@ -1166,7 +1166,9 @@ func (c *ChatConsole) syncActiveFromField() {
 
 func (c *ChatConsole) ensureScrollSignal() state.Signal[float32] {
 	if c.scrollY == nil {
-		c.scrollY = state.NewSignal[float32](0)
+		c.scrollY = state.NewSignalWithOptions(0, state.Options[float32]{
+			Equal: func(a, b float32) bool { return a == b },
+		})
 	}
 	return c.scrollY
 }

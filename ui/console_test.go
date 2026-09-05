@@ -404,6 +404,26 @@ func TestConsoleTypingAndRefocusScrollToBottom(t *testing.T) {
 	}
 }
 
+func TestConsoleScrollToBottomDoesNotNotifyWhenAlreadyThere(t *testing.T) {
+	console := &ChatConsole{}
+	for i := 0; i < 20; i++ {
+		console.AddMessage("line %d", i)
+	}
+	console.widgetTree(480, 176)
+	scrollY := console.ensureScrollSignal()
+	notifications := 0
+	unsubscribe := scrollY.SubscribeForever(func(float32) {
+		notifications++
+	})
+	defer unsubscribe()
+
+	console.scrollToBottom()
+
+	if notifications != 0 {
+		t.Fatalf("unchanged bottom scroll sent %d notifications, want 0", notifications)
+	}
+}
+
 func TestConsoleMessageRedrawDefersOneUpdate(t *testing.T) {
 	console := &ChatConsole{}
 	ctx := client.Context{
