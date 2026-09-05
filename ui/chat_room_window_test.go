@@ -8,7 +8,26 @@ import (
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/input"
 )
+
+func TestChatRoomEscapeRequestsLeave(t *testing.T) {
+	inputState := input.NewState()
+	ctx := client.Context{Input: inputState, ScreenW: 800, ScreenH: 600}
+	var window ChatRoomWindow
+	window.Open(ctx, "Room", 20, true, []string{"Kivutar"})
+	inputState.SetKey(input.KeyEscape, true)
+
+	if !window.Update(ctx) {
+		t.Fatal("Escape was not consumed")
+	}
+	if window.IsOpen() {
+		t.Fatal("chat room window remained open after Escape")
+	}
+	if action := window.PopAction(); !action.Leave {
+		t.Fatalf("action = %+v, want leave request", action)
+	}
+}
 
 func TestChatRoomMessagesScrollToMeasuredBottom(t *testing.T) {
 	var window ChatRoomWindow

@@ -78,6 +78,12 @@ func (w *ChatRoomWindow) Update(ctx Context) bool {
 	if !w.IsOpen() {
 		return false
 	}
+	if ctx.Input != nil && ctx.Input.JustPressed(input.KeyEscape) {
+		// Leaving a chat room is server state, not just a local window close.
+		// Match the title-bar close button and queue the exit request.
+		w.requestLeave(ctx)
+		return true
+	}
 	if w.submitFromFocusedEnter(ctx) {
 		w.Publish(ctx)
 		return true
