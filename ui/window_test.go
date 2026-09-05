@@ -10,6 +10,7 @@ import (
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 func TestFooterStretchesContent(t *testing.T) {
@@ -58,6 +59,46 @@ func TestFooterCreatesEmptyFooterBand(t *testing.T) {
 	body := footerChildren[1]
 	if got := body.(interface{ Bounds() geometry.Rect }).Bounds().Width(); got != 200 {
 		t.Fatalf("footer body width = %.1f, want 200.0", got)
+	}
+}
+
+func TestWindowTitleButtonsAreLaidOutBesideClose(t *testing.T) {
+	controls := windowTitleButtons(
+		[]windowTitleButton{{kind: rotheme.IconButtonMinus}},
+		true,
+		nil,
+	)
+	width := float32(windowTitleButtonSize*2 + windowTitleButtonGap)
+	controls.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(width, ROWindowTitleHeight)))
+
+	children := controls.Children()
+	if len(children) != 2 {
+		t.Fatalf("title controls = %d, want minus and close", len(children))
+	}
+	if got := children[0].(interface{ Bounds() geometry.Rect }).Bounds().Min.X; got != 0 {
+		t.Fatalf("minus button x = %.1f, want 0", got)
+	}
+	if got := children[1].(interface{ Bounds() geometry.Rect }).Bounds().Min.X; got != float32(windowTitleButtonSize+windowTitleButtonGap) {
+		t.Fatalf("close button x = %.1f, want %d", got, windowTitleButtonSize+windowTitleButtonGap)
+	}
+}
+
+func TestWindowTitleButtonHitCoversAllConfiguredButtons(t *testing.T) {
+	window := NewWindow(100, 80)
+	window.OpenAt(10, 20, primitives.Box())
+	window.setTitleButtonCount(2)
+
+	controlsWidth := windowTitleButtonSize*2 + windowTitleButtonGap
+	left := window.x + window.width - windowTitleButtonPadR - controlsWidth
+	top := window.y + (window.titleHeight-windowTitleButtonSize)/2
+	if !window.titleButtonHit(left, top) {
+		t.Fatal("left title button was treated as draggable title bar")
+	}
+	if !window.titleButtonHit(left+controlsWidth-1, top+windowTitleButtonSize-1) {
+		t.Fatal("right title button was treated as draggable title bar")
+	}
+	if window.titleButtonHit(left-1, top) {
+		t.Fatal("title bar beside the buttons was treated as a title button")
 	}
 }
 

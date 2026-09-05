@@ -231,8 +231,10 @@ func (w *SkillWindow) widgetTreeWithAssets(ctx Context, assets AssetProvider, ac
 	if assets == nil {
 		assets = w.assets
 	}
+	w.setTitleButtonCount(2) // Minus and close.
 	return Win(
 		Title("Skill Tree"),
+		TitleButton(rotheme.IconButtonMinus, nil),
 		CloseButton(true),
 		OnClose(func() {
 			w.close(ctx)
