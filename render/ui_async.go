@@ -318,6 +318,26 @@ func (c *uiDrawRecorder) MeasureText(text string, fontSize float32, bold bool) f
 	return c.measureCanvas.MeasureText(text, fontSize, bold)
 }
 
+func (c *uiDrawRecorder) DrawStyledText(text string, bounds geometry.Rect, style widget.TextStyle) {
+	c.append(func(dst widget.Canvas) {
+		if styled, ok := dst.(widget.StyledTextDrawer); ok {
+			styled.DrawStyledText(text, bounds, style)
+			return
+		}
+		dst.DrawText(text, bounds, style.FontSize, style.Color, style.Bold, style.Align)
+	})
+}
+
+func (c *uiDrawRecorder) MeasureStyledText(text string, style widget.TextStyle) float32 {
+	if c.measureCanvas == nil {
+		return 0
+	}
+	if styled, ok := c.measureCanvas.(widget.StyledTextDrawer); ok {
+		return styled.MeasureStyledText(text, style)
+	}
+	return c.measureCanvas.MeasureText(text, style.FontSize, style.Bold)
+}
+
 func (c *uiDrawRecorder) DrawImage(img image.Image, at geometry.Point) {
 	c.append(func(dst widget.Canvas) {
 		dst.DrawImage(img, at)
@@ -441,6 +461,7 @@ func updateRGBAImage(src *image.RGBA, dstImage *Image) *Image {
 }
 
 var (
-	_ widget.Canvas    = (*uiDrawRecorder)(nil)
-	_ widget.SVGFiller = (*uiDrawRecorder)(nil)
+	_ widget.Canvas           = (*uiDrawRecorder)(nil)
+	_ widget.StyledTextDrawer = (*uiDrawRecorder)(nil)
+	_ widget.SVGFiller        = (*uiDrawRecorder)(nil)
 )

@@ -58,6 +58,21 @@ func (c scaledImageCanvas) FillSVGPath(svgData string, viewBox float32, bounds g
 	}
 }
 
+func (c scaledImageCanvas) DrawStyledText(text string, bounds geometry.Rect, style widget.TextStyle) {
+	if styled, ok := c.Canvas.(widget.StyledTextDrawer); ok {
+		styled.DrawStyledText(text, bounds, style)
+		return
+	}
+	c.Canvas.DrawText(text, bounds, style.FontSize, style.Color, style.Bold, style.Align)
+}
+
+func (c scaledImageCanvas) MeasureStyledText(text string, style widget.TextStyle) float32 {
+	if styled, ok := c.Canvas.(widget.StyledTextDrawer); ok {
+		return styled.MeasureStyledText(text, style)
+	}
+	return c.Canvas.MeasureText(text, style.FontSize, style.Bold)
+}
+
 type scaledCanvasImageKey struct {
 	ptr                          uintptr
 	srcMinX, srcMinY, srcW, srcH int
