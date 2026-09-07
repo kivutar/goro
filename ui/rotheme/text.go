@@ -19,12 +19,9 @@ func Title(content string) *primitives.TextWidget {
 }
 
 func Label(content string) *primitives.TextWidget {
-	// gogpu/ui's built-in family registers regular and bold as distinct weights.
-	// Goro's custom DejaVu faces are registered as separate families.
-	return primitives.Text(content).
-		FontSize(Default.Typography.TextSize).
-		Color(Default.Colors.LabelText).
-		Bold()
+	return Text(content).
+		FontFamily(Default.Typography.BoldFontFamily).
+		Color(Default.Colors.LabelText)
 }
 
 // DrawLabel renders the semantic label style on a canvas.
@@ -32,5 +29,5 @@ func DrawLabel(canvas widget.Canvas, content string, bounds geometry.Rect, align
 	if content == "" {
 		return
 	}
-	canvas.DrawText(content, bounds, Default.Typography.TextSize, Default.Colors.LabelText, true, align)
+	DrawText(canvas, content, bounds, Default.Typography.TextSize, Default.Colors.LabelText, true, align)
 }

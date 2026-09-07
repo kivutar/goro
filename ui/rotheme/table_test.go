@@ -17,14 +17,17 @@ func TestTableHeadCellsUseLabelStyle(t *testing.T) {
 	canvas := &uitest.MockCanvas{}
 	table.Draw(widget.NewContext(), canvas)
 
-	if len(canvas.Texts) != 1 {
-		t.Fatalf("native label draws = %d, want one head cell", len(canvas.Texts))
+	if len(canvas.StyledTexts) != 2 {
+		t.Fatalf("styled text draws = %d, want head and value cells", len(canvas.StyledTexts))
 	}
-	head := canvas.Texts[0]
-	if head.Text != "STR" || head.Color != Default.Colors.LabelText || !head.Bold {
-		t.Fatalf("head cell draw = %q/%+v/%t, want blue bold STR", head.Text, head.Color, head.Bold)
+	head := canvas.StyledTexts[0]
+	if head.Text != "STR" || head.Style.Color != Default.Colors.LabelText || head.Style.FontFamily != Default.Typography.BoldFontFamily {
+		t.Fatalf("head cell draw = %q/%+v/%q, want blue themed bold STR", head.Text, head.Style.Color, head.Style.FontFamily)
 	}
-	if len(canvas.StyledTexts) != 1 || canvas.StyledTexts[0].Text != "9" {
+	if canvas.StyledTexts[1].Text != "9" || canvas.StyledTexts[1].Style.FontFamily != Default.Typography.FontFamily {
 		t.Fatalf("regular cell draws = %+v, want one value cell", canvas.StyledTexts)
+	}
+	if len(canvas.Texts) != 0 {
+		t.Fatal("table unexpectedly used the built-in font family")
 	}
 }

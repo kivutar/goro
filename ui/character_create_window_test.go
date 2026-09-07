@@ -179,7 +179,7 @@ func TestCharacterCreateNameUsesLabelStyle(t *testing.T) {
 		t.Fatal("character creation Name label is missing")
 	}
 	style := name.Style()
-	if style.Color != rotheme.Default.Colors.LabelText || !style.Bold || style.FontFamily != "" {
+	if style.Color != rotheme.Default.Colors.LabelText || style.FontFamily != rotheme.Default.Typography.BoldFontFamily {
 		t.Fatalf("Name style = color %+v, bold %t, family %q; want semantic label style", style.Color, style.Bold, style.FontFamily)
 	}
 }
@@ -237,20 +237,20 @@ func TestCharacterCreateStatButtonsUseLabelStyle(t *testing.T) {
 	canvas := &uitest.MockCanvas{}
 	graph.Draw(widget.NewContext(), canvas)
 
-	if len(canvas.Texts) != CharacterCreateStatCount {
-		t.Fatalf("stat button label draws = %d, want %d", len(canvas.Texts), CharacterCreateStatCount)
+	if len(canvas.StyledTexts) != CharacterCreateStatCount {
+		t.Fatalf("stat button label draws = %d, want %d", len(canvas.StyledTexts), CharacterCreateStatCount)
 	}
 	labels := CharacterCreateStatLabels()
-	for stat, draw := range canvas.Texts {
+	for stat, draw := range canvas.StyledTexts {
 		if draw.Text != labels[stat] {
 			t.Fatalf("stat button %d label = %q, want %q", stat, draw.Text, labels[stat])
 		}
-		if draw.Color != rotheme.Default.Colors.LabelText || !draw.Bold || draw.Align != widget.TextAlignCenter {
-			t.Fatalf("stat button %s style = color %+v, bold %t, align %v", draw.Text, draw.Color, draw.Bold, draw.Align)
+		if draw.Style.Color != rotheme.Default.Colors.LabelText || draw.Style.FontFamily != rotheme.Default.Typography.BoldFontFamily || draw.Style.Align != widget.TextAlignCenter {
+			t.Fatalf("stat button %s style = color %+v, family %q, align %v", draw.Text, draw.Style.Color, draw.Style.FontFamily, draw.Style.Align)
 		}
 	}
-	if len(canvas.StyledTexts) != 0 {
-		t.Fatal("stat button labels unexpectedly used the custom DejaVu family")
+	if len(canvas.Texts) != 0 {
+		t.Fatal("stat button labels unexpectedly used the built-in font family")
 	}
 }
 

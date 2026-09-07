@@ -8,35 +8,32 @@ import (
 	"github.com/gogpu/ui/widget"
 )
 
-func TestLabelUsesBlueBoldStyle(t *testing.T) {
+func TestLabelUsesBlueThemedBoldFace(t *testing.T) {
 	style := Label("Account").Style()
 
-	if !style.Bold {
-		t.Fatal("label should request native bold text")
-	}
-	if style.FontFamily != "" {
-		t.Fatalf("label font family = %q, want gogpu/ui's built-in weighted family", style.FontFamily)
+	if style.FontFamily != Default.Typography.BoldFontFamily {
+		t.Fatalf("label font family = %q, want %q", style.FontFamily, Default.Typography.BoldFontFamily)
 	}
 	if style.Color != Default.Colors.LabelText {
 		t.Fatalf("label color = %+v, want %+v", style.Color, Default.Colors.LabelText)
 	}
 }
 
-func TestDrawLabelUsesBlueNativeBoldStyle(t *testing.T) {
+func TestDrawLabelUsesBlueThemedBoldFace(t *testing.T) {
 	canvas := &uitest.MockCanvas{}
 	DrawLabel(canvas, "STR", geometry.NewRect(1, 2, 30, 18), widget.TextAlignCenter)
 
-	if len(canvas.Texts) != 1 {
-		t.Fatalf("native label draws = %d, want 1", len(canvas.Texts))
+	if len(canvas.StyledTexts) != 1 {
+		t.Fatalf("styled label draws = %d, want 1", len(canvas.StyledTexts))
 	}
-	draw := canvas.Texts[0]
-	if draw.Color != Default.Colors.LabelText || !draw.Bold {
-		t.Fatalf("label draw color/bold = %+v/%t, want %+v/true", draw.Color, draw.Bold, Default.Colors.LabelText)
+	draw := canvas.StyledTexts[0]
+	if draw.Style.Color != Default.Colors.LabelText || draw.Style.FontFamily != Default.Typography.BoldFontFamily {
+		t.Fatalf("label draw color/family = %+v/%q, want %+v/%q", draw.Style.Color, draw.Style.FontFamily, Default.Colors.LabelText, Default.Typography.BoldFontFamily)
 	}
-	if draw.FontSize != Default.Typography.TextSize || draw.Align != widget.TextAlignCenter {
-		t.Fatalf("label draw size/alignment = %.1f/%v", draw.FontSize, draw.Align)
+	if draw.Style.FontSize != Default.Typography.TextSize || draw.Style.Align != widget.TextAlignCenter {
+		t.Fatalf("label draw size/alignment = %.1f/%v", draw.Style.FontSize, draw.Style.Align)
 	}
-	if len(canvas.StyledTexts) != 0 {
-		t.Fatal("label draw unexpectedly used the custom DejaVu family")
+	if len(canvas.Texts) != 0 {
+		t.Fatal("label draw unexpectedly used the built-in font family")
 	}
 }
