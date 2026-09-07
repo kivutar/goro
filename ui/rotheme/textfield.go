@@ -22,7 +22,7 @@ func TextField(value string, inputType textfield.InputType, onChange func(string
 
 type TextFieldPainter struct{}
 
-func (TextFieldPainter) PaintTextField(canvas widget.Canvas, state textfield.PaintState) {
+func (TextFieldPainter) PaintTextField(canvas widget.Canvas, state *textfield.PaintState) {
 	border := Default.Colors.FooterLine
 	if state.Focused {
 		border = Default.Colors.InputFocus

@@ -5,7 +5,6 @@ import (
 	"image"
 	"testing"
 
-	"github.com/gogpu/gg/scene"
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
@@ -137,7 +136,7 @@ func (c *tableViewHeaderCanvas) ScreenOriginBase() geometry.Point { return geome
 
 func (c *tableViewHeaderCanvas) ClipBounds() geometry.Rect { return c.clip }
 
-func (c *tableViewHeaderCanvas) ReplayScene(*scene.Scene) {}
+func (c *tableViewHeaderCanvas) ReplayScene(widget.SceneCache) {}
 
 var _ widget.Canvas = (*tableViewHeaderCanvas)(nil)
 

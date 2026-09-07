@@ -13,8 +13,9 @@ import (
 
 type countingOverlay struct {
 	widget.WidgetBase
-	events int
-	draws  int
+	events  int
+	presses int
+	draws   int
 }
 
 func newCountingOverlay() *countingOverlay {
@@ -32,7 +33,10 @@ func (w *countingOverlay) Layout(_ widget.Context, constraints geometry.Constrai
 
 func (w *countingOverlay) Draw(widget.Context, widget.Canvas) { w.draws++ }
 
-func (w *countingOverlay) Event(widget.Context, event.Event) bool {
+func (w *countingOverlay) Event(_ widget.Context, e event.Event) bool {
+	if mouse, ok := e.(*event.MouseEvent); ok && mouse.IsPress() {
+		w.presses++
+	}
 	w.events++
 	return false
 }
@@ -77,11 +81,11 @@ func TestTopOverlayBlocksLowerOverlayEvents(t *testing.T) {
 
 	point := geometry.Pt(130, 130)
 	app.Window().HandleEvent(event.NewMouseEvent(event.MousePress, event.ButtonLeft, 0, point, point, event.ModNone))
-	if top.events != 1 {
-		t.Fatalf("top overlay events = %d, want 1", top.events)
+	if top.presses != 1 {
+		t.Fatalf("top overlay presses = %d, want 1", top.presses)
 	}
-	if lower.events != 0 {
-		t.Fatalf("lower overlay events = %d, want 0", lower.events)
+	if lower.presses != 0 {
+		t.Fatalf("lower overlay presses = %d, want 0", lower.presses)
 	}
 }
 

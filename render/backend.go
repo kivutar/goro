@@ -733,8 +733,6 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	if err := r.savePendingScreenshot(ctx); err != nil {
 		return err
 	}
-	// Goro redraws the 3D scene every frame; UI canvas damage only scopes UI texture updates.
-	ctx.SetDamageRects(nil)
 	submitted, err := r.gpu.Draw(ctx, r.screen)
 	if err != nil {
 		return err

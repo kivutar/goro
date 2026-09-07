@@ -12,7 +12,7 @@ func TestTextFieldInsetShadowMeetsTopAndSideBorders(t *testing.T) {
 	bounds := geometry.NewRect(3, 5, 80, 22)
 	canvas := &uitest.MockCanvas{}
 
-	TextFieldPainter{}.PaintTextField(canvas, textfield.PaintState{Bounds: bounds})
+	TextFieldPainter{}.PaintTextField(canvas, &textfield.PaintState{Bounds: bounds})
 
 	const shadowRows = 4
 	if len(canvas.Rects) != 1+shadowRows {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogpu/gogpu"
+	"github.com/gogpu/gpucontext"
 	"github.com/gogpu/gputypes"
 	"github.com/gogpu/wgpu"
 	"github.com/kivutar/goro/config"
@@ -73,6 +74,7 @@ type gpuRenderer struct {
 	statsLast              time.Time
 	worldDebug             bool
 	worldDebugLast         time.Time
+	damageSource           gpucontext.DamageReporter
 
 	worldFrameScratch worldFrameScratch
 }
@@ -173,6 +175,7 @@ func newGPURenderer(ctx *gogpu.Context, app *gogpu.App, cfg config.RenderConfig)
 		worldMeshes:  make(map[*WorldMesh]*gpuWorldMesh),
 		statsEnabled: cfg.Stats,
 		worldDebug:   cfg.WorldDebugStats,
+		damageSource: ctx.RegisterDamageSource("goro"),
 	}
 	if r.queue == nil {
 		r.queue = r.dev.Queue()
@@ -229,7 +232,7 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 
 	r.bgl, err = r.dev.CreateBindGroupLayout(&wgpu.BindGroupLayoutDescriptor{
 		Label: "goro-screen-bind-layout",
-		Entries: []wgpu.BindGroupLayoutEntry{
+		Entries: []gputypes.BindGroupLayoutEntry{
 			{Binding: 0, Visibility: wgpu.ShaderStageVertex, Buffer: &gputypes.BufferBindingLayout{Type: gputypes.BufferBindingTypeUniform, MinBindingSize: 16}},
 			{Binding: 1, Visibility: wgpu.ShaderStageFragment, Sampler: &gputypes.SamplerBindingLayout{Type: gputypes.SamplerBindingTypeFiltering}},
 			{Binding: 2, Visibility: wgpu.ShaderStageFragment, Texture: &gputypes.TextureBindingLayout{SampleType: gputypes.TextureSampleTypeFloat, ViewDimension: gputypes.TextureViewDimension2D}},
@@ -240,7 +243,7 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 	}
 	r.worldBGL, err = r.dev.CreateBindGroupLayout(&wgpu.BindGroupLayoutDescriptor{
 		Label: "goro-world-bind-layout",
-		Entries: []wgpu.BindGroupLayoutEntry{
+		Entries: []gputypes.BindGroupLayoutEntry{
 			{Binding: 0, Visibility: wgpu.ShaderStageVertex | wgpu.ShaderStageFragment, Buffer: &gputypes.BufferBindingLayout{Type: gputypes.BufferBindingTypeUniform, MinBindingSize: 96}},
 			{Binding: 1, Visibility: wgpu.ShaderStageFragment, Sampler: &gputypes.SamplerBindingLayout{Type: gputypes.SamplerBindingTypeFiltering}},
 			{Binding: 2, Visibility: wgpu.ShaderStageFragment, Texture: &gputypes.TextureBindingLayout{SampleType: gputypes.TextureSampleTypeFloat, ViewDimension: gputypes.TextureViewDimension2D}},
@@ -343,7 +346,7 @@ func (r *gpuRenderer) createPipeline(shader *wgpu.ShaderModule, blend gputypes.B
 		Vertex: wgpu.VertexState{
 			Module:     shader,
 			EntryPoint: "vs_main",
-			Buffers: []wgpu.VertexBufferLayout{{
+			Buffers: []gputypes.VertexBufferLayout{{
 				ArrayStride: screenVertexStride,
 				StepMode:    gputypes.VertexStepModeVertex,
 				Attributes: []gputypes.VertexAttribute{
@@ -377,7 +380,7 @@ func (r *gpuRenderer) createWorldPipeline(shader *wgpu.ShaderModule, blend gputy
 		Vertex: wgpu.VertexState{
 			Module:     shader,
 			EntryPoint: "vs_main",
-			Buffers: []wgpu.VertexBufferLayout{{
+			Buffers: []gputypes.VertexBufferLayout{{
 				ArrayStride: worldVertexStride,
 				StepMode:    gputypes.VertexStepModeVertex,
 				Attributes: []gputypes.VertexAttribute{
@@ -420,7 +423,7 @@ func (r *gpuRenderer) createWorldBillboardPipeline(shader *wgpu.ShaderModule, bl
 		Vertex: wgpu.VertexState{
 			Module:     shader,
 			EntryPoint: "vs_main",
-			Buffers: []wgpu.VertexBufferLayout{
+			Buffers: []gputypes.VertexBufferLayout{
 				{
 					ArrayStride: billboardVertexStride,
 					StepMode:    gputypes.VertexStepModeVertex,
@@ -594,7 +597,11 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 			}
 			worldState.setPipeline(pass, r.worldPipelineFor(batch.key.options.Blend, batch.key.options.DepthWrite))
 			worldState.setBindGroup(pass, bg)
-			pass.DrawIndexed(batch.indexCount, 1, batch.firstIndex, 0, 0)
+			pass.DrawIndexed(gputypes.DrawIndexedArgs{
+				IndexCount:    batch.indexCount,
+				InstanceCount: 1,
+				FirstIndex:    batch.firstIndex,
+			})
 		}
 	}
 	if screen.camera.Enabled {
@@ -638,7 +645,11 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 		}
 		pass.SetPipeline(r.pipeline(batch.key.options.Blend))
 		pass.SetBindGroup(0, bg, nil)
-		pass.DrawIndexed(batch.indexCount, 1, batch.firstIndex, 0, 0)
+		pass.DrawIndexed(gputypes.DrawIndexedArgs{
+			IndexCount:    batch.indexCount,
+			InstanceCount: 1,
+			FirstIndex:    batch.firstIndex,
+		})
 	}
 	if err := pass.End(); err != nil {
 		return false, err
@@ -648,7 +659,13 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 		return false, err
 	}
 	_, err = r.queue.Submit(cmd)
-	return err == nil, err
+	if err != nil {
+		return false, err
+	}
+	if r.damageSource != nil {
+		r.damageSource.ReportDamage()
+	}
+	return true, nil
 }
 
 func (r *gpuRenderer) logWorldDebug(screen *Frame) {
@@ -897,7 +914,10 @@ func (r *gpuRenderer) drawWorldMesh(ctx *gogpu.Context, pass *wgpu.RenderPassEnc
 	state.setBindGroup(pass, bg)
 	state.setVertexBuffer(pass, gpuMesh.vertexBuf)
 	state.setIndexBuffer(pass, gpuMesh.indexBuf)
-	pass.DrawIndexed(gpuMesh.indexCount, 1, 0, 0, 0)
+	pass.DrawIndexed(gputypes.DrawIndexedArgs{
+		IndexCount:    gpuMesh.indexCount,
+		InstanceCount: 1,
+	})
 	return nil
 }
 
@@ -963,7 +983,10 @@ func (r *gpuRenderer) drawWorldMeshBatch(ctx *gogpu.Context, pass *wgpu.RenderPa
 		}
 		state.setVertexBuffer(pass, gpuMesh.vertexBuf)
 		state.setIndexBuffer(pass, gpuMesh.indexBuf)
-		pass.DrawIndexed(gpuMesh.indexCount, 1, 0, 0, 0)
+		pass.DrawIndexed(gputypes.DrawIndexedArgs{
+			IndexCount:    gpuMesh.indexCount,
+			InstanceCount: 1,
+		})
 	}
 	return nil
 }
@@ -1003,7 +1026,10 @@ func (r *gpuRenderer) drawWorldBillboards(ctx *gogpu.Context, pass *wgpu.RenderP
 		pass.SetPipeline(r.worldBillboardPipelineFor(batch.key.options.Blend, batch.key.options.DepthTest))
 		pass.SetBindGroup(0, bg, nil)
 		pass.SetVertexBuffer(1, instanceBuf, uint64(batch.firstInstance)*billboardInstanceStride)
-		pass.Draw(6, batch.instanceCount, 0, 0)
+		pass.Draw(gputypes.DrawArgs{
+			VertexCount:   6,
+			InstanceCount: batch.instanceCount,
+		})
 	}
 	return nil
 }
@@ -1145,7 +1171,7 @@ func (r *gpuRenderer) ensureWorldMesh(mesh *WorldMesh) (*gpuWorldMesh, error) {
 	return gpuMesh, nil
 }
 
-func (r *gpuRenderer) dynamicBuffer(slot *dynamicGPUBuffer, label string, size int, usage wgpu.BufferUsage, data []byte) (*wgpu.Buffer, error) {
+func (r *gpuRenderer) dynamicBuffer(slot *dynamicGPUBuffer, label string, size int, usage gputypes.BufferUsage, data []byte) (*wgpu.Buffer, error) {
 	if size <= 0 {
 		size = 4
 	}

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/gogpu/gg"
-	"github.com/gogpu/gg/scene"
 	"github.com/gogpu/gpucontext"
 	uiapp "github.com/gogpu/ui/app"
 	"github.com/gogpu/ui/event"
@@ -440,6 +439,6 @@ func (*storageBenchCanvas) ScreenOriginBase() geometry.Point { return geometry.P
 
 func (c *storageBenchCanvas) ClipBounds() geometry.Rect { return c.clip }
 
-func (*storageBenchCanvas) ReplayScene(*scene.Scene) {}
+func (*storageBenchCanvas) ReplayScene(widget.SceneCache) {}
 
 var _ widget.Canvas = (*storageBenchCanvas)(nil)

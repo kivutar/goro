@@ -386,8 +386,9 @@ func (c *uiDrawRecorder) ClipBounds() geometry.Rect {
 	return c.currentClip
 }
 
-func (c *uiDrawRecorder) ReplayScene(s *scene.Scene) {
-	if s == nil || s.IsEmpty() {
+func (c *uiDrawRecorder) ReplayScene(cache widget.SceneCache) {
+	s, ok := cache.(*scene.Scene)
+	if !ok || s.IsEmpty() {
 		return
 	}
 	snapshot := scene.NewScene()
