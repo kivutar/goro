@@ -20,7 +20,7 @@ func Title(content string) *primitives.TextWidget {
 
 func Label(content string) *primitives.TextWidget {
 	return Text(content).
-		FontFamily(Default.Typography.BoldFontFamily).
+		Bold().
 		Color(Default.Colors.LabelText)
 }
 

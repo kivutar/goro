@@ -5,7 +5,6 @@ go 1.26.4
 require (
 	github.com/charmbracelet/log v1.0.0
 	github.com/ebitengine/oto/v3 v3.5.0-alpha.8
-	github.com/go-fonts/dejavu v0.3.4
 	github.com/gogpu/gogpu v0.54.0
 	github.com/gogpu/gpucontext v0.31.3
 	github.com/gogpu/gputypes v0.8.0
@@ -60,6 +59,6 @@ replace github.com/godexture/sdk => github.com/godexture/godec/pkg v0.0.0-202606
 
 replace github.com/godexture/metadata-id3 => github.com/godexture/godec/plugins/metadata-id3 v0.0.0-20260621142744-bd77e78cfab1
 
-replace github.com/gogpu/gg => github.com/kivutar/gg v0.52.4-0.20260906141048-d2bc0186de71
+replace github.com/gogpu/gg => github.com/kivutar/gg v0.52.4-0.20260907093528-f5ad04483d31
 
-replace github.com/gogpu/ui => github.com/kivutar/ui v0.1.55-0.20260907075349-c10cef60f768
+replace github.com/gogpu/ui => github.com/kivutar/ui v0.1.55-0.20260907095244-a4c40d22caa3

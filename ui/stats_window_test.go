@@ -123,7 +123,7 @@ func TestStatsPrimaryRowsUseTableRhythm(t *testing.T) {
 			t.Fatalf("primary row %d label = %T, want text", i, rowChildren[0].Children()[0])
 		}
 		style := label.Style()
-		if style.Color != rotheme.Default.Colors.LabelText || style.FontFamily != rotheme.Default.Typography.BoldFontFamily {
+		if style.Color != rotheme.Default.Colors.LabelText || style.FontFamily != rotheme.Default.Typography.FontFamily || !style.Bold {
 			t.Fatalf("primary row %d label does not use semantic label style", i)
 		}
 	}

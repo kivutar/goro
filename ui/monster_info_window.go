@@ -166,7 +166,7 @@ func monsterElementCell(name string, rate uint8) widget.Widget {
 		Color(textColor).
 		Align(widget.TextAlignCenter)
 	if rate > 100 {
-		label.FontFamily(rotheme.Default.Typography.BoldFontFamily)
+		label.Bold()
 	}
 	return primitives.HBox(
 		primitives.Expanded(label),

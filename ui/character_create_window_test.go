@@ -179,7 +179,7 @@ func TestCharacterCreateNameUsesLabelStyle(t *testing.T) {
 		t.Fatal("character creation Name label is missing")
 	}
 	style := name.Style()
-	if style.Color != rotheme.Default.Colors.LabelText || style.FontFamily != rotheme.Default.Typography.BoldFontFamily {
+	if style.Color != rotheme.Default.Colors.LabelText || style.FontFamily != rotheme.Default.Typography.FontFamily || !style.Bold {
 		t.Fatalf("Name style = color %+v, bold %t, family %q; want semantic label style", style.Color, style.Bold, style.FontFamily)
 	}
 }
@@ -245,7 +245,7 @@ func TestCharacterCreateStatButtonsUseLabelStyle(t *testing.T) {
 		if draw.Text != labels[stat] {
 			t.Fatalf("stat button %d label = %q, want %q", stat, draw.Text, labels[stat])
 		}
-		if draw.Style.Color != rotheme.Default.Colors.LabelText || draw.Style.FontFamily != rotheme.Default.Typography.BoldFontFamily || draw.Style.Align != widget.TextAlignCenter {
+		if draw.Style.Color != rotheme.Default.Colors.LabelText || draw.Style.FontFamily != rotheme.Default.Typography.FontFamily || !draw.Style.Bold || draw.Style.Align != widget.TextAlignCenter {
 			t.Fatalf("stat button %s style = color %+v, family %q, align %v", draw.Text, draw.Style.Color, draw.Style.FontFamily, draw.Style.Align)
 		}
 	}

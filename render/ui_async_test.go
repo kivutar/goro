@@ -14,7 +14,7 @@ func TestUIDrawRecorderReplaysStyledText(t *testing.T) {
 
 	bounds := geometry.NewRect(4, 8, 80, 16)
 	style := widget.TextStyle{
-		FontFamily: "GoroDejaVuSansBold",
+		FontFamily: "Inter",
 		FontSize:   11,
 		Color:      widget.ColorBlack,
 		Align:      widget.TextAlignRight,
@@ -35,7 +35,7 @@ func TestUIDrawRecorderReplaysStyledText(t *testing.T) {
 func TestScaledImageCanvasForwardsStyledText(t *testing.T) {
 	dst := &uitest.MockCanvas{}
 	canvas := scaledImageCanvas{Canvas: dst, scale: 1.5}
-	style := widget.TextStyle{FontFamily: "GoroDejaVuSansBold", FontSize: 11}
+	style := widget.TextStyle{FontFamily: "Inter", FontSize: 11, Bold: true}
 
 	canvas.DrawStyledText("Display", geometry.NewRect(0, 0, 80, 16), style)
 	if len(dst.StyledTexts) != 1 {

@@ -21,8 +21,8 @@ func TestTableHeadCellsUseLabelStyle(t *testing.T) {
 		t.Fatalf("styled text draws = %d, want head and value cells", len(canvas.StyledTexts))
 	}
 	head := canvas.StyledTexts[0]
-	if head.Text != "STR" || head.Style.Color != Default.Colors.LabelText || head.Style.FontFamily != Default.Typography.BoldFontFamily {
-		t.Fatalf("head cell draw = %q/%+v/%q, want blue themed bold STR", head.Text, head.Style.Color, head.Style.FontFamily)
+	if head.Text != "STR" || head.Style.Color != Default.Colors.LabelText || head.Style.FontFamily != Default.Typography.FontFamily || !head.Style.Bold {
+		t.Fatalf("head cell draw = %q/%+v, want blue themed bold STR", head.Text, head.Style)
 	}
 	if canvas.StyledTexts[1].Text != "9" || canvas.StyledTexts[1].Style.FontFamily != Default.Typography.FontFamily {
 		t.Fatalf("regular cell draws = %+v, want one value cell", canvas.StyledTexts)

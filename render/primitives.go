@@ -7,8 +7,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/go-fonts/dejavu/dejavusans"
-	"github.com/go-fonts/dejavu/dejavusansbold"
+	"github.com/gogpu/ui/fontdata"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/opentype"
@@ -25,11 +24,11 @@ var debugTextFixedWidth = 7
 var outlinedTextFace font.Face
 
 func init() {
-	regular, err := parseOpenTypeFace(dejavusans.TTF, 11)
+	regular, err := parseOpenTypeFace(fontdata.InterRegular, 11)
 	if err != nil {
 		return
 	}
-	bold, _ := parseOpenTypeFace(dejavusansbold.TTF, 12)
+	bold, _ := parseOpenTypeFace(fontdata.InterBold, 12)
 	textFontMu.Lock()
 	defer textFontMu.Unlock()
 	debugTextFace = noKernFace{Face: regular}
@@ -307,7 +306,7 @@ func roNameTextFace() font.Face {
 	if outlinedTextFace != nil {
 		return outlinedTextFace
 	}
-	if face, err := parseOpenTypeFace(dejavusansbold.TTF, 12); err == nil {
+	if face, err := parseOpenTypeFace(fontdata.InterBold, 12); err == nil {
 		outlinedTextFace = noKernFace{Face: face}
 		return outlinedTextFace
 	}
