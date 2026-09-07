@@ -3,10 +3,21 @@ package render
 import (
 	"testing"
 
+	"github.com/gogpu/gg/scene"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/uitest"
 	"github.com/gogpu/ui/widget"
 )
+
+func TestUIDrawRecorderIgnoresTypedNilScene(t *testing.T) {
+	recorder := newUIDrawRecorder(320, 240, 1)
+	defer recorder.close()
+
+	recorder.ReplayScene((*scene.Scene)(nil))
+	if got := len(recorder.list().ops); got != 0 {
+		t.Fatalf("recorded operations = %d, want 0", got)
+	}
+}
 
 func TestUIDrawRecorderReplaysStyledText(t *testing.T) {
 	recorder := newUIDrawRecorder(320, 240, 1)
