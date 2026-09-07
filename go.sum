@@ -54,8 +54,8 @@ github.com/jfreymuth/pulse v0.1.1 h1:9WLNBNCijmtZ14ZJpatgJPu/NjwAl3TIKItSFnTh+9A
 github.com/jfreymuth/pulse v0.1.1/go.mod h1:cpYspI6YljhkUf1WLXLLDmeaaPFc3CnGLjDZf9dZ4no=
 github.com/kivutar/gg v0.52.4-0.20260906141048-d2bc0186de71 h1:rsUR0kmOlj8yA7wuxBSimEZvcb5Ukut70uq47B3chk4=
 github.com/kivutar/gg v0.52.4-0.20260906141048-d2bc0186de71/go.mod h1:76qRbhwszTfk1McnBiCPtnx1ewpR7C6+mfZoxmD5RUU=
-github.com/kivutar/ui v0.1.55-0.20260906141056-74780fd67b89 h1:Fvt4eScg9gcki9mItcFOcEsac1RRgwvE8svJwUocFTM=
-github.com/kivutar/ui v0.1.55-0.20260906141056-74780fd67b89/go.mod h1:FUJbZho6XeDp0xTuDuXFqcJgZ0nmyb4W5oCyF+24qBs=
+github.com/kivutar/ui v0.1.55-0.20260907075349-c10cef60f768 h1:CM8mDzduWW0gBHSqfi6JvoX1g9ydv5qr8P4FH6XeRYQ=
+github.com/kivutar/ui v0.1.55-0.20260907075349-c10cef60f768/go.mod h1:FUJbZho6XeDp0xTuDuXFqcJgZ0nmyb4W5oCyF+24qBs=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
