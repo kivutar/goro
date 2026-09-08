@@ -191,6 +191,7 @@ Currently implemented (not a claim of complete reference-client parity):
    * Card composition
    * Trading
    * Vending
+   * [Legacy mail with item and Zeny attachments](docs/legacy-mail-20080910.md)
    * Show equipment
    * Alchemist crafting
    * Blacksmith repair and weapon refinement
@@ -256,6 +257,7 @@ Currently implemented (not a claim of complete reference-client parity):
    * Cart appearance modal
    * Trade window
    * Vending windows
+   * Legacy mailbox, read-mail window, and multiline composer
    * Card composition and full card illustration windows
    * Show-equipment window
    * Alchemist crafting window

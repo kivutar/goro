@@ -94,7 +94,8 @@
 
   Mail / Auction
 
-  - [ ] Mail refresh/read/delete/get attachment/open/set attachment/send/return: 0x023F, 0x0241, 0x0243, 0x0244, 0x0246, 0x0247, 0x0248, 0x0273
+  - [x] Legacy mail refresh/read/delete/get attachment/reset/set attachment/send/return: 0x023F, 0x0241, 0x0243, 0x0244, 0x0246, 0x0247, 0x0248, 0x0273
+  - [x] Legacy mailbox/list/read/new-mail and result packets: 0x0240, 0x0242, 0x0245, 0x0249, 0x024A, 0x0255, 0x0257, 0x0260, 0x0274; [behavior and test status](legacy-mail-20080910.md)
   - [ ] Auction cancel registration/set item/register/cancel/bid/search/buy-sell/close: 0x024B, 0x024C, 0x024D, 0x024E, 0x024F, 0x0251, 0x025C, 0x025D
 
   Adoption / Family

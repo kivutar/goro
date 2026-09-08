@@ -40,18 +40,19 @@ untracked `0x02B1`-`0x02B7` family.
 
 ### Legacy mail
 
-- [ ] Implement mailbox refresh and inbox listing.
-- [ ] Implement reading mail.
-- [ ] Implement composing and sending mail.
-- [ ] Implement item and Zeny attachments.
-- [ ] Implement taking attachments.
-- [ ] Implement deleting and returning mail.
-- [ ] Implement mailbox and read-mail windows using Goro's existing window components.
-- [ ] Handle the legacy 2008 mail packets `0x023F`, `0x0241`, `0x0243`, `0x0244`, `0x0246`, `0x0247`, `0x0248`, and `0x0273`.
+- [x] Implement mailbox refresh and inbox listing.
+- [x] Implement reading mail.
+- [x] Implement composing and sending mail.
+- [x] Implement item and Zeny attachments.
+- [x] Implement taking attachments.
+- [x] Implement deleting and returning mail.
+- [x] Implement mailbox and read-mail windows using Goro's existing window components.
+- [x] Handle the legacy 2008 mail packets `0x023F`, `0x0241`, `0x0243`, `0x0244`, `0x0246`, `0x0247`, `0x0248`, and `0x0273`.
 - [ ] Test empty mailboxes, full mailboxes, attachments, server errors, and reconnects.
 
 This means the legacy mail system, not a newer RODEX-only implementation. See
-[the per-feature packet audit](packet-coverage-20080910-per-feature.md).
+[the per-feature packet audit](packet-coverage-20080910-per-feature.md) and
+[mail behavior, regression coverage, and pending live checks](legacy-mail-20080910.md).
 
 ### Skill-specific client flows
 

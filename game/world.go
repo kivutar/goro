@@ -23,6 +23,7 @@ import (
 )
 
 type WorldMode struct {
+	mail              mailState
 	walkCooldownUntil time.Time
 	nextHeldWalkAt    time.Time
 	camera            followCamera
@@ -85,6 +86,7 @@ type WorldMode struct {
 	runtimeRSMModels  map[string]*res.RSM
 	gndMeshCache      *gndRetainedMeshCache
 	pendingWarp       bool
+	deferredPackets   []network.Packet
 	pendingAttack     attackIntent
 	pendingPickup     pickupIntent
 	pendingSkill      pendingSkillTarget
@@ -216,6 +218,7 @@ type worldUI struct {
 	skillTextPrompt      gameui.TextPromptWindow
 	playerContext        gameui.PlayerContextMenu
 	tradeWindow          gameui.TradeWindow
+	mailWindow           gameui.MailWindow
 	settingsWindow       gameui.SettingsWindow
 	shortcutBar          gameui.ShortcutBar
 }
@@ -265,6 +268,7 @@ func (u *worldUI) nonConsoleKeyboardInputBlocked(ctx client.Context) bool {
 		u.shopWindow.KeyboardShortcutsBlocked() ||
 		u.vendingWindow.KeyboardShortcutsBlocked() ||
 		u.tradeWindow.IsOpen() ||
+		u.mailWindow.IsOpen() ||
 		u.friendSettings.IsOpen() ||
 		u.whisperWindow.IsOpen() ||
 		u.chatRoomCreate.IsOpen() ||
@@ -280,6 +284,7 @@ func (u *worldUI) interactionModalOpen() bool {
 		return false
 	}
 	return u.teleportModal.IsOpen() ||
+		u.mailWindow.ModalOpen() ||
 		u.autoSpellWindow.IsOpen() ||
 		u.storagePassword.IsOpen() ||
 		u.friendRequest.IsOpen() ||
@@ -638,6 +643,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if next, stop := m.handleNetworkPackets(ctx, now); stop {
 		return next, nil
 	}
+	m.updateMail(ctx, now)
 	m.ui.pvpCounter.Update(ctx)
 	progressBlocksActions := m.updateServerProgress(ctx, now)
 	if !progressBlocksActions && m.handleLevelUpNotificationAction(ctx, m.ui.levelUpNotifications.Update(ctx)) {
@@ -678,6 +684,9 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	// field. Give it first refusal on Escape and pointer input so a focused chat
 	// field cannot consume the cancellation before the prompt sees it.
 	if m.ui.inventoryBag.UpdateDropPrompt(ctx) {
+		return nil, nil
+	}
+	if m.ui.mailWindow.UpdateModal(ctx) || m.ui.mailWindow.UpdateKeyboardInput(ctx) {
 		return nil, nil
 	}
 	dead := playerIsDead(ctx)
@@ -941,7 +950,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.petEggWindow.Update(ctx) {
 		return nil, nil
 	}
-	if m.ui.inventoryBag.UpdateDrag(ctx, &m.ui.shortcutBar, &m.ui.storageWindow, &m.ui.cartWindow, &m.ui.tradeWindow, &m.ui.equipmentWindow) {
+	if m.ui.inventoryBag.UpdateDrag(ctx, &m.ui.shortcutBar, &m.ui.storageWindow, &m.ui.cartWindow, &m.ui.tradeWindow, &m.ui.equipmentWindow, &m.ui.mailWindow) {
 		return nil, nil
 	}
 	if m.ui.storageWindow.UpdateDrag(ctx, &m.ui.inventoryBag, &m.ui.cartWindow) {
@@ -965,7 +974,10 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.shortcutBar.Update(ctx, m) {
 		return nil, nil
 	}
-	if m.ui.inventoryBag.Update(ctx, &m.ui.shortcutBar, &m.ui.storageWindow, &m.ui.cartWindow, &m.ui.tradeWindow, &m.ui.equipmentWindow, &m.ui.itemInfoWindow) {
+	if m.ui.mailWindow.Update(ctx, &m.ui.itemInfoWindow) {
+		return nil, nil
+	}
+	if m.ui.inventoryBag.Update(ctx, &m.ui.shortcutBar, &m.ui.storageWindow, &m.ui.cartWindow, &m.ui.tradeWindow, &m.ui.equipmentWindow, &m.ui.itemInfoWindow, &m.ui.mailWindow) {
 		return nil, nil
 	}
 	if m.ui.tradeWindow.Update(ctx, &m.ui.itemInfoWindow) {
@@ -1332,6 +1344,9 @@ func (m *WorldMode) requestSessionGuildEmblem(ctx client.Context) {
 }
 
 func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange) Mode {
+	if m.ui.mailWindow.IsOpen() || m.mail.pending.Kind != gameui.MailActionNone {
+		m.closeMail(ctx)
+	}
 	m.clearServerProgress()
 	m.showDigit = showDigitState{}
 	m.ui.minimap.ClearBossMarker()
@@ -1368,6 +1383,8 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 		return nil
 	}
 	if change.ServerMove {
+		m.mail = mailState{}
+		m.deferredPackets = nil
 		ctx.Session.Zone.Address = change.Address
 		ctx.Session.Zone.Port = change.Port
 		dialCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1402,6 +1419,8 @@ func (m *WorldMode) handleLevelUpNotificationAction(ctx client.Context, action g
 
 func (m *WorldMode) nextWorldMode() *WorldMode {
 	next := NewWorldMode()
+	next.mail = m.mail
+	next.deferredPackets = m.deferredPackets
 	next.camera.yawOffset = m.camera.yawOffset
 	next.camera.pitch = m.camera.pitch
 	next.camera.zoom = m.camera.zoom

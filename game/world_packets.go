@@ -15,14 +15,29 @@ import (
 // The boolean result stops the current frame when packet handling changes modes
 // or begins a map transition.
 func (m *WorldMode) handleNetworkPackets(ctx client.Context, now time.Time) (Mode, bool) {
-	for _, pkt := range ctx.Network.DrainPackets() {
+	packets := ctx.Network.DrainPackets()
+	if len(m.deferredPackets) > 0 {
+		packets = append(m.deferredPackets, packets...)
+		m.deferredPackets = nil
+	}
+	for i, pkt := range packets {
 		if next, stop := m.handleNetworkPacket(ctx, pkt, now); stop {
+			// A map transition must not discard later packets from the same
+			// read, such as a mail ACK and the inventory item it returns.
+			tail := append([]network.Packet(nil), packets[i+1:]...)
+			if world, ok := next.(*WorldMode); ok {
+				world.deferredPackets = tail
+			} else if next == nil {
+				m.deferredPackets = tail
+			}
 			return next, true
 		}
 	}
 	networkErrors := ctx.Network.DrainErrors()
 	if handleNetworkDisconnectErrors(ctx, &m.ui.disconnectDialog, networkErrors) {
 		m.ui.npcCutin.Clear()
+		m.ui.mailWindow.CloseFromServer(ctx)
+		m.mail = mailState{}
 		return nil, true
 	}
 	for _, err := range networkErrors {
@@ -36,8 +51,13 @@ func (m *WorldMode) handleNetworkPackets(ctx client.Context, now time.Time) (Mod
 // result stops the current frame when the packet changes modes or starts a map
 // transition.
 func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, now time.Time) (Mode, bool) {
+	if m.handleMailPacket(ctx, pkt, now) {
+		return nil, false
+	}
 	if handleDisconnectPacket(ctx, &m.ui.disconnectDialog, pkt) {
 		m.ui.npcCutin.Clear()
+		m.ui.mailWindow.CloseFromServer(ctx)
+		m.mail = mailState{}
 		return nil, false
 	}
 	if notify, ok, err := network.ParseMapInfoNotify(pkt); err != nil {

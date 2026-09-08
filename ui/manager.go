@@ -93,6 +93,21 @@ func (m *Manager) PointerBlocked(x, y int) bool {
 	return m != nil && m.root != nil && m.root.PointerBlocked(geometry.Pt(float32(x), float32(y)))
 }
 
+// OverlayAt returns the same topmost hit target used for pointer dispatch.
+// Drag-and-drop destinations use it to avoid accepting items through a window.
+func (m *Manager) OverlayAt(x, y int) widget.Widget {
+	if m == nil || m.root == nil {
+		return nil
+	}
+	position := geometry.Pt(float32(x), float32(y))
+	for i := len(m.root.children) - 1; i >= 0; i-- {
+		if child := m.root.children[i]; widgetCoversPoint(child, position) {
+			return child
+		}
+	}
+	return nil
+}
+
 func (m *Manager) RaiseOverlay(root widget.Widget) {
 	m.raiseOverlay(root)
 }

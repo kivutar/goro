@@ -474,18 +474,18 @@ email check.
 | `0x023C` | S->C | implemented | `0x023c` | `6` | `-` | storage_password_packets.go, packet.go |
 | `0x023D` | S->C | untracked | `0x023d` | `-1` | `-` | - |
 | `0x023E` | S->C | untracked | `0x023e` | `8` | `-` | - |
-| `0x023F` | C->S | missing | `0x023f` | `2` | `clif_parse_Mail_refreshinbox` | - |
-| `0x0240` | S->C | untracked | `0x0240` | `-1` | `-` | - |
-| `0x0241` | C->S | missing | `0x0241` | `6` | `clif_parse_Mail_read` | - |
-| `0x0242` | S->C | untracked | `0x0242` | `-1` | `-` | - |
-| `0x0243` | C->S | missing | `0x0243` | `6` | `clif_parse_Mail_delete` | - |
-| `0x0244` | C->S | missing | `0x0244` | `6` | `clif_parse_Mail_getattach` | - |
-| `0x0245` | S->C | untracked | `0x0245` | `3` | `-` | - |
-| `0x0246` | C->S | missing | `0x0246` | `4` | `clif_parse_Mail_winopen` | - |
-| `0x0247` | C->S | missing | `0x0247` | `8` | `clif_parse_Mail_setattach` | - |
-| `0x0248` | C->S | missing | `0x0248` | `-1` | `clif_parse_Mail_send` | - |
-| `0x0249` | S->C | untracked | `0x0249` | `3` | `-` | - |
-| `0x024A` | S->C | untracked | `0x024a` | `70` | `-` | - |
+| `0x023F` | C->S | implemented | `0x023f` | `2` | `clif_parse_Mail_refreshinbox` | mail_packets.go |
+| `0x0240` | S->C | implemented | `0x0240` | `-1` | `-` | mail_packets.go, packet.go |
+| `0x0241` | C->S | implemented | `0x0241` | `6` | `clif_parse_Mail_read` | mail_packets.go |
+| `0x0242` | S->C | implemented | `0x0242` | `-1` | `-` | mail_packets.go, packet.go |
+| `0x0243` | C->S | implemented | `0x0243` | `6` | `clif_parse_Mail_delete` | mail_packets.go |
+| `0x0244` | C->S | implemented | `0x0244` | `6` | `clif_parse_Mail_getattach` | mail_packets.go |
+| `0x0245` | S->C | implemented | `0x0245` | `3` | `-` | mail_packets.go, packet.go |
+| `0x0246` | C->S | implemented | `0x0246` | `4` | `clif_parse_Mail_winopen` | mail_packets.go |
+| `0x0247` | C->S | implemented | `0x0247` | `8` | `clif_parse_Mail_setattach` | mail_packets.go |
+| `0x0248` | C->S | implemented | `0x0248` | `-1` | `clif_parse_Mail_send` | mail_packets.go |
+| `0x0249` | S->C | implemented | `0x0249` | `3` | `-` | mail_packets.go, packet.go |
+| `0x024A` | S->C | implemented | `0x024a` | `70` | `-` | mail_packets.go, packet.go |
 | `0x024B` | C->S | missing | `0x024b` | `4` | `clif_parse_Auction_cancelreg` | - |
 | `0x024C` | C->S | missing | `0x024c` | `8` | `clif_parse_Auction_setitem` | - |
 | `0x024D` | C->S | missing | `HEADER_CZ_AUCTION_ADD` | `sizeof( PACKET_CZ_AUCTION_ADD )` | `clif_parse_Auction_register` | - |
@@ -496,9 +496,9 @@ email check.
 | `0x0252` | S->C | untracked | `0x0252` | `-1` | `-` | - |
 | `0x0253` | S->C | implemented | `0x0253` | `3` | `-` | taekwon_packets.go, packet.go |
 | `0x0254` | C->S | implemented | `0x0254` | `3` | `clif_parse_FeelSaveOk` | taekwon_packets.go |
-| `0x0255` | S->C | untracked | `0x0255` | `5` | `-` | - |
+| `0x0255` | S->C | implemented | `0x0255` | `5` | `-` | mail_packets.go, packet.go |
 | `0x0256` | S->C | untracked | `0x0256` | `5` | `-` | - |
-| `0x0257` | S->C | untracked | `0x0257` | `8` | `-` | - |
+| `0x0257` | S->C | implemented | `0x0257` | `8` | `-` | mail_packets.go, packet.go |
 | `0x0258` | S->C | untracked | `0x0258` | `2` | `-` | - |
 | `0x0259` | S->C | untracked | `0x0259` | `3` | `-` | - |
 | `0x025A` | S->C | referenced | `HEADER_ZC_MAKINGITEM_LIST` | `-1` | `-` | item_packets.go, packet.go |
@@ -507,7 +507,7 @@ email check.
 | `0x025D` | C->S | missing | `0x025d` | `6` | `clif_parse_Auction_close` | - |
 | `0x025E` | S->C | untracked | `0x025e` | `4` | `-` | - |
 | `0x025F` | S->C | untracked | `0x025f` | `6` | `-` | - |
-| `0x0260` | S->C | untracked | `0x0260` | `6` | `-` | - |
+| `0x0260` | S->C | implemented | `0x0260` | `6` | `-` | mail_packets.go, packet.go |
 | `0x0261` | S->C | untracked | `0x0261` | `11` | `-` | - |
 | `0x0262` | S->C | untracked | `0x0262` | `11` | `-` | - |
 | `0x0263` | S->C | untracked | `0x0263` | `11` | `-` | - |
@@ -525,8 +525,8 @@ email check.
 | `0x0270` | S->C | untracked | `0x0270` | `2` | `-` | - |
 | `0x0271` | S->C | untracked | `0x0271` | `40` | `-` | - |
 | `0x0272` | S->C | untracked | `0x0272` | `44` | `-` | - |
-| `0x0273` | C->S | missing | `0x0273` | `30` | `clif_parse_Mail_return` | - |
-| `0x0274` | S->C | untracked | `0x0274` | `8` | `-` | - |
+| `0x0273` | C->S | implemented | `0x0273` | `30` | `clif_parse_Mail_return` | mail_packets.go |
+| `0x0274` | S->C | implemented | `0x0274` | `8` | `-` | mail_packets.go, packet.go |
 | `0x0277` | S->C | untracked | `0x0277` | `84` | `-` | - |
 | `0x0278` | S->C | untracked | `0x0278` | `2` | `-` | - |
 | `0x0279` | S->C | untracked | `0x0279` | `2` | `-` | - |
