@@ -34,6 +34,7 @@ type skillGridConfig struct {
 	onAdjustLevel func(session.Skill, int) int
 	onHover       func(session.Skill, int, int)
 	onLeave       func()
+	onRightClick  func(session.Skill, int, int)
 }
 
 type skillGridPart uint8
@@ -209,6 +210,10 @@ func (w *skillGridWidget) Event(ctx widget.Context, e event.Event) bool {
 		}
 		return false
 	case event.MousePress:
+		if mouse.Button == event.ButtonRight {
+			w.cfg.onRightClick(entry.skill, int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y))
+			return true
+		}
 		if mouse.Button != event.ButtonLeft || !occupied {
 			return true
 		}
