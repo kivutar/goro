@@ -356,8 +356,24 @@ func (w *MailWindow) widgetTree() widget.Widget {
 		content = w.inboxTree()
 		footer = []widget.Widget{rotheme.ButtonDisabled("Refresh", w.busy, func() { w.request(MailAction{Kind: MailActionRefresh}) }), primitives.Expanded(primitives.Box()), rotheme.ButtonDisabled("Read", w.busy || w.selected == 0, func() { w.request(MailAction{Kind: MailActionRead, ID: w.selected}) }), rotheme.Button("Close", w.requestClose)}
 	}
+	tabs := primitives.HBox(inboxTab, writeTab, primitives.Expanded(primitives.Box())).
+		Gap(-1).
+		CrossAlign(primitives.CrossAxisStretch)
+	bodyChildren := []widget.Widget{primitives.Expanded(content)}
+	if w.status != "" {
+		bodyChildren = append(bodyChildren, primitives.Box(rotheme.Text(w.status)).Height(24))
+	}
+	body := primitives.Box(bodyChildren...).
+		Gap(4).CrossAlign(primitives.CrossAxisStretch)
+	if w.compose {
+		body.Padding(8)
+	}
 	return Win(Title(title), CloseButton(true), OnClose(w.requestClose), Size(mailWindowW, mailWindowH),
-		Content(primitives.Box(primitives.HBox(inboxTab, writeTab).Gap(0), primitives.Expanded(content), primitives.Box(rotheme.Text(w.status)).Height(24)).Padding(8).Gap(4).CrossAlign(primitives.CrossAxisStretch)), Footer(footer...))
+		Content(primitives.Box(
+			tabs,
+			primitives.Box().Height(1).Background(rotheme.Default.Colors.WindowBorder),
+			primitives.Expanded(body),
+		).CrossAlign(primitives.CrossAxisStretch)), Footer(footer...))
 }
 
 func (w *MailWindow) inboxTree() widget.Widget {
@@ -404,7 +420,8 @@ func (w *MailWindow) inboxTree() widget.Widget {
 	)
 	page := primitives.HBox(rotheme.IconButtonDisabled(rotheme.IconButtonLeft, w.busy || w.page == 0, func() { w.page--; w.refresh() }),
 		rotheme.Text(fmt.Sprintf("%d / %d", w.page+1, w.pageCount())), rotheme.IconButtonDisabled(rotheme.IconButtonRight, w.busy || w.page+1 >= w.pageCount(), func() { w.page++; w.refresh() }),
-		primitives.Expanded(primitives.Box()), rotheme.Text(fmt.Sprintf("%d / %d", len(w.inbox), network.MailInboxCapacity))).Gap(8).CrossAlign(primitives.CrossAxisCenter)
+		primitives.Expanded(primitives.Box()), rotheme.Text(fmt.Sprintf("%d / %d", len(w.inbox), network.MailInboxCapacity))).
+		Gap(8).CrossAlign(primitives.CrossAxisCenter).PaddingLeft(8).PaddingRight(8).PaddingBottom(8)
 	return primitives.Box(primitives.Expanded(table), page).Gap(6).CrossAlign(primitives.CrossAxisStretch)
 }
 

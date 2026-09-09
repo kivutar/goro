@@ -33,6 +33,88 @@ func drawMailWindowTest(manager *Manager) {
 	manager.root.Draw(ctx, &uitest.MockCanvas{})
 }
 
+func TestMailWindowTabsSitFlushBelowTitle(t *testing.T) {
+	for _, compose := range []bool{false, true} {
+		t.Run(fmt.Sprintf("compose=%t", compose), func(t *testing.T) {
+			w, _, manager := newMailWindowTest(t)
+			if compose {
+				w.BeginCompose("Erika", "Hello")
+			}
+			drawMailWindowTest(manager)
+			children := w.content.Children()
+			title := children[0].(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+			frame := children[1].Children()[0]
+			strip := frame.Children()[0]
+			bounds := strip.(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+			if bounds.Min.Y != title.Max.Y || bounds.Min.X != title.Min.X || bounds.Max.X != title.Max.X {
+				t.Fatalf("tab strip %v must meet title bottom and sides %v", bounds, title)
+			}
+			inbox := strip.Children()[0].(*tabWidget).ScreenBounds()
+			write := strip.Children()[1].(*tabWidget).ScreenBounds()
+			if inbox.Min != bounds.Min || inbox.Max.Y != bounds.Max.Y || write.Min.Y != bounds.Min.Y || write.Max.Y != bounds.Max.Y || write.Min.X != inbox.Max.X-1 {
+				t.Fatalf("tabs must fill the strip height and share their border: inbox=%v write=%v", inbox, write)
+			}
+			divider := frame.Children()[1]
+			dividerBounds := divider.(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+			if want := geometry.NewRect(bounds.Min.X, bounds.Max.Y, bounds.Width(), 1); dividerBounds != want {
+				t.Fatalf("tab divider = %v, want %v", dividerBounds, want)
+			}
+			canvas := &uitest.MockCanvas{}
+			divider.Draw(widget.NewContext(), canvas)
+			if len(canvas.Rects) != 1 {
+				t.Fatalf("tab divider draws = %d, want one solid line", len(canvas.Rects))
+			}
+			uitest.AssertColorEqual(t, canvas.Rects[0].Color, rotheme.Default.Colors.WindowBorder)
+			body := frame.Children()[2].Children()[0]
+			page := body.Children()[0].Children()[0]
+			padding := float32(8)
+			if !compose {
+				padding = 0
+				page = page.Children()[0].Children()[0] // Inbox table, including its header.
+			}
+			pageBounds := page.(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+			if pageBounds.Min.Y != dividerBounds.Max.Y+padding || pageBounds.Min.X != bounds.Min.X+padding || pageBounds.Max.X != bounds.Max.X-padding {
+				t.Fatalf("page %v must follow tab divider %v with %gpx padding", pageBounds, dividerBounds, padding)
+			}
+		})
+	}
+}
+
+func TestMailWindowReservesStatusSpaceOnlyForMessages(t *testing.T) {
+	for _, compose := range []bool{false, true} {
+		t.Run(fmt.Sprintf("compose=%t", compose), func(t *testing.T) {
+			w, _, manager := newMailWindowTest(t)
+			if compose {
+				w.BeginCompose("Erika", "Hello")
+			}
+			for _, status := range []string{"", "Waiting for the mail server...", "Mail was not sent.", ""} {
+				w.ShowStatus(status)
+				drawMailWindowTest(manager)
+				children := w.content.Children()
+				footer := children[2].(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+				frame := children[1].Children()[0]
+				body := frame.Children()[2].Children()[0]
+				wantChildren := 1
+				wantGap := float32(0)
+				if compose {
+					wantGap = 8
+				}
+				if status != "" {
+					wantChildren = 2
+					wantGap += 24 + 4
+				}
+				if len(body.Children()) != wantChildren {
+					t.Fatalf("status %q: body children = %d, want %d", status, len(body.Children()), wantChildren)
+				}
+				page := body.Children()[0].(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+				if gap := footer.Min.Y - page.Max.Y; gap != wantGap {
+					t.Fatalf("status %q: space above footer = %g, want %g", status, gap, wantGap)
+				}
+			}
+		})
+	}
+}
+
 func TestMailWindowIdleUpdateKeepsPublishedContent(t *testing.T) {
 	for _, mode := range []string{"inbox", "read", "compose", "closed"} {
 		t.Run(mode, func(t *testing.T) {
@@ -78,7 +160,7 @@ func TestMailWindowInboxPaginationAndReadIntent(t *testing.T) {
 				return
 			}
 			// Route through the published, positioned window and shared table.
-			position := geometry.Pt(float32(w.x+28), float32(w.y+ROWindowTitleHeight+8+24+4+24+12))
+			position := geometry.Pt(float32(w.x+28), float32(w.y+ROWindowTitleHeight+24+1+24+12))
 			if !manager.root.Event(widget.NewContext(), event.NewMouseEvent(event.MouseDoubleClick, event.ButtonLeft, event.ButtonStateLeft, position, position, event.ModNone)) {
 				t.Fatal("mail row click leaked through the window")
 			}
