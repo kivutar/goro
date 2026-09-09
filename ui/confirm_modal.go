@@ -40,6 +40,7 @@ func (m *ConfirmModal) Open(ctx client.Context, title, message string, onOK, onC
 	m.okOnly = false
 	m.ctx = ctx
 	m.EnsureWindow(smallPromptWidth, m.promptHeight())
+	m.SetSize(smallPromptWidth, m.promptHeight())
 	m.Window.Open(ctx, m.widgetTree(ctx))
 	m.Publish(ctx)
 }
@@ -52,6 +53,7 @@ func (m *ConfirmModal) OpenAlert(ctx client.Context, title, message string, onOK
 	m.okOnly = true
 	m.ctx = ctx
 	m.EnsureWindow(smallPromptWidth, m.promptHeight())
+	m.SetSize(smallPromptWidth, m.promptHeight())
 	m.Window.Open(ctx, m.widgetTree(ctx))
 	m.Publish(ctx)
 }

@@ -3,9 +3,52 @@ package ui
 import (
 	"testing"
 
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/uitest"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 )
+
+func TestConfirmModalFooterAfterReuse(t *testing.T) {
+	manager := NewManager()
+	ctx := client.Context{ScreenW: 800, ScreenH: 600, UIManager: manager}
+	var modal ConfirmModal
+	for _, tt := range []struct {
+		name    string
+		message string
+		alert   bool
+		height  int
+	}{
+		{"return", "Return this mail and its attachments to the sender?", false, 126},
+		{"delete_after_return", "Delete this message permanently?", false, 112},
+		{"alert", "Disconnected from Server.", true, 156},
+		{"delete_after_alert", "Delete this message permanently?", false, 112},
+		{"return_after_delete", "Return this mail and its attachments to the sender?", false, 126},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.alert {
+				modal.OpenAlert(ctx, tt.name, tt.message, nil)
+			} else {
+				modal.Open(ctx, tt.name, tt.message, nil, nil)
+			}
+			defer modal.Close(ctx)
+			wc := widget.NewContext()
+			manager.root.Layout(wc, geometry.Tight(geometry.Sz(800, 600)))
+			manager.root.Draw(wc, &uitest.MockCanvas{})
+
+			if modal.height != tt.height {
+				t.Errorf("reused window height = %d, want %d", modal.height, tt.height)
+			}
+			children := modal.content.Children()
+			footer := children[len(children)-1].(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+			want := geometry.NewRect(float32(modal.x), float32(modal.y+modal.height-ROWindowFooterHeight), float32(modal.width), ROWindowFooterHeight)
+			if footer != want {
+				t.Errorf("footer = %v, want bottom band %v", footer, want)
+			}
+		})
+	}
+}
 
 func TestConfirmModalOpenAlertEscapeConfirms(t *testing.T) {
 	var modal ConfirmModal
