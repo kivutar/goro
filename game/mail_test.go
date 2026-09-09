@@ -7,11 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogpu/ui/geometry"
+	"github.com/gogpu/ui/uitest"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
+	"github.com/kivutar/goro/ui/rotheme"
 	worldstate "github.com/kivutar/goro/world"
 )
 
@@ -31,7 +35,7 @@ func newMailTest(t *testing.T) *mailTest {
 			Items: []session.InventoryItem{{Index: 7, ItemID: 501, Amount: 10, Identified: true}}}},
 		ScreenW: 1024, ScreenH: 768,
 	}}
-	h.m.ui.mailWindow.Open(h.ctx)
+	h.m.ui.mailWindow.Open(h.ctx, h.m.mailError)
 	return h
 }
 
@@ -212,6 +216,67 @@ func TestMailAttachmentAcknowledgementAndReset(t *testing.T) {
 	}
 }
 
+func TestMailComposerLayoutIsStableDuringRequestsAndErrors(t *testing.T) {
+	h := newMailTest(t)
+	h.compose()
+	var editor *rotheme.TextAreaWidget
+	layout := func() geometry.Rect {
+		t.Helper()
+		root := h.m.ui.mailWindow.Widget()
+		ctx := widget.NewContext()
+		root.Layout(ctx, geometry.Tight(geometry.Sz(1024, 768)))
+		root.Draw(ctx, &uitest.MockCanvas{})
+		editor = nil
+		var findEditor func(widget.Widget)
+		findEditor = func(w widget.Widget) {
+			if field, ok := w.(*rotheme.TextAreaWidget); ok {
+				editor = field
+			}
+			for _, child := range w.Children() {
+				findEditor(child)
+			}
+		}
+		findEditor(root)
+		if editor == nil {
+			t.Fatal("composer has no body editor")
+		}
+		return editor.ScreenBounds()
+	}
+	want := layout()
+	original := editor
+	h.attach()
+	if got := layout(); got != want || editor != original || editor.IsEnabled() {
+		t.Fatalf("pending attachment changed editor layout: got %v, want %v (enabled=%t)", got, want, editor.IsEnabled())
+	}
+	h.m.updateMail(h.ctx, h.now.Add(time.Second))
+	if got := layout(); got != want {
+		t.Fatalf("waiting for attachment changed editor layout: got %v, want %v", got, want)
+	}
+	h.m.updateMail(h.ctx, h.now.Add(time.Minute))
+	if got := layout(); got != want || editor != original || editor.IsEnabled() {
+		t.Fatalf("timeout changed editor layout: got %v, want %v (enabled=%t)", got, want, editor.IsEnabled())
+	}
+	if messages := h.m.ui.console.Messages(); len(messages) != 1 || messages[0].Text != "No mail reply from the server. Reconnect before retrying." {
+		t.Fatalf("timeout console messages = %+v", messages)
+	}
+	h.result(network.PacketZCMailAddAttachment, network.MailResult{Index: 7})
+	if got := layout(); got != want || editor != original || !editor.IsEnabled() {
+		t.Fatalf("attachment reply changed editor layout: got %v, want %v (enabled=%t)", got, want, editor.IsEnabled())
+	}
+	action := gameui.MailAction{Kind: gameui.MailActionSend, Recipient: "Missing", Title: "Hello"}
+	h.action(action)
+	packet, _ := network.BuildMailSendPacket(action.Recipient, action.Title, action.Body)
+	h.expect(network.BuildMailResetPacket(network.MailResetZeny), packet)
+	h.result(network.PacketZCMailSend, network.MailResult{Result: 1})
+	h.expect(network.BuildMailResetPacket(network.MailResetAll))
+	if got := layout(); got != want || editor != original || !editor.IsEnabled() {
+		t.Fatalf("send failure changed editor layout: got %v, want %v (enabled=%t)", got, want, editor.IsEnabled())
+	}
+	if messages := h.m.ui.console.Messages(); len(messages) != 2 || messages[1].Text != "Mail was not sent. Check the recipient and try again." {
+		t.Fatalf("send failure console messages = %+v", messages)
+	}
+}
+
 func TestMailCloseReleasesAcknowledgedAttachment(t *testing.T) {
 	h := newMailTest(t)
 	h.compose()
@@ -232,7 +297,7 @@ func TestMailLateAttachmentAcknowledgementAfterClose(t *testing.T) {
 	item := h.attach()
 	h.action(gameui.MailAction{Kind: gameui.MailActionClose})
 	h.expect(network.BuildMailResetPacket(network.MailResetAll))
-	h.m.ui.mailWindow.Open(h.ctx)
+	h.m.ui.mailWindow.Open(h.ctx, h.m.mailError)
 	h.m.mail.inboxDirty = true
 	h.action(gameui.MailAction{Kind: gameui.MailActionCompose})
 	h.quiet()

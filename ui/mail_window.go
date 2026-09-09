@@ -66,7 +66,7 @@ type MailWindow struct {
 	selected                              uint32
 	compose                               bool
 	busy                                  bool
-	status                                string
+	onError                               func(string)
 	actions                               []MailAction
 	attachment                            session.InventoryItem
 	recipient, title, body, zeny          string
@@ -77,22 +77,23 @@ type MailWindow struct {
 	confirm                               ConfirmModal
 }
 
-func (w *MailWindow) Open(ctx Context) {
+func (w *MailWindow) Open(ctx Context, onError func(string)) {
 	w.EnsureWindow(mailWindowW, mailWindowH)
 	w.ctx = ctx
+	w.onError = onError
 	w.clearDraft()
 	w.inbox = nil
 	w.page = 0
 	w.selected = 0
 	w.message = nil
 	w.closeRead()
-	w.status = "Loading mail..."
 	w.Window.Open(ctx, w.widgetTree())
 	w.Publish(ctx)
 }
 
 func (w *MailWindow) CloseFromServer(ctx Context) {
 	w.ctx = ctx
+	w.onError = nil
 	w.Window.Close()
 	w.closeRead()
 	w.amount.Close(ctx)
@@ -186,7 +187,11 @@ func (w *MailWindow) SetBusy(busy bool) {
 	w.refresh()
 }
 
-func (w *MailWindow) ShowStatus(message string) { w.status = message; w.refresh() }
+func (w *MailWindow) reportError(message string) {
+	if w.onError != nil {
+		w.onError(message)
+	}
+}
 
 func (w *MailWindow) SetInbox(entries []network.MailEntry) {
 	w.inbox = append(w.inbox[:0], entries...)
@@ -197,9 +202,6 @@ func (w *MailWindow) SetInbox(entries []network.MailEntry) {
 	}
 	if !selectedExists {
 		w.selected = 0
-	}
-	if !w.compose {
-		w.status = ""
 	}
 	w.refresh()
 }
@@ -285,7 +287,6 @@ func (w *MailWindow) BeginCompose(recipient, title string) {
 	w.compose = true
 	w.recipient, w.title = recipient, mailTruncateText(title, network.MailTitleMax)
 	w.closeRead()
-	w.status = ""
 	w.refresh()
 	if w.recipientField != nil {
 		if ctx := windowWidgetContext(w.ctx); ctx != nil {
@@ -359,12 +360,7 @@ func (w *MailWindow) widgetTree() widget.Widget {
 	tabs := primitives.HBox(inboxTab, writeTab, primitives.Expanded(primitives.Box())).
 		Gap(-1).
 		CrossAlign(primitives.CrossAxisStretch)
-	bodyChildren := []widget.Widget{primitives.Expanded(content)}
-	if w.status != "" {
-		bodyChildren = append(bodyChildren, primitives.Box(rotheme.Text(w.status)).Height(24))
-	}
-	body := primitives.Box(bodyChildren...).
-		Gap(4).CrossAlign(primitives.CrossAxisStretch)
+	body := primitives.Box(primitives.Expanded(content)).CrossAlign(primitives.CrossAxisStretch)
 	if w.compose {
 		body.Padding(8)
 	}
@@ -447,7 +443,13 @@ func (w *MailWindow) composeTree() widget.Widget {
 	if w.attachment.ItemID != 0 {
 		itemName = inventoryItemDisplayName(w.ctx.Resources, w.attachment)
 	}
-	attachment := primitives.HBox(w.composeSlot, primitives.Expanded(rotheme.Text(itemName)), rotheme.ButtonDisabled("Remove", w.busy || w.attachment.ItemID == 0, func() { w.request(MailAction{Kind: MailActionRemoveAttachment}) })).Gap(8).CrossAlign(primitives.CrossAxisCenter).Height(40)
+	remove := primitives.Box(
+		primitives.Expanded(primitives.Box()),
+		rotheme.ButtonDisabled("Remove", w.busy || w.attachment.ItemID == 0, func() { w.request(MailAction{Kind: MailActionRemoveAttachment}) }),
+		primitives.Expanded(primitives.Box()),
+	)
+	attachment := primitives.HBox(w.composeSlot, primitives.Expanded(rotheme.Text(itemName)), remove).
+		Gap(8).CrossAlign(primitives.CrossAxisCenter).Height(40)
 	return primitives.Box(mailFieldRow("To", w.recipientField), mailFieldRow("Subject", w.titleField), primitives.Expanded(w.bodyField), attachment, mailFieldRow("Zeny", w.zenyField)).Gap(5).CrossAlign(primitives.CrossAxisStretch)
 }
 
@@ -460,7 +462,7 @@ func (w *MailWindow) send() {
 		return
 	}
 	if _, err := network.BuildMailSendPacket(w.recipient, w.title, w.body); err != nil {
-		w.ShowStatus(err.Error())
+		w.reportError(err.Error())
 		return
 	}
 	zeny := uint64(0)
@@ -468,12 +470,12 @@ func (w *MailWindow) send() {
 		var err error
 		zeny, err = strconv.ParseUint(strings.TrimSpace(w.zeny), 10, 32)
 		if err != nil {
-			w.ShowStatus("Enter a valid Zeny amount.")
+			w.reportError("Enter a valid Zeny amount.")
 			return
 		}
 	}
 	if w.ctx.Session == nil || zeny > uint64(max(0, w.ctx.Session.Inventory.Zeny)) {
-		w.ShowStatus("Not enough Zeny.")
+		w.reportError("Not enough Zeny.")
 		return
 	}
 	w.request(MailAction{Kind: MailActionSend, Recipient: w.recipient, Title: w.title, Body: w.body, Zeny: uint32(zeny)})
@@ -490,7 +492,7 @@ func (w *MailWindow) readTree() widget.Widget {
 	return Win(Title("Read Mail"), CloseButton(true), OnClose(w.closeRead), Size(mailReadW, mailReadH),
 		Content(primitives.Box(rotheme.Label(m.Title), rotheme.Text("From: "+m.Sender), primitives.Expanded(w.readBodyField),
 			primitives.HBox(w.newAttachmentSlot(item), primitives.Expanded(rotheme.Text(itemName))).Gap(8).Height(40).CrossAlign(primitives.CrossAxisCenter),
-			rotheme.Text(fmt.Sprintf("Zeny: %s", formatHUDNumber(int64(m.Zeny)))), rotheme.Text(w.status)).Padding(10).Gap(6).CrossAlign(primitives.CrossAxisStretch)),
+			rotheme.Text(fmt.Sprintf("Zeny: %s", formatHUDNumber(int64(m.Zeny))))).Padding(10).Gap(6).CrossAlign(primitives.CrossAxisStretch)),
 		Footer(rotheme.ButtonDisabled("Get", w.busy || !hasAttachment, func() { w.request(MailAction{Kind: MailActionTake, ID: m.ID}) }),
 			rotheme.ButtonDisabled("Reply", w.busy, func() {
 				title := m.Title
@@ -533,11 +535,11 @@ func (w *MailWindow) AcceptInventoryDrop(ctx Context, item session.InventoryItem
 		return true
 	}
 	if w.attachment.ItemID != 0 {
-		w.ShowStatus("Remove the attached item first.")
+		w.reportError("Remove the attached item first.")
 		return true
 	}
 	if item.Index < 2 || item.Amount < 1 || item.Equipped {
-		w.ShowStatus("This item cannot be attached.")
+		w.reportError("This item cannot be attached.")
 		return true
 	}
 	request := func(amount uint16) {

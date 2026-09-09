@@ -19,6 +19,8 @@ There is no always-available modern mail button.
 - Escape cancels an amount/confirmation prompt first, then closes the read
   window before the mailbox. Closing a draft releases its reservations.
 - New mail is announced in the console. It never discards an in-progress draft.
+- Validation errors, server failures, and timeouts appear only in the console;
+  they do not add a status row or resize either mail window.
 
 Limits are those of the legacy wire format: 23 bytes for the recipient,
 39 for the subject, and 199 for the message. Multibyte text is not silently

@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	uiapp "github.com/gogpu/ui/app"
+	"github.com/gogpu/ui/core/button"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/uitest"
@@ -22,7 +23,7 @@ func newMailWindowTest(t *testing.T) (*MailWindow, Context, *Manager) {
 	manager := NewManager()
 	ctx := Context{ScreenW: 1024, ScreenH: 768, UIManager: manager, Input: input.NewState(), Session: &session.Session{Inventory: session.Inventory{Zeny: 1000}}}
 	w := &MailWindow{}
-	w.Open(ctx)
+	w.Open(ctx, nil)
 	drawMailWindowTest(manager)
 	return w, ctx, manager
 }
@@ -80,35 +81,30 @@ func TestMailWindowTabsSitFlushBelowTitle(t *testing.T) {
 	}
 }
 
-func TestMailWindowReservesStatusSpaceOnlyForMessages(t *testing.T) {
+func TestMailWindowDoesNotReserveStatusSpace(t *testing.T) {
 	for _, compose := range []bool{false, true} {
 		t.Run(fmt.Sprintf("compose=%t", compose), func(t *testing.T) {
 			w, _, manager := newMailWindowTest(t)
 			if compose {
 				w.BeginCompose("Erika", "Hello")
 			}
-			for _, status := range []string{"", "Waiting for the mail server...", "Mail was not sent.", ""} {
-				w.ShowStatus(status)
+			for _, busy := range []bool{false, true, false} {
+				w.SetBusy(busy)
 				drawMailWindowTest(manager)
 				children := w.content.Children()
 				footer := children[2].(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
 				frame := children[1].Children()[0]
 				body := frame.Children()[2].Children()[0]
-				wantChildren := 1
 				wantGap := float32(0)
 				if compose {
 					wantGap = 8
 				}
-				if status != "" {
-					wantChildren = 2
-					wantGap += 24 + 4
-				}
-				if len(body.Children()) != wantChildren {
-					t.Fatalf("status %q: body children = %d, want %d", status, len(body.Children()), wantChildren)
+				if len(body.Children()) != 1 {
+					t.Fatalf("busy %t: body children = %d, want only the page", busy, len(body.Children()))
 				}
 				page := body.Children()[0].(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
 				if gap := footer.Min.Y - page.Max.Y; gap != wantGap {
-					t.Fatalf("status %q: space above footer = %g, want %g", status, gap, wantGap)
+					t.Fatalf("busy %t: space above footer = %g, want %g", busy, gap, wantGap)
 				}
 			}
 		})
@@ -136,6 +132,56 @@ func TestMailWindowIdleUpdateKeepsPublishedContent(t *testing.T) {
 			}
 			if w.content != content || w.readWindow.content != readContent || w.published != published || w.readWindow.published != readPublished {
 				t.Fatal("idle update rebuilt mail content or its published windows")
+			}
+		})
+	}
+}
+
+func TestMailAttachmentRemoveButtonIsCentered(t *testing.T) {
+	for _, mode := range []string{"empty", "attached", "busy"} {
+		t.Run(mode, func(t *testing.T) {
+			w, _, manager := newMailWindowTest(t)
+			w.BeginCompose("Erika", "Hello")
+			if mode != "empty" {
+				w.SetAttachment(session.InventoryItem{Index: 7, ItemID: 501, Amount: 1})
+			}
+			w.SetBusy(mode == "busy")
+			drawMailWindowTest(manager)
+			var remove *button.Widget
+			var label widget.Widget
+			var walk func(widget.Widget, bool)
+			walk = func(node widget.Widget, inRow bool) {
+				children := node.Children()
+				if len(children) == 3 && children[0] == w.composeSlot {
+					inRow = true
+					label = children[1].Children()[0]
+				}
+				if b, ok := node.(*button.Widget); ok && inRow {
+					remove = b
+				}
+				for _, child := range children {
+					walk(child, inRow)
+				}
+			}
+			walk(w.content, false)
+			if remove == nil || label == nil {
+				t.Fatal("attachment row has no Remove button or item label")
+			}
+			want := w.composeSlot.ScreenBounds().Center().Y
+			labelBounds := label.(interface{ ScreenBounds() geometry.Rect }).ScreenBounds()
+			if remove.ScreenBounds().Center().Y != want || labelBounds.Center().Y != want {
+				t.Fatalf("vertical centers: button=%g label=%g, want item=%g", remove.ScreenBounds().Center().Y, labelBounds.Center().Y, want)
+			}
+			p := remove.ScreenBounds().Center()
+			ctx := widget.NewContext()
+			manager.root.Event(ctx, event.NewMouseEvent(event.MousePress, event.ButtonLeft, event.ButtonStateLeft, p, p, event.ModNone))
+			manager.root.Event(ctx, event.NewMouseEvent(event.MouseRelease, event.ButtonLeft, 0, p, p, event.ModNone))
+			wantAction := MailActionNone
+			if mode == "attached" {
+				wantAction = MailActionRemoveAttachment
+			}
+			if action := w.PopAction(); action.Kind != wantAction {
+				t.Fatalf("Remove action = %v, want %v", action.Kind, wantAction)
 			}
 		})
 	}
@@ -185,7 +231,7 @@ func TestMailWindowInboxPaginationAndReadIntent(t *testing.T) {
 	}
 }
 
-func TestMailWindowDraftSurvivesStatusAndIncomingMail(t *testing.T) {
+func TestMailWindowDraftSurvivesBusyStateAndIncomingMail(t *testing.T) {
 	w, _, manager := newMailWindowTest(t)
 	w.BeginCompose("Erika", "Hello")
 	w.body = "Some text\nNext line"
@@ -194,12 +240,11 @@ func TestMailWindowDraftSurvivesStatusAndIncomingMail(t *testing.T) {
 	w.refresh()
 	field := w.bodyField
 	w.SetBusy(true)
-	w.ShowStatus("Waiting...")
 	w.SetInbox([]network.MailEntry{{ID: 2, Title: "Incoming", Sender: "Zambla"}})
 	w.SetBusy(false)
 	drawMailWindowTest(manager)
 	if w.bodyField != field || w.body != "Some text\nNext line" || w.recipient != "Erika" || w.title != "Hello" || w.zeny != "123" {
-		t.Fatal("inbox/status update reset the draft editor")
+		t.Fatal("inbox/busy update reset the draft editor")
 	}
 	w.send()
 	got := w.PopAction()
@@ -208,22 +253,95 @@ func TestMailWindowDraftSurvivesStatusAndIncomingMail(t *testing.T) {
 	}
 }
 
+func TestMailWindowErrorsUseCurrentConsoleWithoutChangingLayout(t *testing.T) {
+	w, ctx, manager := newMailWindowTest(t)
+	w.CloseFromServer(ctx)
+	for range 2 {
+		var console ChatConsole
+		w.Open(ctx, func(message string) { console.AddErrorMessage("%s", message) })
+		w.BeginCompose("", "Hello")
+		drawMailWindowTest(manager)
+		content := w.content
+		w.send()
+		if messages := console.Messages(); len(messages) != 1 || messages[0].Text != "recipient is required" || messages[0].Color != consoleColorError {
+			t.Fatalf("validation console messages = %+v", messages)
+		}
+		if w.content != content {
+			t.Fatal("validation rebuilt the mail window")
+		}
+		w.CloseFromServer(ctx)
+		if w.onError != nil {
+			t.Fatal("closed mail retained its error handler")
+		}
+	}
+}
+
 func TestMailWindowValidatesTextAndZeny(t *testing.T) {
-	for _, tc := range []struct{ name, recipient, title, zeny string }{
-		{"empty recipient", "", "Subject", "0"},
-		{"empty title", "Erika", "", "0"},
-		{"too many bytes", "Erika", strings.Repeat("é", 20), "0"},
-		{"too much Zeny", "Erika", "Subject", "1001"},
-		{"negative Zeny", "Erika", "Subject", "-1"},
-		{"overflow Zeny", "Erika", "Subject", "4294967296"},
+	for _, tc := range []struct{ name, recipient, title, zeny, wantError string }{
+		{"empty recipient", "", "Subject", "0", "recipient is required"},
+		{"empty title", "Erika", "", "0", "subject is required"},
+		{"too many bytes", "Erika", strings.Repeat("é", 20), "0", "subject is limited to 39 bytes"},
+		{"too much Zeny", "Erika", "Subject", "1001", "Not enough Zeny."},
+		{"negative Zeny", "Erika", "Subject", "-1", "Enter a valid Zeny amount."},
+		{"overflow Zeny", "Erika", "Subject", "4294967296", "Enter a valid Zeny amount."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w, _, _ := newMailWindowTest(t)
+			w, _, manager := newMailWindowTest(t)
+			var errors []string
+			w.onError = func(message string) { errors = append(errors, message) }
 			w.BeginCompose(tc.recipient, "")
 			w.title, w.zeny = tc.title, tc.zeny
+			drawMailWindowTest(manager)
+			content, editor, bounds := w.content, w.bodyField, w.bodyField.ScreenBounds()
 			w.send()
-			if w.PopAction().Kind != MailActionNone || w.status == "" || w.busy {
-				t.Fatal("invalid draft queued or failed silently")
+			if w.PopAction().Kind != MailActionNone || w.busy {
+				t.Fatal("invalid draft queued or disabled the composer")
+			}
+			if len(errors) != 1 || errors[0] != tc.wantError {
+				t.Fatalf("validation errors = %q, want %q", errors, tc.wantError)
+			}
+			drawMailWindowTest(manager)
+			if w.content != content || w.bodyField != editor || w.bodyField.ScreenBounds() != bounds {
+				t.Fatal("validation error rebuilt or resized the composer")
+			}
+		})
+	}
+}
+
+func TestMailWindowReportsRejectedDropsWithoutChangingLayout(t *testing.T) {
+	for _, tc := range []struct {
+		name, wantError string
+		item            session.InventoryItem
+		attached        bool
+	}{
+		{"already attached", "Remove the attached item first.", session.InventoryItem{Index: 7, ItemID: 501, Amount: 1}, true},
+		{"equipped", "This item cannot be attached.", session.InventoryItem{Index: 7, ItemID: 501, Amount: 1, Equipped: true}, false},
+		{"invalid index", "This item cannot be attached.", session.InventoryItem{Index: 1, ItemID: 501, Amount: 1}, false},
+		{"empty stack", "This item cannot be attached.", session.InventoryItem{Index: 7, ItemID: 501}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w, ctx, manager := newMailWindowTest(t)
+			var errors []string
+			w.onError = func(message string) { errors = append(errors, message) }
+			w.BeginCompose("Erika", "Hello")
+			if tc.attached {
+				w.SetAttachment(tc.item)
+			}
+			drawMailWindowTest(manager)
+			content, bounds := w.content, w.bodyField.ScreenBounds()
+			center := w.composeSlot.ScreenBounds().Center()
+			if !w.AcceptInventoryDrop(ctx, tc.item, int(center.X), int(center.Y)) {
+				t.Fatal("invalid attachment drop was not consumed")
+			}
+			if w.PopAction().Kind != MailActionNone || w.busy || w.ModalOpen() {
+				t.Fatal("invalid attachment queued or opened an amount prompt")
+			}
+			if len(errors) != 1 || errors[0] != tc.wantError {
+				t.Fatalf("attachment errors = %q, want %q", errors, tc.wantError)
+			}
+			drawMailWindowTest(manager)
+			if w.content != content || w.bodyField.ScreenBounds() != bounds {
+				t.Fatal("attachment error rebuilt or resized the composer")
 			}
 		})
 	}

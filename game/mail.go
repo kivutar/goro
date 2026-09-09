@@ -139,7 +139,6 @@ func (m *WorldMode) handleMailAction(ctx client.Context, action gameui.MailActio
 	}
 	if action.Kind == gameui.MailActionCompose || action.Kind == gameui.MailActionRemoveAttachment {
 		m.ui.mailWindow.SetBusy(false)
-		m.ui.mailWindow.ShowStatus("")
 		return
 	}
 	m.mail.pending = action
@@ -148,7 +147,6 @@ func (m *WorldMode) handleMailAction(ctx client.Context, action gameui.MailActio
 	m.mail.since = now
 	m.mail.warned = false
 	m.ui.mailWindow.SetBusy(true)
-	m.ui.mailWindow.ShowStatus("Waiting for the mail server...")
 }
 
 func (m *WorldMode) closeMail(ctx client.Context) {
@@ -175,14 +173,10 @@ func (m *WorldMode) finishMailOperation() bool {
 	m.mail.cancelled = false
 	m.mail.warned = false
 	m.ui.mailWindow.SetBusy(false)
-	if visible {
-		m.ui.mailWindow.ShowStatus("")
-	}
 	return visible
 }
 
 func (m *WorldMode) mailError(message string) {
-	m.ui.mailWindow.ShowStatus(message)
 	m.ui.console.AddErrorMessage("%s", message)
 }
 
@@ -205,7 +199,7 @@ func (m *WorldMode) handleMailPacket(ctx client.Context, pkt network.Packet, now
 		if m.ui.mailWindow.IsOpen() {
 			return true
 		}
-		m.ui.mailWindow.Open(ctx)
+		m.ui.mailWindow.Open(ctx, m.mailError)
 		m.mail.inboxDirty = true
 		m.ui.mailWindow.SetBusy(m.mail.pending.Kind != gameui.MailActionNone)
 		m.updateMail(ctx, now)
