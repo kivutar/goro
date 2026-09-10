@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -363,6 +364,121 @@ func TestHealApproachesZombieWithoutWalkingAwayOnOtherAxis(t *testing.T) {
 	readBotTestPackets(t, serverConn, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 1, zombie.ID, 20080910))
 	if mode.pendingSkill.skill.ID != 0 {
 		t.Fatal("Heal remained pending after casting")
+	}
+}
+
+func TestHealApproachesDiagonalZombiesWithinServerRange(t *testing.T) {
+	for _, offset := range [][2]int{{11, 11}, {-11, 11}, {11, -11}, {-11, -11}, {9, 9}} {
+		t.Run(fmt.Sprintf("offset_%d_%d", offset[0], offset[1]), func(t *testing.T) {
+			networkClient, serverConn := newBotTestConnection(t, 20080910)
+			world := worldstate.New()
+			world.GAT = flatWalkableGAT(64, 64)
+			world.Player = worldstate.Actor{ID: 200, Job: db.JobAcolyte, X: 20, Y: 20}
+			zombie := worldstate.Actor{
+				ID: 300, Job: 1015, X: 20 + offset[0], Y: 20 + offset[1],
+				ObjectType: actorObjectTypeMob, HasObjectType: true,
+			}
+			world.UpsertActor(zombie)
+			ctx := client.Context{
+				World: world, Network: networkClient,
+				Session: &session.Session{AccountID: 200},
+			}
+			mode := &WorldMode{}
+			skill := session.Skill{ID: db.SkillALHeal, Level: 1, Type: skillTargetFriend, Range: 9}
+			if err := mode.skills().UseTarget(ctx, skill, zombie, "test"); err != nil {
+				t.Fatal(err)
+			}
+			// At range 9 (+1 client allowance), the nearest diagonal cell
+			// is seven cells from the target on each axis, not nine.
+			x, y := zombie.X-7, zombie.Y-7
+			if offset[0] < 0 {
+				x = zombie.X + 7
+			}
+			if offset[1] < 0 {
+				y = zombie.Y + 7
+			}
+			want, ok := network.BuildWalkToXYPacketForClientDate(x, y, 20080910)
+			if !ok {
+				t.Fatal("could not build expected approach packet")
+			}
+			readBotTestPackets(t, serverConn, want)
+			applySelfMoveAck(ctx, network.SelfMoveAck{FromX: 20, FromY: 20, ToX: x, ToY: y})
+			world.Player.MoveStarted = time.Now().Add(-world.Player.MoveDuration / 2)
+			mode.skills().UpdatePendingTarget(ctx, "test", false)
+			if !mode.pendingSkill.readyAt.IsZero() {
+				t.Fatal("Heal scheduled while still outside circular range")
+			}
+
+			world.Player.MoveStarted = time.Now().Add(-world.Player.MoveDuration - time.Millisecond)
+			mode.skills().UpdatePendingTarget(ctx, "test", false)
+			if mode.pendingSkill.readyAt.IsZero() {
+				t.Fatal("Heal not scheduled after reaching circular range")
+			}
+			// rAthena's player distance is int(hypot(dx,dy)-0.1).
+			if distance := int(math.Hypot(float64(x-zombie.X), float64(y-zombie.Y)) - 0.1); distance > skill.Range {
+				t.Fatalf("approach cell is still outside server range: distance=%d range=%d", distance, skill.Range)
+			}
+			mode.pendingSkill.readyAt = time.Now().Add(-time.Millisecond)
+			mode.skills().ProcessPendingTarget(ctx)
+			readBotTestPackets(t, serverConn, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 1, zombie.ID, 20080910))
+			if mode.pendingSkill.skill.ID != 0 {
+				t.Fatal("Heal remained pending after casting")
+			}
+		})
+	}
+}
+
+func TestSkillCasterRangeMatchesReference(t *testing.T) {
+	skill := session.Skill{ID: db.SkillALHeal, Range: 9}
+	for _, tc := range []struct {
+		name    string
+		kind    skillCasterKind
+		dx, dy  int
+		inRange bool
+	}{
+		{"player cardinal allowance", skillCasterPlayer, 10, 0, true},
+		{"player diagonal inside circle", skillCasterPlayer, 7, 7, true},
+		{"player square corner outside circle", skillCasterPlayer, 9, 9, false},
+		{"player beyond allowance", skillCasterPlayer, 11, 0, false},
+		{"mercenary square corner", skillCasterMercenary, 9, 9, true},
+		{"mercenary no allowance", skillCasterMercenary, 10, 0, false},
+		{"homunculus square corner", skillCasterHomunculus, 9, 9, true},
+		{"homunculus no allowance", skillCasterHomunculus, 10, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			caster := skillCaster{kind: tc.kind}
+			rangeCells := skillTargetRangeForCaster(caster, skill)
+			if got := caster.targetWithinRange(20, 20, 20+tc.dx, 20+tc.dy, rangeCells); got != tc.inRange {
+				t.Fatalf("in range = %t, want %t (range %d)", got, tc.inRange, rangeCells)
+			}
+		})
+	}
+}
+
+func TestPendingHealRechecksCircularRangeBeforeCasting(t *testing.T) {
+	networkClient, serverConn := newBotTestConnection(t, 20080910)
+	world := worldstate.New()
+	world.GAT = flatWalkableGAT(64, 64)
+	world.Player = worldstate.Actor{ID: 200, X: 20, Y: 20}
+	// The zombie moved into a square corner after Heal was scheduled.
+	world.UpsertActor(worldstate.Actor{ID: 300, Job: 1015, X: 29, Y: 29})
+	ctx := client.Context{World: world, Network: networkClient, Session: &session.Session{AccountID: 200}}
+	mode := &WorldMode{
+		pendingSkill: pendingSkillTarget{
+			skill:    session.Skill{ID: db.SkillALHeal, Level: 1, Type: skillTargetFriend, Range: 9},
+			targetID: 300,
+			readyAt:  time.Now().Add(-time.Second),
+			expires:  time.Now().Add(time.Second),
+		},
+	}
+	mode.skills().ProcessPendingTarget(ctx)
+	want, ok := network.BuildWalkToXYPacketForClientDate(22, 22, 20080910)
+	if !ok {
+		t.Fatal("could not build expected approach packet")
+	}
+	readBotTestPackets(t, serverConn, want)
+	if mode.pendingSkill.targetID != 300 || !mode.pendingSkill.readyAt.IsZero() {
+		t.Fatalf("pending Heal = %+v, want to keep chasing the zombie", mode.pendingSkill)
 	}
 }
 

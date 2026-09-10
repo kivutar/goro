@@ -298,7 +298,7 @@ func TestRangedAttackApproachCellRequiresReachablePath(t *testing.T) {
 	}
 }
 
-func TestRangedSkillApproachChoosesNearestCellInEveryDirection(t *testing.T) {
+func TestSquareRangeApproachChoosesNearestCellInEveryDirection(t *testing.T) {
 	world := worldstate.New()
 	world.GAT = flatWalkableGAT(64, 64)
 	ctx := client.Context{World: world}

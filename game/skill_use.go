@@ -214,8 +214,17 @@ func skillTargetRangeForCaster(caster skillCaster, skill session.Skill) int {
 		if caster.actor.AttackRange > 0 {
 			return caster.actor.AttackRange
 		}
+		return 1
 	}
 	return targetSkillRange(skill)
+}
+
+func (caster skillCaster) targetWithinRange(sourceX, sourceY, targetX, targetY, skillRange int) bool {
+	if caster.kind == skillCasterPlayer {
+		return targetSkillWithinRangeCells(sourceX, sourceY, targetX, targetY, skillRange)
+	}
+	// rAthena uses square range for non-player casters.
+	return attackTargetWithinRange(sourceX, sourceY, targetX, targetY, skillRange)
 }
 
 const (
@@ -489,10 +498,14 @@ func (c skillController) chaseTargetIfNeeded(ctx client.Context, skill session.S
 	casterX, casterY := skillCasterCell(caster, now)
 	targetX, targetY := actorCurrentCell(actor, now)
 	skillRange := skillTargetRangeForCaster(caster, skill)
-	if targetSkillWithinRangeCells(casterX, casterY, targetX, targetY, skillRange) {
+	if caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
 		return false
 	}
-	chaseX, chaseY, ok := attackApproachCellFromTarget(ctx, casterX, casterY, targetX, targetY, skillRange)
+	approachCell := attackApproachCellFromTarget
+	if caster.kind == skillCasterPlayer {
+		approachCell = normalAttackApproachCellFromTarget
+	}
+	chaseX, chaseY, ok := approachCell(ctx, casterX, casterY, targetX, targetY, skillRange)
 	if !ok {
 		glog.Warnf("%s skill chase blocked skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange)
 		c.mode.setWalkCooldown(walkRequestCooldown)
@@ -571,11 +584,11 @@ func (c skillController) UpdatePendingTarget(ctx client.Context, source string, 
 	casterX, casterY := skillCasterCell(caster, now)
 	skillRange := skillTargetRangeForCaster(caster, pending.skill)
 	targetX, targetY := actorCurrentCell(actor, now)
-	if !targetSkillWithinRangeCells(casterX, casterY, targetX, targetY, skillRange) {
+	if !caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
 		if logOutOfRange {
 			glog.Debugf("%s pending skill still out of range skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, pending.skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange)
 		}
-		if movingActorDestinationWithinRange(caster.actor, targetX, targetY, skillRange, targetSkillWithinRangeCells) {
+		if movingActorDestinationWithinRange(caster.actor, targetX, targetY, skillRange, caster.targetWithinRange) {
 			return
 		}
 		if attackRetryDue(pending.lastChaseAt, now) {
@@ -623,7 +636,7 @@ func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	casterX, casterY := skillCasterCell(caster, now)
 	skillRange := skillTargetRangeForCaster(caster, pending.skill)
 	targetX, targetY := actorCurrentCell(actor, now)
-	if !targetSkillWithinRangeCells(casterX, casterY, targetX, targetY, skillRange) {
+	if !caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
 		glog.Debugf("pending skill became out of range skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", pending.skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange)
 		pending.readyAt = time.Time{}
 		c.mode.pendingSkill = pending
@@ -652,7 +665,9 @@ func skillTargetOverrideActive(ctx client.Context) bool {
 }
 
 func targetSkillRange(skill session.Skill) int {
-	return maxInt(1, skill.Range)
+	// robr approaches player skill targets within a circle of server range + 1.
+	// This fits rAthena's truncated client distance without using square corners.
+	return maxInt(1, skill.Range+1)
 }
 
 func targetSkillWithinRangeFrom(sourceX, sourceY, skillRange int, actor worldstate.Actor) bool {
@@ -661,5 +676,5 @@ func targetSkillWithinRangeFrom(sourceX, sourceY, skillRange int, actor worldsta
 }
 
 func targetSkillWithinRangeCells(sourceX, sourceY, targetX, targetY, skillRange int) bool {
-	return attackTargetWithinRange(sourceX, sourceY, targetX, targetY, skillRange)
+	return normalAttackTargetWithinRange(sourceX, sourceY, targetX, targetY, skillRange)
 }
