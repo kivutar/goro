@@ -1008,10 +1008,12 @@ func (m *WorldMode) actorShadowSuppressed(actor worldstate.Actor, now time.Time)
 		return true
 	}
 	if anim, ok := m.actorAnimation(actor.ID, now); ok {
-		switch anim.actionFamily {
-		case spriteActionSit, spriteActionPCDeath, spriteActionNonPCDeath:
+		// Action numbers depend on the actor: monster attack is player sit,
+		// and monster death is player combat-ready.
+		if anim.actionFamily == deathActionFamilyForActor(actor) {
 			return true
 		}
+		return anim.actionFamily == spriteActionSit && (res.HasPlayerJobToken(int(actor.Job)) || actorIsMercenary(actor))
 	}
 	return false
 }
