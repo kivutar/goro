@@ -241,6 +241,48 @@ func TestMercenaryTargetSkillChasesFromMercenaryPosition(t *testing.T) {
 	}
 }
 
+func TestHealApproachesZombieWithoutWalkingAwayOnOtherAxis(t *testing.T) {
+	networkClient, serverConn := newBotTestConnection(t, 20080910)
+	world := worldstate.New()
+	world.GAT = flatWalkableGAT(64, 64)
+	world.Player = worldstate.Actor{ID: 200, Job: db.JobAcolyte, X: 20, Y: 20}
+	zombie := worldstate.Actor{
+		ID: 300, Job: 1015, X: 31, Y: 22,
+		ObjectType: actorObjectTypeMob, HasObjectType: true,
+	}
+	world.UpsertActor(zombie)
+	ctx := client.Context{
+		World: world, Network: networkClient,
+		Session: &session.Session{AccountID: 200},
+	}
+	mode := &WorldMode{}
+	skill := session.Skill{ID: db.SkillALHeal, Level: 1, Type: skillTargetFriend, Range: 9}
+	if err := mode.skills().UseTarget(ctx, skill, zombie, "test"); err != nil {
+		t.Fatal(err)
+	}
+	want, ok := network.BuildWalkToXYPacketForClientDate(22, 20, 20080910)
+	if !ok {
+		t.Fatal("could not build expected approach packet")
+	}
+	readBotTestPackets(t, serverConn, want)
+	if mode.pendingSkill.targetID != zombie.ID || mode.pendingSkill.skill.ID != skill.ID {
+		t.Fatalf("pending skill = %+v, want Heal on the zombie", mode.pendingSkill)
+	}
+
+	// Once the server has moved us into range, cast on the original target.
+	world.Player.X = 22
+	mode.skills().UpdatePendingTarget(ctx, "test", false)
+	if mode.pendingSkill.readyAt.IsZero() {
+		t.Fatal("Heal was not scheduled after reaching range")
+	}
+	mode.pendingSkill.readyAt = time.Now().Add(-time.Millisecond)
+	mode.skills().ProcessPendingTarget(ctx)
+	readBotTestPackets(t, serverConn, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 1, zombie.ID, 20080910))
+	if mode.pendingSkill.skill.ID != 0 {
+		t.Fatal("Heal remained pending after casting")
+	}
+}
+
 func TestMercenaryTargetSkillUsesRawServerRange(t *testing.T) {
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: 200, X: 15, Y: 20}

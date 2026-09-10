@@ -1595,15 +1595,11 @@ func rangedAttackApproachCellFromTargetMatching(ctx client.Context, sourceX, sou
 		return 0, 0, false
 	}
 	attackRange = maxInt(1, attackRange)
-	stepX := approachSign(targetX - sourceX)
-	stepY := approachSign(targetY - sourceY)
-	preferredX := targetX - stepX*attackRange
-	preferredY := targetY - stepY*attackRange
+	source := pathPoint{x: sourceX, y: sourceY}
 	type candidate struct {
-		x                 int
-		y                 int
-		sourceDistance    int
-		preferredDistance int
+		x        int
+		y        int
+		walkCost int
 	}
 	candidates := make([]candidate, 0, (attackRange*2+1)*(attackRange*2+1))
 	for dy := -attackRange; dy <= attackRange; dy++ {
@@ -1623,22 +1619,20 @@ func rangedAttackApproachCellFromTargetMatching(ctx client.Context, sourceX, sou
 			if ctx.World.GAT != nil && !ctx.World.GAT.Walkable(x, y) {
 				continue
 			}
+			// Rank by estimated walking cost, not square range distance: an
+			// unnecessary diagonal step must not tie with a straight step.
 			candidates = append(candidates, candidate{
-				x:                 x,
-				y:                 y,
-				sourceDistance:    maxInt(absInt(x-sourceX), absInt(y-sourceY)),
-				preferredDistance: maxInt(absInt(x-preferredX), absInt(y-preferredY)),
+				x:        x,
+				y:        y,
+				walkCost: pathHeuristic(source, pathPoint{x: x, y: y}),
 			})
 		}
 	}
 	sort.Slice(candidates, func(i, j int) bool {
 		left := candidates[i]
 		right := candidates[j]
-		if left.sourceDistance != right.sourceDistance {
-			return left.sourceDistance < right.sourceDistance
-		}
-		if left.preferredDistance != right.preferredDistance {
-			return left.preferredDistance < right.preferredDistance
+		if left.walkCost != right.walkCost {
+			return left.walkCost < right.walkCost
 		}
 		if left.y != right.y {
 			return left.y < right.y
@@ -1652,17 +1646,6 @@ func rangedAttackApproachCellFromTargetMatching(ctx client.Context, sourceX, sou
 		return candidate.x, candidate.y, true
 	}
 	return 0, 0, false
-}
-
-func approachSign(value int) int {
-	switch {
-	case value < 0:
-		return -1
-	case value > 0:
-		return 1
-	default:
-		return 0
-	}
 }
 
 func movingActorDestinationWithinRange(actor world.Actor, targetX, targetY, attackRange int, inRange cellRangePredicate) bool {

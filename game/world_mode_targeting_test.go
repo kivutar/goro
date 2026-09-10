@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -294,6 +295,30 @@ func TestRangedAttackApproachCellRequiresReachablePath(t *testing.T) {
 
 	if x, y, ok := rangedAttackApproachCellFromTarget(ctx, 1, 2, 8, 2, 3); ok {
 		t.Fatalf("ranged approach = %d,%d, want no unreachable chase cell", x, y)
+	}
+}
+
+func TestRangedSkillApproachChoosesNearestCellInEveryDirection(t *testing.T) {
+	world := worldstate.New()
+	world.GAT = flatWalkableGAT(64, 64)
+	ctx := client.Context{World: world}
+	const sourceX, sourceY, skillRange = 20, 20, 9
+	for _, dx := range []int{-11, -2, 0, 2, 11} {
+		for _, dy := range []int{-11, -2, 0, 2, 11} {
+			if maxInt(absInt(dx), absInt(dy)) <= skillRange {
+				continue
+			}
+			t.Run(fmt.Sprintf("offset_%d_%d", dx, dy), func(t *testing.T) {
+				targetX, targetY := sourceX+dx, sourceY+dy
+				x, y, ok := attackApproachCellFromTarget(ctx, sourceX, sourceY, targetX, targetY, skillRange)
+				// On open ground, only move along axes that are out of range.
+				wantX := clampInt(sourceX, targetX-skillRange, targetX+skillRange)
+				wantY := clampInt(sourceY, targetY-skillRange, targetY+skillRange)
+				if !ok || x != wantX || y != wantY {
+					t.Fatalf("approach = %d,%d ok=%t, want nearest in-range cell %d,%d", x, y, ok, wantX, wantY)
+				}
+			})
+		}
 	}
 }
 
