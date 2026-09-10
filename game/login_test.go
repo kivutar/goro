@@ -673,6 +673,7 @@ func TestLoginQuitConfirmationEscapeAndEnter(t *testing.T) {
 	}
 	mode.openQuitConfirm(ctx)
 
+	inputState.EndFrame()
 	inputState.SetKey(input.KeyEscape, true)
 	if !mode.updateQuitConfirm(ctx) {
 		t.Fatal("escape was not consumed")
@@ -688,6 +689,7 @@ func TestLoginQuitConfirmationEscapeAndEnter(t *testing.T) {
 	inputState.SetKey(input.KeyEscape, false)
 	inputState.EndFrame()
 	mode.openQuitConfirm(ctx)
+	inputState.EndFrame()
 	inputState.SetKey(input.KeyEnter, true)
 	if !mode.updateQuitConfirm(ctx) {
 		t.Fatal("enter was not consumed")

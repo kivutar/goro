@@ -6,6 +6,20 @@ import (
 	"github.com/gogpu/gpucontext"
 )
 
+func TestFrameIDAdvancesOnlyAtEndFrame(t *testing.T) {
+	state := NewState()
+	frame := state.FrameID()
+	state.SetKey(KeyEnter, true)
+	state.ResetKeyboard()
+	if state.FrameID() != frame {
+		t.Fatal("input events changed the frame ID")
+	}
+	state.EndFrame()
+	if state.FrameID() != frame+1 {
+		t.Fatal("EndFrame did not advance the frame ID")
+	}
+}
+
 func TestResetKeyboard(t *testing.T) {
 	for _, heldAcrossFrame := range []bool{false, true} {
 		name := "pending presses"

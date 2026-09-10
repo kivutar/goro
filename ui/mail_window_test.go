@@ -511,6 +511,7 @@ func TestMailDeleteConfirmationDoesNotDeleteBeforeAcknowledgement(t *testing.T) 
 	if !w.confirm.IsOpen() || w.PopAction().Kind != MailActionNone {
 		t.Fatal("Delete did not ask for confirmation")
 	}
+	ctx.Input.EndFrame()
 	ctx.Input.SetKey(input.KeyEscape, true)
 	w.UpdateModal(ctx)
 	if w.confirm.IsOpen() || w.message == nil || w.PopAction().Kind != MailActionNone {

@@ -67,6 +67,7 @@ const (
 type TouchID int64
 
 type State struct {
+	frameID           uint64
 	keys              map[Key]bool
 	prev              map[Key]bool
 	justKeys          map[Key]bool
@@ -123,7 +124,14 @@ func (s *State) Update() {
 	s.EndFrame()
 }
 
+// FrameID identifies the current batch of input events. UI opened by an event
+// can use it to avoid handling that same event again during the frame update.
+func (s *State) FrameID() uint64 {
+	return s.frameID
+}
+
 func (s *State) EndFrame() {
+	s.frameID++
 	for key, down := range s.keys {
 		s.prev[key] = down
 	}

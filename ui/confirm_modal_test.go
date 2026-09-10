@@ -64,6 +64,7 @@ func TestConfirmModalOpenAlertEscapeConfirms(t *testing.T) {
 	modal.OpenAlert(ctx, "Disconnected", "Disconnected from Server.", func() {
 		confirmed = true
 	})
+	inputState.EndFrame()
 
 	inputState.SetKey(input.KeyEscape, true)
 	if !modal.Update(ctx) {
@@ -74,6 +75,40 @@ func TestConfirmModalOpenAlertEscapeConfirms(t *testing.T) {
 	}
 	if !confirmed {
 		t.Fatal("escape did not confirm alert")
+	}
+}
+
+func TestConfirmModalIgnoresOpeningFrameKeys(t *testing.T) {
+	for _, alert := range []bool{false, true} {
+		for _, key := range []input.Key{input.KeyEnter, input.KeyEscape} {
+			var modal ConfirmModal
+			state := input.NewState()
+			ctx := client.Context{Input: state, ScreenW: 800, ScreenH: 600}
+			called := false
+			callback := func() { called = true }
+			if alert {
+				modal.OpenAlert(ctx, "Alert", "Connection failed.", callback)
+			} else {
+				modal.Open(ctx, "Confirm", "Are you sure?", callback, callback)
+			}
+			state.SetKey(key, true)
+			modal.Update(ctx)
+			if called || !modal.IsOpen() {
+				t.Fatalf("opening key %v dismissed modal (alert=%t)", key, alert)
+			}
+			state.EndFrame()
+			modal.Update(ctx)
+			if called || !modal.IsOpen() {
+				t.Fatalf("held key %v dismissed modal (alert=%t)", key, alert)
+			}
+			state.EndFrame()
+			state.SetKey(key, false)
+			state.SetKey(key, true)
+			modal.Update(ctx)
+			if !called || modal.IsOpen() {
+				t.Fatalf("new key %v did not dismiss modal (alert=%t)", key, alert)
+			}
+		}
 	}
 }
 
