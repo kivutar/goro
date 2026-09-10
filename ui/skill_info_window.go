@@ -9,7 +9,6 @@ import (
 
 type skillInfoWindow struct {
 	Window
-	grid *skillGridWidget
 }
 
 func (w *skillInfoWindow) createSkillInfoWidget(ctx Context, title string, skillDesc []string) widget.Widget {
@@ -23,7 +22,6 @@ func (w *skillInfoWindow) createSkillInfoWidget(ctx Context, title string, skill
 		Size(float32(w.width), float32(w.height)),
 		Content(
 			primitives.HBox(
-				//w.illustrationPanel(),
 				w.infoPanel(ctx, skillDesc),
 			).
 				Padding(10).
@@ -71,16 +69,6 @@ func (w *skillInfoWindow) infoPanel(ctx Context, skillDesc []string) widget.Widg
 		Gap(8)
 }
 
-//func (w *skillInfoWindow) illustrationPanel() widget.Widget {
-//	return primitives.Box(
-//		//newStaticImageWidget(image.new, itemInfoIllustrationWidth, itemInfoIllustrationH),
-//	).
-//		Height(itemInfoIllustrationH).
-//		Width(itemInfoIllustrationWidth).
-//		Background(rotheme.Default.Colors.PanelBody).
-//		BorderStyle(1, rotheme.Default.Colors.WindowBorder)
-//}
-
 func (w *skillInfoWindow) openSkillInfo(ctx Context, skill session.Skill, mx int, my int) {
 	maxRunes := 38
 
@@ -89,9 +77,6 @@ func (w *skillInfoWindow) openSkillInfo(ctx Context, skill session.Skill, mx int
 
 	// Create new window, so we don't hijack Skill Tree Window.
 	w.EnsureWindow(skillInfoWindowWidth, skillInfoWindowHeight)
-
-	// SetSize appears to be redundant, we've just created the window and specified the size.
-	//w.SetSize(skillInfoWindowWidth, skillInfoWindowHeight)
 
 	name := trimRunes(skillDisplayName(ctx.Resources, skill), maxRunes)
 	skillDesc := append([]string{name}, skillTooltipLines(ctx, skill)...)
