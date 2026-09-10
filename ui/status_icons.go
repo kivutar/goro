@@ -41,7 +41,7 @@ type StatusIcons struct {
 }
 
 func (s *StatusIcons) Update(ctx Context, now time.Time) bool {
-	if ctx.Session == nil {
+	if ctx.UIManager == nil || ctx.Session == nil {
 		s.Unpublish(ctx)
 		return false
 	}
