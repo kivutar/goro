@@ -78,6 +78,9 @@ func (m *WorldMode) autoSelectTeleportRandom(ctx client.Context, list network.Wa
 	if err := ctx.Network.SendSelectWarpPoint(list.SkillID, mapName); err != nil {
 		return
 	}
+	// The destination list confirms the cast succeeded. Do not play this
+	// effect when sending the cast: the server may reject it (e.g. low SP).
+	m.AddTeleportEffect(ctx)
 	m.ui.teleportModal.Reset()
 	glog.Debugf("teleport random selected automatically skill=%d maps=%v", list.SkillID, list.MapNames)
 }

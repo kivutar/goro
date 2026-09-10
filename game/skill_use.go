@@ -306,7 +306,6 @@ func (c skillController) SendToID(ctx client.Context, skill session.Skill, targe
 		if err := ctx.Network.SendSelectWarpPoint(skill.ID, gameui.TeleportRandomMap); err != nil {
 			return err
 		}
-		c.mode.addWorldEffect(ctx, effectTeleportation, localSkillTarget(ctx))
 	}
 	return nil
 }

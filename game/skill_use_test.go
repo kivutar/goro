@@ -67,9 +67,12 @@ func TestLevelOneTeleportQueuesRandomSelectionWithCast(t *testing.T) {
 	defer serverConn.Close()
 
 	mode := &WorldMode{}
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 0x11223344, X: 10, Y: 20}
 	ctx := client.Context{
 		Network: netClient,
 		Session: &session.Session{AccountID: 0x11223344},
+		World:   world,
 	}
 	skill := session.Skill{ID: db.SkillALTeleport, Type: skillTargetSelf, Level: 1}
 	if err := mode.skills().SendToID(ctx, skill, ctx.Session.AccountID, "test"); err != nil {
@@ -97,6 +100,47 @@ func TestLevelOneTeleportQueuesRandomSelectionWithCast(t *testing.T) {
 	}
 	if mapName := string(packets[14:20]); mapName != "Random" {
 		t.Fatalf("selection map = %q, want Random", mapName)
+	}
+	if len(mode.worldEffects) != 0 {
+		t.Fatalf("world effects before server reply = %+v, want none", mode.worldEffects)
+	}
+
+	mode.applySkillFailAck(ctx, network.SkillFailAck{SkillID: skill.ID, Cause: 1})
+	if len(mode.worldEffects) != 0 {
+		t.Fatalf("world effects after insufficient SP reply = %+v, want none", mode.worldEffects)
+	}
+	if messages := mode.ui.console.Messages(); len(messages) != 1 || messages[0].Text != "Not enough SP." {
+		t.Fatalf("console messages = %+v, want insufficient SP error", messages)
+	}
+}
+
+func TestLevelOneTeleportEffectAfterServerApproval(t *testing.T) {
+	netClient, serverConn := newBotTestConnection(t, 20080910)
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	mode := &WorldMode{}
+	ctx := client.Context{
+		Network: netClient,
+		Session: &session.Session{AccountID: 2000000},
+		World:   world,
+	}
+
+	// The server's approval is authoritative, even if our local SP is zero.
+	mode.applyWarpPointList(ctx, network.WarpPointList{SkillID: db.SkillALTeleport, MapNames: []string{"Random"}})
+
+	want := make([]byte, 20)
+	binary.LittleEndian.PutUint16(want[0:2], 0x011B)
+	binary.LittleEndian.PutUint16(want[2:4], db.SkillALTeleport)
+	copy(want[4:], "Random")
+	readBotTestPackets(t, serverConn, want)
+	if mode.ui.teleportModal.IsOpen() {
+		t.Fatal("level-one Teleport opened a destination dialog")
+	}
+	if len(mode.worldEffects) != 1 {
+		t.Fatalf("world effects = %+v, want one Teleport effect", mode.worldEffects)
+	}
+	if effect := mode.worldEffects[0]; effect.effectID != effectTeleportation || effect.actorID != world.Player.ID {
+		t.Fatalf("effect = %+v, want Teleport effect on the player", effect)
 	}
 }
 
