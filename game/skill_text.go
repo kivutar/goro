@@ -33,12 +33,12 @@ func (m *WorldMode) sendPendingSkillText(ctx client.Context, text string) {
 	if pending.skill.ID == 0 {
 		return
 	}
-	if err := m.skills().SendToGroundWithText(ctx, pending.skill, pending.x, pending.y, text, pending.source); err != nil {
+	if err := m.skills().UseGround(ctx, pending.skill, pending.x, pending.y, text, pending.source); err != nil {
 		m.ui.console.AddErrorMessage("%s failed.", skillLabel(pending.skill))
 		glog.Warnf("skill text send failed skill=%d target=%d,%d: %v", pending.skill.ID, pending.x, pending.y, err)
 		return
 	}
-	glog.Debugf("skill text sent skill=%d target=%d,%d", pending.skill.ID, pending.x, pending.y)
+	glog.Debugf("skill text requested skill=%d target=%d,%d", pending.skill.ID, pending.x, pending.y)
 }
 
 func skillTextPromptTitle(skill session.Skill) string {

@@ -433,12 +433,10 @@ func (c skillController) HandleClick(ctx client.Context, projection sceneProject
 			glog.Debugf("skill ground text prompt opened skill=%d target=%d,%d", skill.ID, targetX, targetY)
 			return
 		}
-		if err := c.SendToGround(ctx, skill, targetX, targetY, "target"); err != nil {
+		if err := c.UseGround(ctx, skill, targetX, targetY, "", "target"); err != nil {
 			glog.Warnf("skill ground target failed skill=%d target=%d,%d: %v", skill.ID, targetX, targetY, err)
 			return
 		}
-		c.mode.pendingSkill = pendingSkillTarget{}
-		glog.Debugf("skill ground target sent skill=%d target=%d,%d", skill.ID, targetX, targetY)
 		return
 	}
 	actor, ok := clickedSkillTarget(ctx, projection, skill, ctx.Input.MouseX, ctx.Input.MouseY, now, c.mode.actorDeaths)
@@ -485,18 +483,78 @@ func skillNeedsGroundText(skillID uint16) bool {
 	return skillID == db.SkillHTTalkiebox || skillID == db.SkillRGGraffiti
 }
 
+func (c skillController) UseGround(ctx client.Context, skill session.Skill, x, y int, text, source string) error {
+	if playerIsDead(ctx) {
+		return fmt.Errorf("player is dead")
+	}
+	if skill.ID == 0 || skill.Level <= 0 {
+		return fmt.Errorf("skill is not learned")
+	}
+	skill = normalizeSessionSkillLevelCap(skill)
+	if skill.Type == 0 || skillForcesPassive(skill.ID) || !isGroundTargetSkill(skill) {
+		return fmt.Errorf("not a ground target skill")
+	}
+	if !walkTargetInBounds(ctx, x, y) {
+		return fmt.Errorf("invalid ground target %d,%d", x, y)
+	}
+	if ctx.Network == nil {
+		return fmt.Errorf("not connected")
+	}
+	pending := pendingSkillTarget{skill: skill, ground: true, x: x, y: y, text: text}
+	if c.chaseSkillTargetIfNeeded(ctx, pending, x, y, source) {
+		return nil
+	}
+	if err := c.sendTarget(ctx, pending, source); err != nil {
+		return err
+	}
+	c.mode.pendingSkill = pendingSkillTarget{}
+	return nil
+}
+
+func (pending pendingSkillTarget) hasTarget() bool {
+	return pending.ground || pending.targetID != 0
+}
+
+func (pending pendingSkillTarget) targetCell(ctx client.Context, now time.Time) (int, int, bool) {
+	if pending.ground {
+		return pending.x, pending.y, walkTargetInBounds(ctx, pending.x, pending.y)
+	}
+	actor, ok := ctx.World.Actors[pending.targetID]
+	if !ok {
+		return 0, 0, false
+	}
+	x, y := actorCurrentCell(actor, now)
+	return x, y, true
+}
+
+func (c skillController) sendTarget(ctx client.Context, pending pendingSkillTarget, source string) error {
+	if pending.ground {
+		if skillNeedsGroundText(pending.skill.ID) {
+			return c.SendToGroundWithText(ctx, pending.skill, pending.x, pending.y, pending.text, source)
+		}
+		return c.SendToGround(ctx, pending.skill, pending.x, pending.y, source)
+	}
+	return c.SendToID(ctx, pending.skill, pending.targetID, source)
+}
+
 func (c skillController) chaseTargetIfNeeded(ctx client.Context, skill session.Skill, actor worldstate.Actor, source string) bool {
+	x, y := actorCurrentCell(actor, time.Now())
+	return c.chaseSkillTargetIfNeeded(ctx, pendingSkillTarget{skill: skill, targetID: actor.ID}, x, y, source)
+}
+
+func (c skillController) chaseSkillTargetIfNeeded(ctx client.Context, pending pendingSkillTarget, targetX, targetY int, source string) bool {
+	skill := pending.skill
 	if ctx.World == nil || skill.Range <= 0 {
 		return false
 	}
 	caster, ok := skillCasterForSkill(ctx, skill)
 	if !ok {
-		glog.Warnf("%s skill caster missing skill=%d kind=%s target=%d", source, skill.ID, skillCasterKindName(skillCasterKindForID(skill.ID)), actor.ID)
+		glog.Warnf("%s skill caster missing skill=%d kind=%s target=%d", source, skill.ID, skillCasterKindName(skillCasterKindForID(skill.ID)), pending.targetID)
+		c.Cancel("missing caster")
 		return true
 	}
 	now := time.Now()
 	casterX, casterY := skillCasterCell(caster, now)
-	targetX, targetY := actorCurrentCell(actor, now)
 	skillRange := skillTargetRangeForCaster(caster, skill)
 	if caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
 		return false
@@ -507,7 +565,8 @@ func (c skillController) chaseTargetIfNeeded(ctx client.Context, skill session.S
 	}
 	chaseX, chaseY, ok := approachCell(ctx, casterX, casterY, targetX, targetY, skillRange)
 	if !ok {
-		glog.Warnf("%s skill chase blocked skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange)
+		glog.Warnf("%s skill chase blocked skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, pending.targetID, targetX, targetY, skillRange)
+		c.Cancel("unreachable target")
 		c.mode.setWalkCooldown(walkRequestCooldown)
 		return true
 	}
@@ -515,19 +574,19 @@ func (c skillController) chaseTargetIfNeeded(ctx client.Context, skill session.S
 	if maxLevel <= 0 {
 		maxLevel = skillUseMaxLevel(skill)
 	}
-	c.mode.pendingSkill = pendingSkillTarget{
-		skill:       skill,
-		maxLevel:    maxLevel,
-		targetID:    actor.ID,
-		expires:     now.Add(8 * time.Second),
-		source:      source,
-		started:     c.mode.pendingSkill.started,
-		lastChaseAt: now,
+	pending.maxLevel = maxLevel
+	if pending.expires.IsZero() {
+		pending.expires = now.Add(8 * time.Second)
 	}
-	if c.mode.pendingSkill.started.IsZero() {
-		c.mode.pendingSkill.started = now
+	pending.source = source
+	pending.started = c.mode.pendingSkill.started
+	if pending.started.IsZero() {
+		pending.started = now
 	}
-	glog.Debugf("%s skill chase target skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d chase=%d,%d", source, skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange, chaseX, chaseY)
+	pending.readyAt = time.Time{}
+	pending.lastChaseAt = now
+	c.mode.pendingSkill = pending
+	glog.Debugf("%s skill chase target skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d chase=%d,%d", source, skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, pending.targetID, targetX, targetY, skillRange, chaseX, chaseY)
 	c.requestSkillCasterMove(ctx, caster, chaseX, chaseY, source+" skill chase")
 	return true
 }
@@ -560,7 +619,7 @@ func (c skillController) ContinuePendingTarget(ctx client.Context, source string
 
 func (c skillController) UpdatePendingTarget(ctx client.Context, source string, logOutOfRange bool) {
 	pending := c.mode.pendingSkill
-	if pending.skill.ID == 0 || pending.targetID == 0 || ctx.World == nil {
+	if pending.skill.ID == 0 || !pending.hasTarget() || ctx.World == nil {
 		return
 	}
 	now := time.Now()
@@ -569,7 +628,7 @@ func (c skillController) UpdatePendingTarget(ctx client.Context, source string, 
 		c.mode.pendingSkill = pendingSkillTarget{}
 		return
 	}
-	actor, ok := ctx.World.Actors[pending.targetID]
+	targetX, targetY, ok := pending.targetCell(ctx, now)
 	if !ok {
 		glog.Debugf("%s pending skill target vanished skill=%d target=%d", source, pending.skill.ID, pending.targetID)
 		c.mode.pendingSkill = pendingSkillTarget{}
@@ -583,17 +642,16 @@ func (c skillController) UpdatePendingTarget(ctx client.Context, source string, 
 	}
 	casterX, casterY := skillCasterCell(caster, now)
 	skillRange := skillTargetRangeForCaster(caster, pending.skill)
-	targetX, targetY := actorCurrentCell(actor, now)
 	if !caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
 		if logOutOfRange {
-			glog.Debugf("%s pending skill still out of range skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, pending.skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange)
+			glog.Debugf("%s pending skill still out of range skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, pending.skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, pending.targetID, targetX, targetY, skillRange)
 		}
 		if movingActorDestinationWithinRange(caster.actor, targetX, targetY, skillRange, caster.targetWithinRange) {
 			return
 		}
 		if attackRetryDue(pending.lastChaseAt, now) {
 			c.mode.pendingSkill = pending
-			c.chaseTargetIfNeeded(ctx, pending.skill, actor, "pending")
+			c.chaseSkillTargetIfNeeded(ctx, pending, targetX, targetY, "pending")
 		}
 		return
 	}
@@ -609,7 +667,7 @@ func (c skillController) UpdatePendingTarget(ctx client.Context, source string, 
 
 func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	pending := c.mode.pendingSkill
-	if pending.skill.ID == 0 || pending.targetID == 0 || pending.readyAt.IsZero() || ctx.World == nil {
+	if pending.skill.ID == 0 || !pending.hasTarget() || pending.readyAt.IsZero() || ctx.World == nil {
 		return
 	}
 	now := time.Now()
@@ -621,7 +679,7 @@ func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	if now.Before(pending.readyAt) {
 		return
 	}
-	actor, ok := ctx.World.Actors[pending.targetID]
+	targetX, targetY, ok := pending.targetCell(ctx, now)
 	if !ok {
 		glog.Debugf("pending skill target vanished skill=%d target=%d", pending.skill.ID, pending.targetID)
 		c.mode.pendingSkill = pendingSkillTarget{}
@@ -635,20 +693,19 @@ func (c skillController) ProcessPendingTarget(ctx client.Context) {
 	}
 	casterX, casterY := skillCasterCell(caster, now)
 	skillRange := skillTargetRangeForCaster(caster, pending.skill)
-	targetX, targetY := actorCurrentCell(actor, now)
 	if !caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
-		glog.Debugf("pending skill became out of range skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", pending.skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, actor.ID, targetX, targetY, skillRange)
+		glog.Debugf("pending skill became out of range skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", pending.skill.ID, skillCasterKindName(caster.kind), caster.id, casterX, casterY, pending.targetID, targetX, targetY, skillRange)
 		pending.readyAt = time.Time{}
 		c.mode.pendingSkill = pending
-		c.chaseTargetIfNeeded(ctx, pending.skill, actor, "pending")
+		c.chaseSkillTargetIfNeeded(ctx, pending, targetX, targetY, "pending")
 		return
 	}
 	c.mode.pendingSkill = pendingSkillTarget{}
-	if err := c.SendToID(ctx, pending.skill, actor.ID, "pending"); err != nil {
-		glog.Warnf("pending skill failed skill=%d target=%d: %v", pending.skill.ID, actor.ID, err)
+	if err := c.sendTarget(ctx, pending, "pending"); err != nil {
+		glog.Warnf("pending skill failed skill=%d target=%d cell=%d,%d: %v", pending.skill.ID, pending.targetID, targetX, targetY, err)
 		return
 	}
-	glog.Debugf("pending skill sent skill=%d target=%d name=%q job=%d object_type=%d", pending.skill.ID, actor.ID, actor.Name, actor.Job, actor.ObjectType)
+	glog.Debugf("pending skill sent skill=%d target=%d cell=%d,%d", pending.skill.ID, pending.targetID, targetX, targetY)
 }
 
 func (c skillController) ApplyAutoRun(ctx client.Context, auto network.AutoRunSkill) {

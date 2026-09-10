@@ -10,6 +10,13 @@ import (
 
 func (m *WorldMode) startMapFadeOut(change network.MapChange, now time.Time) {
 	m.ui.npcCutin.Clear()
+	// A queued cell (or message) belongs to the map where it was selected,
+	// even when the server warps us within the same loaded map.
+	m.pendingSkill = pendingSkillTarget{}
+	m.pendingSkillText = pendingSkillTextTarget{}
+	if m.ui.skillTextPrompt.IsOpen() {
+		m.ui.skillTextPrompt.Close()
+	}
 	if m.mapFade.phase == mapFadeHold || m.mapFade.phase == mapFadePrewarm {
 		m.mapFade = mapFadeState{
 			phase:     mapFadeHold,

@@ -328,6 +328,9 @@ type pendingSkillTarget struct {
 	skill       session.Skill
 	maxLevel    int
 	targetID    uint32
+	ground      bool
+	x, y        int
+	text        string
 	expires     time.Time
 	readyAt     time.Time
 	source      string
