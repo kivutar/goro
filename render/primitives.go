@@ -369,6 +369,18 @@ func DrawCenteredUITextAtSize(dst *Frame, text string, centerX, y float64, foreg
 	drawOrQueueUITextLabel(dst, text, centerX, y, foreground, color.RGBA{}, true, bold, size)
 }
 
+// DrawUITextBanner wraps and draws text together with its translucent background
+// using the same font metrics, cached at the display's resolution.
+func DrawUITextBanner(dst *Frame, text string, centerX, y, maxWidth float64, foreground color.RGBA, size float32, bold bool) {
+	if dst == nil || text == "" || maxWidth <= 20 {
+		return
+	}
+	dst.uiTextBoxes = append(dst.uiTextBoxes, UITextBoxCommand{
+		Text: text, X: centerX, Y: y, Anchor: UITextBoxAnchorTopCenter,
+		style: bannerOverlayTextBoxStyle(size, bold, foreground, float32(maxWidth)),
+	})
+}
+
 func DrawActorUILabels(dst *Frame, labels []string, emblem *Image, centerX, y float64, foreground, outline color.RGBA) {
 	if dst == nil || len(labels) == 0 {
 		return

@@ -1560,6 +1560,8 @@ func (r *runner) drawUIOverlay(screen *Frame, deviceScale float64) error {
 
 func uiTextBoxPosition(screen *Frame, box UITextBoxCommand, cached cachedOverlayImage) (float64, float64) {
 	switch box.Anchor {
+	case UITextBoxAnchorTopCenter:
+		return box.X - float64(cached.width)/2, clampOverlayFloat64(box.Y, 0, maxOverlayFloat64(0, float64(screen.Bounds().Dy()-cached.height)))
 	case UITextBoxAnchorBottomCenter:
 		return box.X - float64(cached.width)/2, box.Y - float64(cached.height)
 	case UITextBoxAnchorTooltipCenter:
@@ -1796,7 +1798,6 @@ func (r *runner) cachedTextBoxImage(provider gpucontext.DeviceProvider, box UITe
 	if maxLines <= 0 {
 		maxLines = 1
 	}
-	key := fmt.Sprintf("box|%.3f|%d|%.1f|%s", deviceScale, maxLines, maxWidth, text)
 	style := consoleOverlayTextBoxStyle()
 	style.maxLines = maxLines
 	if maxWidth > 0 {
@@ -1804,6 +1805,10 @@ func (r *runner) cachedTextBoxImage(provider gpucontext.DeviceProvider, box UITe
 		style.maxWidth = maxWidth
 		style.wrap = true
 	}
+	if box.style.size > 0 {
+		style = box.style
+	}
+	key := fmt.Sprintf("box|%.3f|%+v|%s", deviceScale, style, text)
 	return r.cachedOverlayTextBoxImage(provider, key, text, deviceScale, style)
 }
 
@@ -1816,6 +1821,8 @@ type overlayTextBoxStyle struct {
 	maxWidth   float32
 	maxLines   int
 	wrap       bool
+	bold       bool
+	align      widget.TextAlign
 	background widget.Color
 	foreground widget.Color
 }
@@ -1830,6 +1837,18 @@ func consoleOverlayTextBoxStyle() overlayTextBoxStyle {
 		maxLines:   1,
 		background: widget.RGBA8(14, 18, 24, 188),
 		foreground: widget.RGBA8(235, 242, 250, 255),
+	}
+}
+
+func bannerOverlayTextBoxStyle(size float32, bold bool, foreground color.RGBA, maxWidth float32) overlayTextBoxStyle {
+	if size <= 0 {
+		size = rotheme.Default.Typography.TextSize
+	}
+	return overlayTextBoxStyle{
+		size: size, lineH: size + 5, padX: 10, padY: 5, minWidth: 1,
+		maxWidth: maxWidth, wrap: true, bold: bold, align: widget.TextAlignCenter,
+		background: widget.RGBA8(0, 0, 0, 128),
+		foreground: widget.RGBA8(foreground.R, foreground.G, foreground.B, foreground.A),
 	}
 }
 
@@ -1852,27 +1871,15 @@ func (r *runner) cachedOverlayTextBoxImage(provider gpucontext.DeviceProvider, k
 		lines = []string{text}
 	}
 	if style.maxLines > 0 && len(lines) > style.maxLines {
-		lines = append(lines[:style.maxLines-1], ellipsizeOverlayText(measure, strings.Join(lines[style.maxLines-1:], " "), style.size, false, style.maxWidth-style.padX*2))
+		lines = append(lines[:style.maxLines-1], ellipsizeOverlayText(measure, strings.Join(lines[style.maxLines-1:], " "), style.size, style.bold, style.maxWidth-style.padX*2))
 	}
-	textWidth := float32(0)
+	var width, height int
 	if err := measure.Draw(func(cc *gg.Context) {
 		canvas := uirender.NewCanvas(cc, 1, 1)
-		for _, line := range lines {
-			if w := rotheme.MeasureText(canvas, line, style.size, false); w > textWidth {
-				textWidth = w
-			}
-		}
+		width, height = overlayTextBoxSize(canvas, lines, style)
 	}); err != nil {
 		return cachedOverlayImage{}, fmt.Errorf("measure text box width: %w", err)
 	}
-	width := int(maxFloat32(style.minWidth, textWidth+style.padX*2) + 0.999)
-	if style.maxWidth > 0 && width > int(style.maxWidth) {
-		width = int(style.maxWidth)
-	}
-	if width < 1 {
-		width = 1
-	}
-	height := int(float32(len(lines))*style.lineH + style.padY*2 + 0.999)
 	canvas, err := r.ensureOverlayCanvas(provider, width, height, deviceScale)
 	if err != nil {
 		return cachedOverlayImage{}, err
@@ -1887,7 +1894,7 @@ func (r *runner) cachedOverlayTextBoxImage(provider gpucontext.DeviceProvider, k
 		uiCanvas.DrawRect(geometry.NewRect(0, 0, float32(width), float32(height)), style.background)
 		for i, line := range lines {
 			y := style.padY + float32(i)*style.lineH
-			rotheme.DrawText(uiCanvas, line, geometry.NewRect(style.padX, y, float32(width)-style.padX*2, style.lineH), style.size, style.foreground, false, widget.TextAlignLeft)
+			rotheme.DrawText(uiCanvas, line, geometry.NewRect(style.padX, y, float32(width)-style.padX*2, style.lineH), style.size, style.foreground, style.bold, style.align)
 		}
 	}); err != nil {
 		return cachedOverlayImage{}, fmt.Errorf("draw text box overlay: %w", err)
@@ -1902,6 +1909,19 @@ func (r *runner) cachedOverlayTextBoxImage(provider gpucontext.DeviceProvider, k
 	r.uiBubbleCache[key] = cached
 	trimOverlayImageCache(r.uiBubbleCache)
 	return cached, nil
+}
+
+func overlayTextBoxSize(canvas widget.Canvas, lines []string, style overlayTextBoxStyle) (width, height int) {
+	var textWidth float32
+	for _, line := range lines {
+		textWidth = max(textWidth, rotheme.MeasureText(canvas, line, style.size, style.bold))
+	}
+	width = int(math.Ceil(float64(max(style.minWidth, textWidth+style.padX*2))))
+	if style.maxWidth > 0 {
+		width = min(width, int(style.maxWidth))
+	}
+	height = int(math.Ceil(float64(float32(len(lines))*style.lineH + style.padY*2)))
+	return max(1, width), max(1, height)
 }
 
 func trimOverlayImageCache(cache map[string]cachedOverlayImage) {
@@ -1928,7 +1948,7 @@ func overlayTextBoxLines(canvas widget.Canvas, text string, style overlayTextBox
 			continue
 		}
 		if style.wrap {
-			wrapped := wrapOverlayText(canvas, paragraph, style.size, false, style.maxWidth-style.padX*2)
+			wrapped := wrapOverlayText(canvas, paragraph, style.size, style.bold, style.maxWidth-style.padX*2)
 			if len(wrapped) == 0 {
 				lines = append(lines, paragraph)
 			} else {
@@ -1984,12 +2004,24 @@ func wrapOverlayText(canvas widget.Canvas, text string, size float32, bold bool,
 		if line != "" {
 			candidate = line + " " + word
 		}
-		if line == "" || rotheme.MeasureText(canvas, candidate, size, bold) <= maxWidth {
+		if rotheme.MeasureText(canvas, candidate, size, bold) <= maxWidth {
 			line = candidate
 			continue
 		}
-		lines = append(lines, line)
-		line = word
+		if line != "" {
+			lines = append(lines, line)
+		}
+		line = ""
+		// An unbroken word (for example a URL) must also fit inside the box.
+		for _, r := range word {
+			candidate = line + string(r)
+			if line != "" && rotheme.MeasureText(canvas, candidate, size, bold) > maxWidth {
+				lines = append(lines, line)
+				line = string(r)
+			} else {
+				line = candidate
+			}
+		}
 	}
 	if line != "" {
 		lines = append(lines, line)

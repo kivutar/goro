@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 func TestAnnouncementLifecycleAndReplacement(t *testing.T) {
@@ -21,19 +21,11 @@ func TestAnnouncementLifecycleAndReplacement(t *testing.T) {
 	}
 }
 
-func TestWrapAnnouncementText(t *testing.T) {
-	maxWidth, _ := render.BitmapTextSize("alpha beta")
-	lines := wrapAnnouncementText("alpha beta gamma", maxWidth, announcementFontSize)
-	if len(lines) != 2 || lines[0] != "alpha beta" || lines[1] != "gamma" {
-		t.Fatalf("wrapped lines = %#v", lines)
-	}
-}
-
 func TestAnnouncementDefaultsAndBoundsLegacyFontSize(t *testing.T) {
 	now := time.Unix(100, 0)
 	var announcement Announcement
 	announcement.Show("Default", color.RGBA{}, AnnouncementStyle{}, now)
-	if announcement.fontSize != announcementFontSize || announcement.y != announcementTop {
+	if announcement.fontSize != int(rotheme.Default.Typography.TextSize) || announcement.y != announcementTop {
 		t.Fatalf("default announcement = %+v", announcement)
 	}
 	announcement.Show("Large", color.RGBA{}, AnnouncementStyle{FontSize: 200}, now)
