@@ -249,25 +249,12 @@ func pendingPickupReadyAt(player worldstate.Actor, now time.Time) time.Time {
 func (m *WorldMode) sendPickupRequest(ctx client.Context, item worldstate.FloorItem, source string) bool {
 	if err := ctx.Network.SendItemPickup(item.ID); err == nil {
 		m.facePlayerTowardItem(ctx, item)
-		m.startLocalPickupAnimation(ctx, time.Now())
 		m.setWalkCooldown(walkRequestCooldown)
 		return true
 	} else {
 		glog.Warnf("%s pickup request failed item=%d: %v", source, item.ID, err)
 		m.setWalkCooldown(walkErrorCooldown)
 		return false
-	}
-}
-
-func (m *WorldMode) startLocalPickupAnimation(ctx client.Context, started time.Time) {
-	if ctx.Session == nil {
-		return
-	}
-	if ctx.Session.AccountID != 0 {
-		m.startActorAnimation(ctx, ctx.Session.AccountID, spriteActionPickup, started, pickupAnimationDuration)
-	}
-	if ctx.Session.CharID != 0 {
-		m.startActorAnimation(ctx, ctx.Session.CharID, spriteActionPickup, started, pickupAnimationDuration)
 	}
 }
 

@@ -35,7 +35,6 @@ type AssetProvider interface {
 
 type GameActions interface {
 	UseShortcutSkill(ctx client.Context, skill session.Skill) error
-	AddTeleportEffect(ctx client.Context)
 }
 
 type KeyboardShortcutBlocker interface {

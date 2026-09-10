@@ -201,7 +201,7 @@ func TestApplyActorActionNotifyUpdatesRemoteSitState(t *testing.T) {
 	}
 }
 
-func TestPickupRequestStartsAnimationAndWaitsForServerDisappear(t *testing.T) {
+func TestPickupWaitsForServerAnimationAndDisappear(t *testing.T) {
 	networkClient, serverConn := newBotTestConnection(t, 20080910)
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20, Dir: 4}
@@ -228,6 +228,14 @@ func TestPickupRequestStartsAnimationAndWaitsForServerDisappear(t *testing.T) {
 	if _, ok := world.Items[item.ID]; !ok {
 		t.Fatal("pickup request removed item before server disappearance")
 	}
+	if anim := mode.actorAnims[150000]; anim.actionFamily != spriteActionPCReadyFight || len(mode.actorAnims) != 1 {
+		t.Fatalf("pickup request changed the player's animation before server confirmation: %+v", mode.actorAnims)
+	}
+	mode.applyActorActionNotify(ctx, network.ActorActionNotify{
+		SourceID: world.Player.ID,
+		TargetID: item.ID,
+		Action:   network.ActorActionPickupItem,
+	})
 	anim, ok := mode.actorAnims[150000]
 	if !ok {
 		t.Fatal("local pickup animation missing")
@@ -253,6 +261,31 @@ func TestPickupRequestStartsAnimationAndWaitsForServerDisappear(t *testing.T) {
 	mode.applyFloorItemDisappear(ctx, network.FloorItemDisappear{ID: item.ID})
 	if _, ok := world.Items[item.ID]; ok {
 		t.Fatal("server disappearance did not remove picked item")
+	}
+}
+
+func TestRejectedPickupDoesNotAnimate(t *testing.T) {
+	networkClient, serverConn := newBotTestConnection(t, 20080910)
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	item := worldstate.FloorItem{ID: 9001, ItemID: 909, X: 11, Y: 20, Amount: 1}
+	world.UpsertItem(item)
+	mode := &WorldMode{}
+	ctx := client.Context{
+		Session: &session.Session{AccountID: world.Player.ID},
+		Network: networkClient,
+		World:   world,
+	}
+	if !mode.requestPickup(ctx, item, "test") {
+		t.Fatal("pickup request was not sent")
+	}
+	readBotTestPackets(t, serverConn, network.BuildItemPickupPacketForClientDate(item.ID, 20080910))
+	mode.applyItemPickupAck(ctx, network.ItemPickupAck{ItemID: item.ItemID, Result: 1})
+	if len(mode.actorAnims) != 0 || len(mode.worldEffects) != 0 || len(mode.scheduledSounds) != 0 {
+		t.Fatalf("rejected pickup played an animation, effect or sound: animations=%+v effects=%+v sounds=%+v", mode.actorAnims, mode.worldEffects, mode.scheduledSounds)
+	}
+	if len(ctx.Session.Inventory.Items) != 0 || len(world.Items) != 1 {
+		t.Fatal("rejected pickup changed the inventory or floor items")
 	}
 }
 

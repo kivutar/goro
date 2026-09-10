@@ -8,7 +8,3 @@ import (
 func (m *WorldMode) UseShortcutSkill(ctx client.Context, skill session.Skill) error {
 	return m.skills().Use(ctx, skill, "shortcut")
 }
-
-func (m *WorldMode) AddTeleportEffect(ctx client.Context) {
-	m.addWorldEffect(ctx, effectTeleportation, localSkillTarget(ctx))
-}

@@ -1869,8 +1869,6 @@ func (r *skillWindowTestRenderer) UseShortcutSkill(_ Context, skill session.Skil
 	return nil
 }
 
-func (r *skillWindowTestRenderer) AddTeleportEffect(Context) {}
-
 func containsSkill(skills []session.Skill, skillID uint16) bool {
 	return skillIndex(skills, skillID) >= 0
 }

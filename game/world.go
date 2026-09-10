@@ -868,7 +868,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		return nil, nil
 	}
-	if m.ui.teleportModal.Update(ctx, m) {
+	if m.ui.teleportModal.Update(ctx) {
 		return nil, nil
 	}
 	if m.updateAutoSpellWindow(ctx) {

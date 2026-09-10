@@ -84,7 +84,7 @@ func TeleportWarpListBypassesModal(skill session.Skill, list network.WarpPointLi
 	return true
 }
 
-func (m *TeleportModal) Update(ctx Context, actions GameActions) bool {
+func (m *TeleportModal) Update(ctx Context) bool {
 	m.ctx = ctx
 	if !m.IsOpen() {
 		m.closeWindow()
@@ -95,10 +95,10 @@ func (m *TeleportModal) Update(ctx Context, actions GameActions) bool {
 		return true
 	}
 	if ctx.Input != nil && ctx.Input.JustPressed(input.KeyEnter) {
-		m.selectCurrent(ctx, actions)
+		m.selectCurrent(ctx)
 		return true
 	}
-	m.openWindow(ctx, actions)
+	m.openWindow(ctx)
 	if m.Window.Update(ctx) {
 		m.Publish(ctx)
 		return true
@@ -118,7 +118,7 @@ func (m *TeleportModal) cancel(ctx Context) {
 	m.closeWindow()
 }
 
-func (m *TeleportModal) selectWarpPoint(ctx Context, actions GameActions, mapName string) {
+func (m *TeleportModal) selectWarpPoint(ctx Context, mapName string) {
 	if ctx.Network == nil {
 		m.status = "Teleport failed: not connected"
 		m.refresh(ctx)
@@ -133,18 +133,15 @@ func (m *TeleportModal) selectWarpPoint(ctx Context, actions GameActions, mapNam
 		m.refresh(ctx)
 		return
 	}
-	if actions != nil && skillID == teleportSkillID {
-		actions.AddTeleportEffect(ctx)
-	}
 	m.closeWindow()
 }
 
-func (m *TeleportModal) selectCurrent(ctx Context, actions GameActions) {
+func (m *TeleportModal) selectCurrent(ctx Context) {
 	destinations := m.destinations()
 	if m.row < 0 || m.row >= len(destinations) || !destinations[m.row].enabled {
 		return
 	}
-	m.selectWarpPoint(ctx, actions, destinations[m.row].mapName)
+	m.selectWarpPoint(ctx, destinations[m.row].mapName)
 }
 
 func (m TeleportModal) savePointEnabled() bool {
@@ -209,10 +206,10 @@ func (m *TeleportModal) ensureWindow() {
 	m.SetSize(teleportModalWidth, height)
 }
 
-func (m *TeleportModal) openWindow(ctx Context, actions GameActions) {
+func (m *TeleportModal) openWindow(ctx Context) {
 	m.ensureWindow()
 	if m.content == nil {
-		m.Open(ctx, m.widgetTree(ctx, actions))
+		m.Open(ctx, m.widgetTree())
 	}
 	m.Publish(ctx)
 }
@@ -222,7 +219,7 @@ func (m *TeleportModal) refresh(ctx Context) {
 	if !m.IsOpen() {
 		return
 	}
-	m.Window.SetContent(m.widgetTree(ctx, nil))
+	m.Window.SetContent(m.widgetTree())
 	m.Publish(ctx)
 }
 
@@ -233,7 +230,7 @@ func (m *TeleportModal) closeWindow() {
 	}
 }
 
-func (m *TeleportModal) widgetTree(ctx Context, actions GameActions) widget.Widget {
+func (m *TeleportModal) widgetTree() widget.Widget {
 	return Win(
 		Title(m.Title()),
 		CloseButton(false),
@@ -253,7 +250,7 @@ func (m *TeleportModal) widgetTree(ctx Context, actions GameActions) widget.Widg
 				destinations := m.destinations()
 				return m.row < 0 || m.row >= len(destinations) || !destinations[m.row].enabled
 			}, func() {
-				m.selectCurrent(m.ctx, actions)
+				m.selectCurrent(m.ctx)
 			}),
 			rotheme.Button("Cancel", func() {
 				m.cancel(m.ctx)

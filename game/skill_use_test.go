@@ -114,33 +114,72 @@ func TestLevelOneTeleportQueuesRandomSelectionWithCast(t *testing.T) {
 	}
 }
 
-func TestLevelOneTeleportEffectAfterServerApproval(t *testing.T) {
-	netClient, serverConn := newBotTestConnection(t, 20080910)
-	world := worldstate.New()
-	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
-	mode := &WorldMode{}
-	ctx := client.Context{
-		Network: netClient,
-		Session: &session.Session{AccountID: 2000000},
-		World:   world,
-	}
+func TestTeleportWaitsForMapChange(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		level  int
+		maps   []string
+		cancel bool
+	}{
+		{name: "level one", level: 1, maps: []string{"Random"}},
+		{name: "level two random", level: 2, maps: []string{"Random", "prontera"}},
+		{name: "cancel level two", level: 2, maps: []string{"Random", "prontera"}, cancel: true},
+		{name: "server skips menu", level: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			netClient, serverConn := newBotTestConnection(t, 20080910)
+			world := worldstate.New()
+			world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+			mode := &WorldMode{}
+			ctx := client.Context{
+				Network: netClient,
+				Session: &session.Session{AccountID: 2000000},
+				World:   world,
+				Input:   input.NewState(),
+			}
+			skill := session.Skill{ID: db.SkillALTeleport, Type: skillTargetSelf, Level: tc.level}
+			if err := mode.skills().Use(ctx, skill, "test"); err != nil {
+				t.Fatal(err)
+			}
+			want := network.BuildUseSkillToIDPacketForClientDate(skill.ID, uint16(tc.level), world.Player.ID, 20080910)
+			if tc.level == 1 {
+				want = append(want, network.BuildSelectWarpPointPacket(skill.ID, "Random")...)
+			}
+			readBotTestPackets(t, serverConn, want)
+			if tc.maps != nil {
+				mode.applyWarpPointList(ctx, network.WarpPointList{SkillID: skill.ID, MapNames: tc.maps})
+				if tc.level == 2 {
+					if !mode.ui.teleportModal.IsOpen() {
+						t.Fatal("level-two Teleport did not open its destination dialog")
+					}
+					key := input.KeyEnter
+					if tc.cancel {
+						key = input.KeyEscape
+					}
+					ctx.Input.SetKey(key, true)
+					mode.ui.teleportModal.Update(ctx)
+				}
+				if !tc.cancel {
+					readBotTestPackets(t, serverConn, network.BuildSelectWarpPointPacket(skill.ID, "Random"))
+				}
+			}
+			if mode.ui.teleportModal.IsOpen() {
+				t.Fatal("Teleport destination dialog remained open")
+			}
+			if len(mode.worldEffects) != 0 || len(mode.scheduledSounds) != 0 || mode.mapFade.phase != mapFadeNone {
+				t.Fatalf("Teleport played before map confirmation: effects=%+v sounds=%+v fade=%+v", mode.worldEffects, mode.scheduledSounds, mode.mapFade)
+			}
 
-	// The server's approval is authoritative, even if our local SP is zero.
-	mode.applyWarpPointList(ctx, network.WarpPointList{SkillID: db.SkillALTeleport, MapNames: []string{"Random"}})
-
-	want := make([]byte, 20)
-	binary.LittleEndian.PutUint16(want[0:2], 0x011B)
-	binary.LittleEndian.PutUint16(want[2:4], db.SkillALTeleport)
-	copy(want[4:], "Random")
-	readBotTestPackets(t, serverConn, want)
-	if mode.ui.teleportModal.IsOpen() {
-		t.Fatal("level-one Teleport opened a destination dialog")
-	}
-	if len(mode.worldEffects) != 1 {
-		t.Fatalf("world effects = %+v, want one Teleport effect", mode.worldEffects)
-	}
-	if effect := mode.worldEffects[0]; effect.effectID != effectTeleportation || effect.actorID != world.Player.ID {
-		t.Fatalf("effect = %+v, want Teleport effect on the player", effect)
+			// Even after canceling, a later unrelated warp follows the same
+			// server-driven transition without a leftover Teleport effect.
+			_, stop := mode.handleNetworkPacket(ctx, testMapChangePacket("prontera", 100, 120), time.Now())
+			if !stop || mode.mapFade.phase != mapFadeOut || !mode.mapFade.hasChange {
+				t.Fatalf("confirmed map change did not start the fade: stop=%t fade=%+v", stop, mode.mapFade)
+			}
+			if len(mode.worldEffects) != 0 || len(mode.scheduledSounds) != 0 {
+				t.Fatal("map transition fabricated a local Teleport effect or sound")
+			}
+		})
 	}
 }
 
