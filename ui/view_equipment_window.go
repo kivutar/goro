@@ -16,7 +16,7 @@ type ViewEquipmentWindow struct {
 	title    string
 	items    []session.InventoryItem
 	preview  image.Image
-	itemInfo *ItemInfoWindow
+	itemInfo *ItemWindows
 	icons    map[equipmentItemIconKey]image.Image
 	iconMiss map[equipmentItemIconKey]struct{}
 }
@@ -50,7 +50,7 @@ func (w *ViewEquipmentWindow) Open(ctx Context, view network.ViewedEquipment, as
 	w.Publish(ctx)
 }
 
-func (w *ViewEquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *ViewEquipmentWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 	w.EnsureWindow(equipmentWindowWidth, equipmentWindowHeight-ROWindowFooterHeight)
 	if !w.IsOpen() {
 		return false
@@ -64,7 +64,7 @@ func (w *ViewEquipmentWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool
 	return consumed
 }
 
-func (w *ViewEquipmentWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Widget {
+func (w *ViewEquipmentWindow) widgetTree(ctx Context, itemInfo *ItemWindows) widget.Widget {
 	return Win(
 		Title(w.title),
 		CloseButton(true),
@@ -111,7 +111,7 @@ func (w *ViewEquipmentWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) 
 	)
 }
 
-func (w *ViewEquipmentWindow) slotWidget(ctx Context, itemInfo *ItemInfoWindow, slot equipmentSlotDef, width int) widget.Widget {
+func (w *ViewEquipmentWindow) slotWidget(ctx Context, itemInfo *ItemWindows, slot equipmentSlotDef, width int) widget.Widget {
 	item, hasItem := w.itemForSlot(slot.location)
 	return newEquipmentSlotWidget(equipmentSlotWidgetConfig{
 		slot:    slot,

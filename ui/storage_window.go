@@ -40,7 +40,7 @@ type StorageWindow struct {
 	selectedRow         int
 	selectedRowSignal   state.Signal[int]
 	snapshot            uint64
-	itemInfo            *ItemInfoWindow
+	itemInfo            *ItemWindows
 	lastClickItem       uint16
 	lastClickAt         time.Time
 	dragItem            session.InventoryItem
@@ -84,7 +84,7 @@ func (w *StorageWindow) OpenWindow(ctx Context) {
 	w.Publish(ctx)
 }
 
-func (w *StorageWindow) Update(ctx Context, inventory *InventoryBagWindow, cart *CartWindow, itemInfo *ItemInfoWindow) bool {
+func (w *StorageWindow) Update(ctx Context, inventory *InventoryBagWindow, cart *CartWindow, itemInfo *ItemWindows) bool {
 	w.EnsureWindow(storageWindowWidth, storageWindowHeight)
 	if !w.IsOpen() || ctx.Input == nil {
 		return false
@@ -96,11 +96,6 @@ func (w *StorageWindow) Update(ctx Context, inventory *InventoryBagWindow, cart 
 		return false
 	}
 	if w.UpdateDrag(ctx, inventory, cart) {
-		return true
-	}
-	if ctx.Input.JustPressed(input.KeyEscape) {
-		w.close(ctx)
-		w.Publish(ctx)
 		return true
 	}
 	snapshot := w.storageSnapshot(ctx.Session)
@@ -198,7 +193,7 @@ func (w *StorageWindow) AcceptCartDrop(ctx Context, item session.InventoryItem, 
 	return true
 }
 
-func (w *StorageWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Widget {
+func (w *StorageWindow) widgetTree(ctx Context, itemInfo *ItemWindows) widget.Widget {
 	return Win(
 		Title("Storage"),
 		CloseButton(true),
@@ -293,7 +288,7 @@ func (w *StorageWindow) tabColumn(ctx Context) widget.Widget {
 		Gap(-storageTabOver)
 }
 
-func (w *StorageWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
+func (w *StorageWindow) refresh(ctx Context, itemInfo *ItemWindows) {
 	w.updateCategoryCounts(ctx.Session)
 	w.ClampScroll(ctx.Session)
 	w.snapshot = w.storageSnapshot(ctx.Session)
@@ -302,11 +297,11 @@ func (w *StorageWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
 	w.Publish(ctx)
 }
 
-func (w *StorageWindow) Refresh(ctx Context, itemInfo *ItemInfoWindow) {
+func (w *StorageWindow) Refresh(ctx Context, itemInfo *ItemWindows) {
 	w.refresh(ctx, itemInfo)
 }
 
-func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *StorageWindow) handlePointer(ctx Context, itemInfo *ItemWindows) bool {
 	if ctx.Input.MouseJustPressed(input.MouseButtonRight) {
 		item, _, ok := w.itemAt(ctx.Session, ctx.Input.MouseX, ctx.Input.MouseY)
 		if !ok {

@@ -69,6 +69,13 @@ Goal: migrate the remaining RO windows and dialogs to the gogpu/ui tree style:
 
 ## Completed Cross-Cutting Work
 
+- [x] Multiple window instances
+  - Item descriptions and card artwork open independently; slotted-card
+    descriptions preserve the equipment description.
+  - Whisper conversations retain separate recipients, histories, and drafts.
+  - Shared window input follows the overlay stack for dragging and Escape.
+  - See [the reference audit, ownership, and live checks](window-instances.md).
+
 - [x] Shared drag ghost overlay
   - Inventory, storage, shop, and skill drag ghosts render in the top-level game overlay, above gogpu/ui windows and below the RO cursor.
 - [x] Final UI sharpness pass

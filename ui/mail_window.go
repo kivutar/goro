@@ -59,7 +59,7 @@ type MailWindow struct {
 	readBodyField                         *rotheme.TextAreaWidget
 	readWindow                            Window
 	ctx                                   Context
-	itemInfo                              *ItemInfoWindow
+	itemInfo                              *ItemWindows
 	inbox                                 []network.MailEntry
 	message                               *network.MailMessage
 	page                                  int
@@ -110,15 +110,12 @@ func (w *MailWindow) requestClose() {
 	w.actions = append(w.actions, MailAction{Kind: MailActionClose})
 }
 
-func (w *MailWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *MailWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 	w.ctx, w.itemInfo = ctx, itemInfo
 	if w.UpdateModal(ctx) {
 		return true
 	}
 	if w.readWindow.Update(ctx) {
-		if !w.readWindow.IsOpen() {
-			w.closeRead()
-		}
 		w.readWindow.Publish(ctx)
 		return true
 	}
@@ -126,10 +123,6 @@ func (w *MailWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 		return false
 	}
 	consumed := w.Window.Update(ctx)
-	if !w.IsOpen() {
-		w.requestClose()
-		return true
-	}
 	w.Publish(ctx)
 	return consumed
 }
@@ -151,7 +144,7 @@ func (w *MailWindow) UpdateKeyboardInput(ctx Context) bool {
 	if !focused {
 		return false
 	}
-	if ctx.Input.JustPressed(input.KeyEscape) {
+	if w.escapePressed(ctx) {
 		w.requestClose()
 		return true
 	}

@@ -58,6 +58,7 @@ func (m *BasicMenu) Update(ctx client.Context, callbacks BasicMenuCallbacks) boo
 	width, height := basicMenuSize()
 	if m.EnsureWindow(width, height) {
 		m.titleHeight = 0
+		m.CloseOnEsc = false
 	}
 	if !m.IsOpen() {
 		m.OpenAt(basicMenuX, basicMenuY, m.widgetTree())
@@ -74,6 +75,7 @@ func (m *BasicMenu) Rebind(ctx client.Context, callbacks BasicMenuCallbacks) {
 	width, height := basicMenuSize()
 	if m.EnsureWindow(width, height) {
 		m.titleHeight = 0
+		m.CloseOnEsc = false
 	}
 	m.content = nil
 	if !m.IsOpen() {
@@ -92,6 +94,7 @@ func (m *BasicMenu) FollowCharacterWindow(ctx client.Context, character *Charact
 	width, height := basicMenuSize()
 	if m.EnsureWindow(width, height) {
 		m.titleHeight = 0
+		m.CloseOnEsc = false
 	}
 	x := character.x
 	y := character.y + character.height + basicMenuFollowGap

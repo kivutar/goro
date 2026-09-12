@@ -162,7 +162,7 @@ func (w *ShopWindow) ApplyResult(ctx Context, result network.ShopResult) {
 	glog.Warnf("shop sell failed result=%d", result.Result)
 }
 
-func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *ShopWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 	if ctx.Input == nil {
 		return false
 	}
@@ -170,7 +170,7 @@ func (w *ShopWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 		return true
 	}
 	if w.dealWindow.IsOpen() {
-		if ctx.Input.JustPressed(input.KeyEscape) {
+		if w.dealWindow.escapePressed(ctx) {
 			w.closeDealWindow(ctx)
 			return true
 		}
@@ -462,13 +462,13 @@ func (w *ShopWindow) ensureBuyCartScrollSignal() state.Signal[float32] {
 	return w.buyCartScrollY
 }
 
-func (w *ShopWindow) updateBuyWindow(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *ShopWindow) updateBuyWindow(ctx Context, itemInfo *ItemWindows) bool {
 	w.ensureBuyWindow()
 	if !w.buyWindow.IsOpen() || !w.buyCartWindow.IsOpen() {
 		w.openBuyWindow(ctx)
 	}
 	w.x, w.y = w.buyWindow.x, w.buyWindow.y
-	if ctx.Input.JustPressed(input.KeyEscape) {
+	if w.buyWindow.escapePressed(ctx) || w.buyCartWindow.escapePressed(ctx) {
 		w.cancel(ctx)
 		return true
 	}
@@ -491,7 +491,7 @@ func (w *ShopWindow) updateBuyWindow(ctx Context, itemInfo *ItemInfoWindow) bool
 	return consumed || inside
 }
 
-func (w *ShopWindow) handleBuyPointer(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *ShopWindow) handleBuyPointer(ctx Context, itemInfo *ItemWindows) bool {
 	if ctx.Input.MouseJustPressed(input.MouseButtonRight) {
 		if item, ok := w.shopItemAt(ctx, ctx.Input.MouseX, ctx.Input.MouseY); ok {
 			if itemInfo != nil {

@@ -39,6 +39,7 @@ type ItemInfoWindow struct {
 	bookAvailable   bool
 	readBookRequest ItemInfoReadBookRequest
 	cardArtRequest  ItemInfoCardIllustrationRequest
+	cardInfoRequest itemInfoCardRequest
 	tooltip         tooltipState
 	slotIcons       map[string]image.Image
 	slotIconMiss    map[string]struct{}
@@ -54,6 +55,11 @@ type ItemInfoCardIllustrationRequest struct {
 	Title  string
 }
 
+type itemInfoCardRequest struct {
+	ItemID uint16
+	X, Y   int
+}
+
 func (w *ItemInfoWindow) openItem(ctx Context, item session.InventoryItem, mouseX, mouseY int) {
 	if item.ItemID == 0 {
 		return
@@ -66,6 +72,7 @@ func (w *ItemInfoWindow) openItem(ctx Context, item session.InventoryItem, mouse
 	w.bookAvailable = itemInfoShowsReadBook(ctx, item)
 	w.readBookRequest = ItemInfoReadBookRequest{}
 	w.cardArtRequest = ItemInfoCardIllustrationRequest{}
+	w.cardInfoRequest = itemInfoCardRequest{}
 	w.tooltip.Hide()
 
 	height := w.windowHeight(ctx)
@@ -286,7 +293,7 @@ func (w *ItemInfoWindow) openCard(ctx Context, cardID uint16, mouseX, mouseY int
 	if cardID == 0 {
 		return
 	}
-	w.openItem(ctx, session.InventoryItem{ItemID: cardID, Type: db.ItemTypeCard, Identified: true}, mouseX, mouseY)
+	w.cardInfoRequest = itemInfoCardRequest{ItemID: cardID, X: mouseX, Y: mouseY}
 }
 
 func (w *ItemInfoWindow) cardSlotCardID(index int) uint16 {
