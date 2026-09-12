@@ -748,10 +748,12 @@ func TestLoginWorldFadeWaitsForBlack(t *testing.T) {
 
 func TestLoginToWorldPrewarmsBeforeFadeIn(t *testing.T) {
 	ctx := client.Context{
-		Resources: &res.Manager{},
+		Resources: &res.Manager{Root: t.TempDir()},
 		Session:   &session.Session{},
 		World:     worldstate.New(),
+		Network:   network.NewClient(20080910, false),
 	}
+	writeTestGAT(t, ctx.Resources.Root, "prontera.gat")
 	next := NewLoginMode().nextWorldMode(ctx)
 	next.Enter(ctx)
 	if next.mapFade.phase != mapFadePrewarm {

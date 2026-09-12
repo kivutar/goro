@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"image"
@@ -395,7 +396,7 @@ func (m *WorldMode) Name() string {
 	return "world"
 }
 
-func (m *WorldMode) Enter(ctx client.Context) {
+func (m *WorldMode) Enter(ctx client.Context) Mode {
 	now := time.Now()
 	m.bindNPCDialogLifecycle()
 	m.startMapPrewarm()
@@ -405,6 +406,13 @@ func (m *WorldMode) Enter(ctx client.Context) {
 	ctx.World.RSW = nil
 	ctx.World.RSM = nil
 	ctx.World.RSMFail = 0
+	if ctx.World.MapName != "" {
+		gat, _, err := loadGAT(ctx.Resources, ctx.World.MapName)
+		if err != nil {
+			return newMapErrorMode(ctx, err, m.ui.console)
+		}
+		ctx.World.GAT = gat
+	}
 	m.textures = make(map[string]*render.Image)
 	m.textureMiss = make(map[string]struct{})
 	m.playerView = nil
@@ -517,14 +525,9 @@ func (m *WorldMode) Enter(ctx client.Context) {
 	glog.Debugf("player sprite resources char_id=%d name=%s admin=%t job=%d visual_job=%d hair=%d weapon=%d shield=%d head_top=%d head_mid=%d head_low=%d body_pal=%d head_pal=%d hair_color=%d account_sex=%d %s", character.ID, character.Name, localPlayerIsAdmin(ctx), character.Job, visualCharacter.Job, character.Hair, character.Weapon, character.Shield, character.HeadTop, character.HeadMid, character.HeadLow, character.BodyPal, character.HeadPal, character.HairColor, ctx.Session.Sex, playerStatus)
 	m.rebindPersistentUI(ctx)
 	if ctx.World.MapName == "" {
-		return
+		return nil
 	}
 
-	gat, _, err := loadGAT(ctx.Resources, ctx.World.MapName)
-	if err != nil {
-		return
-	}
-	ctx.World.GAT = gat
 	if gnd, _, err := loadGND(ctx.Resources, ctx.World.MapName); err == nil {
 		ctx.World.GND = gnd
 	} else {
@@ -541,6 +544,7 @@ func (m *WorldMode) Enter(ctx client.Context) {
 		m.playMapBGM(ctx, ctx.World.MapName)
 	}
 	_ = ctx.Network.SendLoadEndAck()
+	return nil
 }
 
 func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
@@ -1817,24 +1821,29 @@ func (m *WorldMode) drawSceneModelsAndActors(screen *render.Frame, ctx client.Co
 }
 
 func loadGAT(manager *res.Manager, mapName string) (*res.GAT, string, error) {
+	if manager == nil {
+		return nil, "", fmt.Errorf("no game resources available for map %s", mapName)
+	}
 	base := strings.TrimSuffix(strings.TrimSuffix(mapName, ".gat"), ".rsw")
 	candidates := []string{
 		"data\\" + base + ".gat",
 		"data/" + base + ".gat",
 		base + ".gat",
 	}
+	var readErrors []error
 	for _, candidate := range candidates {
 		data, err := manager.ReadFile(candidate)
 		if err != nil {
+			readErrors = append(readErrors, fmt.Errorf("read %s: %w", candidate, err))
 			continue
 		}
 		gat, err := res.ParseGAT(data)
 		if err != nil {
-			return nil, candidate, err
+			return nil, candidate, fmt.Errorf("parse %s: %w", candidate, err)
 		}
 		return gat, candidate, nil
 	}
-	return nil, "", fmt.Errorf("gat not found for map %s", mapName)
+	return nil, "", fmt.Errorf("cannot load GAT for map %s: %w", mapName, errors.Join(readErrors...))
 }
 
 func loadRSW(manager *res.Manager, mapName string) (*res.RSW, string, error) {

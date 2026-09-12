@@ -7,7 +7,8 @@ import (
 
 type Mode interface {
 	Name() string
-	Enter(client.Context)
+	// Enter may redirect to another mode if this one cannot be entered.
+	Enter(client.Context) Mode
 	Update(client.Context) (Mode, error)
 	Draw(client.Context, *render.Frame)
 }
@@ -30,11 +31,16 @@ type Manager struct {
 }
 
 func NewManager(ctx client.Context, mode Mode) *Manager {
-	m := &Manager{ctx: ctx, mode: mode}
-	if m.mode != nil {
-		m.mode.Enter(ctx)
-	}
+	m := &Manager{ctx: ctx}
+	m.enter(mode)
 	return m
+}
+
+func (m *Manager) enter(mode Mode) {
+	for mode != nil {
+		m.mode = mode
+		mode = mode.Enter(m.ctx)
+	}
 }
 
 func (m *Manager) UpdateContext(ctx client.Context) {
@@ -51,8 +57,7 @@ func (m *Manager) Update() error {
 		return err
 	}
 	if next != nil {
-		m.mode = next
-		m.mode.Enter(m.ctx)
+		m.enter(next)
 	}
 	return nil
 }

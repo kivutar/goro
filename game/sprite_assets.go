@@ -249,6 +249,9 @@ func loadFalconSpriteView(manager *res.Manager, job int) (*spriteView, string) {
 }
 
 func loadCursorSpriteView(manager *res.Manager) (*spriteView, string) {
+	if manager == nil {
+		return nil, "no resource manager"
+	}
 	return loadSpriteView(manager,
 		[]string{"data\\sprite\\cursors.act", "data/sprite/cursors.act", "data\\sprite\\interface\\cursors.act", "data/sprite/interface/cursors.act"},
 		[]string{"data\\sprite\\cursors.spr", "data/sprite/cursors.spr", "data\\sprite\\interface\\cursors.spr", "data/sprite/interface/cursors.spr"},

@@ -120,17 +120,28 @@ individual game-window layout.
 
 ### Missing-map recovery
 
-- [ ] Preserve and surface the missing/unreadable GAT error instead of silently returning from map initialization.
-- [ ] Show a fallback UI that does not depend on the missing GRF assets.
-- [ ] Display the missing map name and a useful explanation.
-- [ ] Offer return to character selection.
+- [x] Preserve and surface the missing/unreadable GAT error instead of silently returning from map initialization.
+- [x] Close the failed map connection and show the existing error alert on login, with its usual background and cursor fallbacks.
+- [x] Display the missing map name and a useful explanation.
+- [ ] Offer direct return to character selection.
 - [ ] Optionally offer a recovery warp to Prontera when the connected server permits it.
-- [ ] Avoid leaving the player connected on a black, unusable map.
-- [ ] Test the known `new_1-1`-missing scenario.
+- [x] Avoid leaving the player connected on a black, unusable map.
+- [x] Test the known `new_1-1`-missing scenario.
 
 This is a safety improvement from classic-ro-client rather than strict
 original-client behavior, but it directly addresses a failure already seen in
 Goro.
+
+The implementation deliberately returns to login and suppresses automatic
+reconnection/reselection. It reuses the existing alert and adds no recovery
+phase, cursor, text wrapper, or map-server handshake. Direct character selection
+and the optional Prontera warp are outside this minimal scope.
+
+References checked in the local clones: classic-ro-client's
+`map_missing_window.rs`, robr's `MapRenderer.js`/`MapEngine.js`, open-midgard's
+`GameMode.cpp`/`GameModePacket.cpp`, and rAthena's `clif.cpp`. The richer recovery
+flows keep the map session alive; Goro simply closes it. Tests cover missing and
+invalid maps, entry/warp redirects, the error dialog, and explicit login retry.
 
 ### Inventory and item presentation
 
