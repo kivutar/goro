@@ -230,7 +230,7 @@ func TestNextWorldModeCarriesOpenInventoryWindow(t *testing.T) {
 	if len(manager.overlays) != 1 {
 		t.Fatalf("inventory overlays after mode replacement = %d, want carried overlay", len(manager.overlays))
 	}
-	next.ui.inventoryBag.Update(ctx, &next.ui.shortcutBar, &next.ui.storageWindow, &next.ui.cartWindow, nil, &next.ui.equipmentWindow, &next.ui.itemInfoWindow)
+	next.ui.inventoryBag.Update(ctx, &next.ui.shortcutBar, &next.ui.storageWindow, &next.ui.cartWindow, nil, &next.ui.equipmentWindow, &next.ui.itemWindows)
 	if len(manager.overlays) != 1 {
 		t.Fatalf("inventory overlays after next mode update = %d, want 1", len(manager.overlays))
 	}
@@ -244,7 +244,7 @@ func TestNextWorldModeCarriesAndRebindsWhisperWindow(t *testing.T) {
 		ScreenH:   720,
 	}
 	mode := &WorldMode{}
-	mode.ui.whisperWindow.Open(ctx, "Alice")
+	mode.ui.whisperWindows.Open(ctx, "Alice")
 	manager := ctx.UIManager.(*worldModeTestUIManager)
 	if len(manager.overlays) != 1 {
 		t.Fatalf("whisper overlays before map change = %d, want 1", len(manager.overlays))
@@ -252,7 +252,7 @@ func TestNextWorldModeCarriesAndRebindsWhisperWindow(t *testing.T) {
 	previousOverlay := manager.overlays[0]
 
 	next := mode.nextWorldMode()
-	if !next.ui.whisperWindow.IsOpen() {
+	if !next.ui.whisperWindows.IsOpen() {
 		t.Fatal("next world mode did not carry open whisper window")
 	}
 	next.rebindPersistentUI(ctx)
@@ -260,11 +260,11 @@ func TestNextWorldModeCarriesAndRebindsWhisperWindow(t *testing.T) {
 	if len(manager.overlays) != 1 {
 		t.Fatalf("whisper overlays after rebind = %d, want 1", len(manager.overlays))
 	}
-	if manager.overlays[0] == previousOverlay {
-		t.Fatal("whisper overlay was not rebound")
+	if manager.overlays[0] != previousOverlay {
+		t.Fatal("whisper rebind replaced its stable overlay")
 	}
 
-	next.ui.whisperWindow.AddError(ctx, "send failed")
+	next.ui.whisperWindows.Find("Alice").AddError(ctx, "send failed")
 	if len(manager.overlays) != 1 {
 		t.Fatalf("whisper overlays after refresh = %d, want 1", len(manager.overlays))
 	}

@@ -196,7 +196,7 @@ func (w *GuildWindow) UpdateKeyboardInput(ctx Context) bool {
 	if ctx.Input == nil || !w.KeyboardShortcutsBlocked() {
 		return false
 	}
-	if ctx.Input.JustPressed(input.KeyEscape) {
+	if w.escapePressed(ctx) {
 		w.Close()
 		return true
 	}

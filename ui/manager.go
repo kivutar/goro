@@ -112,11 +112,33 @@ func (m *Manager) RaiseOverlay(root widget.Widget) {
 	m.raiseOverlay(root)
 }
 
+// TopEscapeOverlay uses the same stack as drawing and pointer dispatch.
+// HUD overlays do not participate in closing windows with Escape.
+func (m *Manager) TopEscapeOverlay() widget.Widget {
+	for i := len(m.overlays) - 1; i >= 0; i-- {
+		if window, ok := m.overlays[i].(*positionedOverlay); ok && window.closeOnEsc {
+			return window
+		}
+	}
+	return nil
+}
+
 func (m *Manager) apply() {
 	m.root = newOverlayRoot(m.overlays)
 	m.root.onActivate = m.raiseOverlay
 	if m.app != nil && m.root != nil {
+		// Replacing the UI root can clear focus while an existing overlay is
+		// awaiting redraw. Preserve it if that widget still belongs to the stack.
+		ctx := windowWidgetContext(client.Context{UIApp: m.app})
+		var focused widget.Widget
+		if ctx != nil {
+			focused = ctx.FocusedWidget()
+			ctx.ReleaseFocus(focused)
+		}
 		m.app.SetUIRoot(m.root)
+		if focused != nil && overlayContainsWidget(m.root, focused) {
+			ctx.RequestFocus(focused)
+		}
 		disableRootRepaintBoundary(m.root)
 		m.root.SetNeedsRedraw(true)
 	}
@@ -220,10 +242,28 @@ func (r *overlayRoot) dispatchPositionedEvent(ctx widget.Context, e event.Event,
 			continue
 		}
 		if mouse, ok := e.(*event.MouseEvent); ok && mouse.IsPress() && overlayRaisesOnPress(child) && r.onActivate != nil {
+			if focused := ctx.FocusedWidget(); focused != nil && !overlayContainsWidget(child, focused) {
+				ctx.ReleaseFocus(focused)
+			}
 			r.onActivate(child)
 		}
 		child.Event(ctx, e)
 		return true
+	}
+	return false
+}
+
+func overlayContainsWidget(root, target widget.Widget) bool {
+	if root == target {
+		return true
+	}
+	if overlay, ok := root.(*positionedOverlay); ok {
+		return overlay.child != nil && overlayContainsWidget(overlay.child, target)
+	}
+	for _, child := range root.Children() {
+		if overlayContainsWidget(child, target) {
+			return true
+		}
 	}
 	return false
 }

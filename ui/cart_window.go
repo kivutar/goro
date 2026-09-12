@@ -34,7 +34,7 @@ type CartWindow struct {
 	Window
 	scrollY       state.Signal[float32]
 	snapshot      uint64
-	itemInfo      *ItemInfoWindow
+	itemInfo      *ItemWindows
 	lastClickItem uint16
 	lastClickAt   time.Time
 	dragItem      session.InventoryItem
@@ -80,7 +80,7 @@ func (w *CartWindow) OpenWindow(ctx Context) {
 	w.Publish(ctx)
 }
 
-func (w *CartWindow) Update(ctx Context, inventory *InventoryBagWindow, storage *StorageWindow, itemInfo *ItemInfoWindow) bool {
+func (w *CartWindow) Update(ctx Context, inventory *InventoryBagWindow, storage *StorageWindow, itemInfo *ItemWindows) bool {
 	w.EnsureWindow(cartWindowWidth, cartWindowHeight)
 	if !w.IsOpen() || ctx.Input == nil {
 		w.hideTooltip()
@@ -190,7 +190,7 @@ func (w *CartWindow) AcceptStorageDrop(ctx Context, item session.InventoryItem, 
 	return true
 }
 
-func (w *CartWindow) widgetTree(ctx Context, itemInfo *ItemInfoWindow) widget.Widget {
+func (w *CartWindow) widgetTree(ctx Context, itemInfo *ItemWindows) widget.Widget {
 	items := sortedCartItems(ctx.Session)
 	grid := newInventoryGridWidget(inventoryGridConfig{
 		items:     items,
@@ -296,7 +296,7 @@ func (w *CartWindow) withdraw(ctx Context, item session.InventoryItem) {
 	glog.Debugf("cart withdraw requested index=%d item=%d amount=%d", item.Index, item.ItemID, amount)
 }
 
-func (w *CartWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
+func (w *CartWindow) refresh(ctx Context, itemInfo *ItemWindows) {
 	w.EnsureWindow(cartWindowWidth, cartWindowHeight)
 	w.ClampScroll(ctx.Session)
 	w.snapshot = w.cartSnapshot(ctx.Session)
@@ -305,11 +305,11 @@ func (w *CartWindow) refresh(ctx Context, itemInfo *ItemInfoWindow) {
 	w.Publish(ctx)
 }
 
-func (w *CartWindow) Refresh(ctx Context, itemInfo *ItemInfoWindow) {
+func (w *CartWindow) Refresh(ctx Context, itemInfo *ItemWindows) {
 	w.refresh(ctx, itemInfo)
 }
 
-func (w *CartWindow) Rebind(ctx Context, itemInfo *ItemInfoWindow) {
+func (w *CartWindow) Rebind(ctx Context, itemInfo *ItemWindows) {
 	w.EnsureWindow(cartWindowWidth, cartWindowHeight)
 	if !w.IsOpen() {
 		return

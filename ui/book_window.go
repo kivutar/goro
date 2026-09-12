@@ -80,7 +80,9 @@ func (w *BookWindow) Rebind(ctx Context) {
 	if !w.IsOpen() {
 		return
 	}
-	w.RebindContent(ctx, w.widgetTree(ctx))
+	w.ctx = ctx
+	w.SetContent(w.widgetTree(ctx))
+	w.Publish(ctx)
 }
 
 func (w *BookWindow) widgetTree(ctx Context) widget.Widget {

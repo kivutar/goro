@@ -157,15 +157,21 @@ func (w *VendingWindow) ApplySoldItem(ctx Context, sold network.VendingSoldItem)
 	w.refresh(ctx)
 }
 
-func (w *VendingWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *VendingWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 	if ctx.Input == nil || w.mode == vendingModeNone {
 		return false
 	}
-	if w.leftWindow.Update(ctx) {
+	consumed := w.leftWindow.Update(ctx)
+	if consumed {
 		w.leftWindow.Publish(ctx)
 	}
 	if w.rightWindow.Update(ctx) {
+		consumed = true
 		w.rightWindow.Publish(ctx)
+	}
+	// Preserve the shared windows' Escape result before checking pointer hover.
+	if w.mode == vendingModeNone || ctx.Input.JustPressed(input.KeyEscape) {
+		return consumed
 	}
 	if w.handlePointer(ctx, itemInfo) {
 		return true
@@ -173,7 +179,7 @@ func (w *VendingWindow) Update(ctx Context, itemInfo *ItemInfoWindow) bool {
 	inside := w.inside(ctx.Input.MouseX, ctx.Input.MouseY)
 	w.leftWindow.Publish(ctx)
 	w.rightWindow.Publish(ctx)
-	return inside
+	return consumed || inside
 }
 
 func (w *VendingWindow) KeyboardShortcutsBlocked() bool {
@@ -514,7 +520,7 @@ func (w *VendingWindow) syncPriceInput() {
 	w.priceField = nil
 }
 
-func (w *VendingWindow) handlePointer(ctx Context, itemInfo *ItemInfoWindow) bool {
+func (w *VendingWindow) handlePointer(ctx Context, itemInfo *ItemWindows) bool {
 	if ctx.Input == nil {
 		return false
 	}

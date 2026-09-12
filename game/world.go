@@ -181,10 +181,8 @@ type worldUI struct {
 	itemPickup           gameui.ItemPickupNotification
 	shopWindow           gameui.ShopWindow
 	vendingWindow        gameui.VendingWindow
-	itemInfoWindow       gameui.ItemInfoWindow
-	cardIllustration     gameui.CardIllustrationWindow
+	itemWindows          gameui.ItemWindows
 	monsterInfoWindow    gameui.MonsterInfoWindow
-	bookWindow           gameui.BookWindow
 	identifyWindow       gameui.IdentifyWindow
 	cardWindow           gameui.CardCompositionWindow
 	makingArrow          gameui.MakingArrowWindow
@@ -209,7 +207,7 @@ type worldUI struct {
 	friendsWindow        gameui.FriendsWindow
 	guildWindow          gameui.GuildWindow
 	friendSettings       gameui.FriendSettingsWindow
-	whisperWindow        gameui.WhisperWindow
+	whisperWindows       gameui.WhisperWindows
 	chatRoomCreate       gameui.ChatRoomCreateWindow
 	chatRoom             gameui.ChatRoomWindow
 	partySettings        gameui.PartySettingsWindow
@@ -265,14 +263,14 @@ func (u *worldUI) nonConsoleKeyboardInputBlocked(ctx client.Context) bool {
 		u.mercenarySkill.IsOpen() ||
 		u.changeCartWindow.IsOpen() ||
 		u.inventoryBag.KeyboardShortcutsBlocked() ||
-		u.bookWindow.IsOpen() ||
+		u.itemWindows.KeyboardShortcutsBlocked() ||
 		u.shopWindow.KeyboardShortcutsBlocked() ||
 		u.vendingWindow.KeyboardShortcutsBlocked() ||
 		u.tradeWindow.IsOpen() ||
 		u.mailWindow.IsOpen() ||
 		u.guildWindow.KeyboardShortcutsBlocked() ||
 		u.friendSettings.IsOpen() ||
-		u.whisperWindow.IsOpen() ||
+		u.whisperWindows.IsOpen() ||
 		u.chatRoomCreate.IsOpen() ||
 		u.chatRoom.IsOpen() ||
 		u.partySettings.IsOpen() ||
@@ -572,12 +570,10 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	}
 	m.setGuildEmblemOptions(ctx)
 	m.ui.basicMenu.Rebind(ctx, m.basicMenuCallbacks(ctx))
-	m.ui.inventoryBag.Rebind(ctx, &m.ui.itemInfoWindow)
-	m.ui.equipmentWindow.Rebind(ctx, &m.ui.itemInfoWindow, &m.ui.cartWindow, m)
-	m.ui.cartWindow.Rebind(ctx, &m.ui.itemInfoWindow)
-	m.ui.itemInfoWindow.Rebind(ctx, m)
-	m.ui.cardIllustration.Rebind(ctx)
-	m.ui.bookWindow.Rebind(ctx)
+	m.ui.inventoryBag.Rebind(ctx, &m.ui.itemWindows)
+	m.ui.equipmentWindow.Rebind(ctx, &m.ui.itemWindows, &m.ui.cartWindow, m)
+	m.ui.cartWindow.Rebind(ctx, &m.ui.itemWindows)
+	m.ui.itemWindows.Rebind(ctx, m)
 	m.ui.statsWindow.Rebind(ctx)
 	m.ui.skillWindow.Rebind(ctx, m)
 	m.ui.levelUpNotifications.Rebind(ctx)
@@ -597,7 +593,7 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	m.ui.settingsWindow.Rebind(ctx)
 	m.ui.homunculusInfo.Rebind(ctx)
 	m.ui.mercenaryInfo.Rebind(ctx)
-	m.ui.whisperWindow.Rebind(ctx)
+	m.ui.whisperWindows.Rebind(ctx)
 	m.ui.shortcutBar.ResetOverlay(ctx)
 }
 
@@ -924,32 +920,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		m.handleEscapeMenuAction(ctx)
 		return nil, nil
 	}
-	if m.ui.bookWindow.Update(ctx) {
-		return nil, nil
-	}
-	if m.ui.cardIllustration.Update(ctx) {
-		return nil, nil
-	}
 	characterWindowConsumed := m.ui.characterWindow.Update(ctx)
 	m.ui.basicMenu.FollowCharacterWindow(ctx, &m.ui.characterWindow)
 	if characterWindowConsumed {
 		return nil, nil
 	}
-	if m.ui.itemInfoWindow.Update(ctx, m) {
-		if request := m.ui.itemInfoWindow.PopCardIllustrationRequest(); request.ItemID != 0 {
-			if err := m.ui.cardIllustration.Open(ctx, request.ItemID, request.Title); err != nil {
-				m.ui.console.AddErrorMessage("Unable to display this card.")
-				glog.Warnf("card illustration open failed item=%d: %v", request.ItemID, err)
-			}
-		}
-		if request := m.ui.itemInfoWindow.PopReadBookRequest(); request.ItemID != 0 {
-			if err := m.ui.bookWindow.Open(ctx, request.ItemID, request.Title); err != nil {
-				m.ui.console.AddErrorMessage("Unable to read this book.")
-				glog.Warnf("book open failed item=%d: %v", request.ItemID, err)
-			} else {
-				m.ui.itemInfoWindow.Close()
-				m.ui.itemInfoWindow.Publish(ctx)
-			}
+	if consumed, err := m.ui.itemWindows.Update(ctx, m); consumed {
+		if err != nil {
+			m.ui.console.AddErrorMessage("Unable to display this item.")
+			glog.Warnf("item window: %v", err)
 		}
 		return nil, nil
 	}
@@ -989,34 +968,34 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.shortcutBar.Update(ctx, m) {
 		return nil, nil
 	}
-	if m.ui.mailWindow.Update(ctx, &m.ui.itemInfoWindow) {
+	if m.ui.mailWindow.Update(ctx, &m.ui.itemWindows) {
 		return nil, nil
 	}
-	if m.ui.inventoryBag.Update(ctx, &m.ui.shortcutBar, &m.ui.storageWindow, &m.ui.cartWindow, &m.ui.tradeWindow, &m.ui.equipmentWindow, &m.ui.itemInfoWindow, &m.ui.mailWindow) {
+	if m.ui.inventoryBag.Update(ctx, &m.ui.shortcutBar, &m.ui.storageWindow, &m.ui.cartWindow, &m.ui.tradeWindow, &m.ui.equipmentWindow, &m.ui.itemWindows, &m.ui.mailWindow) {
 		return nil, nil
 	}
-	if m.ui.tradeWindow.Update(ctx, &m.ui.itemInfoWindow) {
+	if m.ui.tradeWindow.Update(ctx, &m.ui.itemWindows) {
 		return nil, nil
 	}
-	if m.ui.equipmentWindow.Update(ctx, &m.ui.itemInfoWindow, &m.ui.cartWindow, m) {
+	if m.ui.equipmentWindow.Update(ctx, &m.ui.itemWindows, &m.ui.cartWindow, m) {
 		return nil, nil
 	}
-	if m.ui.viewEquipWindow.Update(ctx, &m.ui.itemInfoWindow) {
+	if m.ui.viewEquipWindow.Update(ctx, &m.ui.itemWindows) {
 		return nil, nil
 	}
-	if m.ui.storageWindow.Update(ctx, &m.ui.inventoryBag, &m.ui.cartWindow, &m.ui.itemInfoWindow) {
+	if m.ui.storageWindow.Update(ctx, &m.ui.inventoryBag, &m.ui.cartWindow, &m.ui.itemWindows) {
 		return nil, nil
 	}
-	if m.ui.cartWindow.Update(ctx, &m.ui.inventoryBag, &m.ui.storageWindow, &m.ui.itemInfoWindow) {
+	if m.ui.cartWindow.Update(ctx, &m.ui.inventoryBag, &m.ui.storageWindow, &m.ui.itemWindows) {
 		return nil, nil
 	}
 	if m.ui.changeCartWindow.Update(ctx) {
 		return nil, nil
 	}
-	if m.ui.shopWindow.Update(ctx, &m.ui.itemInfoWindow) {
+	if m.ui.shopWindow.Update(ctx, &m.ui.itemWindows) {
 		return nil, nil
 	}
-	if m.ui.vendingWindow.Update(ctx, &m.ui.itemInfoWindow) {
+	if m.ui.vendingWindow.Update(ctx, &m.ui.itemWindows) {
 		return nil, nil
 	}
 	if m.ui.skillWindow.Update(ctx, &m.ui.shortcutBar, m) {
@@ -1047,7 +1026,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 				glog.Warnf("leave party failed: %v", err)
 			}
 		case gameui.FriendsWindowActionFriendWhisper:
-			m.ui.whisperWindow.Open(ctx, action.Friend.Name)
+			m.ui.whisperWindows.Open(ctx, action.Friend.Name)
 		case gameui.FriendsWindowActionFriendDelete:
 			m.openDeleteFriendConfirm(ctx, action.Friend)
 		case gameui.FriendsWindowActionFriendSettings:
@@ -1063,7 +1042,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		case gameui.FriendsWindowActionPartyMemberInfo:
 			m.openPartyMemberInfo(ctx, action.PartyMember)
 		case gameui.FriendsWindowActionPartyMemberWhisper:
-			m.ui.whisperWindow.Open(ctx, action.PartyMember.Name)
+			m.ui.whisperWindows.Open(ctx, action.PartyMember.Name)
 		case gameui.FriendsWindowActionPartyMemberExpel:
 			m.openExpelPartyMemberConfirm(ctx, action.PartyMember)
 		}
@@ -1444,9 +1423,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.inventoryBag = m.ui.inventoryBag
 	next.ui.equipmentWindow = m.ui.equipmentWindow
 	next.ui.cartWindow = m.ui.cartWindow
-	next.ui.itemInfoWindow = m.ui.itemInfoWindow
-	next.ui.cardIllustration = m.ui.cardIllustration
-	next.ui.bookWindow = m.ui.bookWindow
+	next.ui.itemWindows = m.ui.itemWindows
 	next.ui.cardWindow = m.ui.cardWindow
 	next.ui.petEggWindow = m.ui.petEggWindow
 	next.ui.petInfoWindow = m.ui.petInfoWindow
@@ -1464,7 +1441,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.friendsWindow = m.ui.friendsWindow
 	next.ui.guildWindow = m.ui.guildWindow
 	next.ui.friendSettings = m.ui.friendSettings
-	next.ui.whisperWindow = m.ui.whisperWindow
+	next.ui.whisperWindows = m.ui.whisperWindows
 	next.ui.chatRoomCreate = m.ui.chatRoomCreate
 	next.ui.chatRoom = m.ui.chatRoom
 	next.pendingChatRoom = m.pendingChatRoom
@@ -1607,7 +1584,7 @@ func (m *WorldMode) DrawUIOverlay(ctx client.Context, screen *render.Frame) {
 	m.ui.inventoryBag.DrawTooltip(ctx, screen)
 	m.ui.equipmentWindow.DrawTooltip(ctx, screen)
 	m.ui.cartWindow.DrawTooltip(ctx, screen)
-	m.ui.itemInfoWindow.DrawTooltip(ctx, screen)
+	m.ui.itemWindows.DrawTooltip(ctx, screen)
 	m.ui.skillWindow.DrawTooltip(ctx, screen)
 	m.ui.homunculusSkill.DrawTooltip(ctx, screen)
 	m.ui.mercenarySkill.DrawTooltip(ctx, screen)

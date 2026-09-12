@@ -138,11 +138,6 @@ func (w *SkillWindow) Update(ctx Context, shortcuts *ShortcutBar, actions GameAc
 	if w.UpdateDrag(ctx, shortcuts) {
 		return true
 	}
-	if ctx.Input.JustPressed(input.KeyEscape) {
-		w.close(ctx)
-		w.Publish(ctx)
-		return true
-	}
 	snapshot := w.skillSnapshot(ctx.Session)
 	w.ensureSkillViewForSnapshot(ctx, snapshot)
 	if snapshot != w.snapshot {

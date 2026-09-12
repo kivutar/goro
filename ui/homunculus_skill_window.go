@@ -159,11 +159,6 @@ func (w *HomunculusSkillWindow) Update(ctx Context, shortcuts *ShortcutBar, acti
 	if w.UpdateDrag(ctx, shortcuts) {
 		return true
 	}
-	if ctx.Input.JustPressed(input.KeyEscape) {
-		w.close(ctx)
-		w.Publish(ctx)
-		return true
-	}
 	w.clampScroll(ctx)
 	snapshot := w.skillSnapshot(ctx.Session)
 	if snapshot != w.snapshot {

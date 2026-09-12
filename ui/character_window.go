@@ -46,6 +46,7 @@ type CharacterWindow struct {
 
 func (w *CharacterWindow) Update(ctx Context) bool {
 	w.EnsureWindow(characterWindowWidth, characterWindowHeight)
+	w.CloseOnEsc = false
 	_, basicMenuHeight := basicMenuSize()
 	w.dragBottom = basicMenuFollowGap + basicMenuHeight
 	if ctx.Session == nil {

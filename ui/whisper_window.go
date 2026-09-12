@@ -42,6 +42,11 @@ type WhisperWindow struct {
 }
 
 func (w *WhisperWindow) Open(ctx Context, target string) {
+	w.open(ctx, target)
+	w.focusInput()
+}
+
+func (w *WhisperWindow) open(ctx Context, target string) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return
@@ -57,7 +62,6 @@ func (w *WhisperWindow) Open(ctx Context, target string) {
 		w.inputField = nil
 	}
 	w.Window.Open(ctx, w.widgetTree(ctx))
-	w.focusInput()
 	w.Publish(ctx)
 }
 
@@ -85,10 +89,14 @@ func (w *WhisperWindow) Rebind(ctx Context) {
 		return
 	}
 	w.ctx = ctx
+	focused := w.inputField != nil && w.inputField.IsFocused()
+	releaseWindowFocus(ctx, w.content)
 	w.inputField = nil
-	content := w.widgetTree(ctx)
-	w.focusInput()
-	w.RebindContent(ctx, content)
+	w.SetContent(w.widgetTree(ctx))
+	w.Publish(ctx)
+	if focused {
+		w.focusInput()
+	}
 }
 
 func (w *WhisperWindow) PopAction() WhisperWindowAction {
@@ -203,7 +211,6 @@ func (w *WhisperWindow) inputWidget(ctx Context) *textfield.Widget {
 		textfield.MaxLength(100),
 		textfield.Placeholder("Message"),
 	)
-	w.focusInput()
 	return w.inputField
 }
 
@@ -234,13 +241,16 @@ func (w *WhisperWindow) submitFromFocusedEnter(ctx Context) bool {
 
 func (w *WhisperWindow) refresh(ctx Context) {
 	w.SetContent(w.widgetTree(ctx))
-	w.focusInput()
 	w.Publish(ctx)
 }
 
 func (w *WhisperWindow) focusInput() {
 	if w.inputField != nil {
-		w.inputField.SetFocused(true)
+		if ctx := windowWidgetContext(w.ctx); ctx != nil {
+			ctx.RequestFocus(w.inputField)
+		} else {
+			w.inputField.SetFocused(true)
+		}
 	}
 }
 
