@@ -169,7 +169,8 @@ func (w *VendingWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 		consumed = true
 		w.rightWindow.Publish(ctx)
 	}
-	if w.mode == vendingModeNone {
+	// Preserve the shared windows' Escape result before checking pointer hover.
+	if w.mode == vendingModeNone || ctx.Input.JustPressed(input.KeyEscape) {
 		return consumed
 	}
 	if w.handlePointer(ctx, itemInfo) {

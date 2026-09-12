@@ -13,6 +13,7 @@ import (
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 )
@@ -175,6 +176,73 @@ func TestWindowPollingRespectsStackingAndEscape(t *testing.T) {
 	}
 	if manager.TopEscapeOverlay() != upper.published {
 		t.Fatal("closed window remained in the Escape stack")
+	}
+}
+
+func TestShopYieldsEscapeToTopWindowWhileHovered(t *testing.T) {
+	for _, mode := range []string{"buy", "sell", "deal"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, _, _ := newWindowInstanceTest()
+			var shop ShopWindow
+			hovered := &shop.buyWindow
+			switch mode {
+			case "buy":
+				shop.OpenBuy(nil, ctx)
+			case "sell":
+				shop.OpenSell(nil, ctx)
+			case "deal":
+				shop.OpenDeal(network.ShopDealSelection{NPCID: 1}, ctx)
+				hovered = &shop.dealWindow
+			}
+			var skills SkillWindow
+			skills.OpenWindow(ctx)
+			ctx.Input.SetMousePosition(hovered.x+10, hovered.y+10)
+			ctx.Input.SetKey(input.KeyEscape, true)
+			// WorldMode visits the shop before Skills and stops on consumption.
+			if shop.Update(ctx, nil) {
+				t.Fatal("hovered shop swallowed Escape for the top skill window")
+			}
+			if !skills.Update(ctx, nil, nil) || skills.IsOpen() || !shop.KeyboardShortcutsBlocked() {
+				t.Fatal("Escape did not close only the skill window")
+			}
+			ctx.Input.ResetKeyboard()
+			ctx.Input.SetKey(input.KeyEscape, true)
+			if !shop.Update(ctx, nil) || shop.KeyboardShortcutsBlocked() {
+				t.Fatal("next Escape did not close the shop")
+			}
+		})
+	}
+}
+
+func TestVendingYieldsEscapeToTopWindowWhileHovered(t *testing.T) {
+	for _, mode := range []string{"setup", "buy", "own"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, _, _ := newWindowInstanceTest()
+			var vending VendingWindow
+			switch mode {
+			case "setup":
+				vending.OpenSetup(ctx, network.VendingOpenRequest{MaxItems: 3})
+			case "buy":
+				vending.OpenBuy(ctx, network.VendingItemList{OwnerAID: 1})
+			case "own":
+				vending.ApplyOwnList(ctx, network.VendingItemList{OwnerAID: 1})
+			}
+			var skills SkillWindow
+			skills.OpenWindow(ctx)
+			ctx.Input.SetMousePosition(vending.leftWindow.x+10, vending.leftWindow.y+10)
+			ctx.Input.SetKey(input.KeyEscape, true)
+			if vending.Update(ctx, nil) {
+				t.Fatal("hovered vending window swallowed Escape for the top skill window")
+			}
+			if !skills.Update(ctx, nil, nil) || skills.IsOpen() || !vending.KeyboardShortcutsBlocked() {
+				t.Fatal("Escape did not close only the skill window")
+			}
+			ctx.Input.ResetKeyboard()
+			ctx.Input.SetKey(input.KeyEscape, true)
+			if !vending.Update(ctx, nil) || vending.KeyboardShortcutsBlocked() {
+				t.Fatal("next Escape did not close the vending windows")
+			}
+		})
 	}
 }
 

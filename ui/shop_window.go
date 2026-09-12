@@ -174,6 +174,9 @@ func (w *ShopWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 			w.closeDealWindow(ctx)
 			return true
 		}
+		if ctx.Input.JustPressed(input.KeyEscape) {
+			return false
+		}
 		if w.dealWindow.Update(ctx) {
 			w.dealWindow.Publish(ctx)
 		}
@@ -471,6 +474,10 @@ func (w *ShopWindow) updateBuyWindow(ctx Context, itemInfo *ItemWindows) bool {
 	if w.buyWindow.escapePressed(ctx) || w.buyCartWindow.escapePressed(ctx) {
 		w.cancel(ctx)
 		return true
+	}
+	// A lower shop must not consume another window's Escape through hover.
+	if ctx.Input.JustPressed(input.KeyEscape) {
+		return false
 	}
 	if w.handleBuyPointer(ctx, itemInfo) {
 		return true
