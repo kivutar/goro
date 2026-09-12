@@ -66,6 +66,9 @@ func actorCanBeSkillTargeted(ctx client.Context, skill session.Skill, actor worl
 	if actor.ID == 0 || isWarpActor(actor) {
 		return false
 	}
+	if actorHasStealth(actor) && !isLocalActor(ctx, actor.ID) {
+		return false
+	}
 	targetFlags, ok := skillTargetFlagsForActor(ctx, actor)
 	if !ok {
 		return false
@@ -128,14 +131,14 @@ func skillTargetMapStateAllowsMismatch(ctx client.Context, actor worldstate.Acto
 }
 
 func actorCanOpenPlayerContext(ctx client.Context, actor worldstate.Actor) bool {
-	if isLocalActor(ctx, actor.ID) || strings.TrimSpace(actor.Name) == "" {
+	if actorHasStealth(actor) || isLocalActor(ctx, actor.ID) || strings.TrimSpace(actor.Name) == "" {
 		return false
 	}
 	return actorRepresentsPlayer(actor)
 }
 
 func actorCanBeAttackClicked(ctx client.Context, actor worldstate.Actor) bool {
-	if actor.ID == 0 || isLocalActor(ctx, actor.ID) {
+	if actor.ID == 0 || actorHasStealth(actor) || isLocalActor(ctx, actor.ID) {
 		return false
 	}
 	if actorRepresentsPlayer(actor) {
@@ -740,7 +743,7 @@ type sceneActorDrawEntry struct {
 	shadowDepth float64
 	depth       float64
 	isPlayer    bool
-	hidden      bool
+	stealth     stealthView
 }
 
 const (
@@ -788,6 +791,18 @@ func (m *WorldMode) drawSceneActors(screen *render.Frame, ctx client.Context, pr
 }
 
 func (m *WorldMode) drawSceneActorOverlays(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time, entries []sceneActorDrawEntry) {
+	visible := make([]sceneActorDrawEntry, 0, len(entries))
+	for _, entry := range entries {
+		if actorHasStealth(entry.actor) {
+			if entry.isPlayer {
+				m.drawActorCastBar(screen, entry, now)
+				m.drawActorLifeBar(screen, ctx, entry)
+			}
+			continue
+		}
+		visible = append(visible, entry)
+	}
+	entries = visible
 	m.drawSiegeGuildEmblems(screen, ctx, projection, now, entries)
 	for _, entry := range entries {
 		m.drawActorCastBar(screen, entry, now)
@@ -855,23 +870,29 @@ func (m *WorldMode) collectSceneActorEntries(screen *render.Frame, ctx client.Co
 	}
 	player.Dir = ctx.World.Dir
 	entries = appendActorDrawEntry(entries, ctx.World, projection, player, true, now, width, height)
-	entries[len(entries)-1].hidden = localActorHidden(ctx)
 	for _, actor := range ctx.World.Actors {
 		if actor.ID == ctx.Session.AccountID || actor.ID == ctx.Session.CharID {
 			continue
 		}
 		entries = appendActorDrawEntry(entries, ctx.World, projection, actor, false, now, width, height)
 	}
-	return entries
+	visible := entries[:0]
+	for _, entry := range entries {
+		entry.stealth = actorStealthView(ctx, entry.actor, entry.isPlayer)
+		// The local gauges remain visible even when the body is absent.
+		if entry.isPlayer || entry.stealth != stealthHidden {
+			visible = append(visible, entry)
+		}
+	}
+	return visible
 }
 
 func (m *WorldMode) drawSceneActorEntry(screen *render.Frame, ctx client.Context, projection sceneProjection, entry sceneActorDrawEntry) {
-	cameraYaw := projection.cameraYaw
-	alpha := 1.0
-	if entry.hidden {
-		alpha = 0.35
+	if entry.stealth == stealthHidden || entry.stealth == stealthShadow {
+		return
 	}
-	alpha *= m.actorVisualAlpha(entry.actor.ID, time.Now())
+	cameraYaw := projection.cameraYaw
+	alpha := m.actorVisualAlpha(entry.actor.ID, time.Now())
 	if entry.isPlayer {
 		if !cartDrawAfterActor(entry.actor, cameraYaw) {
 			m.drawActorCart3D(screen, ctx, projection, entry, cameraYaw, entry.shadow, alpha)
@@ -907,7 +928,7 @@ func (m *WorldMode) drawActorShadowEntry(screen *render.Frame, ctx client.Contex
 	if !entry.castShadow || m.shadowView == nil || m.shadowViewMiss {
 		return
 	}
-	if entry.hidden {
+	if entry.stealth == stealthHidden || entry.stealth == stealthSilhouette {
 		return
 	}
 	if !entry.isPlayer && m.nonPCActorHasGR2Model(ctx, entry.actor) {
@@ -1450,7 +1471,7 @@ func (m *WorldMode) drawActorSprite3D(screen *render.Frame, ctx client.Context, 
 	if !ok {
 		return false
 	}
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerBodyRenderScale(actor.ID, actor.Job, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, m.actorRenderTint(actor, now))
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerBodyRenderScale(actor.ID, actor.Job, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)))
 	return true
 }
 
@@ -1487,7 +1508,7 @@ func (m *WorldMode) drawMercenarySprite3D(screen *render.Frame, ctx client.Conte
 	if !ok {
 		return false
 	}
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, m.actorRenderTint(actor, now))
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)))
 	return true
 }
 
@@ -1532,7 +1553,7 @@ func (m *WorldMode) drawNonPCSprite3D(screen *render.Frame, ctx client.Context, 
 	if !ok {
 		return false
 	}
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, m.actorRenderTint(actor, now))
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)))
 	return true
 }
 

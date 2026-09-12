@@ -241,6 +241,9 @@ const skillChangeCart = 154
 const skillGroundTextMaxBytes = 79
 
 func (c skillController) Use(ctx client.Context, skill session.Skill, source string) error {
+	if err := checkStealthSkill(ctx, skill.ID, 0); err != nil {
+		return err
+	}
 	if playerIsDead(ctx) {
 		return fmt.Errorf("player is dead")
 	}
@@ -289,6 +292,9 @@ func (c skillController) Use(ctx client.Context, skill session.Skill, source str
 }
 
 func (c skillController) SendToID(ctx client.Context, skill session.Skill, target uint32, source string) error {
+	if err := checkStealthSkill(ctx, skill.ID, target); err != nil {
+		return err
+	}
 	if playerIsDead(ctx) {
 		return fmt.Errorf("player is dead")
 	}
@@ -320,6 +326,9 @@ func (c skillController) SendToID(ctx client.Context, skill session.Skill, targe
 }
 
 func (c skillController) SendToGround(ctx client.Context, skill session.Skill, x, y int, source string) error {
+	if err := checkStealthSkill(ctx, skill.ID, 0); err != nil {
+		return err
+	}
 	if playerIsDead(ctx) {
 		return fmt.Errorf("player is dead")
 	}
@@ -341,6 +350,9 @@ func (c skillController) SendToGround(ctx client.Context, skill session.Skill, x
 }
 
 func (c skillController) SendToGroundWithText(ctx client.Context, skill session.Skill, x, y int, text string, source string) error {
+	if err := checkStealthSkill(ctx, skill.ID, 0); err != nil {
+		return err
+	}
 	if playerIsDead(ctx) {
 		return fmt.Errorf("player is dead")
 	}
@@ -455,6 +467,9 @@ func (c skillController) HandleClick(ctx client.Context, projection sceneProject
 }
 
 func (c skillController) UseTarget(ctx client.Context, skill session.Skill, actor worldstate.Actor, source string) error {
+	if err := checkStealthSkill(ctx, skill.ID, actor.ID); err != nil {
+		return err
+	}
 	if playerIsDead(ctx) {
 		return fmt.Errorf("player is dead")
 	}
@@ -484,6 +499,9 @@ func skillNeedsGroundText(skillID uint16) bool {
 }
 
 func (c skillController) UseGround(ctx client.Context, skill session.Skill, x, y int, text, source string) error {
+	if err := checkStealthSkill(ctx, skill.ID, 0); err != nil {
+		return err
+	}
 	if playerIsDead(ctx) {
 		return fmt.Errorf("player is dead")
 	}
@@ -516,11 +534,14 @@ func (pending pendingSkillTarget) hasTarget() bool {
 }
 
 func (pending pendingSkillTarget) targetCell(ctx client.Context, now time.Time) (int, int, bool) {
+	if !localStealthAllowsSkill(ctx, pending.skill.ID) {
+		return 0, 0, false
+	}
 	if pending.ground {
 		return pending.x, pending.y, walkTargetInBounds(ctx, pending.x, pending.y)
 	}
 	actor, ok := ctx.World.Actors[pending.targetID]
-	if !ok {
+	if !ok || actorHasStealth(actor) {
 		return 0, 0, false
 	}
 	x, y := actorCurrentCell(actor, now)

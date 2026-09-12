@@ -31,6 +31,11 @@ type Context struct {
 	UIManager         UIManager
 }
 
+// PlayerHasEffectState reads the server's actor options, not status-icon timers.
+func (c Context) PlayerHasEffectState(mask uint32) bool {
+	return c.World != nil && c.World.Player.EffectState&mask != 0
+}
+
 type UIApp interface {
 	SetUIRoot(widget.Widget)
 	Frame()

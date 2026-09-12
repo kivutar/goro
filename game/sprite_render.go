@@ -199,7 +199,7 @@ func (m *WorldMode) drawPlayerSprite3D(ctx client.Context, screen *render.Frame,
 	if !ok {
 		return false
 	}
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerRenderScale(ctx, actor, entry.scale, now), alpha, shadow, m.playerRenderTint(ctx, actor, now))
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerRenderScale(ctx, actor, entry.scale, now), alpha, shadow, entry.stealth.tint(m.playerRenderTint(ctx, actor, now)))
 	return true
 }
 

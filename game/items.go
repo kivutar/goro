@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
 	"image"
 	"image/color"
@@ -140,6 +141,9 @@ func itemPickupAckAddsItem(ack network.ItemPickupAck) bool {
 }
 
 func (m *WorldMode) requestPickup(ctx client.Context, item worldstate.FloorItem, source string) bool {
+	if ctx.PlayerHasEffectState(db.EffectStateHide) {
+		return false
+	}
 	if playerIsDead(ctx) {
 		return false
 	}
@@ -247,6 +251,9 @@ func pendingPickupReadyAt(player worldstate.Actor, now time.Time) time.Time {
 }
 
 func (m *WorldMode) sendPickupRequest(ctx client.Context, item worldstate.FloorItem, source string) bool {
+	if ctx.PlayerHasEffectState(db.EffectStateHide) {
+		return false
+	}
 	if err := ctx.Network.SendItemPickup(item.ID); err == nil {
 		m.facePlayerTowardItem(ctx, item)
 		m.setWalkCooldown(walkRequestCooldown)
