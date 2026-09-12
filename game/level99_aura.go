@@ -47,6 +47,10 @@ func (m *WorldMode) syncActorLevel99AuraEffects(ctx client.Context, actorID uint
 	if !hasLevel {
 		return
 	}
+	if actor, ok, _ := actorForCombatID(ctx, actorID); ok && actorHasStealth(actor) {
+		m.removeLevel99AuraEffects(actorID)
+		return
+	}
 	var wanted []int
 	if level >= level99AuraLevel {
 		wanted = level99AuraEffectIDs(ctx)

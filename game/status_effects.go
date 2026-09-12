@@ -25,7 +25,6 @@ func (m *WorldMode) applyStatusEffectChange(ctx client.Context, change network.S
 	if !applyLocalStatusEffectChange(ctx.Session, change, time.Now()) {
 		return
 	}
-	m.addStatusEffectTransition(ctx, change)
 	if !change.Active {
 		glog.Debugf("status effect inactive id=%d actor=%d", change.StatusID, change.ActorID)
 		return
@@ -215,19 +214,6 @@ func (m *WorldMode) setTrickDeadStatusAction(ctx client.Context, id uint32, acti
 	})
 }
 
-func (m *WorldMode) addStatusEffectTransition(ctx client.Context, change network.StatusEffectChange) {
-	if change.StatusID != db.StatusHiding {
-		return
-	}
-	effectID := effectSummonSlave
-	if change.Active {
-		effectID = effectBashBegin
-	}
-	if m.addWorldEffect(ctx, effectID, localSkillTarget(ctx)) {
-		glog.Debugf("status effect transition id=%d active=%t effect=%d", change.StatusID, change.Active, effectID)
-	}
-}
-
 func removeExpiredStatusEffects(s *session.Session, now time.Time) {
 	if s == nil {
 		return
@@ -245,8 +231,4 @@ func localActorHasStatus(ctx client.Context, statusID uint16) bool {
 	}
 	_, ok := ctx.Session.Statuses.Active[statusID]
 	return ok
-}
-
-func localActorHidden(ctx client.Context) bool {
-	return localActorHasStatus(ctx, db.StatusHiding)
 }

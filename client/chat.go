@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/network"
 )
 
@@ -54,6 +55,9 @@ func SendChat(ctx Context, input string) error {
 
 // SetSitting requests a sit or stand action and updates the local player state.
 func SetSitting(ctx Context, sit bool) error {
+	if ctx.PlayerHasEffectState(db.EffectStateHide) {
+		return fmt.Errorf("cannot sit or stand while hiding")
+	}
 	if ctx.Network == nil {
 		return fmt.Errorf("not connected")
 	}

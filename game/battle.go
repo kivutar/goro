@@ -254,6 +254,10 @@ func maxDuration(a, b time.Duration) time.Duration {
 }
 
 func (m *WorldMode) requestAttack(ctx client.Context, actor world.Actor, source string) {
+	if !localStealthAllowsSkill(ctx, 0) || actorHasStealth(actor) {
+		m.cancelAttackIntent()
+		return
+	}
 	if playerIsDead(ctx) {
 		return
 	}
@@ -472,6 +476,10 @@ func pendingAttackReadyAt(player world.Actor, now time.Time) time.Time {
 }
 
 func (m *WorldMode) sendAttackAction(ctx client.Context, actor world.Actor, source string) {
+	if !localStealthAllowsSkill(ctx, 0) || actorHasStealth(actor) {
+		m.cancelAttackIntent()
+		return
+	}
 	if err := ctx.Network.SendActionRequest(actor.ID, network.ActionAttack); err == nil {
 		m.lastAttackAt = time.Now()
 		m.setWalkCooldown(walkRequestCooldown)

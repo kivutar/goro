@@ -20,12 +20,47 @@ func (m *WorldMode) applyActorStateChange(ctx client.Context, change network.Act
 		return
 	}
 	m.applyActorEffectStateEffects(ctx, change.ID, oldState, change.EffectState)
+	if (oldState^change.EffectState)&db.EffectStateHide != 0 {
+		m.addWorldEffect(ctx, effectSummonSlave, change.ID)
+		actor, _, _ := actorForCombatID(ctx, change.ID)
+		if change.EffectState&db.EffectStateHide != 0 && actor.Job != db.JobNinja {
+			m.addWorldEffect(ctx, effectBashBegin, change.ID)
+		}
+	}
+	if change.EffectState&actorStealthMask != 0 {
+		m.removeLevel99AuraEffects(change.ID)
+		delete(m.speechBubbles, change.ID)
+		if local {
+			m.removeLevel99AuraEffects(localSkillTarget(ctx))
+			delete(m.speechBubbles, localSkillTarget(ctx))
+		}
+	}
 	if local {
+		if !localStealthAllowsSkill(ctx, 0) {
+			m.cancelAttackIntent()
+		}
+		if ctx.PlayerHasEffectState(db.EffectStateHide) {
+			m.pendingPickup = pickupIntent{}
+		}
+		if !localStealthAllowsSkill(ctx, m.pendingSkill.skill.ID) {
+			m.pendingSkill = pendingSkillTarget{}
+		}
 		if newVisualJob := localPlayerVisualJob(ctx); newVisualJob != oldVisualJob {
 			m.reloadPlayerSpriteView(ctx, fmt.Sprintf("state effect=0x%08X", change.EffectState))
 		}
 		glog.Debugf("actor state local id=%d body=%d health=0x%04X effect=0x%08X", change.ID, change.BodyState, change.HealthState, change.EffectState)
 		return
+	}
+	if change.EffectState&actorStealthMask != 0 {
+		if m.pendingAttack.targetID == change.ID || m.lockedAttackID == change.ID {
+			m.cancelAttackIntent()
+		}
+		if m.pendingSkill.targetID == change.ID {
+			m.pendingSkill = pendingSkillTarget{}
+		}
+		if m.attackFocusID == change.ID {
+			m.clearAttackFocus()
+		}
 	}
 	glog.Debugf("actor state id=%d body=%d health=0x%04X effect=0x%08X", change.ID, change.BodyState, change.HealthState, change.EffectState)
 }

@@ -417,7 +417,7 @@ func hoveredCursorActor(ctx client.Context, projection sceneProjection, mouseX, 
 		if _, dead := deadActors[actor.ID]; dead {
 			continue
 		}
-		if isLocalActor(ctx, actor.ID) || actor.ID == 0 {
+		if actorHasStealth(actor) || isLocalActor(ctx, actor.ID) || actor.ID == 0 {
 			continue
 		}
 		if int(actor.Job) == actorJobClearNPC {

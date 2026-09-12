@@ -13,15 +13,26 @@ separate validation section and must not be implemented blindly.
 
 ### Stealth
 
-- [ ] Treat Hide, Cloaking, Invisible, and Chase Walk consistently when deciding how an actor is rendered.
-- [ ] Render the local player with the correct translucent/hidden-viewer appearance for every supported stealth state, not only `SC_HIDING`.
-- [ ] Apply the appropriate movement and input restrictions while the local player is hidden.
-- [ ] Exclude actors that should not be targetable or pickable while hidden.
-- [ ] Add focused tests for the local player, an allowed hidden viewer, an ordinary remote player, PvP, and WoE.
+- [x] Use server actor options for Hide, Cloaking, Invisible, and Chase Walk, independently of status-icon timers.
+- [x] Apply the 2008 hidden-viewer rendering rules to local and remote actors.
+- [x] Apply movement and action restrictions, including Tunnel Drive, the six skills usable while Hiding, and Chase Walk's own toggle.
+- [x] Exclude hidden actors from picking and targeting, and cancel queued actions when visibility changes.
+- [x] Suppress hidden actors' names, emblems, auras, carts, and falcons.
+- [x] Add focused rendering and packet tests for self, party, detection, GM, ordinary viewers, PvP, and WoE.
+- [ ] Compare the full flow visually against a running 2008 client and server.
 
-Current limitation: `localActorHidden` only checks `db.StatusHiding`, although
-the siege-emblem code already recognizes Hide, Cloak, Invisible, and Chase
-Walk as hidden states.
+The 2008 executable differs from classic-ro-client and the later dhxj source:
+Hiding keeps a shadow for self/GM, Cloaking hides even self and party bodies,
+Clairvoyance reveals a black body without a shadow, and Invisible remains
+unseen. The later translucent party view is deliberately not imported.
+Seeing a silhouette does not permit selecting a hidden target.
+
+Verified against `~/src/ro-client-re`'s `2008-09-10aSakexe.exe`:
+`CGameActor::SetAttrState` at `0x00572b80`, `CPc::Render` at `0x005e4920`,
+`CSession::IsMasterAid` at `0x006711a0`, and `CPlayer::SendMsg` at `0x005ee950`.
+The Ninja skill exceptions and server option combinations were also checked
+against `~/src/eathena/src/map/status.c` and rAthena. No new packets or
+duplicated stealth state are needed.
 
 ### Quest journal and markers
 

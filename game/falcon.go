@@ -275,15 +275,11 @@ func (m *WorldMode) drawSceneActorFalcons(screen *render.Frame, ctx client.Conte
 	now := time.Now()
 	activeOwners := make(map[uint32]struct{})
 	for _, entry := range entries {
-		if !actorHasFalcon(entry.actor) {
+		if actorHasStealth(entry.actor) || !actorHasFalcon(entry.actor) {
 			continue
 		}
 		activeOwners[entry.actor.ID] = struct{}{}
-		alpha := 1.0
-		if entry.hidden {
-			alpha = 0.35
-		}
-		alpha *= m.actorVisualAlpha(entry.actor.ID, now)
+		alpha := m.actorVisualAlpha(entry.actor.ID, now)
 		m.drawActorFalcon3D(screen, ctx, projection, entry.actor, projection.cameraYaw, alpha, now)
 	}
 	m.pruneFalconStates(activeOwners)

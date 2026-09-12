@@ -80,35 +80,31 @@ func TestApplyStatusEffectChangeTracksLocalStatus(t *testing.T) {
 	}
 }
 
-func TestApplyHidingStatusTogglesLocalHiddenStateAndTransitionEffects(t *testing.T) {
-	world := worldstate.New()
-	world.Player = worldstate.Actor{ID: 150000, X: 10, Y: 20}
-	sessionState := &session.Session{AccountID: 2000000, CharID: 150000}
-	ctx := client.Context{Session: sessionState, World: world}
+func TestHidingUsesActorOptionsInsteadOfStatusIcons(t *testing.T) {
+	ctx := client.Context{
+		World:   worldstate.New(),
+		Session: &session.Session{AccountID: 2000000, CharID: 150000},
+	}
+	ctx.World.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
 	mode := &WorldMode{}
-
-	mode.applyStatusEffectChange(ctx, network.StatusEffectChange{
-		StatusID: db.StatusHiding,
-		ActorID:  2000000,
-		Active:   true,
-	})
-	if !localActorHidden(ctx) {
-		t.Fatal("hiding status did not mark the local actor hidden")
+	mode.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusHiding, ActorID: 2000000, Active: true, HasDuration: true, Duration: time.Second})
+	if ctx.PlayerHasEffectState(db.EffectStateHide) || len(mode.worldEffects) != 0 {
+		t.Fatal("status icon changed actor visibility or duplicated its transition")
 	}
-	if len(mode.worldEffects) != 1 || mode.worldEffects[0].effectID != effectBashBegin {
-		t.Fatalf("hide enter effects = %+v, want EF_BASH", mode.worldEffects)
+	change := network.ActorStateChange{ID: 2000000, EffectState: db.EffectStateHide}
+	mode.applyActorStateChange(ctx, change)
+	mode.applyActorStateChange(ctx, change)
+	removeExpiredStatusEffects(ctx.Session, time.Now().Add(time.Hour))
+	if !ctx.PlayerHasEffectState(db.EffectStateHide) {
+		t.Fatal("status icon expiry revealed the player")
 	}
-
-	mode.applyStatusEffectChange(ctx, network.StatusEffectChange{
-		StatusID: db.StatusHiding,
-		ActorID:  2000000,
-		Active:   false,
-	})
-	if localActorHidden(ctx) {
-		t.Fatal("inactive hiding status still marks the local actor hidden")
+	if len(mode.worldEffects) != 2 || mode.worldEffects[0].effectID != effectSummonSlave || mode.worldEffects[1].effectID != effectBashBegin {
+		t.Fatalf("hide effects = %+v, want one transition", mode.worldEffects)
 	}
-	if len(mode.worldEffects) != 2 || mode.worldEffects[1].effectID != effectSummonSlave {
-		t.Fatalf("hide exit effects = %+v, want EF_SUMMONSLAVE", mode.worldEffects)
+	change.EffectState = 0
+	mode.applyActorStateChange(ctx, change)
+	if ctx.PlayerHasEffectState(db.EffectStateHide) {
+		t.Fatal("actor remained hidden after option cleared")
 	}
 }
 

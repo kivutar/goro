@@ -10,6 +10,9 @@ import (
 
 // UseInventoryItem requests use of a consumable inventory entry.
 func UseInventoryItem(ctx Context, item session.InventoryItem) error {
+	if ctx.PlayerHasEffectState(db.EffectStateHide) {
+		return fmt.Errorf("cannot use items while hiding")
+	}
 	if ctx.Session != nil && ctx.Session.Dead {
 		return fmt.Errorf("player is dead")
 	}

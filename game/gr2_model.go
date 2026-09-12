@@ -50,7 +50,7 @@ func (m *WorldMode) drawNonPCGR2Model3D(screen *render.Frame, ctx client.Context
 	if ctx.World != nil {
 		lighting = m.sceneLighting(ctx.World.RSW)
 	}
-	tint := m.actorRenderTint(actor, now)
+	tint := entry.stealth.tint(m.actorRenderTint(actor, now))
 	alpha := m.actorVisualAlpha(actor.ID, now)
 	if alpha <= 0 {
 		return true

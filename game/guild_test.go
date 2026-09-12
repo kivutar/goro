@@ -436,11 +436,10 @@ func TestSiegeGuildEmblemEligibilityAndPosition(t *testing.T) {
 	if !siegeActorShowsGuildEmblem(entry) {
 		t.Fatal("visible guild actor did not qualify for a siege emblem")
 	}
-	entry.hidden = true
+	entry.actor.EffectState = db.EffectStateHide
 	if siegeActorShowsGuildEmblem(entry) {
 		t.Fatal("hidden actor qualified for a siege emblem")
 	}
-	entry.hidden = false
 	entry.actor.EffectState = db.EffectStateCloak
 	if siegeActorShowsGuildEmblem(entry) {
 		t.Fatal("cloaked actor qualified for a siege emblem")

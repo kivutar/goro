@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	worldstate "github.com/kivutar/goro/world"
@@ -151,6 +152,9 @@ func actorCurrentCell(actor worldstate.Actor, now time.Time) (int, int) {
 
 func (m *WorldMode) requestWalk(ctx client.Context, targetX, targetY int, source string) bool {
 	if playerIsDead(ctx) {
+		return false
+	}
+	if ctx.PlayerHasEffectState(db.EffectStateHide) && learnedSkillLevel(ctx.Session, db.SkillRGTunneldrive) == 0 {
 		return false
 	}
 	if ctx.World == nil || ctx.Network == nil || !walkTargetInBounds(ctx, targetX, targetY) {
