@@ -18,6 +18,39 @@ function tick()
 end
 ```
 
+## Headless mode
+
+Run the same scripts without a window or audio:
+
+```sh
+./goro --headless --data-dir ~/OldRO \
+  --username tester --password secret --char-slot 0 \
+  --script scripts/loot-and-attack.lua
+```
+
+`--headless` enables automatic login and requires credentials and a character
+slot (0–8). These can also come from the existing `[login]` configuration.
+As with `--autologin`, the first login server and first character server are
+selected. The script is optional; without one the client stays connected.
+
+The client still needs game data for map walkability, item/skill metadata, and
+animation timing. It skips the window, renderer, terrain/scenery loading, and
+interactive input. `--no-ui` only hides the graphical client's UI and is not a
+substitute for headless mode.
+
+Gameplay updates run at 60 Hz and Lua `tick()` retains its roughly 150 ms
+interval. `input()` is still called, with `goro.keyboard.available()` returning
+`false`. Scripts reload when entering a different map, as in the graphical
+client; same-map warps retain script state. Server progress bars still pause
+actions, and bot ticks continue while dead.
+
+Ctrl+C or SIGTERM stops the client and closes its connection. Login failures
+(including a 30-second login timeout), missing maps, disconnects, and script
+errors exit with a nonzero status. There is no automatic reconnect. Interactions
+requiring a window, such as NPC dialogs or choosing a teleport destination,
+also exit with an explanatory error; the Lua API does not yet answer those
+prompts. Level-1 Teleport's existing automatic random destination still works.
+
 ## API
 
 All functions are exposed through the global `goro` table.

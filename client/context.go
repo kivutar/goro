@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/gogpu/ui/widget"
@@ -14,6 +15,7 @@ import (
 )
 
 type Context struct {
+	ScriptContext     context.Context
 	Config            config.Config
 	Input             *input.State
 	Resources         *res.Manager

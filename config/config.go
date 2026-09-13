@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	Headless bool
 	DataDir  string
 	Window   WindowConfig
 	Packet   PacketConfig
@@ -305,6 +306,7 @@ func applyCLI(cfg *Config, args []string) error {
 	configPath := ""
 	windowed := false
 	fs.StringVar(&configPath, "config", "", "path to goro ini configuration")
+	fs.BoolVar(&cfg.Headless, "headless", false, "run without a window or audio (implies autologin)")
 	fs.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "Ragnarok data directory")
 	fs.StringVar(&cfg.Window.Title, "title", cfg.Window.Title, "window title")
 	fs.IntVar(&cfg.Window.Width, "width", cfg.Window.Width, "window width")
@@ -350,6 +352,20 @@ func applyCLI(cfg *Config, args []string) error {
 	}
 	if windowed {
 		cfg.Window.Fullscreen = false
+	}
+	if cfg.Headless {
+		cfg.Login.AutoLogin = true
+		cfg.Audio.Disabled = true
+		username := cfg.Login.Username
+		if username == "" && cfg.Login.KeepID {
+			username = cfg.Login.SavedUsername
+		}
+		if strings.TrimSpace(username) == "" || cfg.Login.Password == "" {
+			return fmt.Errorf("headless mode requires a login ID and password")
+		}
+		if cfg.Login.CharSlot < 0 {
+			return fmt.Errorf("headless mode requires --char-slot (0 to 8)")
+		}
 	}
 	return validateConfig(cfg)
 }

@@ -32,6 +32,10 @@ type ConfirmModal struct {
 	openedFrame uint64
 }
 
+func (m *ConfirmModal) Message() string {
+	return m.message
+}
+
 func (m *ConfirmModal) Open(ctx client.Context, title, message string, onOK, onCancel func()) {
 	m.title = title
 	m.message = message

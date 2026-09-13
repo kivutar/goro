@@ -2434,7 +2434,6 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		m.whitePixel = render.NewImage(1, 1)
 		m.whitePixel.Fill(color.White)
 	}
-	active := m.worldEffects[:0]
 	for _, effect := range m.worldEffects {
 		if now.After(effect.expires) {
 			continue
@@ -2443,7 +2442,6 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		if !ok {
 			continue
 		}
-		active = append(active, effect)
 		if now.Before(effect.starts) {
 			continue
 		}
@@ -2471,7 +2469,6 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 			m.drawWorldEffectComponent(screen, ctx, projection, effect, component, index, worldX, worldY, worldZ, progress, componentDuration, now)
 		}
 	}
-	m.worldEffects = active
 }
 
 func (m *WorldMode) worldEffectResolvedComponentDuration(ctx client.Context, spec worldEffectSpec, component worldEffectComponent) time.Duration {

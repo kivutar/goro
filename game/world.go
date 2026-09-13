@@ -394,10 +394,18 @@ func (m *WorldMode) Name() string {
 	return "world"
 }
 
+func (m *WorldMode) Close() {
+	m.bot.close()
+	m.bot = nil
+	m.companionAI.close()
+}
+
 func (m *WorldMode) Enter(ctx client.Context) Mode {
 	now := time.Now()
 	m.bindNPCDialogLifecycle()
-	m.startMapPrewarm()
+	if !ctx.Config.Headless {
+		m.startMapPrewarm()
+	}
 	m.camera.ResetTracking()
 	ctx.World.GAT = nil
 	ctx.World.GND = nil
@@ -521,6 +529,16 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	}
 	render.SetCursorMode(render.CursorModeHidden)
 	glog.Debugf("player sprite resources char_id=%d name=%s admin=%t job=%d visual_job=%d hair=%d weapon=%d shield=%d head_top=%d head_mid=%d head_low=%d body_pal=%d head_pal=%d hair_color=%d account_sex=%d %s", character.ID, character.Name, localPlayerIsAdmin(ctx), character.Job, visualCharacter.Job, character.Hair, character.Weapon, character.Shield, character.HeadTop, character.HeadMid, character.HeadLow, character.BodyPal, character.HeadPal, character.HairColor, ctx.Session.Sex, playerStatus)
+	if ctx.Config.Headless {
+		// Keep GAT and actor animation resources for navigation and combat
+		// timing. Terrain meshes, scenery and UI are presentation only.
+		if ctx.World.MapName != "" {
+			if err := ctx.Network.SendLoadEndAck(); err != nil {
+				return newMapErrorMode(ctx, err, m.ui.console)
+			}
+		}
+		return nil
+	}
 	m.rebindPersistentUI(ctx)
 	if ctx.World.MapName == "" {
 		return nil
@@ -610,15 +628,21 @@ func (m *WorldMode) playMapBGM(ctx client.Context, rswName string) {
 
 func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
+	m.pruneVisualState(now)
+	if ctx.Config.Headless && m.ui.disconnectDialog.IsOpen() {
+		return nil, fmt.Errorf("disconnected: %s", m.ui.disconnectDialog.Message())
+	}
 	if m.mapFade.phase == mapFadeOut {
-		if !m.mapFadeElapsed(now) {
+		if !ctx.Config.Headless && !m.mapFadeElapsed(now) {
 			return nil, nil
 		}
 		m.mapFade.phase = mapFadeHold
 		m.mapFade.coveredFrames = 0
-		return nil, nil
+		if !ctx.Config.Headless {
+			return nil, nil
+		}
 	}
-	if m.mapFade.phase == mapFadeHold && m.mapFade.coveredFrames >= mapFadeHandoffFrames {
+	if m.mapFade.phase == mapFadeHold && (ctx.Config.Headless || m.mapFade.coveredFrames >= mapFadeHandoffFrames) {
 		if m.mapFade.characterSelect {
 			return m.nextCharacterSelectMode(ctx), nil
 		}
@@ -630,7 +654,11 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 				return next, nil
 			}
 			if !m.pendingWarp {
-				m.startMapFadeIn(now)
+				if ctx.Config.Headless {
+					m.mapFade = mapFadeState{}
+				} else {
+					m.startMapFadeIn(now)
+				}
 			}
 			return nil, nil
 		}
@@ -673,6 +701,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	m.cleanupVanishedActors(ctx, now)
 	m.processScheduledActorStops(ctx, now)
 	m.processScheduledWalkResumes(ctx, now)
+	if ctx.Config.Headless {
+		// Scheduled sounds are produced alongside combat timing. Drain them
+		// even with audio disabled, without loading ambient sound resources.
+		m.playDueScheduledSounds(ctx, now)
+		if m.mapFade.phase == mapFadeHold || progressBlocksActions {
+			return nil, nil
+		}
+		return nil, m.updateHeadless(ctx, now)
+	}
 	m.processActorMotionSounds(ctx, now)
 	m.processMapSounds(ctx, now)
 	m.playDueScheduledSounds(ctx, now)
@@ -1455,7 +1492,6 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.statusIcons = m.ui.statusIcons
 	next.ui.pvpCounter = m.ui.pvpCounter
 	next.ui.levelUpNotifications = m.ui.levelUpNotifications
-	m.companionAI.close()
 	return next
 }
 
