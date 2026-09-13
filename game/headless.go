@@ -8,9 +8,6 @@ import (
 )
 
 func (m *WorldMode) updateHeadless(ctx client.Context, now time.Time) error {
-	if m.ui.disconnectDialog.IsOpen() {
-		return fmt.Errorf("disconnected: %s", m.ui.disconnectDialog.Message())
-	}
 	if m.ui.npcDialog.IsOpen() {
 		return fmt.Errorf("headless mode cannot respond to an NPC dialog")
 	}

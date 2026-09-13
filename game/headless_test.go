@@ -196,7 +196,6 @@ func TestHeadlessCombatKeepsMovementTimingWithoutDrawing(t *testing.T) {
 	if ctx.World.Player.Moving {
 		t.Fatal("casting did not stop walking")
 	}
-
 }
 
 func TestHeadlessLoginRejectsEmptyServerAndCharacterLists(t *testing.T) {
