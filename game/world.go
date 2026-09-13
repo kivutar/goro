@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -495,14 +496,6 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	m.ui.npcDialog.ResetPublished(ctx)
 	m.ui.npcCutin.Clear()
 	ctx.World.Items = make(map[uint32]worldstate.FloorItem)
-	if ctx.Config.Headless {
-		if ctx.World.MapName != "" {
-			if err := ctx.Network.SendLoadEndAck(); err != nil {
-				return newMapErrorMode(ctx, err, m.ui.console)
-			}
-		}
-		return nil
-	}
 	playerStatus := ""
 	character := ctx.Session.SelectedCharacter()
 	visualCharacter := localPlayerVisualCharacter(ctx)
@@ -624,20 +617,42 @@ func (m *WorldMode) playMapBGM(ctx client.Context, rswName string) {
 	}
 }
 
+// Expiration runs even when updates are not followed by a draw.
+func (m *WorldMode) expireVisualState(now time.Time) {
+	m.damageFloaters = slices.DeleteFunc(m.damageFloaters, func(f damageFloater) bool {
+		return now.After(f.expires)
+	})
+	m.worldEffects = slices.DeleteFunc(m.worldEffects, func(e worldEffect) bool {
+		return now.After(e.expires)
+	})
+	for id, bubble := range m.speechBubbles {
+		if now.After(bubble.expires) {
+			delete(m.speechBubbles, id)
+		}
+	}
+	for id, bar := range m.actorCastBars {
+		if _, active := actorCastBarProgress(bar, now); !active {
+			delete(m.actorCastBars, id)
+		}
+	}
+	for id := range m.actorAnims {
+		m.actorAnimation(id, now)
+	}
+}
+
 func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
+	m.expireVisualState(now)
 	if ctx.Config.Headless && m.ui.disconnectDialog.IsOpen() {
 		return nil, fmt.Errorf("disconnected: %s", m.ui.disconnectDialog.Message())
 	}
 	if m.mapFade.phase == mapFadeOut {
-		if !ctx.Config.Headless && !m.mapFadeElapsed(now) {
+		if !m.mapFadeElapsed(now) {
 			return nil, nil
 		}
 		m.mapFade.phase = mapFadeHold
 		m.mapFade.coveredFrames = 0
-		if !ctx.Config.Headless {
-			return nil, nil
-		}
+		return nil, nil
 	}
 	if m.mapFade.phase == mapFadeHold && (ctx.Config.Headless || m.mapFade.coveredFrames >= mapFadeHandoffFrames) {
 		if m.mapFade.characterSelect {
@@ -651,11 +666,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 				return next, nil
 			}
 			if !m.pendingWarp {
-				if ctx.Config.Headless {
-					m.mapFade = mapFadeState{}
-				} else {
-					m.startMapFadeIn(now)
-				}
+				m.startMapFadeIn(now)
 			}
 			return nil, nil
 		}
@@ -675,16 +686,14 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	// Status presentation must follow server updates even when a window or
 	// modal consumes input for the rest of the frame.
 	removeExpiredStatusEffects(ctx.Session, now)
+	m.ui.statusIcons.Update(ctx, now)
 	m.updateMail(ctx, now)
+	m.ui.pvpCounter.Update(ctx)
 	progressBlocksActions := m.updateServerProgress(ctx, now)
-	if !ctx.Config.Headless {
-		m.ui.statusIcons.Update(ctx, now)
-		m.ui.pvpCounter.Update(ctx)
-		if !progressBlocksActions && m.handleLevelUpNotificationAction(ctx, m.ui.levelUpNotifications.Update(ctx)) {
-			// The notification click belongs exclusively to the UI. Returning here
-			// prevents the same press from reaching the map after the icon closes.
-			return nil, nil
-		}
+	if !progressBlocksActions && m.handleLevelUpNotificationAction(ctx, m.ui.levelUpNotifications.Update(ctx)) {
+		// The notification click belongs exclusively to the UI. Returning here
+		// prevents the same press from reaching the map after the icon closes.
+		return nil, nil
 	}
 	if !progressBlocksActions {
 		m.updatePendingAttack(ctx, "update", false)
@@ -700,18 +709,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	m.cleanupVanishedActors(ctx, now)
 	m.processScheduledActorStops(ctx, now)
 	m.processScheduledWalkResumes(ctx, now)
+	m.processActorMotionSounds(ctx, now)
+	m.processMapSounds(ctx, now)
+	m.playDueScheduledSounds(ctx, now)
 	if ctx.Config.Headless {
-		// Scheduled sounds are produced alongside combat timing. Drain them
-		// even with audio disabled, without loading ambient sound resources.
-		m.playDueScheduledSounds(ctx, now)
 		if m.mapFade.phase == mapFadeHold || progressBlocksActions {
 			return nil, nil
 		}
 		return nil, m.updateHeadless(ctx, now)
 	}
-	m.processActorMotionSounds(ctx, now)
-	m.processMapSounds(ctx, now)
-	m.playDueScheduledSounds(ctx, now)
 
 	m.camera.Update(ctx, now)
 	if m.mapFade.phase == mapFadeHold || m.mapFade.phase == mapFadePrewarm {

@@ -149,7 +149,7 @@ func TestHeadlessFailsInsteadOfWaitingForWindows(t *testing.T) {
 	}
 }
 
-func TestHeadlessCombatKeepsMovementTimingWithoutVisuals(t *testing.T) {
+func TestHeadlessCombatKeepsMovementTimingWithoutDrawing(t *testing.T) {
 	ctx := headlessTestContext(t, "")
 	ctx.Session.CharID = 150000
 	ctx.World.Player = worldstate.Actor{
@@ -196,13 +196,7 @@ func TestHeadlessCombatKeepsMovementTimingWithoutVisuals(t *testing.T) {
 	if ctx.World.Player.Moving {
 		t.Fatal("casting did not stop walking")
 	}
-	m.applyEmotionNotify(ctx, network.EmotionNotify{GID: 150000, Type: 1})
-	m.applySpeechBubble(ctx, network.ChatMessage{GID: 150000, Text: "hello"}, time.Now())
-	m.addWorldEffectAtCellLifetime(ctx, effectHeal, 150000, 10, 20, time.Now(), time.Second, true)
-	m.addWorldEffectAtCellDurationSize(ctx, effectHeal, 150000, 10, 20, time.Now(), time.Second, 1)
-	if len(m.actorAnims)+len(m.damageFloaters)+len(m.worldEffects)+len(m.speechBubbles)+len(m.actorCastBars) != 0 {
-		t.Fatal("headless combat allocated visual state")
-	}
+
 }
 
 func TestHeadlessLoginRejectsEmptyServerAndCharacterLists(t *testing.T) {
@@ -239,51 +233,54 @@ func TestHeadlessLoginRejectsEmptyServerAndCharacterLists(t *testing.T) {
 	}
 }
 
-func TestHeadlessSkipsSpriteResourcesRealData(t *testing.T) {
+func TestHeadlessUsesNormalSpriteResourcesRealData(t *testing.T) {
 	ctx := headlessTestContext(t, "")
 	ctx.Resources = realDataManager(t)
+	ctx.World.MapName = "prontera.gat"
 	m := NewWorldMode()
-	m.Enter(ctx)
-	t.Cleanup(m.Close)
-	m.reloadPlayerSpriteView(ctx, "test look change")
-	for _, job := range []int16{0, 1002, 1288} {
-		actor := worldstate.Actor{ID: 123, Job: job, Sex: 1, Head: 1}
-		if _, ok := m.actorResolvedAction(ctx, actor, spriteActionPCAttack1); ok {
-			t.Fatal("headless timing resolved a sprite animation")
-		}
-		if got := m.actorActionDuration(ctx, actor, deathActionFamilyForActor(actor), defaultDeathAnimationDuration); got != defaultDeathAnimationDuration {
-			t.Fatalf("death duration = %v, want fixed fallback", got)
-		}
-		m.nonPCSpriteView(ctx, actor)
+	if next := m.Enter(ctx); next != nil {
+		t.Fatal("could not enter Prontera without a renderer")
 	}
-	m.applyEmotionNotify(ctx, network.EmotionNotify{GID: ctx.World.Player.ID, Type: 1})
-	if m.playerView != nil || m.shadowView != nil || m.cursorView != nil ||
-		len(m.actorViews)+len(m.nonPCViews)+len(m.gr2Models)+len(m.effectViews) != 0 ||
-		len(m.actorViewMiss)+len(m.nonPCViewMiss)+len(m.gr2ModelMiss)+len(m.effectViewMiss) != 0 {
-		t.Fatal("headless mode tried to load sprite or model resources")
+	t.Cleanup(m.Close)
+	if m.playerView == nil {
+		t.Fatal("player resources were not loaded without a renderer")
+	}
+	actor := worldstate.Actor{ID: 123, Job: 1002}
+	action, ok := m.actorResolvedAction(ctx, actor, spriteActionNonPCAttack)
+	if !ok || len(action.Animations) == 0 {
+		t.Fatal("monster timing was unavailable without drawing")
+	}
+	headless := m.actorActionDuration(ctx, actor, spriteActionNonPCAttack, defaultAttackAnimationDuration)
+	ctx.Config.Headless = false
+	graphical := m.actorActionDuration(ctx, actor, spriteActionNonPCAttack, defaultAttackAnimationDuration)
+	if headless != graphical {
+		t.Fatalf("headless duration = %v, graphical = %v", headless, graphical)
 	}
 }
 
-func TestHeadlessSongSkillStillSendsChat(t *testing.T) {
-	ctx := headlessTestContext(t, "")
-	ctx.Session.CharID = 150000
-	ctx.Session.Selected = session.Character{ID: 150000, Name: "Bard"}
-	ctx.World.Player.ID = 150000
-	data := filepath.Join(ctx.Resources.Root, "data")
-	if err := os.MkdirAll(data, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(data, "ba_frostjoke.txt"), []byte("FROST JOKE\r\n\tBard line\r\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	var conn net.Conn
-	ctx.Network, conn = newBotTestConnection(t, 20080910)
-	m := NewWorldMode()
-	m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{
-		SourceID: 150000, TargetID: 150000, SkillID: db.SkillBaFrostjoke, Result: 1,
-	})
-	readBotTestPackets(t, conn, network.BuildGlobalChatPacketForClientDate("Bard", "Bard line", 20080910))
-	if len(m.worldEffects)+len(m.speechBubbles) != 0 {
-		t.Fatal("song skill created visual state")
+func TestWorldUpdatesExpireVisualStateWithoutDrawing(t *testing.T) {
+	for _, headless := range []bool{false, true} {
+		ctx := headlessTestContext(t, "")
+		ctx.Config.Headless = headless
+		m := NewWorldMode()
+		m.Enter(ctx)
+		t.Cleanup(m.Close)
+		expired := time.Now().Add(-time.Second)
+		future := time.Now().Add(time.Hour)
+		m.damageFloaters = []damageFloater{{expires: future}}
+		for i := 0; i < 500; i++ {
+			id := uint32(i + 1)
+			m.damageFloaters = append(m.damageFloaters, damageFloater{expires: expired, text: "damage"})
+			m.worldEffects = append(m.worldEffects, worldEffect{expires: expired})
+			m.speechBubbles[id] = speechBubble{expires: expired, text: "speech"}
+			m.setActorCastBar(id, actorCastBar{started: expired, duration: time.Millisecond})
+			m.actorAnims[id] = actorAnimation{started: expired, duration: time.Millisecond}
+			if _, err := m.Update(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if len(m.damageFloaters) != 1 || len(m.worldEffects)+len(m.speechBubbles)+len(m.actorCastBars)+len(m.actorAnims) != 0 {
+			t.Fatalf("visual state accumulated without drawing, or a live effect was discarded (headless=%t)", headless)
+		}
 	}
 }

@@ -1586,9 +1586,6 @@ func isDeathActionFamily(actionFamily int) bool {
 }
 
 func (m *WorldMode) nonPCSpriteView(ctx client.Context, actor worldstate.Actor) *spriteView {
-	if ctx.Config.Headless {
-		return nil
-	}
 	job := int(actor.Job)
 	if _, ok := m.nonPCViewMiss[job]; ok {
 		return nil

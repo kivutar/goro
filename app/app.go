@@ -45,10 +45,9 @@ func New(cfg config.Config) (*Game, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resource manager: %w", err)
 	}
+	loadClientUIFont(resource)
 	if cfg.Headless {
 		cfg.Audio.Disabled = true
-	} else {
-		loadClientUIFont(resource)
 	}
 
 	g := &Game{

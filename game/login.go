@@ -143,11 +143,6 @@ func (m *LoginMode) Enter(ctx client.Context) Mode {
 	}
 	if ctx.Config.Headless {
 		m.headlessDeadline = time.Now().Add(30 * time.Second)
-		if m.phase == loginPhaseCharacter {
-			m.prepareCharacterSelectFromSession(ctx)
-			m.reconnectCharacterServer(ctx)
-		}
-		return nil
 	}
 	m.loadBackground(ctx)
 	m.loadCharacterSelectSkin(ctx)
@@ -177,9 +172,6 @@ func (m *LoginMode) Enter(ctx client.Context) Mode {
 func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
 	if ctx.Config.Headless {
-		if m.mapError != "" {
-			return nil, fmt.Errorf("%s", m.mapError)
-		}
 		if m.disconnectDialog.IsOpen() {
 			return nil, fmt.Errorf("login: %s", m.disconnectDialog.Message())
 		}
@@ -726,16 +718,6 @@ func (m *LoginMode) startWorldFade(now time.Time) {
 }
 
 func (m *LoginMode) updateFade(ctx client.Context, now time.Time) bool {
-	if ctx.Config.Headless {
-		if m.fade.enterWorld {
-			return true
-		}
-		if m.fade.hasTarget {
-			m.phase = m.fade.target
-		}
-		m.fade = loginFadeState{}
-		return false
-	}
 	switch m.fade.phase {
 	case loginFadeOut:
 		if now.Sub(m.fade.started) < loginTransitionDuration {
@@ -752,7 +734,7 @@ func (m *LoginMode) updateFade(ctx client.Context, now time.Time) bool {
 		}
 		m.fade = loginFadeState{phase: loginFadeIn, started: now}
 	case loginFadeHold:
-		return m.fade.enterWorld && m.fade.coveredFrames >= loginWorldHandoffFrames
+		return m.fade.enterWorld && (ctx.Config.Headless || m.fade.coveredFrames >= loginWorldHandoffFrames)
 	case loginFadeIn:
 		if now.Sub(m.fade.started) >= loginTransitionDuration {
 			m.fade = loginFadeState{}

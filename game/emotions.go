@@ -10,9 +10,6 @@ import (
 )
 
 func (m *WorldMode) applyEmotionNotify(ctx client.Context, notify network.EmotionNotify) {
-	if ctx.Config.Headless {
-		return
-	}
 	frame, ok := db.EmotionSpriteFrame(notify.Type)
 	if !ok {
 		return

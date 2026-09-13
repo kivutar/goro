@@ -10,12 +10,12 @@ import (
 	"github.com/kivutar/goro/res"
 )
 
-func (m *WorldMode) applyWorldEffectSideEffects(ctx client.Context, effectID int, actorID uint32, starts time.Time) {
-	switch effectID {
+func (m *WorldMode) applyWorldEffectSideEffects(ctx client.Context, effect worldEffect, starts time.Time) {
+	switch effect.effectID {
 	case effectTalkScream:
-		m.applySongTalk(ctx, actorID, res.SongTalkScream, starts)
+		m.applySongTalk(ctx, effect.actorID, res.SongTalkScream, starts)
 	case effectTalkFrostJoke:
-		m.applySongTalk(ctx, actorID, res.SongTalkFrostJoke, starts)
+		m.applySongTalk(ctx, effect.actorID, res.SongTalkFrostJoke, starts)
 	}
 }
 

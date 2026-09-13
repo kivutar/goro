@@ -33,12 +33,11 @@ slot (0–8). These can also come from the existing `[login]` configuration.
 As with `--autologin`, the first login server and first character server are
 selected. The script is optional; without one the client stays connected.
 
-The client still needs game data for map walkability and item/skill metadata.
-It skips the window, renderer, sprites, effects, terrain/scenery loading, and
-interactive input. Movement and combat use server timings, with fixed fallback
-durations where the graphical client uses animation data. Hit timing therefore
-can differ from the graphical client. `--no-ui` only hides the graphical
-client's UI and is not a substitute for headless mode.
+Headless mode runs the normal game updates and resource loading, without
+creating a window, renderer, or audio device. It uses the same combat timing
+code as the graphical client. Login and map transitions keep their normal
+short delays but do not wait for rendered frames. `--no-ui` only hides the
+graphical client's UI and is not a substitute for headless mode.
 
 Gameplay updates run at 60 Hz and Lua `tick()` retains its roughly 150 ms
 interval. `input()` is still called, with `goro.keyboard.available()` returning

@@ -1010,9 +1010,6 @@ func (m *WorldMode) applySkillCastNotify(ctx client.Context, notify network.Skil
 }
 
 func (m *WorldMode) startActorCastBar(ctx client.Context, sourceID uint32, duration time.Duration, started time.Time) {
-	if ctx.Config.Headless {
-		return
-	}
 	if sourceID == 0 || duration <= 0 {
 		return
 	}
@@ -1411,10 +1408,6 @@ func (m *WorldMode) addWorldEffectBetweenAtDuration(ctx client.Context, effectID
 	if !ok {
 		return false
 	}
-	m.applyWorldEffectSideEffects(ctx, effectID, actorID, starts)
-	if ctx.Config.Headless {
-		return false
-	}
 	duration := spec.duration
 	for _, component := range spec.components {
 		componentDuration := m.worldEffectResolvedComponentDuration(ctx, spec, component)
@@ -1441,13 +1434,11 @@ func (m *WorldMode) addWorldEffectBetweenAtDuration(ctx client.Context, effectID
 	m.worldEffects = append(m.worldEffects, effect)
 	m.scheduleWorldEffectSound(starts, spec, effect)
 	m.startWorldEffectCameraShake(starts, spec)
+	m.applyWorldEffectSideEffects(ctx, effect, starts)
 	return true
 }
 
 func (m *WorldMode) addWorldEffectAtCellLifetime(ctx client.Context, effectID int, actorID uint32, x, y int, starts time.Time, lifetimeOverride time.Duration, persistent bool) bool {
-	if ctx.Config.Headless {
-		return false
-	}
 	if ctx.World == nil {
 		return false
 	}
@@ -1517,9 +1508,6 @@ func (m *WorldMode) addWorldEffectAtCellDurationSize(ctx client.Context, effectI
 }
 
 func (m *WorldMode) addWorldEffectAtCellDurationSizeRotation(ctx client.Context, effectID int, actorID uint32, x, y int, starts time.Time, durationOverride time.Duration, sizeOverride float64, rotationRadiansPerSecond float64) bool {
-	if ctx.Config.Headless {
-		return false
-	}
 	if ctx.World == nil {
 		return false
 	}
@@ -2446,7 +2434,6 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		m.whitePixel = render.NewImage(1, 1)
 		m.whitePixel.Fill(color.White)
 	}
-	active := m.worldEffects[:0]
 	for _, effect := range m.worldEffects {
 		if now.After(effect.expires) {
 			continue
@@ -2455,7 +2442,6 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		if !ok {
 			continue
 		}
-		active = append(active, effect)
 		if now.Before(effect.starts) {
 			continue
 		}
@@ -2483,7 +2469,6 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 			m.drawWorldEffectComponent(screen, ctx, projection, effect, component, index, worldX, worldY, worldZ, progress, componentDuration, now)
 		}
 	}
-	m.worldEffects = active
 }
 
 func (m *WorldMode) worldEffectResolvedComponentDuration(ctx client.Context, spec worldEffectSpec, component worldEffectComponent) time.Duration {
