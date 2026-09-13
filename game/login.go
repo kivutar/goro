@@ -20,7 +20,6 @@ import (
 )
 
 type LoginMode struct {
-	headlessDeadline    time.Time
 	selectedLoginServer int
 	phase               loginPhase
 	status              string
@@ -141,9 +140,6 @@ func (m *LoginMode) Enter(ctx client.Context) Mode {
 	if m.password == "" {
 		m.password = ctx.Config.Login.Password
 	}
-	if ctx.Config.Headless {
-		m.headlessDeadline = time.Now().Add(30 * time.Second)
-	}
 	m.loadBackground(ctx)
 	m.loadCharacterSelectSkin(ctx)
 	m.cursor.ensureLoaded(ctx)
@@ -171,21 +167,13 @@ func (m *LoginMode) Enter(ctx client.Context) Mode {
 
 func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
-	if ctx.Config.Headless {
-		if m.disconnectDialog.IsOpen() {
-			return nil, fmt.Errorf("login: %s", m.disconnectDialog.Message())
-		}
-		if !m.headlessDeadline.IsZero() && now.After(m.headlessDeadline) {
-			return nil, fmt.Errorf("login timed out: %s", m.status)
-		}
-	}
 	if m.updateFade(ctx, now) {
 		return m.nextWorldMode(ctx), nil
 	}
 
 	conns := loginConnections(ctx)
 	fading := m.fade.phase != loginFadeNone
-	if !fading && !ctx.Config.Headless {
+	if !fading {
 		if m.updateQuitConfirm(ctx) {
 			// The confirmation modal is modal: no keyboard or mouse input should
 			// leak into the login form, character list, or creation controls.
@@ -201,7 +189,7 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 		}
 
 	}
-	if fading && m.phase == loginPhaseCharacter && !ctx.Config.Headless {
+	if fading && m.phase == loginPhaseCharacter {
 		m.showCharacterSelectWindow(ctx)
 	}
 
@@ -209,9 +197,6 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 	m.maybeSendCharServerPing(ctx, now)
 
 	if len(conns) == 0 {
-		if ctx.Config.Headless {
-			return nil, fmt.Errorf("no login servers discovered")
-		}
 		return nil, nil
 	}
 
@@ -291,9 +276,6 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 			if err != nil {
 				m.packets = append(m.packets, "parse AC_ACCEPT_LOGIN: "+err.Error())
 			} else {
-				if ctx.Config.Headless && len(login.CharServer) == 0 {
-					return nil, fmt.Errorf("login server returned no character servers")
-				}
 				m.applyAccountAcceptLogin(ctx, login)
 			}
 		}
@@ -320,11 +302,6 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 					m.status = "select a character"
 				} else {
 					m.status = "no characters"
-				}
-				if ctx.Config.Headless {
-					if _, ok := characterBySlot(ctx.Session.Characters, ctx.Config.Login.CharSlot); !ok {
-						return nil, fmt.Errorf("character slot %d is empty", ctx.Config.Login.CharSlot)
-					}
 				}
 				if m.autoSelectCharacter(ctx) {
 					continue
@@ -486,9 +463,6 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 		}
 	}
 
-	if ctx.Config.Headless && m.disconnectDialog.IsOpen() {
-		return nil, fmt.Errorf("login: %s", m.disconnectDialog.Message())
-	}
 	if m.updateFade(ctx, time.Now()) {
 		return m.nextWorldMode(ctx), nil
 	}
@@ -734,7 +708,7 @@ func (m *LoginMode) updateFade(ctx client.Context, now time.Time) bool {
 		}
 		m.fade = loginFadeState{phase: loginFadeIn, started: now}
 	case loginFadeHold:
-		return m.fade.enterWorld && (ctx.Config.Headless || m.fade.coveredFrames >= loginWorldHandoffFrames)
+		return m.fade.enterWorld && m.fade.coveredFrames >= loginWorldHandoffFrames
 	case loginFadeIn:
 		if now.Sub(m.fade.started) >= loginTransitionDuration {
 			m.fade = loginFadeState{}
@@ -833,9 +807,6 @@ func (m *LoginMode) submitSelectedCharacter(ctx client.Context) {
 	}
 	if err := ctx.Network.SendSelectCharacter(character.Slot); err != nil {
 		m.status = "select character failed: " + err.Error()
-		if ctx.Config.Headless {
-			m.showConnectionFailed(ctx)
-		}
 		return
 	}
 	m.playConfirmSFX(ctx)
@@ -1041,9 +1012,6 @@ func (m *LoginMode) connectAndMaybeLogin(ctx client.Context, conn res.Connection
 	if err != nil {
 		m.loginPending = false
 		m.status = "login packet failed: " + err.Error()
-		if ctx.Config.Headless {
-			m.showConnectionFailed(ctx)
-		}
 		return
 	}
 	if userConfirmed {
@@ -1145,9 +1113,6 @@ func (m *LoginMode) connectCharServer(ctx client.Context, server network.CharSer
 	err = ctx.Network.SendCharServerEnter(ctx.Session.AccountID, ctx.Session.AuthCode, ctx.Session.UserLevel, ctx.Session.Sex)
 	if err != nil {
 		m.status = "CA_ENTER failed: " + err.Error()
-		if ctx.Config.Headless {
-			m.showConnectionFailed(ctx)
-		}
 		return false
 	}
 	m.status = "CA_ENTER sent to char server"
@@ -1169,9 +1134,6 @@ func (m *LoginMode) connectMapServer(ctx client.Context, zone network.ZoneServer
 	err = ctx.Network.SendMapServerEnter(ctx.Session.AccountID, zone.CharID, ctx.Session.AuthCode, uint32(time.Now().UnixMilli()), ctx.Session.Sex)
 	if err != nil {
 		m.status = "CZ_ENTER2 failed: " + err.Error()
-		if ctx.Config.Headless {
-			m.showConnectionFailed(ctx)
-		}
 		return
 	}
 	m.status = "CZ_ENTER2 sent to map server"

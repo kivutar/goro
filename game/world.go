@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -395,18 +394,10 @@ func (m *WorldMode) Name() string {
 	return "world"
 }
 
-func (m *WorldMode) Close() {
-	m.bot.close()
-	m.bot = nil
-	m.companionAI.close()
-}
-
 func (m *WorldMode) Enter(ctx client.Context) Mode {
 	now := time.Now()
 	m.bindNPCDialogLifecycle()
-	if !ctx.Config.Headless {
-		m.startMapPrewarm()
-	}
+	m.startMapPrewarm()
 	m.camera.ResetTracking()
 	ctx.World.GAT = nil
 	ctx.World.GND = nil
@@ -617,35 +608,8 @@ func (m *WorldMode) playMapBGM(ctx client.Context, rswName string) {
 	}
 }
 
-// Expiration runs even when updates are not followed by a draw.
-func (m *WorldMode) expireVisualState(now time.Time) {
-	m.damageFloaters = slices.DeleteFunc(m.damageFloaters, func(f damageFloater) bool {
-		return now.After(f.expires)
-	})
-	m.worldEffects = slices.DeleteFunc(m.worldEffects, func(e worldEffect) bool {
-		return now.After(e.expires)
-	})
-	for id, bubble := range m.speechBubbles {
-		if now.After(bubble.expires) {
-			delete(m.speechBubbles, id)
-		}
-	}
-	for id, bar := range m.actorCastBars {
-		if _, active := actorCastBarProgress(bar, now); !active {
-			delete(m.actorCastBars, id)
-		}
-	}
-	for id := range m.actorAnims {
-		m.actorAnimation(id, now)
-	}
-}
-
 func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
-	m.expireVisualState(now)
-	if ctx.Config.Headless && m.ui.disconnectDialog.IsOpen() {
-		return nil, fmt.Errorf("disconnected: %s", m.ui.disconnectDialog.Message())
-	}
 	if m.mapFade.phase == mapFadeOut {
 		if !m.mapFadeElapsed(now) {
 			return nil, nil
@@ -654,7 +618,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		m.mapFade.coveredFrames = 0
 		return nil, nil
 	}
-	if m.mapFade.phase == mapFadeHold && (ctx.Config.Headless || m.mapFade.coveredFrames >= mapFadeHandoffFrames) {
+	if m.mapFade.phase == mapFadeHold && m.mapFade.coveredFrames >= mapFadeHandoffFrames {
 		if m.mapFade.characterSelect {
 			return m.nextCharacterSelectMode(ctx), nil
 		}
@@ -712,12 +676,6 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	m.processActorMotionSounds(ctx, now)
 	m.processMapSounds(ctx, now)
 	m.playDueScheduledSounds(ctx, now)
-	if ctx.Config.Headless {
-		if m.mapFade.phase == mapFadeHold || progressBlocksActions {
-			return nil, nil
-		}
-		return nil, m.updateHeadless(ctx, now)
-	}
 
 	m.camera.Update(ctx, now)
 	if m.mapFade.phase == mapFadeHold || m.mapFade.phase == mapFadePrewarm {
@@ -1497,6 +1455,7 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.statusIcons = m.ui.statusIcons
 	next.ui.pvpCounter = m.ui.pvpCounter
 	next.ui.levelUpNotifications = m.ui.levelUpNotifications
+	m.companionAI.close()
 	return next
 }
 

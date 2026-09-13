@@ -33,24 +33,14 @@ slot (0–8). These can also come from the existing `[login]` configuration.
 As with `--autologin`, the first login server and first character server are
 selected. The script is optional; without one the client stays connected.
 
-Headless mode runs the normal game updates and resource loading, without
-creating a window, renderer, or audio device. It uses the same combat timing
-code as the graphical client. Login and map transitions keep their normal
-short delays but do not wait for rendered frames. `--no-ui` only hides the
-graphical client's UI and is not a substitute for headless mode.
+The headless renderer runs the normal update and draw callbacks at 60 Hz,
+then discards the draw commands. It creates no window or GPU device. Resource
+loading, animation timing, fades, and Lua behavior follow the graphical client.
+Stop the process with Ctrl+C.
 
-Gameplay updates run at 60 Hz and Lua `tick()` retains its roughly 150 ms
-interval. `input()` is still called, with `goro.keyboard.available()` returning
-`false`. Scripts reload when entering a different map, as in the graphical
-client; same-map warps retain script state. Server progress bars still pause
-actions, and bot ticks continue while dead.
-
-Ctrl+C or SIGTERM stops the client and closes its connection. Login failures
-(including a 30-second login timeout), missing maps, disconnects, and script
-errors exit with a nonzero status. There is no automatic reconnect. Interactions
-requiring a window, such as NPC dialogs or choosing a teleport destination,
-also exit with an explanatory error; the Lua API does not yet answer those
-prompts. Level-1 Teleport's existing automatic random destination still works.
+This only replaces the renderer: login errors and interactive dialogs still
+behave as in the graphical client, and there is no automatic reconnect or new
+Lua API for answering dialogs. `--no-ui` only hides the graphical client's UI.
 
 ## API
 

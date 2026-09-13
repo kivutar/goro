@@ -1684,10 +1684,12 @@ func (m *WorldMode) drawDamageFloaters(screen *render.Frame, ctx client.Context,
 	if len(m.damageFloaters) == 0 {
 		return
 	}
+	active := m.damageFloaters[:0]
 	for _, floater := range m.damageFloaters {
 		if now.After(floater.expires) {
 			continue
 		}
+		active = append(active, floater)
 		if now.Before(floater.starts) {
 			continue
 		}
@@ -1725,6 +1727,7 @@ func (m *WorldMode) drawDamageFloaters(screen *render.Frame, ctx client.Context,
 		point := projection.Project(worldX, worldY, terrainZ+zLift)
 		render.DrawBitmapTextAtColor(screen, floater.text, int(point.x)-8, int(point.y)-40, withAlpha(floaterColor, alpha))
 	}
+	m.damageFloaters = active
 }
 
 func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
@@ -1773,9 +1776,7 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 		m.ui.homunculusContext.Close()
 		m.ui.mercenaryContext.Close()
 		m.ui.playerContext.Close()
-		if !ctx.Config.Headless {
-			m.ui.escapeMenu.OpenDeath(ctx)
-		}
+		m.ui.escapeMenu.OpenDeath(ctx)
 	} else {
 		upsertActor(ctx, actor)
 	}
@@ -2070,6 +2071,7 @@ func (m *WorldMode) drawActorCastBar(screen *render.Frame, entry sceneActorDrawE
 	}
 	ratio, active := actorCastBarProgress(bar, now)
 	if !active {
+		delete(m.actorCastBars, entry.actor.ID)
 		return
 	}
 	x := actorOverlayBarX(entry.screenX)

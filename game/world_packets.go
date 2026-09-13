@@ -58,7 +58,7 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		m.ui.npcCutin.Clear()
 		m.ui.mailWindow.CloseFromServer(ctx)
 		m.mail = mailState{}
-		return nil, ctx.Config.Headless
+		return nil, false
 	}
 	if notify, ok, err := network.ParseMapInfoNotify(pkt); err != nil {
 		glog.Errorf("parse map info notification 0x%04X: %v", pkt.ID, err)

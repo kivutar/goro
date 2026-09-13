@@ -29,8 +29,5 @@ func newMapErrorMode(ctx client.Context, loadErr error, console gameui.ChatConso
 	m.autoAttempted = true
 	m.autoCharAttempted = true
 	m.mapError = fmt.Sprintf("Cannot load map:\n%s\nCheck your game data.\nPlease log in again.", ctx.World.MapName)
-	if ctx.Config.Headless {
-		m.mapError = fmt.Sprintf("load map %s: %v", ctx.World.MapName, loadErr)
-	}
 	return m
 }

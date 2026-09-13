@@ -238,9 +238,6 @@ func newCompanionAI(ctx client.Context, mode *WorldMode, kind companionAIKind, n
 			trace:    companionAITraceEnabled(),
 		}
 		ai.registerAPI(ctx, mode)
-		if ctx.ScriptContext != nil {
-			ai.state.SetContext(ctx.ScriptContext)
-		}
 		if err := ai.doAIFile(ctx.Resources, candidate.main); err != nil {
 			ai.close()
 			lastErr = err

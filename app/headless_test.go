@@ -9,16 +9,17 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/kivutar/goro/config"
+	"github.com/kivutar/goro/game"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/render"
 )
 
-// Exercise the real runner and all three connections. No window, draw call,
-// submitted frame, or real server is involved.
+// Exercise the headless renderer and all three connections. The normal draw
+// callbacks run, without a window, GPU, or real server.
 func TestHeadlessLoginBotAndWarps(t *testing.T) {
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WAYLAND_DISPLAY", "")
@@ -42,9 +43,6 @@ func TestHeadlessLoginBotAndWarps(t *testing.T) {
 	writeHeadlessFixture(t, root, "second.gat", gat)
 	writeHeadlessFixture(t, root, "bot.lua", []byte(`
 local sent = false
-function input()
-    assert(not goro.keyboard.available())
-end
 function tick()
     if not sent then
         assert(goro.walk(1, 0))
@@ -55,6 +53,7 @@ end
 `))
 	cfg := config.Config{
 		Headless: true, DataDir: root,
+		Audio:  config.AudioConfig{Disabled: true},
 		Window: config.WindowConfig{Width: 800, Height: 600},
 		Packet: config.PacketConfig{ClientDate: 20080910},
 		Login:  config.LoginConfig{AutoLogin: true, Username: "tester", Password: "test-password", CharSlot: 0},
@@ -68,7 +67,8 @@ end
 	done := make(chan struct{})
 	var runErr error
 	go func() {
-		runErr = RunHeadless(ctx, g)
+		runErr = render.RunHeadless(ctx, g, cfg.Window)
+		g.RequestQuit()
 		close(done)
 	}()
 	t.Cleanup(func() {
@@ -151,32 +151,46 @@ end
 	mapConn = accept()
 	enterMap(mapConn)
 	botAction(mapConn)
-	mapConn.Close()
+	cancel()
 	select {
 	case <-done:
-		if runErr == nil || !strings.Contains(runErr.Error(), "disconnected") {
-			t.Fatalf("disconnect result = %v", runErr)
+		if runErr != nil {
+			t.Fatalf("headless renderer result = %v", runErr)
 		}
 	case <-time.After(3 * time.Second):
-		t.Fatal("disconnect left the bot waiting for UI input")
+		t.Fatal("headless renderer did not stop")
 	}
 	if !g.quitting || g.network.Status() != "offline" || g.uiApp != nil || !g.cfg.Audio.Disabled {
-		t.Fatal("headless runner did not disable presentation and close its session")
+		t.Fatal("headless session used presentation or was not closed")
 	}
 }
 
-func TestHeadlessCancellationClosesSession(t *testing.T) {
-	g, err := New(config.Config{Headless: true, DataDir: t.TempDir()})
+func TestHeadlessDrawRealMap(t *testing.T) {
+	root := os.Getenv("GORO_DATA_DIR")
+	if root == "" {
+		t.Skip("set GORO_DATA_DIR to run against real RO assets")
+	}
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	cfg := config.Config{
+		DataDir: root,
+		Window:  config.WindowConfig{Width: 800, Height: 600},
+		Audio:   config.AudioConfig{Disabled: true},
+	}
+	g, err := New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := RunHeadless(ctx, g); err != nil {
-		t.Fatal(err)
+	defer g.RequestQuit()
+	g.world.MapName = "prontera.gat"
+	g.modes = game.NewManager(g.modeContext(), game.NewWorldMode())
+	if g.world.GND == nil || g.world.RSW == nil {
+		t.Fatal("Prontera scenery did not load")
 	}
-	if !g.quitting || g.network.Status() != "offline" {
-		t.Fatal("cancelled runner did not close the session")
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	if err := render.RunHeadless(ctx, g, cfg.Window); err != nil {
+		t.Fatal(err)
 	}
 }
 

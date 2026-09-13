@@ -38,15 +38,8 @@ func NewManager(ctx client.Context, mode Mode) *Manager {
 
 func (m *Manager) enter(mode Mode) {
 	for mode != nil {
-		m.Close()
 		m.mode = mode
 		mode = mode.Enter(m.ctx)
-	}
-}
-
-func (m *Manager) Close() {
-	if mode, ok := m.mode.(interface{ Close() }); ok {
-		mode.Close()
 	}
 }
 

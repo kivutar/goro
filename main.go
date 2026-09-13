@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/kivutar/goro/app"
 	"github.com/kivutar/goro/config"
@@ -30,12 +28,9 @@ func main() {
 	if err != nil {
 		glog.Fatalf("%v", err)
 	}
-	defer game.Close()
 
 	if cfg.Headless {
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-		err = app.RunHeadless(ctx, game)
+		err = render.RunHeadless(context.Background(), game, cfg.Window)
 	} else {
 		err = render.Run(game, cfg.Window, cfg.Render)
 	}

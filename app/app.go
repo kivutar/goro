@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 )
 
 type Game struct {
-	scriptContext     context.Context
 	cfg               config.Config
 	input             *input.State
 	resource          *res.Manager
@@ -46,9 +44,6 @@ func New(cfg config.Config) (*Game, error) {
 		return nil, fmt.Errorf("resource manager: %w", err)
 	}
 	loadClientUIFont(resource)
-	if cfg.Headless {
-		cfg.Audio.Disabled = true
-	}
 
 	g := &Game{
 		cfg:      cfg,
@@ -145,14 +140,6 @@ func (g *Game) RequestQuit() {
 	}
 }
 
-// Close runs after Update returns, so a Lua callback cannot close its own VM.
-func (g *Game) Close() {
-	g.RequestQuit()
-	if g.modes != nil {
-		g.modes.Close()
-	}
-}
-
 func (g *Game) RequestScreenshot() (string, error) {
 	path, err := config.NextScreenshotPath(time.Now())
 	if err != nil {
@@ -213,7 +200,6 @@ func loadClientUIFont(resource *res.Manager) {
 
 func (g *Game) modeContext() client.Context {
 	return client.Context{
-		ScriptContext:     g.scriptContext,
 		Config:            g.cfg,
 		Input:             g.input,
 		Resources:         g.resource,

@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -24,7 +23,6 @@ type luaBot struct {
 	mode              *WorldMode
 	nextTick          time.Time
 	disabled          bool
-	err               error
 	keyboardAvailable bool
 }
 
@@ -44,7 +42,7 @@ func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
 		bot, err := newLuaBot(ctx, m, path)
 		if err != nil {
 			glog.Warnf("lua script load failed path=%q: %v", path, err)
-			m.bot = &luaBot{path: path, disabled: true, err: fmt.Errorf("load script %q: %w", path, err)}
+			m.bot = &luaBot{path: path, disabled: true}
 			return
 		}
 		m.bot = bot
@@ -58,7 +56,6 @@ func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
 		glog.Warnf("lua script tick failed path=%q: %v", m.bot.path, err)
 		m.bot.close()
 		m.bot.disabled = true
-		m.bot.err = fmt.Errorf("script %q tick: %w", m.bot.path, err)
 	}
 }
 
@@ -71,7 +68,6 @@ func (m *WorldMode) updateBotInput(ctx client.Context, keyboardAvailable bool) {
 		glog.Warnf("lua script input failed path=%q: %v", m.bot.path, err)
 		m.bot.close()
 		m.bot.disabled = true
-		m.bot.err = fmt.Errorf("script %q input: %w", m.bot.path, err)
 	}
 }
 
@@ -83,9 +79,6 @@ func newLuaBot(ctx client.Context, mode *WorldMode, path string) (*luaBot, error
 		nextTick: time.Now().Add(botTickInterval),
 	}
 	bot.registerAPI(ctx, mode)
-	if ctx.ScriptContext != nil {
-		bot.state.SetContext(ctx.ScriptContext)
-	}
 	if err := bot.state.DoFile(path); err != nil {
 		bot.close()
 		return nil, err
