@@ -1793,7 +1793,9 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 		m.ui.homunculusContext.Close()
 		m.ui.mercenaryContext.Close()
 		m.ui.playerContext.Close()
-		m.ui.escapeMenu.OpenDeath(ctx)
+		if !ctx.Config.Headless {
+			m.ui.escapeMenu.OpenDeath(ctx)
+		}
 	} else {
 		upsertActor(ctx, actor)
 	}

@@ -39,6 +39,8 @@ func headlessTestContext(t *testing.T, script string) client.Context {
 
 func TestHeadlessBotTicksWhileDeadAndRespectsServerProgress(t *testing.T) {
 	ctx := headlessTestContext(t, "ticks = 0; function tick() ticks = ticks + 1 end")
+	ctx.Session.CharID = 150000
+	ctx.World.Player.ID = ctx.Session.CharID
 	m := NewWorldMode()
 	t.Cleanup(m.Close)
 	if next := m.Enter(ctx); next != nil {
@@ -51,7 +53,12 @@ func TestHeadlessBotTicksWhileDeadAndRespectsServerProgress(t *testing.T) {
 		t.Fatal("headless world waited for a rendered frame")
 	}
 	for i, dead := range []bool{false, true} {
-		ctx.Session.Dead = dead
+		if dead {
+			m.startActorDeath(ctx, ctx.Session.CharID)
+			if !ctx.Session.Dead {
+				t.Fatal("death notification did not mark the player dead")
+			}
+		}
 		m.bot.nextTick = time.Time{}
 		if _, err := m.Update(ctx); err != nil {
 			t.Fatal(err)
