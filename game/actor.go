@@ -1415,9 +1415,34 @@ func (m *WorldMode) drawActorSprite3D(screen *render.Frame, ctx client.Context, 
 		}
 		return m.drawNonPCSprite3D(screen, ctx, projection, entry, cameraYaw, shadow)
 	}
-	view := m.humanoidSpriteViewForActor(ctx, actor)
-	if view == nil {
+	weapon, shield := res.NormalizePlayerWeaponShield(int(actor.Weapon), int(actor.Shield))
+	key := actorSpriteKey{
+		job:         int(actor.Job),
+		head:        int(actor.Head),
+		sex:         actor.Sex,
+		admin:       actor.IsAdmin,
+		bodyPalette: int(actor.BodyPal),
+		headPalette: int(actor.HeadPal),
+		weapon:      weapon,
+		shield:      shield,
+		headTop:     int(actor.HeadTop),
+		headMid:     int(actor.HeadMid),
+		headLow:     int(actor.HeadLow),
+	}
+	if _, ok := m.actorViewMiss[key]; ok {
 		return false
+	}
+	view, ok := m.actorViews[key]
+	if !ok {
+		loaded, status := loadHumanoidSpriteViewWithAppearance(ctx.Resources, humanoidAppearance(key), "actor")
+		if loaded == nil {
+			m.actorViewMiss[key] = struct{}{}
+			glog.Warnf("actor sprite unavailable id=%d job=%d head=%d sex=%d: %s", actor.ID, key.job, key.head, key.sex, status)
+			return false
+		}
+		m.actorViews[key] = loaded
+		view = loaded
+		glog.Debugf("actor sprite resources id=%d job=%d head=%d sex=%d %s", actor.ID, key.job, key.head, key.sex, status)
 	}
 	now := time.Now()
 	state := spriteState{
@@ -1561,6 +1586,9 @@ func isDeathActionFamily(actionFamily int) bool {
 }
 
 func (m *WorldMode) nonPCSpriteView(ctx client.Context, actor worldstate.Actor) *spriteView {
+	if ctx.Config.Headless {
+		return nil
+	}
 	job := int(actor.Job)
 	if _, ok := m.nonPCViewMiss[job]; ok {
 		return nil

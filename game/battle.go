@@ -113,27 +113,7 @@ func (m *WorldMode) humanoidSpriteViewForActor(ctx client.Context, actor world.A
 		headMid:     int(actor.HeadMid),
 		headLow:     int(actor.HeadLow),
 	}
-	if view, ok := m.actorViews[key]; ok {
-		return view
-	}
-	if _, missing := m.actorViewMiss[key]; missing || ctx.Resources == nil {
-		return nil
-	}
-	loaded, status := loadHumanoidSpriteViewWithAppearance(ctx.Resources, humanoidAppearance(key), "actor")
-	if loaded == nil {
-		if m.actorViewMiss == nil {
-			m.actorViewMiss = make(map[actorSpriteKey]struct{})
-		}
-		m.actorViewMiss[key] = struct{}{}
-		glog.Warnf("actor sprite unavailable id=%d job=%d head=%d sex=%d: %s", actor.ID, key.job, key.head, key.sex, status)
-		return nil
-	}
-	if m.actorViews == nil {
-		m.actorViews = make(map[actorSpriteKey]*humanoidSpriteView)
-	}
-	m.actorViews[key] = loaded
-	glog.Debugf("actor sprite resources id=%d job=%d head=%d sex=%d %s", actor.ID, key.job, key.head, key.sex, status)
-	return loaded
+	return m.actorViews[key]
 }
 
 func (m *WorldMode) nonPCResolvedAction(ctx client.Context, actor world.Actor, actionFamily int) (res.ACTAction, bool) {
@@ -146,6 +126,9 @@ func (m *WorldMode) nonPCResolvedAction(ctx client.Context, actor world.Actor, a
 }
 
 func (m *WorldMode) actorResolvedAction(ctx client.Context, actor world.Actor, actionFamily int) (res.ACTAction, bool) {
+	if ctx.Config.Headless {
+		return res.ACTAction{}, false
+	}
 	if res.HasPlayerJobToken(actorVisualJob(actor)) || actorIsMercenary(actor) {
 		view := m.humanoidSpriteViewForActor(ctx, actor)
 		if view == nil || view.body == nil {
@@ -188,6 +171,9 @@ func (m *WorldMode) actorActionACT(ctx client.Context, actor world.Actor) *res.A
 }
 
 func (m *WorldMode) actorActionDuration(ctx client.Context, actor world.Actor, actionFamily int, fallback time.Duration) time.Duration {
+	if ctx.Config.Headless {
+		return fallback
+	}
 	if !res.HasPlayerJobToken(int(actor.Job)) && !actorIsMercenary(actor) && m.nonPCActorHasGR2Model(ctx, actor) {
 		if action, ok := gr2ActionForActionFamily(actionFamily); ok {
 			if view := m.nonPCGR2ModelView(ctx, actor); view != nil {
@@ -818,6 +804,9 @@ func actionVisualHitCount(action network.ActorActionNotify) int {
 }
 
 func (m *WorldMode) addActionDamageFloaters(ctx client.Context, action network.ActorActionNotify, target world.Actor, targetOK, targetLocal, sourceLocal bool, x, y int, hitAt time.Time) {
+	if ctx.Config.Headless {
+		return
+	}
 	text, kind, floaterColor := actionDamageFloater(action, targetLocal, sourceLocal)
 	if text == "" {
 		return
@@ -1109,6 +1098,10 @@ func (m *WorldMode) setActorAction(ctx client.Context, id uint32, anim actorAnim
 				m.stopActorMovementAt(ctx, id, anim.started)
 			}
 		}
+	}
+	// Movement stops above are gameplay; the animation itself is presentation.
+	if ctx.Config.Headless {
+		return
 	}
 	if m.actorAnims == nil {
 		m.actorAnims = make(map[uint32]actorAnimation)
@@ -1470,6 +1463,9 @@ func (m *WorldMode) applyRecovery(ctx client.Context, recovery network.Recovery)
 }
 
 func (m *WorldMode) addLocalRecoveryFloater(ctx client.Context, amount int, floaterColor color.RGBA, kind damageFloaterKind) {
+	if ctx.Config.Headless {
+		return
+	}
 	if ctx.World == nil || amount <= 0 {
 		return
 	}
@@ -1704,10 +1700,12 @@ func (m *WorldMode) drawDamageFloaters(screen *render.Frame, ctx client.Context,
 	if len(m.damageFloaters) == 0 {
 		return
 	}
+	active := m.damageFloaters[:0]
 	for _, floater := range m.damageFloaters {
 		if now.After(floater.expires) {
 			continue
 		}
+		active = append(active, floater)
 		if now.Before(floater.starts) {
 			continue
 		}
@@ -1745,6 +1743,7 @@ func (m *WorldMode) drawDamageFloaters(screen *render.Frame, ctx client.Context,
 		point := projection.Project(worldX, worldY, terrainZ+zLift)
 		render.DrawBitmapTextAtColor(screen, floater.text, int(point.x)-8, int(point.y)-40, withAlpha(floaterColor, alpha))
 	}
+	m.damageFloaters = active
 }
 
 func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
@@ -2090,6 +2089,7 @@ func (m *WorldMode) drawActorCastBar(screen *render.Frame, entry sceneActorDrawE
 	}
 	ratio, active := actorCastBarProgress(bar, now)
 	if !active {
+		delete(m.actorCastBars, entry.actor.ID)
 		return
 	}
 	x := actorOverlayBarX(entry.screenX)

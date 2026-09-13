@@ -22,6 +22,9 @@ type speechBubble struct {
 }
 
 func (m *WorldMode) applySpeechBubble(ctx client.Context, chat network.ChatMessage, now time.Time) {
+	if ctx.Config.Headless {
+		return
+	}
 	if strings.TrimSpace(chat.Text) == "" {
 		return
 	}
@@ -101,9 +104,17 @@ func (m *WorldMode) drawSpeechBubbles(screen *render.Frame, entries []sceneActor
 	if len(m.speechBubbles) == 0 {
 		return
 	}
+	for id, bubble := range m.speechBubbles {
+		if now.After(bubble.expires) {
+			delete(m.speechBubbles, id)
+		}
+	}
+	if len(m.speechBubbles) == 0 {
+		return
+	}
 	for _, entry := range entries {
 		bubble, ok := m.speechBubbles[entry.actor.ID]
-		if !ok || now.After(bubble.expires) || strings.TrimSpace(bubble.text) == "" {
+		if !ok || strings.TrimSpace(bubble.text) == "" {
 			continue
 		}
 		bottomY := actorSpeechBubbleBottomY(entry.screenY, entry.scale)

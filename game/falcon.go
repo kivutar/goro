@@ -162,6 +162,9 @@ func (m *WorldMode) applyFalconGroundSkillNotify(ctx client.Context, notify netw
 }
 
 func (m *WorldMode) startFalconAttackAt(ctx client.Context, sourceID uint32, targetX, targetY int, now time.Time) bool {
+	if ctx.Config.Headless {
+		return false
+	}
 	source, ok, local := actorForCombatID(ctx, sourceID)
 	if !ok {
 		return false

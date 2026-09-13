@@ -495,6 +495,14 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	m.ui.npcDialog.ResetPublished(ctx)
 	m.ui.npcCutin.Clear()
 	ctx.World.Items = make(map[uint32]worldstate.FloorItem)
+	if ctx.Config.Headless {
+		if ctx.World.MapName != "" {
+			if err := ctx.Network.SendLoadEndAck(); err != nil {
+				return newMapErrorMode(ctx, err, m.ui.console)
+			}
+		}
+		return nil
+	}
 	playerStatus := ""
 	character := ctx.Session.SelectedCharacter()
 	visualCharacter := localPlayerVisualCharacter(ctx)
@@ -529,16 +537,6 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	}
 	render.SetCursorMode(render.CursorModeHidden)
 	glog.Debugf("player sprite resources char_id=%d name=%s admin=%t job=%d visual_job=%d hair=%d weapon=%d shield=%d head_top=%d head_mid=%d head_low=%d body_pal=%d head_pal=%d hair_color=%d account_sex=%d %s", character.ID, character.Name, localPlayerIsAdmin(ctx), character.Job, visualCharacter.Job, character.Hair, character.Weapon, character.Shield, character.HeadTop, character.HeadMid, character.HeadLow, character.BodyPal, character.HeadPal, character.HairColor, ctx.Session.Sex, playerStatus)
-	if ctx.Config.Headless {
-		// Keep GAT and actor animation resources for navigation and combat
-		// timing. Terrain meshes, scenery and UI are presentation only.
-		if ctx.World.MapName != "" {
-			if err := ctx.Network.SendLoadEndAck(); err != nil {
-				return newMapErrorMode(ctx, err, m.ui.console)
-			}
-		}
-		return nil
-	}
 	m.rebindPersistentUI(ctx)
 	if ctx.World.MapName == "" {
 		return nil
@@ -628,7 +626,6 @@ func (m *WorldMode) playMapBGM(ctx client.Context, rswName string) {
 
 func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	now := time.Now()
-	m.pruneVisualState(now)
 	if ctx.Config.Headless && m.ui.disconnectDialog.IsOpen() {
 		return nil, fmt.Errorf("disconnected: %s", m.ui.disconnectDialog.Message())
 	}
@@ -678,14 +675,16 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	// Status presentation must follow server updates even when a window or
 	// modal consumes input for the rest of the frame.
 	removeExpiredStatusEffects(ctx.Session, now)
-	m.ui.statusIcons.Update(ctx, now)
 	m.updateMail(ctx, now)
-	m.ui.pvpCounter.Update(ctx)
 	progressBlocksActions := m.updateServerProgress(ctx, now)
-	if !progressBlocksActions && m.handleLevelUpNotificationAction(ctx, m.ui.levelUpNotifications.Update(ctx)) {
-		// The notification click belongs exclusively to the UI. Returning here
-		// prevents the same press from reaching the map after the icon closes.
-		return nil, nil
+	if !ctx.Config.Headless {
+		m.ui.statusIcons.Update(ctx, now)
+		m.ui.pvpCounter.Update(ctx)
+		if !progressBlocksActions && m.handleLevelUpNotificationAction(ctx, m.ui.levelUpNotifications.Update(ctx)) {
+			// The notification click belongs exclusively to the UI. Returning here
+			// prevents the same press from reaching the map after the icon closes.
+			return nil, nil
+		}
 	}
 	if !progressBlocksActions {
 		m.updatePendingAttack(ctx, "update", false)

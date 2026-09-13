@@ -60,6 +60,9 @@ func localPlayerVisualJob(ctx client.Context) int {
 }
 
 func (m *WorldMode) reloadPlayerSpriteView(ctx client.Context, reason string) {
+	if ctx.Config.Headless {
+		return
+	}
 	if ctx.Session == nil || ctx.Resources == nil {
 		return
 	}
