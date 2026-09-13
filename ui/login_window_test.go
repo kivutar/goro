@@ -22,7 +22,7 @@ func TestLoginWindowInitialFocusAndTabNavigation(t *testing.T) {
 	manager := NewManager()
 	manager.SetUIApp(bridge)
 	ctx := client.Context{ScreenW: 800, ScreenH: 600, UIApp: bridge, UIManager: manager}
-	window := NewLoginWindow(ctx, "", "", LoginWindowCallbacks{})
+	window := NewLoginWindow(ctx, "", "", false, LoginWindowCallbacks{})
 	window.Publish(ctx)
 	app.Frame()
 	app.Window().DrawTo(&uitest.MockCanvas{})
@@ -69,7 +69,7 @@ func TestLoginWindowLabelsFillRightAlignedColumn(t *testing.T) {
 	if len(windowChildren) < 2 || len(windowChildren[1].Children()) != 1 {
 		t.Fatal("login window content tree is incomplete")
 	}
-	rows := windowChildren[1].Children()[0].Children()
+	rows := windowChildren[1].Children()[0].Children()[0].Children()
 	if len(rows) != 2 {
 		t.Fatalf("login form rows = %d, want Account and Password", len(rows))
 	}
@@ -96,5 +96,50 @@ func TestLoginWindowLabelsFillRightAlignedColumn(t *testing.T) {
 		if labelBounds.Min.X != 0 || labelBounds.Width() != slotBounds.Width() {
 			t.Fatalf("%s label bounds = %v, want full %.1fpx column width", want, labelBounds, slotBounds.Width())
 		}
+	}
+}
+
+func TestLoginWindowKeepToggleSurvivesResize(t *testing.T) {
+	app := uiapp.New()
+	bridge := loginWindowTestApp{basicMenuTestApp{app: app}}
+	manager := NewManager()
+	manager.SetUIApp(bridge)
+	ctx := client.Context{ScreenW: 800, ScreenH: 600, UIApp: bridge, UIManager: manager}
+	submitted := false
+	window := NewLoginWindow(ctx, "remembered-id", "", true, LoginWindowCallbacks{
+		OnSubmit: func() { submitted = true },
+	})
+	window.Publish(ctx)
+	app.Frame()
+	app.Window().DrawTo(&uitest.MockCanvas{})
+	if app.Window().Context().FocusedWidget() != window.password {
+		t.Fatal("prefilled ID did not focus Password")
+	}
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeyTab, 0, event.ModNone))
+	if app.Window().Context().FocusedWidget() != window.keep {
+		t.Fatal("Keep was not reachable after Password")
+	}
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeySpace, 0, event.ModNone))
+	app.HandleEvent(event.NewKeyEvent(event.KeyRelease, event.KeySpace, 0, event.ModNone))
+	if window.KeepID || submitted {
+		t.Fatal("Keep did not toggle independently of login submission")
+	}
+	ctx.ScreenW = 1024
+	window.SetContext(ctx)
+	window.Publish(ctx)
+	app.Frame()
+	app.Window().DrawTo(&uitest.MockCanvas{})
+	if window.KeepID || window.Username != "remembered-id" || app.Window().Context().FocusedWidget() != window.keep {
+		t.Fatal("resize changed the ID, Keep choice, or checkbox focus")
+	}
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeySpace, 0, event.ModNone))
+	app.HandleEvent(event.NewKeyEvent(event.KeyRelease, event.KeySpace, 0, event.ModNone))
+	if !window.KeepID {
+		t.Fatal("rebuilt checkbox did not retain its unchecked state")
+	}
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeyTab, 0, event.ModShift))
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeyEnter, 0, event.ModNone))
+	if !submitted {
+		t.Fatal("returning to Password did not allow login submission")
 	}
 }

@@ -41,10 +41,12 @@ type PacketConfig struct {
 }
 
 type LoginConfig struct {
-	Username  string
-	Password  string
-	AutoLogin bool
-	CharSlot  int
+	Username      string
+	Password      string
+	AutoLogin     bool
+	CharSlot      int
+	KeepID        bool
+	SavedUsername string
 }
 
 type AudioConfig struct {
@@ -168,13 +170,6 @@ func SaveUserSettings(settings UserSettings) (string, error) {
 	if settings.SFXVolume < 0 || settings.SFXVolume > 1 {
 		return "", fmt.Errorf("sfx volume must be between 0 and 1")
 	}
-	path, err := UserConfigPath()
-	if err != nil {
-		return "", err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", err
-	}
 	values := map[string]map[string]string{
 		"window": {
 			"fullscreen": formatINIValueBool(settings.Fullscreen),
@@ -194,6 +189,33 @@ func SaveUserSettings(settings UserSettings) (string, error) {
 			"snap":         formatINIValueBool(settings.SnapTargets),
 			"itemsnap":     formatINIValueBool(settings.SnapItems),
 		},
+	}
+	return saveUserConfigValues(values)
+}
+
+// SaveLoginID remembers only the ID, independently of explicit login credentials.
+func SaveLoginID(username string, keep bool) (string, error) {
+	if !keep {
+		username = ""
+	}
+	if strings.ContainsAny(username, "\r\n\x00") {
+		return "", fmt.Errorf("login ID must be a single line without NUL characters")
+	}
+	return saveUserConfigValues(map[string]map[string]string{
+		"login": {
+			"keep_id":        formatINIValueBool(keep),
+			"saved_username": `"` + username + `"`,
+		},
+	})
+}
+
+func saveUserConfigValues(values map[string]map[string]string) (string, error) {
+	path, err := UserConfigPath()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
 	}
 	existing, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -384,6 +406,10 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		return setBool(value, &cfg.Login.AutoLogin)
 	case "login.charslot":
 		return setInt(value, &cfg.Login.CharSlot)
+	case "login.keepid":
+		return setBool(value, &cfg.Login.KeepID)
+	case "login.savedusername":
+		cfg.Login.SavedUsername = value
 	case "audio.bgm":
 		return setBool(value, &cfg.Audio.BGM)
 	case "audio.noaudio":
@@ -473,7 +499,7 @@ func validateConfig(cfg *Config) error {
 }
 
 func upsertINIValues(src string, values map[string]map[string]string) string {
-	sectionOrder := []string{"window", "render", "audio", "gameplay"}
+	sectionOrder := []string{"window", "render", "audio", "gameplay", "login"}
 	seenSections := make(map[string]bool)
 	written := make(map[string]map[string]bool)
 	for section := range values {
@@ -531,7 +557,7 @@ func upsertINIValues(src string, values map[string]map[string]string) string {
 	}
 	flushMissing(currentSection)
 	for _, section := range sectionOrder {
-		if seenSections[section] {
+		if _, ok := values[section]; !ok || seenSections[section] {
 			continue
 		}
 		if len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
@@ -544,7 +570,7 @@ func upsertINIValues(src string, values map[string]map[string]string) string {
 }
 
 func sortedINIKeys(values map[string]string) []string {
-	preferred := []string{"fullscreen", "vsync", "fps", "bgm_volume", "sfx_volume", "no_shift", "no_ctrl"}
+	preferred := []string{"fullscreen", "vsync", "fps", "bgm_volume", "sfx_volume", "no_shift", "no_ctrl", "keep_id", "saved_username"}
 	keys := make([]string, 0, len(values))
 	seen := make(map[string]bool, len(values))
 	for _, key := range preferred {

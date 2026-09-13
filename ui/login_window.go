@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/gogpu/ui/core/checkbox"
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
@@ -19,12 +20,14 @@ type LoginWindowCallbacks struct {
 type LoginWindow struct {
 	Username string
 	Password string
+	KeepID   bool
 
 	Window
 	layout    loginWindowLayout
 	callbacks LoginWindowCallbacks
 	user      *textfield.Widget
 	password  *textfield.Widget
+	keep      *checkbox.Widget
 }
 
 const (
@@ -33,13 +36,16 @@ const (
 	loginWindowFieldLeft     = 92
 	loginWindowFieldRightPad = 20
 	loginWindowFieldH        = 22
+	loginWindowKeepW         = 64
+	loginWindowKeepGap       = 12
 )
 
-func NewLoginWindow(ctx client.Context, username, password string, callbacks LoginWindowCallbacks) *LoginWindow {
+func NewLoginWindow(ctx client.Context, username, password string, keepID bool, callbacks LoginWindowCallbacks) *LoginWindow {
 	layout := loginWindowLayoutForContext(ctx)
 	w := &LoginWindow{
 		Username:  username,
 		Password:  password,
+		KeepID:    keepID,
 		layout:    layout,
 		callbacks: callbacks,
 	}
@@ -80,6 +86,8 @@ func (w *LoginWindow) restoreFocus(ctx client.Context) {
 			wc.RequestFocus(w.user)
 		} else if w.password.IsFocused() {
 			wc.RequestFocus(w.password)
+		} else if w.keep.IsFocused() {
+			wc.RequestFocus(w.keep)
 		}
 	}
 }
@@ -91,6 +99,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 		}
 	}
 	userFocused, passwordFocused := w.fieldFocus()
+	keepFocused := w.keep != nil && w.keep.IsFocused()
 	username, passwordValue := w.fieldValues()
 	user := rotheme.TextField(
 		username,
@@ -112,50 +121,61 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 	password.SetFocused(passwordFocused)
 	w.user = user
 	w.password = password
+	w.keep = rotheme.Checkbox(
+		checkbox.LabelOpt("Keep"),
+		checkbox.Checked(w.KeepID),
+		checkbox.OnToggle(func(keep bool) { w.KeepID = keep }),
+	)
+	w.keep.SetFocused(keepFocused)
 	labelW := float32(loginWindowFieldLeft - 36)
-	fieldW := float32(w.layout.W - loginWindowFieldLeft - loginWindowFieldRightPad)
+	fieldW := float32(w.layout.W - loginWindowFieldLeft - loginWindowFieldRightPad - loginWindowKeepW - loginWindowKeepGap)
 	fieldH := float32(loginWindowFieldH)
 	return Win(
 		Title("Login"),
 		CloseButton(false),
 		Size(float32(w.layout.W), float32(w.layout.H)),
 		Content(
-			primitives.Box(
-				primitives.HBox(
-					primitives.Box(
-						rotheme.Label("Account").
-							Align(widget.TextAlignRight).
-							LineHeight(fieldH/rotheme.Default.Typography.TextSize),
+			primitives.HBox(
+				// Keep the text fields together so Tab still moves from Account to Password.
+				primitives.Box(
+					primitives.HBox(
+						primitives.Box(
+							rotheme.Label("Account").
+								Align(widget.TextAlignRight).
+								LineHeight(fieldH/rotheme.Default.Typography.TextSize),
+						).
+							CrossAlign(primitives.CrossAxisStretch).
+							Width(labelW).
+							Height(fieldH),
+						primitives.Box(user).
+							Width(fieldW).
+							Height(fieldH),
 					).
-						CrossAlign(primitives.CrossAxisStretch).
-						Width(labelW).
-						Height(fieldH),
-					primitives.Box(user).
-						Width(fieldW).
-						Height(fieldH),
-				).
-					CrossAlign(primitives.CrossAxisCenter).
-					Gap(12),
-				primitives.HBox(
-					primitives.Box(
-						rotheme.Label("Password").
-							Align(widget.TextAlignRight).
-							LineHeight(fieldH/rotheme.Default.Typography.TextSize),
+						CrossAlign(primitives.CrossAxisCenter).
+						Gap(12),
+					primitives.HBox(
+						primitives.Box(
+							rotheme.Label("Password").
+								Align(widget.TextAlignRight).
+								LineHeight(fieldH/rotheme.Default.Typography.TextSize),
+						).
+							CrossAlign(primitives.CrossAxisStretch).
+							Width(labelW).
+							Height(fieldH),
+						primitives.Box(password).
+							Width(fieldW).
+							Height(fieldH),
 					).
-						CrossAlign(primitives.CrossAxisStretch).
-						Width(labelW).
-						Height(fieldH),
-					primitives.Box(password).
-						Width(fieldW).
-						Height(fieldH),
-				).
-					CrossAlign(primitives.CrossAxisCenter).
-					Gap(12),
+						CrossAlign(primitives.CrossAxisCenter).
+						Gap(12),
+				).Gap(loginWindowFieldGap),
+				primitives.Box(w.keep).Width(loginWindowKeepW).Height(fieldH),
 			).
 				PaddingTop(loginWindowFormTopPad).
 				PaddingLeft(24).
 				PaddingRight(loginWindowFieldRightPad).
-				Gap(loginWindowFieldGap),
+				CrossAlign(primitives.CrossAxisStart).
+				Gap(loginWindowKeepGap),
 		),
 		Footer(
 			primitives.Expanded(primitives.Box()),
@@ -166,11 +186,11 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 
 func (w *LoginWindow) fieldFocus() (bool, bool) {
 	if w.user == nil && w.password == nil {
-		return true, false
+		return w.Username == "", w.Username != ""
 	}
 	userFocused := w.user != nil && w.user.IsFocused()
 	passwordFocused := w.password != nil && w.password.IsFocused()
-	if !userFocused && !passwordFocused {
+	if !userFocused && !passwordFocused && (w.keep == nil || !w.keep.IsFocused()) {
 		return true, false
 	}
 	return userFocused, passwordFocused

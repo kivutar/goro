@@ -11,6 +11,8 @@ type Session struct {
 	AdminList            []uint32
 	Playing              bool
 	Dead                 bool
+	KeepLoginID          bool
+	SavedUsername        string
 	NoShift              bool
 	NoCtrl               bool
 	LessEffects          bool

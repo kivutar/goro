@@ -59,6 +59,8 @@ func New(cfg config.Config) (*Game, error) {
 		screenW:  cfg.Window.Width,
 		screenH:  cfg.Window.Height,
 	}
+	g.session.KeepLoginID = cfg.Login.KeepID
+	g.session.SavedUsername = cfg.Login.SavedUsername
 	g.session.NoShift = cfg.Gameplay.NoShift
 	g.session.NoCtrl = cfg.Gameplay.NoCtrl
 	g.session.LessEffects = cfg.Gameplay.LessEffects

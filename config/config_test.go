@@ -282,3 +282,73 @@ fullscreen = false
 		}
 	}
 }
+
+func TestSavedLoginIDRoundTripAndSettingsPreservation(t *testing.T) {
+	isolateUserConfig(t)
+	settings := UserSettings{BGMVolume: 0.33, SFXVolume: 0.44, VSync: true}
+	if _, err := SaveUserSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	// Quoting must preserve the ID literally, including spaces and INI punctuation.
+	username := ` "Test;#=ID" `
+	if _, err := SaveLoginID(username, true); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Login.KeepID || cfg.Login.SavedUsername != username {
+		t.Fatalf("saved login = %+v", cfg.Login)
+	}
+	if cfg.Login.Username != "" || cfg.Login.Password != "" || cfg.Login.AutoLogin {
+		t.Fatal("remembering the ID changed explicit credentials or enabled autologin")
+	}
+	if cfg.Audio.BGMVolume != 0.33 || cfg.Audio.SFXVolume != 0.44 || !cfg.Render.VSync {
+		t.Fatal("saving the login ID changed other settings")
+	}
+	if _, err := SaveUserSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = LoadConfig([]string{"--username", "explicit-id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Login.KeepID || cfg.Login.SavedUsername != username || cfg.Login.Username != "explicit-id" {
+		t.Fatalf("settings save or CLI override changed the remembered ID: %+v", cfg.Login)
+	}
+	if _, err := SaveLoginID(username, false); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = LoadConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Login.KeepID || cfg.Login.SavedUsername != "" {
+		t.Fatalf("unchecking Keep retained the saved ID: %+v", cfg.Login)
+	}
+}
+
+func TestSavedLoginIDRejectsLineBreaksWithoutChangingConfig(t *testing.T) {
+	isolateUserConfig(t)
+	path, err := SaveLoginID("original", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, username := range []string{"id\n[render]\nvsync=false", "id\rname", "id\x00name"} {
+		if _, err := SaveLoginID(username, true); err == nil {
+			t.Fatalf("accepted invalid ID %q", username)
+		}
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("invalid ID changed the existing config")
+	}
+}
