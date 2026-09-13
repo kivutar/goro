@@ -304,6 +304,9 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	gg := gogpu.NewApp(appConfig)
 	setCursorApp(gg)
 	defer setCursorApp(nil)
+	// Our custom runner supplies the clipboard bridge normally set up by ui/desktop.
+	widget.RegisterClipboardProvider(gg)
+	defer widget.RegisterClipboardProvider(nil)
 	events := newFanoutEventSource(gg.EventSource())
 	uiTheme := rotheme.Default.AsTheme()
 	uiTheme.Colors.Background = widget.RGBA8(0, 0, 0, 0)
