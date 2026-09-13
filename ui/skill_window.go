@@ -350,6 +350,11 @@ func (w *SkillWindow) skillGridWidget(ctx Context, assets AssetProvider, actions
 			w.hasHover = false
 			w.hideTooltip()
 		},
+		onRightClick: func(skill session.Skill, mx, my int) {
+			w.hideTooltip()
+			skillInfo := skillInfoWindow{}
+			skillInfo.openSkillInfo(ctx, skill, mx, my)
+		},
 	})
 	w.grid = grid
 	w.table = nil
