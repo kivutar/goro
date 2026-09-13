@@ -31,14 +31,15 @@ type LoginWindow struct {
 }
 
 const (
-	loginWindowFormTopPad  = 18
-	loginWindowFormSidePad = 16
-	loginWindowFieldGap    = 11
-	loginWindowLabelW      = 56
-	loginWindowLabelGap    = 12
-	loginWindowFieldH      = 22
-	loginWindowKeepW       = 64
-	loginWindowKeepGap     = 12
+	loginWindowFormTopPad   = 18
+	loginWindowFormLeftPad  = 16
+	loginWindowFormRightPad = 8
+	loginWindowFieldGap     = 11
+	loginWindowLabelW       = 56
+	loginWindowLabelGap     = 12
+	loginWindowFieldH       = 22
+	loginWindowKeepW        = 64
+	loginWindowKeepGap      = 12
 )
 
 func NewLoginWindow(ctx client.Context, username, password string, keepID bool, callbacks LoginWindowCallbacks) *LoginWindow {
@@ -129,7 +130,7 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 	)
 	w.keep.SetFocused(keepFocused)
 	labelW := float32(loginWindowLabelW)
-	fieldW := float32(w.layout.W - 2*loginWindowFormSidePad - loginWindowLabelW - loginWindowLabelGap - loginWindowKeepW - loginWindowKeepGap)
+	fieldW := float32(w.layout.W - loginWindowFormLeftPad - loginWindowFormRightPad - loginWindowLabelW - loginWindowLabelGap - loginWindowKeepW - loginWindowKeepGap)
 	fieldH := float32(loginWindowFieldH)
 	return Win(
 		Title("Login"),
@@ -173,8 +174,8 @@ func (w *LoginWindow) widgetTree() widget.Widget {
 				primitives.Box(w.keep).Width(loginWindowKeepW).Height(fieldH),
 			).
 				PaddingTop(loginWindowFormTopPad).
-				PaddingLeft(loginWindowFormSidePad).
-				PaddingRight(loginWindowFormSidePad).
+				PaddingLeft(loginWindowFormLeftPad).
+				PaddingRight(loginWindowFormRightPad).
 				CrossAlign(primitives.CrossAxisStart).
 				Gap(loginWindowKeepGap),
 		),
