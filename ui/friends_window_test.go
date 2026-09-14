@@ -190,7 +190,7 @@ func TestPartyCreateWindowFocusedEnterSubmitsImmediately(t *testing.T) {
 func TestPartyInviteWindowSubmitAction(t *testing.T) {
 	var window PartyInviteWindow
 	window.Open(Context{})
-	window.name = "Alice"
+	window.value = "Alice"
 
 	window.submit(Context{})
 
@@ -204,8 +204,8 @@ func TestPartyInviteWindowFocusedEnterSubmitsImmediately(t *testing.T) {
 	ctx := Context{Input: inputState}
 	var window PartyInviteWindow
 	window.Open(ctx)
-	window.name = "Alice"
-	window.nameInput(ctx).SetFocused(true)
+	window.value = "Alice"
+	window.input(ctx).SetFocused(true)
 	inputState.SetKey(input.KeyEnter, true)
 
 	if !window.Update(ctx) {
