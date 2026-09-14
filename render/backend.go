@@ -454,17 +454,33 @@ type fanoutEventSource struct {
 
 func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 	f := &fanoutEventSource{}
+	var modifiers gpucontext.Modifiers
+	var rightAlt bool
 	source.OnKeyPress(func(key gpucontext.Key, mods gpucontext.Modifiers) {
+		modifiers = mods
+		if key == gpucontext.KeyRightAlt {
+			rightAlt = true
+		}
 		for _, fn := range f.keyPress {
 			fn(key, mods)
 		}
 	})
 	source.OnKeyRelease(func(key gpucontext.Key, mods gpucontext.Modifiers) {
+		modifiers = mods
+		if key == gpucontext.KeyRightAlt {
+			rightAlt = false
+		}
 		for _, fn := range f.keyRelease {
 			fn(key, mods)
 		}
 	})
 	source.OnTextInput(func(text string) {
+		// Alt shortcuts must not also insert characters into focused editors.
+		// Filter before both UI and game dispatch; undoing an insertion later
+		// cannot restore a replaced selection. Preserve AltGr / Ctrl+Alt text.
+		if modifiers&gpucontext.ModAlt != 0 && modifiers&gpucontext.ModControl == 0 && !rightAlt {
+			return
+		}
 		for _, fn := range f.textInput {
 			fn(text)
 		}
@@ -495,6 +511,10 @@ func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 		}
 	})
 	source.OnFocus(func(focused bool) {
+		if !focused {
+			modifiers = 0
+			rightAlt = false
+		}
 		for _, fn := range f.focus {
 			fn(focused)
 		}

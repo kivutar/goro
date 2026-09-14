@@ -15,18 +15,19 @@ import (
 )
 
 type Config struct {
-	Headless bool
-	DataDir  string
-	Window   WindowConfig
-	Packet   PacketConfig
-	Login    LoginConfig
-	Audio    AudioConfig
-	Render   RenderConfig
-	Network  NetworkConfig
-	Fog      FogConfig
-	Gameplay GameplayConfig
-	Script   ScriptConfig
-	Log      glog.LogConfig
+	Headless      bool
+	DataDir       string
+	Window        WindowConfig
+	Packet        PacketConfig
+	Login         LoginConfig
+	Audio         AudioConfig
+	Render        RenderConfig
+	Network       NetworkConfig
+	Fog           FogConfig
+	Gameplay      GameplayConfig
+	Script        ScriptConfig
+	Log           glog.LogConfig
+	ChatShortcuts ChatShortcuts
 }
 
 type WindowConfig struct {
@@ -232,6 +233,7 @@ func saveUserConfigValues(values map[string]map[string]string) (string, error) {
 
 func defaultConfig() Config {
 	return Config{
+		ChatShortcuts: defaultChatShortcuts(),
 		Window: WindowConfig{
 			Title:      "goro",
 			Width:      1280,
@@ -400,6 +402,14 @@ func applyINI(cfg *Config, r io.Reader) error {
 }
 
 func applyConfigValue(cfg *Config, section, key, value string) error {
+	if section == "chatshortcuts" {
+		digit, err := strconv.Atoi(key)
+		if err != nil || digit < 0 || digit > 9 {
+			return fmt.Errorf("invalid chat shortcut key %q", key)
+		}
+		cfg.ChatShortcuts[(digit+9)%10] = value
+		return nil
+	}
 	switch section + "." + key {
 	case ".datadir", "data.dir", "data.datadir", "config.datadir", "core.datadir":
 		cfg.DataDir = value
@@ -516,7 +526,7 @@ func validateConfig(cfg *Config) error {
 }
 
 func upsertINIValues(src string, values map[string]map[string]string) string {
-	sectionOrder := []string{"window", "render", "audio", "gameplay", "login"}
+	sectionOrder := []string{"window", "render", "audio", "gameplay", "login", "chatshortcuts"}
 	seenSections := make(map[string]bool)
 	written := make(map[string]map[string]bool)
 	for section := range values {
@@ -587,7 +597,7 @@ func upsertINIValues(src string, values map[string]map[string]string) string {
 }
 
 func sortedINIKeys(values map[string]string) []string {
-	preferred := []string{"fullscreen", "vsync", "fps", "bgm_volume", "sfx_volume", "no_shift", "no_ctrl", "keep_id", "saved_username"}
+	preferred := []string{"fullscreen", "vsync", "fps", "bgm_volume", "sfx_volume", "no_shift", "no_ctrl", "keep_id", "saved_username", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
 	keys := make([]string, 0, len(values))
 	seen := make(map[string]bool, len(values))
 	for _, key := range preferred {

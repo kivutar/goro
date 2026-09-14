@@ -16,9 +16,7 @@ func TestConsoleNoShiftCommandTogglesSessionPreference(t *testing.T) {
 	sessionState := &session.Session{}
 	ctx := client.Context{Session: sessionState}
 
-	if !console.SubmitCommand(ctx, "/ns") {
-		t.Fatal("noshift command was not handled")
-	}
+	console.submitText(ctx, "/ns")
 	if !sessionState.NoShift {
 		t.Fatal("noshift was not enabled")
 	}
@@ -26,21 +24,9 @@ func TestConsoleNoShiftCommandTogglesSessionPreference(t *testing.T) {
 		t.Fatalf("console active=%t input=%q, want closed empty input", console.active, console.input)
 	}
 
-	if !console.SubmitCommand(ctx, "/noshift") {
-		t.Fatal("noshift command was not handled")
-	}
+	console.submitText(ctx, "/noshift")
 	if sessionState.NoShift {
 		t.Fatal("noshift was not disabled")
-	}
-}
-
-func TestConsoleDiscardTextInputRemovesShortcutRune(t *testing.T) {
-	console := &ChatConsole{input: "draftg"}
-
-	console.DiscardTextInput("g")
-
-	if console.input != "draft" {
-		t.Fatalf("console input = %q, want draft", console.input)
 	}
 }
 
@@ -49,16 +35,12 @@ func TestConsoleNoCtrlCommandTogglesSessionPreference(t *testing.T) {
 	sessionState := &session.Session{}
 	ctx := client.Context{Session: sessionState}
 
-	if !console.SubmitCommand(ctx, "/nc") {
-		t.Fatal("noctrl command was not handled")
-	}
+	console.submitText(ctx, "/nc")
 	if !sessionState.NoCtrl {
 		t.Fatal("noctrl was not enabled")
 	}
 
-	if !console.SubmitCommand(ctx, "/noctrl") {
-		t.Fatal("noctrl command was not handled")
-	}
+	console.submitText(ctx, "/noctrl")
 	if sessionState.NoCtrl {
 		t.Fatal("noctrl was not disabled")
 	}
@@ -69,9 +51,7 @@ func TestConsoleMineffectCommandTogglesSessionPreference(t *testing.T) {
 	sessionState := &session.Session{}
 	ctx := client.Context{Session: sessionState}
 
-	if !console.SubmitCommand(ctx, "/mineffect") {
-		t.Fatal("mineffect command was not handled")
-	}
+	console.submitText(ctx, "/mineffect")
 	if !sessionState.LessEffects {
 		t.Fatal("less effects was not enabled")
 	}
@@ -79,9 +59,7 @@ func TestConsoleMineffectCommandTogglesSessionPreference(t *testing.T) {
 		t.Fatalf("console active=%t input=%q, want closed empty input", console.active, console.input)
 	}
 
-	if !console.SubmitCommand(ctx, "/mineffect") {
-		t.Fatal("mineffect command was not handled")
-	}
+	console.submitText(ctx, "/mineffect")
 	if sessionState.LessEffects {
 		t.Fatal("less effects was not disabled")
 	}
@@ -92,9 +70,7 @@ func TestConsoleCompanionAICommandsToggleSessionPreference(t *testing.T) {
 	sessionState := &session.Session{}
 	ctx := client.Context{Session: sessionState}
 
-	if !console.SubmitCommand(ctx, "/hoai") {
-		t.Fatal("hoai command was not handled")
-	}
+	console.submitText(ctx, "/hoai")
 	if !sessionState.HomunculusCustomAI {
 		t.Fatal("homunculus custom AI was not enabled")
 	}
@@ -102,16 +78,12 @@ func TestConsoleCompanionAICommandsToggleSessionPreference(t *testing.T) {
 		t.Fatalf("console active=%t input=%q, want closed empty input", console.active, console.input)
 	}
 
-	if !console.SubmitCommand(ctx, "/merai") {
-		t.Fatal("merai command was not handled")
-	}
+	console.submitText(ctx, "/merai")
 	if !sessionState.MercenaryCustomAI {
 		t.Fatal("mercenary custom AI was not enabled")
 	}
 
-	if !console.SubmitCommand(ctx, "/hoai") {
-		t.Fatal("hoai command was not handled")
-	}
+	console.submitText(ctx, "/hoai")
 	if sessionState.HomunculusCustomAI {
 		t.Fatal("homunculus custom AI was not disabled")
 	}
@@ -120,9 +92,7 @@ func TestConsoleCompanionAICommandsToggleSessionPreference(t *testing.T) {
 func TestConsoleMemoCommandWithoutNetwork(t *testing.T) {
 	console := &ChatConsole{input: "/memo", active: true}
 
-	if !console.SubmitCommand(client.Context{}, "/memo") {
-		t.Fatal("memo command was not handled")
-	}
+	console.submitText(client.Context{}, "/memo")
 	if console.active || console.input != "" {
 		t.Fatalf("console active=%t input=%q, want closed empty input", console.active, console.input)
 	}
@@ -137,9 +107,7 @@ func TestConsoleMemoCommandWithoutNetwork(t *testing.T) {
 func TestConsoleBreakGuildCommandIsHandledLocally(t *testing.T) {
 	console := &ChatConsole{input: `/breakguild "Mandala"`, active: true}
 
-	if !console.SubmitCommand(client.Context{}, `/breakguild "Mandala"`) {
-		t.Fatal("breakguild command was not handled")
-	}
+	console.submitText(client.Context{}, `/breakguild "Mandala"`)
 	if console.active || console.input != "" {
 		t.Fatalf("console active=%t input=%q, want closed empty input", console.active, console.input)
 	}
@@ -152,9 +120,7 @@ func TestConsoleFameRankingCommandsWithoutNetwork(t *testing.T) {
 	for _, command := range []string{"/blacksmith", "/alchemist", "/taekwon"} {
 		console := &ChatConsole{input: command, active: true}
 
-		if !console.SubmitCommand(client.Context{}, command) {
-			t.Fatalf("%s command was not handled", command)
-		}
+		console.submitText(client.Context{}, command)
 		if console.active || console.input != "" {
 			t.Fatalf("%s console active=%t input=%q, want closed empty input", command, console.active, console.input)
 		}
@@ -168,9 +134,7 @@ func TestConsoleDoriDoriCommandWithoutNetwork(t *testing.T) {
 	console := &ChatConsole{input: "/doridori", active: true}
 	world := worldstate.New()
 
-	if !console.SubmitCommand(client.Context{World: world}, "/doridori") {
-		t.Fatal("doridori command was not handled")
-	}
+	console.submitText(client.Context{World: world}, "/doridori")
 	if world.Player.HeadDir != 0 {
 		t.Fatalf("head direction = %d after failed send, want unchanged", world.Player.HeadDir)
 	}
@@ -224,9 +188,7 @@ func TestConsoleScreenshotCommandRequestsCapture(t *testing.T) {
 		},
 	}
 
-	if !console.SubmitCommand(ctx, "/screenshot") {
-		t.Fatal("screenshot command was not handled")
-	}
+	console.submitText(ctx, "/screenshot")
 	if !requested {
 		t.Fatal("screenshot was not requested")
 	}

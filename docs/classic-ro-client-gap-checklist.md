@@ -124,8 +124,8 @@ individual game-window layout.
 
 - [ ] Add a shortcut configuration window instead of relying only on the hardcoded F1-F9, 1-9, and Q-O mapping.
 - [ ] Persist physical-key bindings so layouts such as AZERTY remain correct.
-- [ ] Add the original Alt+M shortcut-list window for chat-command bindings.
-- [ ] Support editing and clearing all Alt+1 through Alt+0 command slots.
+- [x] Add the original Alt+M shortcut-list window for chat-command bindings.
+- [x] Support editing and clearing all Alt+1 through Alt+0 command slots, saved locally. The View button reuses the emote picker; shortcuts use physical keys (including AZERTY) and the console's command handling.
 - [ ] Verify original Battle Mode behavior for the 2008 client and expose it cleanly if it differs from Goro's always-available extra rows.
 - [ ] Keep server-side item/skill hotkey slots distinct from client-side physical key bindings.
 

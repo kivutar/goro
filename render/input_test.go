@@ -7,6 +7,60 @@ import (
 	"github.com/kivutar/goro/input"
 )
 
+func TestFanoutAltShortcutsDoNotEmitText(t *testing.T) {
+	source := &fanoutEventSource{}
+	filtered := newFanoutEventSource(source)
+	state := input.NewState()
+	wireInput(filtered, state)
+	var uiText string
+	filtered.OnTextInput(func(text string) { uiText += text })
+	press := func(key gpucontext.Key, mods gpucontext.Modifiers) {
+		for _, fn := range source.keyPress {
+			fn(key, mods)
+		}
+	}
+	typeText := func(text string) {
+		for _, fn := range source.textInput {
+			fn(text)
+		}
+	}
+	press(gpucontext.KeyLeftAlt, gpucontext.ModAlt)
+	press(gpucontext.Key1, gpucontext.ModAlt)
+	typeText("&") // AZERTY physical Digit1
+	press(gpucontext.KeyM, gpucontext.ModAlt)
+	typeText("m")
+	if uiText != "" || state.TextInput() != "" {
+		t.Fatal("Alt shortcut inserted text into an editor")
+	}
+	if !state.KeyCodeJustPressed(gpucontext.Key1) || !state.KeyCodeJustPressed(gpucontext.KeyM) {
+		t.Fatal("filter lost physical key events")
+	}
+	for _, fn := range source.keyRelease {
+		fn(gpucontext.KeyLeftAlt, 0)
+	}
+	typeText("ordinary")
+	press(gpucontext.KeyRightAlt, gpucontext.ModAlt)
+	press(gpucontext.Key0, gpucontext.ModAlt)
+	typeText("@")
+	for _, fn := range source.keyRelease {
+		fn(gpucontext.KeyRightAlt, 0)
+	}
+	press(gpucontext.Key0, gpucontext.ModAlt|gpucontext.ModControl)
+	typeText("#")
+	if uiText != "ordinary@#" || state.TextInput() != uiText {
+		t.Fatalf("ordinary/AltGr text was lost: %q / %q", uiText, state.TextInput())
+	}
+	press(gpucontext.KeyM, gpucontext.ModAlt)
+	for _, fn := range source.focus {
+		fn(false)
+		fn(true)
+	}
+	typeText("returned")
+	if uiText != "ordinary@#returned" || state.TextInput() != "returned" {
+		t.Fatalf("text after focus loss = %q / %q", uiText, state.TextInput())
+	}
+}
+
 func TestWireInputAltTabWithoutKeyRelease(t *testing.T) {
 	for _, name := range []string{"AltLeft", "AltRight"} {
 		t.Run(name, func(t *testing.T) {

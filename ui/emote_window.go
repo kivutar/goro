@@ -34,6 +34,8 @@ const (
 
 type EmoteWindow struct {
 	Window
+	// OnSelect can handle a selection in another editor instead of the console.
+	OnSelect   func(command string) bool
 	page       int
 	contentKey string
 	sprite     emoteSpriteSet
@@ -177,7 +179,13 @@ func (w *EmoteWindow) movePage(ctx Context, console *ChatConsole, delta int) {
 
 func (w *EmoteWindow) selectEmotion(ctx Context, console *ChatConsole, emote db.Emotion) {
 	command := strings.TrimSpace(emote.Command)
-	if command == "" || console == nil {
+	if command == "" {
+		return
+	}
+	if w.OnSelect != nil && w.OnSelect("/"+command) {
+		return
+	}
+	if console == nil {
 		return
 	}
 	console.setInput("/" + command)
@@ -188,6 +196,9 @@ func (w *EmoteWindow) selectEmotion(ctx Context, console *ChatConsole, emote db.
 func (w *EmoteWindow) playEmotion(ctx Context, console *ChatConsole, emote db.Emotion) {
 	command := strings.TrimSpace(emote.Command)
 	if command == "" {
+		return
+	}
+	if w.OnSelect != nil && w.OnSelect("/"+command) {
 		return
 	}
 	if console != nil {

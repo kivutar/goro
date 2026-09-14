@@ -92,18 +92,6 @@ func (c *ChatConsole) Active() bool {
 	return c != nil && c.active
 }
 
-// DiscardTextInput removes text emitted for a keyboard shortcut before the
-// frame is dispatched. UI text events arrive before the game's key handling.
-func (c *ChatConsole) DiscardTextInput(text string) {
-	if c == nil || text == "" {
-		return
-	}
-	current := c.currentInput()
-	if strings.HasSuffix(current, text) {
-		c.setInput(strings.TrimSuffix(current, text))
-	}
-}
-
 func (c *ChatConsole) Update(ctx client.Context) bool {
 	c.UpdatePresentation(ctx)
 	return c.UpdateInput(ctx)
@@ -288,18 +276,30 @@ func (c *ChatConsole) submitText(ctx client.Context, inputText string) {
 		return
 	}
 	c.rememberInput(text)
-	if c.SubmitCommand(ctx, text) {
-		return
+	if c.SendText(ctx, text) {
+		c.setInput("")
+		c.setActive(false)
+	}
+}
+
+// SendText executes a chat message or command without changing the editor's
+// draft, focus or history. Both console submissions and Alt+number use it.
+func (c *ChatConsole) SendText(ctx client.Context, text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+	if c.submitCommand(ctx, text) {
+		return true
 	}
 	if err := client.SendChat(ctx, text); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		return
+		return false
 	}
-	c.setInput("")
-	c.setActive(false)
+	return true
 }
 
-func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
+func (c *ChatConsole) submitCommand(ctx client.Context, text string) bool {
 	if !strings.HasPrefix(text, "/") {
 		return false
 	}
@@ -317,8 +317,6 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 	case "/noshift", "/ns":
 		if ctx.Session == nil {
 			c.AddErrorMessage("noshift failed: no session")
-			c.setInput("")
-			c.setActive(false)
 			return true
 		}
 		ctx.Session.NoShift = !ctx.Session.NoShift
@@ -327,14 +325,10 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 		} else {
 			c.AddSystemMessage("No Shift: Off")
 		}
-		c.setInput("")
-		c.setActive(false)
 		return true
 	case "/noctrl", "/nc":
 		if ctx.Session == nil {
 			c.AddErrorMessage("noctrl failed: no session")
-			c.setInput("")
-			c.setActive(false)
 			return true
 		}
 		ctx.Session.NoCtrl = !ctx.Session.NoCtrl
@@ -343,8 +337,6 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 		} else {
 			c.AddSystemMessage("No Ctrl: Off")
 		}
-		c.setInput("")
-		c.setActive(false)
 		return true
 	case "/mineffect":
 		c.submitLessEffects(ctx)
@@ -383,8 +375,6 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 		if c.OnGuildWindow != nil {
 			c.OnGuildWindow()
 		}
-		c.setInput("")
-		c.setActive(false)
 		return true
 	case "/emblem", "/guildemblem":
 		c.submitGuildEmblem(ctx, text)
@@ -428,35 +418,25 @@ func (c *ChatConsole) SubmitCommand(ctx client.Context, text string) bool {
 func (c *ChatConsole) submitScreenshot(ctx client.Context) {
 	if ctx.RequestScreenshot == nil {
 		c.AddErrorMessage("screenshot failed: unavailable")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	path, err := ctx.RequestScreenshot()
 	if err != nil {
 		c.AddErrorMessage("screenshot failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	c.AddSystemMessage("Screenshot: %s", path)
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitLessEffects(ctx client.Context) {
 	if ctx.Session == nil {
 		c.AddErrorMessage("mineffect failed: no session")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	enabled := !ctx.Session.LessEffects
 	if ctx.Network != nil {
 		if err := ctx.Network.SendLessEffect(enabled); err != nil {
 			c.AddErrorMessage("send failed: %s", err)
-			c.setInput("")
-			c.setActive(false)
 			return
 		}
 	}
@@ -466,15 +446,11 @@ func (c *ChatConsole) submitLessEffects(ctx client.Context) {
 	} else {
 		c.AddSystemMessage("Less Effects: Off")
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitCompanionAI(ctx client.Context, homunculus bool) {
 	if ctx.Session == nil {
 		c.AddErrorMessage("ai mode failed: no session")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	label := "Mercenary"
@@ -492,8 +468,6 @@ func (c *ChatConsole) submitCompanionAI(ctx client.Context, homunculus bool) {
 	} else {
 		c.AddSystemMessage("%s AI: Default", label)
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitOrganizeParty(ctx client.Context, text string) {
@@ -501,27 +475,19 @@ func (c *ChatConsole) submitOrganizeParty(ctx client.Context, text string) {
 	name = strings.Trim(name, `"`)
 	if name == "" {
 		c.AddErrorMessage("usage: /organize party_name")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendMakeParty(name); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Session != nil {
 		ctx.Session.Party.Name = name
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitCreateGuild(ctx client.Context, text string) {
@@ -529,113 +495,77 @@ func (c *ChatConsole) submitCreateGuild(ctx client.Context, text string) {
 	name = strings.Trim(name, `"`)
 	if name == "" {
 		c.AddErrorMessage("usage: /guild guild_name")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Session == nil {
 		c.AddErrorMessage("guild creation failed: no session")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendCreateGuild(ctx.Session.CharID, name); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	ctx.Session.PendingGuildName = name
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitDisbandGuild(ctx client.Context, text string) {
 	name := strings.Trim(consoleCommandArgs(text), `"`)
 	if name == "" {
 		c.AddErrorMessage(`usage: /breakguild "Guild Name"`)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendDisbandGuild(name); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitGuildEmblem(ctx client.Context, text string) {
 	path := strings.Trim(consoleCommandArgs(text), `"`)
 	if path == "" {
 		c.AddErrorMessage("usage: /emblem path/to/emblem.bmp")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		c.AddErrorMessage("emblem failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if len(data) < 2 || data[0] != 'B' || data[1] != 'M' {
 		c.AddErrorMessage("emblem failed: expected BMP file")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if len(data) > 1783 {
 		c.AddErrorMessage("emblem failed: BMP is too large")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendGuildEmblem(data); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	c.AddSystemMessage("Guild emblem uploaded.")
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitLeaveParty(ctx client.Context) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendLeaveParty(); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitInviteParty(ctx client.Context, text string) {
@@ -643,14 +573,10 @@ func (c *ChatConsole) submitInviteParty(ctx client.Context, text string) {
 	name = strings.Trim(name, `"`)
 	if name == "" {
 		c.AddErrorMessage("usage: /invite character_name")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.World == nil {
 		c.AddErrorMessage("invite failed: character is not visible")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	for _, actor := range ctx.World.Actors {
@@ -659,37 +585,25 @@ func (c *ChatConsole) submitInviteParty(ctx client.Context, text string) {
 		}
 		if ctx.Network == nil {
 			c.AddErrorMessage("send failed: not connected")
-			c.setInput("")
-			c.setActive(false)
 			return
 		}
 		if err := ctx.Network.SendPartyInvite(actor.ID, actor.Name); err != nil {
 			c.AddErrorMessage("send failed: %s", err)
-			c.setInput("")
-			c.setActive(false)
 			return
 		}
 		c.AddBlueMessage("%s has received an invitation to join your party.", actor.Name)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	c.AddErrorMessage("invite failed: character is not visible")
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitPartyInviteConfig(ctx client.Context, refuseInvites bool) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendPartyInviteConfig(refuseInvites); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Session != nil {
@@ -700,8 +614,6 @@ func (c *ChatConsole) submitPartyInviteConfig(ctx client.Context, refuseInvites 
 	} else {
 		c.AddSystemMessage("Party invites: Accepted")
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func consoleCommandArgs(text string) string {
@@ -715,26 +627,18 @@ func consoleCommandArgs(text string) string {
 func (c *ChatConsole) submitEmotion(ctx client.Context, emotionID uint8) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendEmotion(emotionID); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitWhisper(ctx client.Context, text string) {
 	fields := strings.Fields(text)
 	if len(fields) < 2 {
 		c.AddErrorMessage("usage: /w name message")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	rest := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), fields[0]))
@@ -743,25 +647,17 @@ func (c *ChatConsole) submitWhisper(ctx client.Context, text string) {
 	message = strings.TrimSpace(message)
 	if !ok || target == "" || message == "" {
 		c.AddErrorMessage("usage: /w name message")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendWhisper(target, message); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	c.AddBlueMessage("[ To %s ] : %s", target, message)
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitWhisperIgnore(ctx client.Context, text string, allow bool) {
@@ -773,71 +669,49 @@ func (c *ChatConsole) submitWhisperIgnore(ctx client.Context, text string, allow
 		} else {
 			c.AddErrorMessage("usage: /ex character_name")
 		}
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendWhisperIgnore(name, allow); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitWhisperIgnoreAll(ctx client.Context, allow bool) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendWhisperIgnoreAll(allow); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitMemo(ctx client.Context) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendRememberWarpPoint(); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitFameRanking(ctx client.Context, kind network.FameRankingKind) {
 	if ctx.Network == nil {
 		c.AddErrorMessage("send failed: not connected")
-		c.setInput("")
-		c.setActive(false)
 		return
 	}
 	if err := ctx.Network.SendFameRankingRequest(kind); err != nil {
 		c.AddErrorMessage("send failed: %s", err)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitSitStand(ctx client.Context, sit bool) {
@@ -845,15 +719,9 @@ func (c *ChatConsole) submitSitStand(ctx client.Context, sit bool) {
 		c.AddErrorMessage("send failed: %s", err)
 		return
 	}
-	c.setInput("")
-	c.setActive(false)
 }
 
 func (c *ChatConsole) submitDoriDori(ctx client.Context, now time.Time) {
-	defer func() {
-		c.setInput("")
-		c.setActive(false)
-	}()
 	if ctx.World == nil {
 		c.AddErrorMessage("doridori failed: no world")
 		return
