@@ -42,7 +42,7 @@ func (m *WorldMode) openTradeRequest(ctx client.Context, request network.TradeRe
 			glog.Warnf("trade request accept failed name=%q: %v", request.Name, err)
 			return
 		}
-		m.ui.tradeWindow.Open(ctx, name)
+		m.pendingTradeName = name
 	}, func() {
 		if ctx.Network == nil {
 			glog.Warnf("trade request reject failed: not connected")
