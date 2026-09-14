@@ -33,14 +33,3 @@ If you keep the executable elsewhere, pass the data folder explicitly:
 ```sh
 ./goro --data-dir /path/to/OldRO
 ```
-
-## Chat shortcuts
-
-Press **Alt+M** in game to edit the ten **Alt+1 … Alt+0** shortcuts. They can
-contain an emote (`/ho`), a command (`/sit`), or a chat message. **View** opens
-the emote list to fill the selected field. Clear a field to disable its shortcut.
-
-Bindings are saved in your user `goro.ini`, independently of skill/item hotkeys.
-The number row uses physical keys, so AZERTY does not require Shift. AltGr is
-reserved for typing. Shortcuts do not repeat while held or run while editing
-another game form.
