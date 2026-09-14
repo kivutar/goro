@@ -940,10 +940,10 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.weaponRefine.Update(ctx) {
 		return nil, nil
 	}
-	if m.ui.chatShortcuts.Update(ctx) {
+	if !dead && !m.ui.chatShortcuts.KeyboardShortcutsBlocked() && m.ui.console.UpdateInput(ctx) {
 		return nil, nil
 	}
-	if !dead && !m.ui.chatShortcuts.IsOpen() && m.ui.console.UpdateInput(ctx) {
+	if m.ui.chatShortcuts.Update(ctx) {
 		return nil, nil
 	}
 	if m.ui.settingsWindow.Update(ctx) {
@@ -1281,7 +1281,7 @@ func (m *WorldMode) toggleEmoteWindowFromInput(ctx client.Context) bool {
 	if ctx.Input == nil || m.ui.nonConsoleKeyboardInputBlocked(ctx) {
 		return false
 	}
-	if !ctx.Input.Pressed(input.KeyAlt) || !ctx.Input.JustPressed(input.KeyL) {
+	if !plainAltDown(ctx.Input) || !ctx.Input.JustPressed(input.KeyL) {
 		return false
 	}
 	m.ui.emoteWindow.Toggle(ctx, &m.ui.console)
@@ -1292,7 +1292,7 @@ func (m *WorldMode) toggleGuildWindowFromInput(ctx client.Context) bool {
 	if ctx.Input == nil || m.ui.nonConsoleKeyboardInputBlocked(ctx) {
 		return false
 	}
-	if !ctx.Input.Pressed(input.KeyAlt) || !ctx.Input.JustPressed(input.KeyG) {
+	if !plainAltDown(ctx.Input) || !ctx.Input.JustPressed(input.KeyG) {
 		return false
 	}
 	m.toggleGuildWindow(ctx)

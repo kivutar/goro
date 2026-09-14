@@ -7,13 +7,36 @@ import (
 	"github.com/kivutar/goro/input"
 )
 
-func TestFanoutAltShortcutsDoNotEmitText(t *testing.T) {
+func TestFanoutPreservesTextWithoutShortcutFilter(t *testing.T) {
 	source := &fanoutEventSource{}
 	filtered := newFanoutEventSource(source)
 	state := input.NewState()
 	wireInput(filtered, state)
 	var uiText string
 	filtered.OnTextInput(func(text string) { uiText += text })
+	for _, fn := range source.keyPress {
+		fn(gpucontext.KeyLeftAlt, gpucontext.ModAlt)
+		fn(gpucontext.Key2, gpucontext.ModAlt)
+	}
+	for _, fn := range source.textInput {
+		fn("™") // Option+2 on macOS, including on login screens.
+	}
+	if uiText != "™" || state.TextInput() != uiText {
+		t.Fatalf("Option text was lost: %q / %q", uiText, state.TextInput())
+	}
+}
+
+func TestFanoutFiltersOnlyActiveShortcutText(t *testing.T) {
+	source := &fanoutEventSource{}
+	filtered := newFanoutEventSource(source)
+	state := input.NewState()
+	wireInput(filtered, state)
+	var uiText string
+	filtered.OnTextInput(func(text string) { uiText += text })
+	active := true
+	filtered.suppressShortcutText = func(code input.KeyCode) bool {
+		return active && state.Pressed(input.KeyAlt) && code == gpucontext.KeyM
+	}
 	press := func(key gpucontext.Key, mods gpucontext.Modifiers) {
 		for _, fn := range source.keyPress {
 			fn(key, mods)
@@ -25,30 +48,33 @@ func TestFanoutAltShortcutsDoNotEmitText(t *testing.T) {
 		}
 	}
 	press(gpucontext.KeyLeftAlt, gpucontext.ModAlt)
-	press(gpucontext.Key1, gpucontext.ModAlt)
-	typeText("&") // AZERTY physical Digit1
 	press(gpucontext.KeyM, gpucontext.ModAlt)
-	typeText("m")
+	typeText(",") // AZERTY physical M; glyph does not affect the binding.
 	if uiText != "" || state.TextInput() != "" {
 		t.Fatal("Alt shortcut inserted text into an editor")
 	}
-	if !state.KeyCodeJustPressed(gpucontext.Key1) || !state.KeyCodeJustPressed(gpucontext.KeyM) {
+	if !state.KeyCodeJustPressed(gpucontext.KeyM) {
 		t.Fatal("filter lost physical key events")
 	}
-	for _, fn := range source.keyRelease {
-		fn(gpucontext.KeyLeftAlt, 0)
+	state.ConsumeKeyCodePress(gpucontext.KeyM)
+	state.EndFrame()
+	press(gpucontext.KeyM, gpucontext.ModAlt)
+	typeText(",")
+	if uiText != "" || state.TextInput() != "" || state.KeyCodeJustPressed(gpucontext.KeyM) {
+		t.Fatal("held shortcut leaked text or retriggered its press")
 	}
-	typeText("ordinary")
-	press(gpucontext.KeyRightAlt, gpucontext.ModAlt)
-	press(gpucontext.Key0, gpucontext.ModAlt)
-	typeText("@")
+	active = false // The active mode or focused form does not handle this key.
+	typeText("µ")
+	active = true
+	press(gpucontext.Key2, gpucontext.ModAlt)
+	typeText("™") // An unbound physical key is not filtered either.
+	press(gpucontext.KeyM, gpucontext.ModAlt)
 	for _, fn := range source.keyRelease {
-		fn(gpucontext.KeyRightAlt, 0)
+		fn(gpucontext.KeyM, gpucontext.ModAlt)
 	}
-	press(gpucontext.Key0, gpucontext.ModAlt|gpucontext.ModControl)
-	typeText("#")
-	if uiText != "ordinary@#" || state.TextInput() != uiText {
-		t.Fatalf("ordinary/AltGr text was lost: %q / %q", uiText, state.TextInput())
+	typeText("released")
+	if uiText != "µ™released" || state.TextInput() != uiText {
+		t.Fatalf("non-shortcut text was lost: %q / %q", uiText, state.TextInput())
 	}
 	press(gpucontext.KeyM, gpucontext.ModAlt)
 	for _, fn := range source.focus {
@@ -56,7 +82,7 @@ func TestFanoutAltShortcutsDoNotEmitText(t *testing.T) {
 		fn(true)
 	}
 	typeText("returned")
-	if uiText != "ordinary@#returned" || state.TextInput() != "returned" {
+	if uiText != "µ™releasedreturned" || state.TextInput() != "returned" {
 		t.Fatalf("text after focus loss = %q / %q", uiText, state.TextInput())
 	}
 }

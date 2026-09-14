@@ -124,6 +124,10 @@ func (g *Game) InputState() *input.State {
 	return g.input
 }
 
+func (g *Game) SuppressShortcutText(code input.KeyCode) bool {
+	return g.modes != nil && g.modes.SuppressShortcutText(g.modeContext(), code)
+}
+
 func (g *Game) SetQuitFunc(quit func()) {
 	g.quit = quit
 }

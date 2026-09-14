@@ -2,6 +2,7 @@ package game
 
 import (
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
 )
 
@@ -45,6 +46,15 @@ func (m *Manager) enter(mode Mode) {
 
 func (m *Manager) UpdateContext(ctx client.Context) {
 	m.ctx = ctx
+}
+
+func (m *Manager) SuppressShortcutText(ctx client.Context, code input.KeyCode) bool {
+	if filter, ok := m.mode.(interface {
+		SuppressShortcutText(client.Context, input.KeyCode) bool
+	}); ok {
+		return filter.SuppressShortcutText(ctx, code)
+	}
+	return false
 }
 
 func (m *Manager) Update() error {

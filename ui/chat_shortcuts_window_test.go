@@ -114,8 +114,26 @@ func TestChatShortcutViewAndEscape(t *testing.T) {
 		t.Fatalf("View callback count = %d", views)
 	}
 	ctx.Input.SetKey(input.KeyEscape, true)
-	if !w.UpdateKeyboardInput(ctx) || w.IsOpen() {
+	if !w.Update(ctx) || w.IsOpen() {
 		t.Fatal("Escape did not close editor")
+	}
+}
+
+func TestChatShortcutEditorOnlyBlocksFocusedInput(t *testing.T) {
+	ctx := shortcutWindowTestContext(t)
+	w := &ChatShortcutsWindow{}
+	w.Toggle(ctx, nil, nil)
+	ctx.Input.SetKey(input.KeyEnter, true)
+	if w.KeyboardShortcutsBlocked() || w.UpdateKeyboardInput(ctx) {
+		t.Fatal("unfocused editor blocked console")
+	}
+	w.fields[0].SetFocused(true)
+	if !w.KeyboardShortcutsBlocked() || !w.UpdateKeyboardInput(ctx) {
+		t.Fatal("focused editor leaked Enter to console")
+	}
+	ctx.Input.SetKey(input.KeyEscape, true)
+	if !w.UpdateKeyboardInput(ctx) || w.IsOpen() || w.fields[0].IsFocused() {
+		t.Fatal("Escape did not close focused editor and release focus")
 	}
 }
 

@@ -81,11 +81,25 @@ func (w *ChatShortcutsWindow) UpdateKeyboardInput(ctx Context) bool {
 			editing = true
 		}
 	}
+	if !editing {
+		return false
+	}
 	if w.escapePressed(ctx) {
 		w.Close()
 		return true
 	}
-	return editing && (ctx.Input.JustPressed(input.KeyEnter) || ctx.Input.JustPressed(input.KeyArrowUp) || ctx.Input.JustPressed(input.KeyArrowDown))
+	return ctx.Input.JustPressed(input.KeyEnter) || ctx.Input.JustPressed(input.KeyArrowUp) || ctx.Input.JustPressed(input.KeyArrowDown)
+}
+
+func (w *ChatShortcutsWindow) KeyboardShortcutsBlocked() bool {
+	if w.IsOpen() {
+		for _, field := range w.fields {
+			if field != nil && field.IsFocused() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (w *ChatShortcutsWindow) Rebind(ctx Context, console *ChatConsole, onView func()) {

@@ -4,11 +4,15 @@ import (
 	"testing"
 
 	"github.com/gogpu/gpucontext"
+	"github.com/gogpu/ui/core/textfield"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
+	worldstate "github.com/kivutar/goro/world"
 )
 
 func chatShortcutTestContext(t *testing.T) client.Context {
@@ -23,19 +27,123 @@ func TestChatShortcutWindowToggleAndBlocking(t *testing.T) {
 	m := &WorldMode{}
 	ctx.Input.SetKeyCode(gpucontext.KeyLeftAlt, true)
 	ctx.Input.SetKeyCode(gpucontext.KeyM, true)
-	if !m.chatShortcutFromInput(ctx) || !m.ui.chatShortcuts.IsOpen() {
+	if !m.SuppressShortcutText(ctx, gpucontext.KeyM) || !m.chatShortcutFromInput(ctx) || !m.ui.chatShortcuts.IsOpen() {
 		t.Fatal("Alt+M did not open shortcut list")
 	}
 	if !m.ui.keyboardInputBlocked(ctx) {
 		t.Fatal("shortcut editor did not block game hotkeys")
 	}
-	if m.chatShortcutFromInput(ctx) {
-		t.Fatal("held Alt+M retriggered")
+	if !m.SuppressShortcutText(ctx, gpucontext.KeyM) || m.chatShortcutFromInput(ctx) || !m.ui.chatShortcuts.IsOpen() {
+		t.Fatal("held Alt+M retriggered or leaked text")
 	}
 	ctx.Input.SetKeyCode(gpucontext.KeyM, false)
 	ctx.Input.SetKeyCode(gpucontext.KeyM, true)
 	if !m.chatShortcutFromInput(ctx) || m.ui.chatShortcuts.IsOpen() {
 		t.Fatal("Alt+M did not close shortcut list")
+	}
+}
+
+func TestChatShortcutTextOnlyInterceptsAvailableBindings(t *testing.T) {
+	ctx := chatShortcutTestContext(t)
+	m := &WorldMode{}
+	ctx.Config.ChatShortcuts[0] = "/ns"
+	ctx.Input.SetKeyCode(gpucontext.KeyLeftAlt, true)
+	ctx.Input.SetKeyCode(gpucontext.Key1, true)
+	if !m.SuppressShortcutText(ctx, gpucontext.Key1) {
+		t.Fatal("bound Alt+1 text leaked")
+	}
+	if !ctx.Input.KeyCodeJustPressed(gpucontext.Key1) || ctx.Session.NoShift {
+		t.Fatal("text filter consumed or executed a shortcut")
+	}
+	if m.SuppressShortcutText(ctx, gpucontext.Key2) {
+		t.Fatal("unbound Option text was swallowed")
+	}
+	for _, key := range []gpucontext.Key{gpucontext.KeyL, gpucontext.KeyG} {
+		if !m.SuppressShortcutText(ctx, key) {
+			t.Fatalf("Alt+%v text leaked", key)
+		}
+	}
+	for _, modifier := range []gpucontext.Key{gpucontext.KeyLeftControl, gpucontext.KeyRightAlt, gpucontext.KeyLeftShift, gpucontext.KeyLeftSuper, gpucontext.KeyRightSuper} {
+		ctx.Input.SetKeyCode(gpucontext.KeyLeftAlt, true)
+		ctx.Input.SetKeyCode(modifier, true)
+		if m.SuppressShortcutText(ctx, gpucontext.Key1) {
+			t.Fatalf("text with %v was swallowed", modifier)
+		}
+		ctx.Input.SetKeyCode(modifier, false)
+	}
+	ctx.Input.SetKeyCode(gpucontext.KeyLeftAlt, true)
+	m.ui.settingsWindow.OpenWindow(ctx)
+	if m.SuppressShortcutText(ctx, gpucontext.Key1) {
+		t.Fatal("shortcut text was swallowed while a form blocked shortcuts")
+	}
+	if m.SuppressShortcutText(ctx, gpucontext.KeyM) {
+		t.Fatal("Alt+M was swallowed while a form blocked shortcuts")
+	}
+	login := &Manager{mode: NewLoginMode()}
+	if login.SuppressShortcutText(ctx, gpucontext.KeyM) {
+		t.Fatal("login intercepted a world shortcut")
+	}
+}
+
+func TestConsoleSubmitsWhileShortcutEditorIsOpen(t *testing.T) {
+	ctx := chatShortcutTestContext(t)
+	ctx.World = worldstate.New()
+	ctx.Network = network.NewClient(20080910, false)
+	t.Cleanup(func() { ctx.Network.Close() })
+	manager := &worldModeTestUIManager{}
+	ctx.UIManager = manager
+	mode := NewWorldMode()
+	mode.ui.console.Publish(ctx)
+	var field *textfield.Widget
+	var find func(widget.Widget)
+	find = func(w widget.Widget) {
+		if f, ok := w.(*textfield.Widget); ok {
+			field = f
+		}
+		for _, child := range w.Children() {
+			find(child)
+		}
+	}
+	for _, root := range manager.overlays {
+		find(root)
+	}
+	if field == nil {
+		t.Fatal("no console field")
+	}
+	mode.ui.chatShortcuts.Toggle(ctx, &mode.ui.console, nil)
+	mode.ui.chatShortcuts.SetAutoPosition(100, 100)
+	ctx.Input.SetMousePosition(120, 150) // Hovering the editor must not swallow console submissions.
+	field.SetText("/ns")
+	field.SetFocused(true)
+	field.Event(widget.NewContext(), event.NewKeyEvent(event.KeyPress, event.KeyEnter, 0, event.ModNone))
+	ctx.Input.SetKey(input.KeyEnter, true)
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !ctx.Session.NoShift || !mode.ui.chatShortcuts.IsOpen() {
+		t.Fatal("console command did not execute with shortcut editor open")
+	}
+	ctx.Input.EndFrame()
+	ctx.Input.SetKey(input.KeyEnter, false)
+	field.SetFocused(true)
+	ctx.Input.SetKey(input.KeyEscape, true)
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if mode.ui.console.Active() || !mode.ui.chatShortcuts.IsOpen() {
+		t.Fatal("Escape did not leave console input before closing the editor")
+	}
+	ctx.Input.EndFrame()
+	ctx.Input.SetKey(input.KeyEscape, false)
+	ctx.Input.SetKey(input.KeyEscape, true)
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if mode.ui.chatShortcuts.IsOpen() || mode.ui.escapeMenu.IsOpen() {
+		t.Fatal("Escape did not close the editor")
+	}
+	if !ctx.Session.NoShift {
+		t.Fatal("closing shortcut editor resubmitted a console command")
 	}
 }
 
@@ -77,7 +185,7 @@ func TestChatShortcutAllPhysicalSlotsSendOnce(t *testing.T) {
 }
 
 func TestChatShortcutIgnoresOtherModifiersAndModal(t *testing.T) {
-	for _, modifier := range []gpucontext.Key{gpucontext.KeyRightAlt, gpucontext.KeyLeftControl, gpucontext.KeyLeftShift} {
+	for _, modifier := range []gpucontext.Key{gpucontext.KeyRightAlt, gpucontext.KeyLeftControl, gpucontext.KeyLeftShift, gpucontext.KeyLeftSuper, gpucontext.KeyRightSuper} {
 		t.Run(modifier.String(), func(t *testing.T) {
 			ctx := chatShortcutTestContext(t)
 			ctx.Input.SetKeyCode(gpucontext.KeyLeftAlt, true)
@@ -87,6 +195,11 @@ func TestChatShortcutIgnoresOtherModifiersAndModal(t *testing.T) {
 			m := &WorldMode{}
 			if m.chatShortcutFromInput(ctx) || ctx.Session.NoShift {
 				t.Fatal("modified key executed a shortcut")
+			}
+			ctx.Input.SetKeyCode(gpucontext.KeyL, true)
+			ctx.Input.SetKeyCode(gpucontext.KeyG, true)
+			if m.toggleEmoteWindowFromInput(ctx) || m.toggleGuildWindowFromInput(ctx) {
+				t.Fatal("modified key executed a window shortcut")
 			}
 		})
 	}
