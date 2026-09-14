@@ -47,7 +47,6 @@ func (w *TextPromptWindow) Open(ctx Context, title, label, placeholder string, m
 }
 
 func (w *TextPromptWindow) Update(ctx Context) bool {
-	w.EnsureWindow(textPromptW, ROWindowTitleHeight+textPromptContentH+ROWindowFooterHeight)
 	w.ctx = ctx
 	if !w.IsOpen() {
 		return false
@@ -67,9 +66,9 @@ func (w *TextPromptWindow) Rebind(ctx Context) {
 	}
 	w.ctx = ctx
 	w.inputField = nil
-	w.SetContent(w.widgetTree(ctx))
+	content := w.widgetTree(ctx)
 	w.focusInput()
-	w.Publish(ctx)
+	w.RebindContent(ctx, content)
 }
 
 func (w *TextPromptWindow) PopAction() TextPromptAction {
@@ -83,7 +82,7 @@ func (w *TextPromptWindow) widgetTree(ctx Context) widget.Widget {
 		Title(w.title),
 		CloseButton(true),
 		OnClose(w.Close),
-		Size(textPromptW, ROWindowTitleHeight+textPromptContentH+ROWindowFooterHeight),
+		Size(float32(w.width), float32(w.height)),
 		Content(
 			primitives.Box(
 				rotheme.Label(w.label),
