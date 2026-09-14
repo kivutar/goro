@@ -95,14 +95,15 @@ type ScriptConfig struct {
 func LoadConfig(args []string) (Config, error) {
 	cfg := defaultConfig()
 
-	if path, err := UserConfigPath(); err == nil {
-		if err := applyINIFile(&cfg, path, false); err != nil {
-			return Config{}, err
-		}
-	}
+	// File defaults < saved user settings < explicit command-line flags.
 	configPath, explicitConfig := configPathFromArgs(args)
 	if configPath != "" {
 		if err := applyINIFile(&cfg, configPath, explicitConfig); err != nil {
+			return Config{}, err
+		}
+	}
+	if path, err := UserConfigPath(); err == nil {
+		if err := applyINIFile(&cfg, path, false); err != nil {
 			return Config{}, err
 		}
 	}

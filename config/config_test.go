@@ -283,6 +283,49 @@ fullscreen = false
 	}
 }
 
+func TestSavedVSyncOverridesINIAndCLIOverridesSavedVSync(t *testing.T) {
+	for _, explicitConfig := range []bool{false, true} {
+		name := "local"
+		if explicitConfig {
+			name = "explicit"
+		}
+		t.Run(name, func(t *testing.T) {
+			isolateUserConfig(t)
+			path := "goro.ini"
+			var args []string
+			if explicitConfig {
+				path = filepath.Join(t.TempDir(), "custom.ini")
+				args = []string{"--config", path}
+			}
+			for _, saved := range []bool{true, false} {
+				if err := os.WriteFile(path, []byte("[render]\nvsync = "+formatINIValueBool(!saved)+"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := SaveUserSettings(UserSettings{VSync: saved}); err != nil {
+					t.Fatal(err)
+				}
+				cfg, err := LoadConfig(args)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if cfg.Render.VSync != saved {
+					t.Fatalf("VSync after saving and restarting = %t, want %t", cfg.Render.VSync, saved)
+				}
+				for _, flag := range []string{"--vsync=true", "--vsync=false", "--vsync"} {
+					cliArgs := append(append([]string(nil), args...), flag)
+					cfg, err := LoadConfig(cliArgs)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if want := flag != "--vsync=false"; cfg.Render.VSync != want {
+						t.Fatalf("saved=%t %s: VSync=%t, want %t", saved, flag, cfg.Render.VSync, want)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestSavedLoginIDRoundTripAndSettingsPreservation(t *testing.T) {
 	isolateUserConfig(t)
 	settings := UserSettings{BGMVolume: 0.33, SFXVolume: 0.44, VSync: true}
