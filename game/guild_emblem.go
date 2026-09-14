@@ -34,7 +34,7 @@ func (m *WorldMode) requestActorGuildEmblem(ctx client.Context, guildID, version
 }
 
 func (m *WorldMode) requestGuildEmblem(ctx client.Context, guildID, version uint32, force bool) {
-	if guildID == 0 || version == 0 || ctx.Network == nil {
+	if ctx.Config.Headless || guildID == 0 || version == 0 || ctx.Network == nil {
 		return
 	}
 	if m.guildEmblems == nil {
@@ -56,6 +56,9 @@ func (m *WorldMode) requestGuildEmblem(ctx client.Context, guildID, version uint
 }
 
 func (m *WorldMode) applyGuildEmblemImage(ctx client.Context, packet network.GuildEmblemImage) {
+	if ctx.Config.Headless {
+		return
+	}
 	decodedImage, err := decodeGuildEmblemImage(packet.Data)
 	if err != nil {
 		glog.Warnf("decode guild emblem failed guild=%d version=%d: %v", packet.GuildID, packet.EmblemVersion, err)

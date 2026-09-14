@@ -11,6 +11,9 @@ import (
 )
 
 func (m *WorldMode) applyNPCCutin(ctx client.Context, cutin network.NPCCutin) error {
+	if ctx.Config.Headless {
+		return nil
+	}
 	if cutin.Position == network.NPCCutinClear || cutin.Image == "" || cutin.Position > network.NPCCutinWindowless {
 		m.ui.npcCutin.Apply(cutin, nil)
 		return nil

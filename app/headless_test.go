@@ -18,8 +18,7 @@ import (
 	"github.com/kivutar/goro/render"
 )
 
-// Exercise the headless renderer and all three connections. The normal draw
-// callbacks run, without a window, GPU, or real server.
+// Exercise headless login, bot updates, and map transitions without drawing.
 func TestHeadlessLoginBotAndWarps(t *testing.T) {
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WAYLAND_DISPLAY", "")
@@ -172,25 +171,36 @@ func TestHeadlessDrawRealMap(t *testing.T) {
 	}
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WAYLAND_DISPLAY", "")
-	cfg := config.Config{
-		DataDir: root,
-		Window:  config.WindowConfig{Width: 800, Height: 600},
-		Audio:   config.AudioConfig{Disabled: true},
-	}
-	g, err := New(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer g.RequestQuit()
-	g.world.MapName = "prontera.gat"
-	g.modes = game.NewManager(g.modeContext(), game.NewWorldMode())
-	if g.world.GND == nil || g.world.RSW == nil {
-		t.Fatal("Prontera scenery did not load")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
-	defer cancel()
-	if err := render.RunHeadless(ctx, g, cfg.Window); err != nil {
-		t.Fatal(err)
+	for _, headless := range []bool{false, true} {
+		t.Run(fmt.Sprintf("headless=%t", headless), func(t *testing.T) {
+			cfg := config.Config{
+				Headless: headless, DataDir: root,
+				Window: config.WindowConfig{Width: 800, Height: 600},
+				Audio:  config.AudioConfig{Disabled: true},
+			}
+			g, err := New(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer g.RequestQuit()
+			g.world.MapName = "prontera.gat"
+			g.modes = game.NewManager(g.modeContext(), game.NewWorldMode())
+			ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+			defer cancel()
+			if err := render.RunHeadless(ctx, g, cfg.Window); err != nil {
+				t.Fatal(err)
+			}
+			if g.world.GAT == nil {
+				t.Fatal("Prontera collision grid did not load")
+			}
+			if headless {
+				if g.world.GND != nil || g.world.RSW != nil || len(g.world.RSM) != 0 {
+					t.Fatal("headless mode loaded scenery")
+				}
+			} else if g.world.GND == nil || g.world.RSW == nil {
+				t.Fatal("Prontera scenery did not load")
+			}
+		})
 	}
 }
 

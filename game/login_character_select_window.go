@@ -45,6 +45,9 @@ func (m *LoginMode) updateCharacterSelectInput(ctx client.Context) {
 }
 
 func (m *LoginMode) updateCharacterSelectWindow(ctx client.Context) {
+	if ctx.Config.Headless {
+		return
+	}
 	opts := gameui.CharacterSelectWindowOptions{
 		SelectedSlot: m.selectedSlot,
 		MaxSlots:     m.maxSlots,

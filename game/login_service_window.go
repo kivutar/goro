@@ -42,6 +42,9 @@ func (m *LoginMode) updateCharacterServiceWindow(ctx client.Context) {
 }
 
 func (m *LoginMode) updateServiceWindow(ctx client.Context, title string, names []string, selected int, callbacks gameui.ServiceWindowCallbacks) {
+	if ctx.Config.Headless {
+		return
+	}
 	if m.serviceWindow == nil {
 		m.serviceWindow = gameui.NewServiceWindow(ctx, names, gameui.ServiceWindowOptions{
 			Title:    title,

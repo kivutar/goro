@@ -1010,7 +1010,7 @@ func (m *WorldMode) applySkillCastNotify(ctx client.Context, notify network.Skil
 }
 
 func (m *WorldMode) startActorCastBar(ctx client.Context, sourceID uint32, duration time.Duration, started time.Time) {
-	if sourceID == 0 || duration <= 0 {
+	if ctx.Config.Headless || sourceID == 0 || duration <= 0 {
 		return
 	}
 	if started.IsZero() {
@@ -1408,6 +1408,11 @@ func (m *WorldMode) addWorldEffectBetweenAtDuration(ctx client.Context, effectID
 	if !ok {
 		return false
 	}
+	if ctx.Config.Headless {
+		// Scream and Frost Joke still send the caster's chat line.
+		m.applyWorldEffectSideEffects(ctx, worldEffect{effectID: effectID, actorID: actorID}, starts)
+		return false
+	}
 	duration := spec.duration
 	for _, component := range spec.components {
 		componentDuration := m.worldEffectResolvedComponentDuration(ctx, spec, component)
@@ -1439,7 +1444,7 @@ func (m *WorldMode) addWorldEffectBetweenAtDuration(ctx client.Context, effectID
 }
 
 func (m *WorldMode) addWorldEffectAtCellLifetime(ctx client.Context, effectID int, actorID uint32, x, y int, starts time.Time, lifetimeOverride time.Duration, persistent bool) bool {
-	if ctx.World == nil {
+	if ctx.Config.Headless || ctx.World == nil {
 		return false
 	}
 	spec, ok := worldEffectSpecForID(effectID)
@@ -1508,7 +1513,7 @@ func (m *WorldMode) addWorldEffectAtCellDurationSize(ctx client.Context, effectI
 }
 
 func (m *WorldMode) addWorldEffectAtCellDurationSizeRotation(ctx client.Context, effectID int, actorID uint32, x, y int, starts time.Time, durationOverride time.Duration, sizeOverride float64, rotationRadiansPerSecond float64) bool {
-	if ctx.World == nil {
+	if ctx.Config.Headless || ctx.World == nil {
 		return false
 	}
 	spec, ok := worldEffectSpecForID(effectID)

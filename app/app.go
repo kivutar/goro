@@ -43,7 +43,9 @@ func New(cfg config.Config) (*Game, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resource manager: %w", err)
 	}
-	loadClientUIFont(resource)
+	if !cfg.Headless {
+		loadClientUIFont(resource)
+	}
 
 	g := &Game{
 		cfg:      cfg,
@@ -84,14 +86,23 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *render.Frame) {
+	if g.cfg.Headless {
+		return
+	}
 	g.modes.Draw(screen)
 }
 
 func (g *Game) DrawOverlay(screen *render.Frame) {
+	if g.cfg.Headless {
+		return
+	}
 	g.modes.DrawOverlay(screen)
 }
 
 func (g *Game) DrawUIOverlay(screen *render.Frame) {
+	if g.cfg.Headless {
+		return
+	}
 	g.modes.DrawUIOverlay(screen)
 }
 

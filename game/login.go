@@ -140,10 +140,12 @@ func (m *LoginMode) Enter(ctx client.Context) Mode {
 	if m.password == "" {
 		m.password = ctx.Config.Login.Password
 	}
-	m.loadBackground(ctx)
-	m.loadCharacterSelectSkin(ctx)
-	m.cursor.ensureLoaded(ctx)
-	render.SetCursorMode(render.CursorModeHidden)
+	if !ctx.Config.Headless {
+		m.loadBackground(ctx)
+		m.loadCharacterSelectSkin(ctx)
+		m.cursor.ensureLoaded(ctx)
+		render.SetCursorMode(render.CursorModeHidden)
+	}
 	m.playLoginBGM(ctx)
 	if m.phase == loginPhaseCharacter {
 		m.prepareCharacterSelectFromSession(ctx)

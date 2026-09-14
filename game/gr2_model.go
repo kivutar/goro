@@ -119,6 +119,9 @@ func (m *WorldMode) gr2ActorGuildEmblemTexture(ctx client.Context, actor worldst
 }
 
 func (m *WorldMode) nonPCGR2ModelView(ctx client.Context, actor worldstate.Actor) *gr2ModelView {
+	if ctx.Config.Headless {
+		return nil
+	}
 	job := int(actor.Job)
 	if _, ok := m.gr2ModelMiss[job]; ok {
 		return nil

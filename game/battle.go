@@ -798,6 +798,9 @@ func actionVisualHitCount(action network.ActorActionNotify) int {
 }
 
 func (m *WorldMode) addActionDamageFloaters(ctx client.Context, action network.ActorActionNotify, target world.Actor, targetOK, targetLocal, sourceLocal bool, x, y int, hitAt time.Time) {
+	if ctx.Config.Headless {
+		return
+	}
 	text, kind, floaterColor := actionDamageFloater(action, targetLocal, sourceLocal)
 	if text == "" {
 		return
@@ -1450,7 +1453,7 @@ func (m *WorldMode) applyRecovery(ctx client.Context, recovery network.Recovery)
 }
 
 func (m *WorldMode) addLocalRecoveryFloater(ctx client.Context, amount int, floaterColor color.RGBA, kind damageFloaterKind) {
-	if ctx.World == nil || amount <= 0 {
+	if ctx.Config.Headless || ctx.World == nil || amount <= 0 {
 		return
 	}
 	now := time.Now()

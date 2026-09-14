@@ -1513,6 +1513,9 @@ func (m *WorldMode) drawMercenarySprite3D(screen *render.Frame, ctx client.Conte
 }
 
 func (m *WorldMode) mercenaryHumanoidSpriteView(ctx client.Context, actor worldstate.Actor) *humanoidSpriteView {
+	if ctx.Config.Headless {
+		return nil
+	}
 	key := mercenarySpriteKeyForActor(actor)
 	if _, ok := m.mercenaryViewMiss[key]; ok {
 		return nil
@@ -1586,6 +1589,9 @@ func isDeathActionFamily(actionFamily int) bool {
 }
 
 func (m *WorldMode) nonPCSpriteView(ctx client.Context, actor worldstate.Actor) *spriteView {
+	if ctx.Config.Headless {
+		return nil
+	}
 	job := int(actor.Job)
 	if _, ok := m.nonPCViewMiss[job]; ok {
 		return nil

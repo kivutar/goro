@@ -33,14 +33,13 @@ slot (0–8). These can also come from the existing `[login]` configuration.
 As with `--autologin`, the first login server and first character server are
 selected. The script is optional; without one the client stays connected.
 
-The headless renderer runs the normal update and draw callbacks at 60 Hz,
-then discards the draw commands. It creates no window or GPU device. Resource
-loading, animation timing, fades, and Lua behavior follow the graphical client.
+Headless mode updates at 60 Hz without drawing or loading scene assets. It
+keeps the collision grid, game data, network updates, and Lua scripts. Combat
+uses server timings and existing fallback durations when no sprite is loaded.
 Stop the process with Ctrl+C.
 
-This only replaces the renderer: login errors and interactive dialogs still
-behave as in the graphical client, and there is no automatic reconnect or new
-Lua API for answering dialogs. `--no-ui` only hides the graphical client's UI.
+There is no automatic reconnect or Lua API for answering interactive dialogs.
+`--no-ui` only hides the graphical client's UI.
 
 ## API
 

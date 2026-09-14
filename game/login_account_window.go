@@ -49,6 +49,9 @@ func (m *LoginMode) updateAccountWindow(ctx client.Context) {
 }
 
 func (m *LoginMode) updateLoginWindow(ctx client.Context) {
+	if ctx.Config.Headless {
+		return
+	}
 	if m.loginWindow == nil {
 		m.loginWindow = gameui.NewLoginWindow(ctx, m.username, m.password, m.keepID, gameui.LoginWindowCallbacks{
 			OnSubmit: func() {

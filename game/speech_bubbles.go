@@ -22,6 +22,9 @@ type speechBubble struct {
 }
 
 func (m *WorldMode) applySpeechBubble(ctx client.Context, chat network.ChatMessage, now time.Time) {
+	if ctx.Config.Headless {
+		return
+	}
 	if strings.TrimSpace(chat.Text) == "" {
 		return
 	}
