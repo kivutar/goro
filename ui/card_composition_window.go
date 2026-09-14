@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 	"image"
-	"sort"
+	"slices"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
@@ -30,7 +30,8 @@ type CardCompositionWindow struct {
 	selectedRow int
 	cardIndex   uint16
 	indexes     []uint16
-	snapshot    string
+	snapshot    []session.InventoryItem
+	itemList    itemDialogList
 	icons       map[identifyItemIconKey]image.Image
 	iconMiss    map[identifyItemIconKey]struct{}
 }
@@ -47,7 +48,7 @@ func (w *CardCompositionWindow) OpenList(ctx Context, cardIndex uint16, list net
 		w.Publish(ctx)
 		return
 	}
-	w.snapshot = w.snapshotString(ctx.Session)
+	w.snapshot = w.items(ctx.Session)
 	w.Open(ctx, w.widgetTree(ctx))
 	w.Publish(ctx)
 }
@@ -70,8 +71,8 @@ func (w *CardCompositionWindow) Update(ctx Context) bool {
 		return false
 	}
 	w.ClampScroll(ctx.Session)
-	snapshot := w.snapshotString(ctx.Session)
-	if snapshot != w.snapshot {
+	snapshot := w.items(ctx.Session)
+	if !slices.Equal(snapshot, w.snapshot) {
 		w.snapshot = snapshot
 		w.SetContent(w.widgetTree(ctx))
 	}
@@ -159,19 +160,7 @@ func (w *CardCompositionWindow) ClampScroll(s *session.Session) {
 }
 
 func (w *CardCompositionWindow) items(s *session.Session) []session.InventoryItem {
-	if s == nil {
-		return nil
-	}
-	items := make([]session.InventoryItem, 0, len(w.indexes))
-	for _, index := range w.indexes {
-		if item, ok := findInventoryItemByIndex(s, index); ok {
-			items = append(items, item)
-		}
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		return items[i].Index < items[j].Index
-	})
-	return items
+	return w.itemList.get(s, w.indexes, false)
 }
 
 func (w *CardCompositionWindow) cardItemID(s *session.Session) uint16 {
@@ -227,10 +216,6 @@ func (w *CardCompositionWindow) markIconMiss(key identifyItemIconKey) {
 		w.iconMiss = make(map[identifyItemIconKey]struct{})
 	}
 	w.iconMiss[key] = struct{}{}
-}
-
-func (w *CardCompositionWindow) snapshotString(s *session.Session) string {
-	return fmt.Sprintf("%d:%v:%v", w.cardIndex, w.indexes, w.items(s))
 }
 
 func (w *CardCompositionWindow) ensureScrollSignal() state.Signal[float32] {

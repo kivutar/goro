@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 	"image"
-	"sort"
+	"slices"
 
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/state"
@@ -29,7 +29,8 @@ type IdentifyWindow struct {
 	scrollY     state.Signal[float32]
 	selectedRow int
 	indexes     []uint16
-	snapshot    string
+	snapshot    []session.InventoryItem
+	itemList    itemDialogList
 	icons       map[identifyItemIconKey]image.Image
 	iconMiss    map[identifyItemIconKey]struct{}
 }
@@ -50,7 +51,7 @@ func (w *IdentifyWindow) OpenList(ctx Context, list network.ItemIdentifyList) {
 		w.Publish(ctx)
 		return
 	}
-	w.snapshot = w.identifySnapshot(ctx.Session)
+	w.snapshot = w.items(ctx.Session)
 	w.Open(ctx, w.widgetTree(ctx))
 	w.Publish(ctx)
 }
@@ -64,7 +65,7 @@ func (w *IdentifyWindow) ApplyAck(ctx Context, ack network.ItemIdentifyAck) {
 		if len(w.items(ctx.Session)) == 0 {
 			w.Close()
 		} else {
-			w.snapshot = w.identifySnapshot(ctx.Session)
+			w.snapshot = w.items(ctx.Session)
 			w.SetContent(w.widgetTree(ctx))
 		}
 		w.Publish(ctx)
@@ -83,8 +84,8 @@ func (w *IdentifyWindow) Update(ctx Context) bool {
 		return true
 	}
 	w.ClampScroll(ctx.Session)
-	snapshot := w.identifySnapshot(ctx.Session)
-	if snapshot != w.snapshot {
+	snapshot := w.items(ctx.Session)
+	if !slices.Equal(snapshot, w.snapshot) {
 		w.snapshot = snapshot
 		w.SetContent(w.widgetTree(ctx))
 	}
@@ -209,19 +210,7 @@ func (w *IdentifyWindow) markIconMiss(key identifyItemIconKey) {
 }
 
 func (w *IdentifyWindow) items(s *session.Session) []session.InventoryItem {
-	if s == nil {
-		return nil
-	}
-	items := make([]session.InventoryItem, 0, len(w.indexes))
-	for _, index := range w.indexes {
-		if item, ok := findInventoryItemByIndex(s, index); ok && !item.Identified && inventoryItemCanEquip(item) {
-			items = append(items, item)
-		}
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		return items[i].Index < items[j].Index
-	})
-	return items
+	return w.itemList.get(s, w.indexes, true)
 }
 
 func (w *IdentifyWindow) identifySelected(ctx Context) {
@@ -268,10 +257,6 @@ func (w *IdentifyWindow) ensureScrollSignal() state.Signal[float32] {
 		w.scrollY = state.NewSignal[float32](0)
 	}
 	return w.scrollY
-}
-
-func (w *IdentifyWindow) identifySnapshot(s *session.Session) string {
-	return fmt.Sprintf("%v:%v", w.indexes, w.items(s))
 }
 
 func identifyTableHeight() float32 {
