@@ -85,10 +85,7 @@ func (m *ConfirmModal) Update(ctx client.Context) bool {
 		}
 	}
 	m.openWindow(ctx)
-	if m.Window.Update(ctx) {
-		m.Publish(ctx)
-		return true
-	}
+	m.Window.Update(ctx)
 	m.Publish(ctx)
 	return true
 }

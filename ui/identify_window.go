@@ -89,10 +89,6 @@ func (w *IdentifyWindow) Update(ctx Context) bool {
 		w.SetContent(w.widgetTree(ctx))
 	}
 	consumed := w.Window.Update(ctx)
-	if !w.IsOpen() {
-		w.Publish(ctx)
-		return consumed
-	}
 	w.Publish(ctx)
 	return consumed
 }
