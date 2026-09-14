@@ -26,20 +26,20 @@ const (
 
 type CardCompositionWindow struct {
 	Window
-	scrollY       state.Signal[float32]
-	selectedIndex uint16
-	cardIndex     uint16
-	indexes       []uint16
-	snapshot      string
-	icons         map[identifyItemIconKey]image.Image
-	iconMiss      map[identifyItemIconKey]struct{}
+	scrollY   state.Signal[float32]
+	selected  session.InventoryItem
+	cardIndex uint16
+	indexes   []uint16
+	snapshot  string
+	icons     map[identifyItemIconKey]image.Image
+	iconMiss  map[identifyItemIconKey]struct{}
 }
 
 func (w *CardCompositionWindow) OpenList(ctx Context, cardIndex uint16, list network.ItemCompositionList) {
 	w.EnsureWindow(cardCompositionWindowWidth, cardCompositionWindowHeight)
 	w.cardIndex = cardIndex
 	w.indexes = append(w.indexes[:0], list.Indexes...)
-	w.selectedIndex = 0
+	w.selected = session.InventoryItem{}
 	w.ensureScrollSignal().Set(0)
 	w.ClampScroll(ctx.Session)
 	if len(w.items(ctx.Session)) == 0 {
@@ -123,7 +123,7 @@ func (w *CardCompositionWindow) tableWidget(ctx Context) *rotheme.TableViewWidge
 		w.ensureScrollSignal(),
 		w.selectedRow(items),
 		func(row int) {
-			w.selectedIndex = items[row].Index
+			w.selected = items[row]
 		},
 	)
 }
@@ -131,14 +131,14 @@ func (w *CardCompositionWindow) tableWidget(ctx Context) *rotheme.TableViewWidge
 func (w *CardCompositionWindow) composeSelected(ctx Context) {
 	items := w.items(ctx.Session)
 	if w.selectedRow(items) < 0 {
-		w.selectedIndex = 0
+		w.selected = session.InventoryItem{}
 		return
 	}
 	if ctx.Network == nil {
 		glog.Warnf("card composition failed: not connected")
 		return
 	}
-	if err := ctx.Network.SendItemComposition(w.cardIndex, w.selectedIndex); err != nil {
+	if err := ctx.Network.SendItemComposition(w.cardIndex, w.selected.Index); err != nil {
 		glog.Warnf("card composition failed: %v", err)
 	}
 }
@@ -146,7 +146,7 @@ func (w *CardCompositionWindow) composeSelected(ctx Context) {
 func (w *CardCompositionWindow) ClampScroll(s *session.Session) {
 	items := w.items(s)
 	if w.selectedRow(items) < 0 {
-		w.selectedIndex = 0
+		w.selected = session.InventoryItem{}
 	}
 	scroll := w.ensureScrollSignal()
 	maxScroll := float32(maxInt(0, len(items)-cardCompositionRows) * cardCompositionRowH)
@@ -159,8 +159,12 @@ func (w *CardCompositionWindow) ClampScroll(s *session.Session) {
 }
 
 func (w *CardCompositionWindow) selectedRow(items []session.InventoryItem) int {
+	if w.selected.Index == 0 {
+		return -1
+	}
 	for row, item := range items {
-		if item.Index == w.selectedIndex {
+		// An inventory slot can be reused before the table is refreshed.
+		if item == w.selected {
 			return row
 		}
 	}
