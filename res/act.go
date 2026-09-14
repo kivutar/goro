@@ -55,6 +55,9 @@ func ParseACT(data []byte) (*ACT, error) {
 	}
 	actionCount := int(reader.u16())
 	reader.skip(10)
+	if err := reader.checkCount(uint32(actionCount), 4); err != nil {
+		return nil, err
+	}
 	act.Actions = make([]ACTAction, actionCount)
 	for i := range act.Actions {
 		animations, err := reader.readAnimations(act)
@@ -68,6 +71,9 @@ func ParseACT(data []byte) (*ACT, error) {
 		soundCount := int(reader.i32())
 		if soundCount < 0 {
 			return nil, fmt.Errorf("act negative sound count")
+		}
+		if err := reader.checkCount(uint32(soundCount), 40); err != nil {
+			return nil, err
 		}
 		act.Sounds = make([]string, soundCount)
 		for i := range act.Sounds {
@@ -99,9 +105,17 @@ func (a *ACT) ActionFor(action, direction int) (ACTAction, bool) {
 }
 
 func (r *actReader) readAnimations(act *ACT) ([]ACTAnimation, error) {
-	count := int(r.u32())
-	if count < 0 {
-		return nil, fmt.Errorf("act negative animation count")
+	count := r.u32()
+	// Reserved bytes and layer count, followed by optional sound/anchor fields.
+	minimumSize := 36
+	if act.versionAtLeast(2, 0) {
+		minimumSize += 4
+	}
+	if act.versionAtLeast(2, 3) {
+		minimumSize += 4
+	}
+	if err := r.checkCount(count, minimumSize); err != nil {
+		return nil, err
 	}
 	animations := make([]ACTAnimation, count)
 	for i := range animations {
@@ -116,9 +130,19 @@ func (r *actReader) readAnimations(act *ACT) ([]ACTAnimation, error) {
 }
 
 func (r *actReader) readLayers(act *ACT) (ACTAnimation, error) {
-	count := int(r.u32())
-	if count < 0 {
-		return ACTAnimation{}, fmt.Errorf("act negative layer count")
+	count := r.u32()
+	layerSize := 16
+	if act.versionAtLeast(2, 0) {
+		layerSize += 16
+	}
+	if act.versionAtLeast(2, 4) {
+		layerSize += 4
+	}
+	if act.versionAtLeast(2, 5) {
+		layerSize += 8
+	}
+	if err := r.checkCount(count, layerSize); err != nil {
+		return ACTAnimation{}, err
 	}
 	anim := ACTAnimation{Layers: make([]ACTLayer, count), Sound: -1}
 	for i := range anim.Layers {
@@ -159,6 +183,9 @@ func (r *actReader) readLayers(act *ACT) (ACTAnimation, error) {
 		if count < 0 {
 			return ACTAnimation{}, fmt.Errorf("act negative position count")
 		}
+		if err := r.checkCount(uint32(count), 16); err != nil {
+			return ACTAnimation{}, err
+		}
 		anim.Pos = make([]ACTPosition, count)
 		for i := range anim.Pos {
 			r.skip(4)
@@ -177,11 +204,23 @@ type actReader struct {
 	err    error
 }
 
+// Bound file-provided counts before allocation. Division avoids overflowing a
+// count*recordSize multiplication, including on 32-bit targets.
+func (r *actReader) checkCount(count uint32, recordSize int) error {
+	if r.err != nil {
+		return r.err
+	}
+	if uint64(count) > uint64((len(r.data)-r.offset)/recordSize) {
+		return fmt.Errorf("act count %d at offset %d exceeds remaining data for %d-byte records", count, r.offset, recordSize)
+	}
+	return nil
+}
+
 func (r *actReader) bytes(n int) []byte {
 	if r.err != nil {
 		return nil
 	}
-	if n < 0 || r.offset+n > len(r.data) {
+	if n < 0 || n > len(r.data)-r.offset {
 		r.err = fmt.Errorf("act truncated at offset %d reading %d bytes", r.offset, n)
 		return nil
 	}
