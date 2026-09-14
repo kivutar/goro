@@ -956,6 +956,47 @@ end
 	}
 }
 
+func TestLuaBotCanUseSelfSkill(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bot.lua")
+	if err := os.WriteFile(path, []byte(`
+function tick()
+	assert(goro.skill(goro.player().id, "AL_ANGELUS", 3))
+	assert(goro.skill(goro.player().id, "AL_ANGELUS"))
+	assert(not goro.skill(300, "AL_ANGELUS"))
+	assert(not goro.skill(goro.player().id, "AL_ANGELUS", 6))
+end
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	networkClient, serverConn := newBotTestConnection(t, 20080910)
+	sess := session.New()
+	sess.AccountID = 2000000
+	sess.CharID = 150000
+	sess.Skills.List = []session.Skill{{ID: db.SkillALAngelus, Type: skillTargetSelf, Level: 5, Name: "Angelus"}}
+	world := worldstate.New()
+	world.Player = worldstate.Actor{ID: sess.AccountID, X: 10, Y: 20}
+	ctx := client.Context{Session: sess, Network: networkClient, World: world}
+	mode := &WorldMode{}
+	bot, err := newLuaBot(ctx, mode, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bot.close()
+	if err := bot.tick(); err != nil {
+		t.Fatal(err)
+	}
+	want := network.BuildUseSkillToIDPacketForClientDate(db.SkillALAngelus, 3, sess.AccountID, 20080910)
+	want = append(want, network.BuildUseSkillToIDPacketForClientDate(db.SkillALAngelus, 5, sess.AccountID, 20080910)...)
+	readBotTestPackets(t, serverConn, want)
+
+	sess.Dead = true
+	if mode.scriptSkill(ctx, sess.AccountID, lua.LString("AL_ANGELUS"), -1) {
+		t.Fatal("scriptSkill allowed a dead player to cast Angelus")
+	}
+	assertNoBotTestPacket(t, serverConn, func() error { return nil })
+}
+
 func TestLuaBotCanHealNearbyPlayer(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bot.lua")
 	if err := os.WriteFile(path, []byte(`

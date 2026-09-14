@@ -262,6 +262,16 @@ func (m *WorldMode) scriptSkill(ctx client.Context, id uint32, skillArg lua.LVal
 		}
 		skill.Level = requestedLevel
 	}
+	if isSelfTargetSkill(skill) {
+		if id != localSkillTarget(ctx) {
+			return false
+		}
+		if err := m.skills().Use(ctx, skill, "script"); err != nil {
+			glog.Debugf("script self skill failed skill=%d: %v", skill.ID, err)
+			return false
+		}
+		return true
+	}
 	actor, ok, _ := actorForCombatID(ctx, id)
 	_, dead := m.actorDeaths[id]
 	if !ok || dead || !actorCanBeSkillTargeted(ctx, skill, actor) {

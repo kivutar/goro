@@ -159,7 +159,7 @@ Alias for `goro.attack(id)`.
 
 ### `goro.skill(id, skill[, level])`
 
-Requests an actor-targeted skill on the actor with this id. `skill` can be either a numeric skill id or a learned skill name such as `"AC_DOUBLE"` or `"AL_HEAL"`.
+Requests a skill on the actor with this id. `skill` can be either a numeric skill id or a learned skill name such as `"AC_DOUBLE"` or `"AL_HEAL"`. Self-targeted skills use `goro.player().id`, for example `goro.skill(goro.player().id, "AL_ANGELUS")`. Ground-targeted skills are not supported by this function.
 
 Returns `true` if the actor is a valid target for the learned skill, otherwise `false`. Enemy skills remain limited to enemies, while friendly skills can target nearby players, homunculi, and mercenaries.
 
