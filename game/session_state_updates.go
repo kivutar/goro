@@ -8,10 +8,7 @@ import (
 	"github.com/kivutar/goro/session"
 )
 
-const (
-	defaultPlayerMoveSpeedMS = 150
-	skillPushCart            = 39
-)
+const defaultPlayerMoveSpeedMS = 150
 
 func applyStatusSnapshot(ctx client.Context, snapshot network.StatusSnapshot) {
 	if ctx.Session == nil {
@@ -154,28 +151,10 @@ func refreshLocalPlayerMoveSpeed(ctx client.Context) {
 	}
 	speed := defaultPlayerMoveSpeedMS
 	if ctx.Session.Movement.HasServerSpeed && ctx.Session.Movement.ServerSpeed > 0 {
+		// The server includes cart penalties and other movement modifiers.
 		speed = ctx.Session.Movement.ServerSpeed
 	}
-	if localPlayerHasCart(ctx) {
-		level := sessionSkillLevel(ctx.Session, skillPushCart)
-		if level > 0 && level < 10 {
-			speed += speed * (50 - 5*level) / 100
-		}
-	}
 	ctx.World.Player.Speed = speed
-}
-
-func localPlayerHasCart(ctx client.Context) bool {
-	if ctx.World != nil && ctx.World.Player.HasCartState {
-		return ctx.World.Player.HasCart
-	}
-	if ctx.Session == nil {
-		return false
-	}
-	if ctx.Session.SelectedCharacter().Option&actorEffectCartMask != 0 {
-		return true
-	}
-	return ctx.Session.Cart.MaxAmount > 0 || len(ctx.Session.Cart.Items) > 0
 }
 
 func sessionSkillLevel(s *session.Session, skillID uint16) int {
