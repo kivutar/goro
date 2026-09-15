@@ -26,13 +26,13 @@ const (
 
 type IdentifyWindow struct {
 	Window
-	scrollY     state.Signal[float32]
-	selectedRow int
-	indexes     []uint16
-	snapshot    []session.InventoryItem
-	itemList    itemDialogList
-	icons       map[identifyItemIconKey]image.Image
-	iconMiss    map[identifyItemIconKey]struct{}
+	scrollY  state.Signal[float32]
+	selected session.InventoryItem
+	indexes  []uint16
+	snapshot []session.InventoryItem
+	itemList itemDialogList
+	icons    map[identifyItemIconKey]image.Image
+	iconMiss map[identifyItemIconKey]struct{}
 }
 
 type identifyItemIconKey struct {
@@ -43,7 +43,7 @@ type identifyItemIconKey struct {
 func (w *IdentifyWindow) OpenList(ctx Context, list network.ItemIdentifyList) {
 	w.EnsureWindow(identifyWindowWidth, identifyWindowHeight)
 	w.indexes = append(w.indexes[:0], list.Indexes...)
-	w.selectedRow = -1
+	w.selected = session.InventoryItem{}
 	w.ensureScrollSignal().Set(0)
 	w.ClampScroll(ctx.Session)
 	if len(w.items(ctx.Session)) == 0 {
@@ -113,17 +113,17 @@ func (w *IdentifyWindow) identifyTableWidget(ctx Context) *rotheme.TableViewWidg
 		identifyTableHeaderH,
 		"No unidentified equipment",
 		w.ensureScrollSignal(),
-		w.selectedRow,
+		w.selectedRow(items),
 		func(row int) {
-			w.selectedRow = row
+			w.selected = items[row]
 		},
 	)
 }
 
 func (w *IdentifyWindow) ClampScroll(s *session.Session) {
 	items := w.items(s)
-	if w.selectedRow >= len(items) {
-		w.selectedRow = -1
+	if w.selectedRow(items) < 0 {
+		w.selected = session.InventoryItem{}
 	}
 	scroll := w.ensureScrollSignal()
 	maxScroll := float32(maxInt(0, len(items)-identifyRows) * identifyRowH)
@@ -133,6 +133,19 @@ func (w *IdentifyWindow) ClampScroll(s *session.Session) {
 	case value > maxScroll:
 		scroll.Set(maxScroll)
 	}
+}
+
+func (w *IdentifyWindow) selectedRow(items []session.InventoryItem) int {
+	if w.selected.Index == 0 {
+		return -1
+	}
+	for row, item := range items {
+		// The displayed item may have been identified, removed or replaced.
+		if item == w.selected {
+			return row
+		}
+	}
+	return -1
 }
 
 func (w *IdentifyWindow) identifyTableRows(ctx Context, items []session.InventoryItem) []itemTableRow {
@@ -196,10 +209,11 @@ func (w *IdentifyWindow) identifySelected(ctx Context) {
 		return
 	}
 	items := w.items(ctx.Session)
-	if w.selectedRow < 0 || w.selectedRow >= len(items) {
+	if w.selectedRow(items) < 0 {
+		w.selected = session.InventoryItem{}
 		return
 	}
-	item := items[w.selectedRow]
+	item := w.selected
 	if ctx.Network == nil {
 		glog.Warnf("identify failed: not connected")
 		return

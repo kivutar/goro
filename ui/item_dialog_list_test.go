@@ -173,23 +173,23 @@ func TestIdentifyIdleKeepsSelectionWithoutAllocations(t *testing.T) {
 	ctx, indexes := itemDialogBenchmarkContext(100)
 	var w IdentifyWindow
 	w.OpenList(ctx, network.ItemIdentifyList{Indexes: indexes})
-	w.selectedRow = 5
+	w.selected = ctx.Session.Inventory.Items[5]
 	w.ensureScrollSignal().Set(64)
 	content := w.content
 	if allocs := testing.AllocsPerRun(100, func() { w.Update(ctx) }); allocs != 0 {
 		t.Fatalf("idle update allocations = %v, want 0", allocs)
 	}
-	if w.content != content || w.selectedRow != 5 || w.ensureScrollSignal().Get() != 64 {
+	if w.content != content || w.selectedRow(w.items(ctx.Session)) != 5 || w.ensureScrollSignal().Get() != 64 {
 		t.Fatal("idle update rebuilt content or reset selection/scroll")
 	}
 	ctx.Session.Inventory.Items[0].Refine++
 	w.Update(ctx)
-	if w.content == content || w.snapshot[0].Refine != 1 || w.selectedRow != 5 || w.ensureScrollSignal().Get() != 64 {
+	if w.content == content || w.snapshot[0].Refine != 1 || w.selectedRow(w.items(ctx.Session)) != 5 || w.ensureScrollSignal().Get() != 64 {
 		t.Fatal("refine update did not refresh content while preserving selection/scroll")
 	}
 	ctx.Session.Inventory.Items = ctx.Session.Inventory.Items[:3]
 	w.Update(ctx)
-	if len(w.snapshot) != 3 || w.selectedRow != -1 || w.ensureScrollSignal().Get() != 0 {
+	if len(w.snapshot) != 3 || w.selectedRow(w.items(ctx.Session)) != -1 || w.ensureScrollSignal().Get() != 0 {
 		t.Fatal("removal did not refresh content and clamp selection/scroll")
 	}
 	ctx.Session.Inventory.Items[0].Identified = true

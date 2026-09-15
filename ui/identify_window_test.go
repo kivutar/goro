@@ -12,6 +12,7 @@ import (
 	"github.com/gogpu/ui/uitest"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/session"
 )
 
 func TestIdentifySendsOneSelectionAndCloses(t *testing.T) {
@@ -24,7 +25,7 @@ func TestIdentifySendsOneSelectionAndCloses(t *testing.T) {
 			ctx.Network = client
 			var w IdentifyWindow
 			w.OpenList(ctx, network.ItemIdentifyList{Indexes: indexes})
-			w.selectedRow = count - 1
+			w.selected = ctx.Session.Inventory.Items[count-1]
 			app.Frame()
 			app.Window().DrawTo(&uitest.MockCanvas{})
 			buttons := collectEscapeMenuButtons(w.content)
@@ -70,6 +71,62 @@ func TestIdentifyRequiresSelection(t *testing.T) {
 	assertNoIdentifyTestPackets(t, client, server)
 }
 
+func TestIdentifyRejectsMissingOrChangedSelection(t *testing.T) {
+	for _, change := range []string{"removed", "replaced", "identified"} {
+		for _, update := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s_update_%t", change, update), func(t *testing.T) {
+				ctx, indexes := itemDialogBenchmarkContext(2)
+				client, server := newIdentifyTestConnection(t)
+				ctx.Network = client
+				var w IdentifyWindow
+				w.OpenList(ctx, network.ItemIdentifyList{Indexes: indexes})
+				w.selected = ctx.Session.Inventory.Items[0]
+				if change == "removed" {
+					ctx.Session.Inventory.Items = ctx.Session.Inventory.Items[1:]
+				} else if change == "identified" {
+					// A late ACK for an earlier request can identify an item shown here.
+					ctx.Session.Inventory.Items[0].Identified = true
+				} else {
+					ctx.Session.Inventory.Items[0].Refine = 7
+				}
+				if update {
+					w.Update(ctx)
+				}
+				w.identifySelected(ctx)
+				if !w.IsOpen() || w.selected != (session.InventoryItem{}) {
+					t.Fatal("missing or changed selection was not cleared without submitting")
+				}
+				assertNoIdentifyTestPackets(t, client, server)
+			})
+		}
+	}
+}
+
+func TestIdentifySelectionFollowsItemAfterEarlierRemoval(t *testing.T) {
+	for _, update := range []bool{false, true} {
+		t.Run(fmt.Sprintf("update_%t", update), func(t *testing.T) {
+			ctx, indexes := itemDialogBenchmarkContext(2)
+			client, server := newIdentifyTestConnection(t)
+			ctx.Network = client
+			var w IdentifyWindow
+			w.OpenList(ctx, network.ItemIdentifyList{Indexes: indexes})
+			w.selected = ctx.Session.Inventory.Items[1]
+			ctx.Session.Inventory.Items = ctx.Session.Inventory.Items[1:]
+			if update {
+				w.Update(ctx)
+			}
+			if row := w.selectedRow(w.items(ctx.Session)); row != 0 {
+				t.Fatalf("selected row after earlier removal = %d, want 0", row)
+			}
+			w.identifySelected(ctx)
+			readIdentifyTestPacket(t, server, network.BuildItemIdentifyPacket(indexes[1]))
+			if w.IsOpen() {
+				t.Fatal("valid selection was lost when an earlier item disappeared")
+			}
+		})
+	}
+}
+
 func TestIdentifySendFailureKeepsSelectionForRetry(t *testing.T) {
 	for _, disconnected := range []bool{false, true} {
 		t.Run(fmt.Sprintf("disconnected_client_%t", disconnected), func(t *testing.T) {
@@ -79,10 +136,10 @@ func TestIdentifySendFailureKeepsSelectionForRetry(t *testing.T) {
 			}
 			var w IdentifyWindow
 			w.OpenList(ctx, network.ItemIdentifyList{Indexes: indexes})
-			w.selectedRow = 1
+			w.selected = ctx.Session.Inventory.Items[1]
 			content := w.content
 			w.identifySelected(ctx)
-			if !w.IsOpen() || w.content != content || w.selectedRow != 1 {
+			if !w.IsOpen() || w.content != content || w.selected != ctx.Session.Inventory.Items[1] {
 				t.Fatal("send failure closed or reset the picker")
 			}
 			client, server := newIdentifyTestConnection(t)
@@ -106,7 +163,7 @@ func TestIdentifyCancelClosesWithoutAppraising(t *testing.T) {
 			ctx.Network = client
 			var w IdentifyWindow
 			w.OpenList(ctx, network.ItemIdentifyList{Indexes: indexes})
-			w.selectedRow = 1
+			w.selected = ctx.Session.Inventory.Items[1]
 			if action == "Escape" {
 				ctx.Input.SetKey(input.KeyEscape, true)
 				w.Update(ctx)
