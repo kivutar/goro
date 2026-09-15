@@ -844,58 +844,76 @@ func TestApplyParameterChangeUpdatesPlayerSpeed(t *testing.T) {
 	}
 }
 
-func TestLocalPlayerMoveSpeedAppliesPushcartMalus(t *testing.T) {
-	world := worldstate.New()
-	sessionState := &session.Session{
-		Selected: session.Character{ID: 150004, Option: db.EffectStateCart1},
-		Skills: session.Skills{List: []session.Skill{
-			{ID: skillPushCart, Level: 5},
-		}},
-	}
-	ctx := client.Context{Session: sessionState, World: world}
-
-	refreshLocalPlayerMoveSpeed(ctx)
-
-	if world.Player.Speed != 187 {
-		t.Fatalf("player speed = %d, want 187", world.Player.Speed)
-	}
-}
-
-func TestLocalPlayerMoveSpeedHasNoPushcartMalusAtLevelTen(t *testing.T) {
-	world := worldstate.New()
-	sessionState := &session.Session{
-		Selected: session.Character{ID: 150004, Option: db.EffectStateCart1},
-		Skills: session.Skills{List: []session.Skill{
-			{ID: skillPushCart, Level: 10},
-		}},
-	}
-	ctx := client.Context{Session: sessionState, World: world}
-
-	refreshLocalPlayerMoveSpeed(ctx)
-
-	if world.Player.Speed != defaultPlayerMoveSpeedMS {
-		t.Fatalf("player speed = %d, want %d", world.Player.Speed, defaultPlayerMoveSpeedMS)
+func TestLocalPlayerMoveSpeedUsesServerCartPenalty(t *testing.T) {
+	for _, tc := range []struct {
+		level int
+		speed int
+	}{
+		{level: 1, speed: 217},
+		{level: 5, speed: 187},
+		{level: 10, speed: 150},
+	} {
+		t.Run(fmt.Sprintf("level_%d", tc.level), func(t *testing.T) {
+			ctx := client.Context{
+				World: worldstate.New(),
+				Session: &session.Session{
+					Selected: session.Character{ID: 150004, Option: db.EffectStateCart1},
+					Skills: session.Skills{List: []session.Skill{
+						{ID: db.SkillMCPushcart, Level: tc.level},
+					}},
+				},
+			}
+			applyParameterChange(ctx, network.ParameterChange{VarID: network.StatusSpeed, Value: int64(tc.speed)})
+			if ctx.World.Player.Speed != tc.speed {
+				t.Fatalf("player speed = %d, want server speed %d", ctx.World.Player.Speed, tc.speed)
+			}
+		})
 	}
 }
 
-func TestLocalPlayerMoveSpeedUsesServerSpeedBeforePushcartMalus(t *testing.T) {
-	world := worldstate.New()
-	sessionState := &session.Session{
-		Selected: session.Character{ID: 150004, Option: db.EffectStateCart1},
-		Movement: session.Movement{
-			ServerSpeed:    100,
-			HasServerSpeed: true,
+func TestLocalPlayerMoveSpeedDefaultsWithoutServerSpeed(t *testing.T) {
+	ctx := client.Context{
+		World: worldstate.New(),
+		Session: &session.Session{
+			Selected: session.Character{ID: 150004, Option: db.EffectStateCart1},
+			Skills: session.Skills{List: []session.Skill{
+				{ID: db.SkillMCPushcart, Level: 5},
+			}},
 		},
-		Skills: session.Skills{List: []session.Skill{
-			{ID: skillPushCart, Level: 5},
-		}},
 	}
-	ctx := client.Context{Session: sessionState, World: world}
-
 	refreshLocalPlayerMoveSpeed(ctx)
+	if ctx.World.Player.Speed != defaultPlayerMoveSpeedMS {
+		t.Fatalf("player speed = %d, want default %d", ctx.World.Player.Speed, defaultPlayerMoveSpeedMS)
+	}
+}
 
-	if world.Player.Speed != 125 {
-		t.Fatalf("player speed = %d, want 125", world.Player.Speed)
+func TestLocalPlayerMoveSpeedWaitsForServerAfterCartChanges(t *testing.T) {
+	ctx := client.Context{
+		World: worldstate.New(),
+		Session: &session.Session{
+			AccountID: 2000000,
+			CharID:    150004,
+			Selected:  session.Character{ID: 150004, Option: db.EffectStateCart1},
+		},
+	}
+	mode := &WorldMode{}
+	applyParameterChange(ctx, network.ParameterChange{VarID: network.StatusSpeed, Value: 187})
+	applySkillInfoList(ctx, network.SkillInfoList{Skills: []network.SkillInfo{{ID: db.SkillMCPushcart, Level: 5}}})
+	applyCartAmount(ctx, network.CartAmount{MaxAmount: 100})
+	mode.applyPushCartStatus(ctx, network.StatusEffectChange{StatusID: db.StatusOnPushCart, Active: true})
+	if ctx.World.Player.Speed != 187 {
+		t.Fatalf("cart initialization changed server speed to %d", ctx.World.Player.Speed)
+	}
+
+	applySkillInfoUpdate(ctx, network.SkillInfoUpdate{Skill: network.SkillInfo{ID: db.SkillMCPushcart, Level: 10}})
+	mode.applyPushCartStatus(ctx, network.StatusEffectChange{StatusID: db.StatusOnPushCart, Active: false})
+	if ctx.World.Player.Speed != 187 {
+		t.Fatalf("cart changes predicted speed %d before server update", ctx.World.Player.Speed)
+	}
+
+	applyParameterChange(ctx, network.ParameterChange{VarID: network.StatusSpeed, Value: 150})
+	if ctx.World.Player.Speed != 150 {
+		t.Fatalf("player speed after cart removal = %d, want server speed 150", ctx.World.Player.Speed)
 	}
 }
 

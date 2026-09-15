@@ -603,7 +603,6 @@ func (m *WorldMode) rebindPersistentUI(ctx client.Context) {
 	m.ui.partyInvite.Rebind(ctx)
 	m.ui.chatRoomCreate.Rebind(ctx)
 	m.ui.chatRoom.Rebind(ctx)
-	m.ui.skillTextPrompt.Rebind(ctx)
 	m.ui.settingsWindow.Rebind(ctx)
 	m.ui.homunculusInfo.Rebind(ctx)
 	m.ui.mercenaryInfo.Rebind(ctx)
@@ -1479,7 +1478,6 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 	next.ui.settingsWindow = m.ui.settingsWindow
 	next.ui.partyCreate = m.ui.partyCreate
 	next.ui.partyInvite = m.ui.partyInvite
-	next.ui.skillTextPrompt = m.ui.skillTextPrompt
 	next.ui.shortcutBar = m.ui.shortcutBar
 	next.ui.minimap = m.ui.minimap
 	next.ui.statusIcons = m.ui.statusIcons
