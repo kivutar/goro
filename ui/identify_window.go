@@ -56,24 +56,6 @@ func (w *IdentifyWindow) OpenList(ctx Context, list network.ItemIdentifyList) {
 	w.Publish(ctx)
 }
 
-func (w *IdentifyWindow) ApplyAck(ctx Context, ack network.ItemIdentifyAck) {
-	w.EnsureWindow(identifyWindowWidth, identifyWindowHeight)
-	if ack.Success {
-		w.removeIndex(ack.Index)
-		w.ClampScroll(ctx.Session)
-		w.selectedRow = -1
-		if len(w.items(ctx.Session)) == 0 {
-			w.Close()
-		} else {
-			w.snapshot = w.items(ctx.Session)
-			w.SetContent(w.widgetTree(ctx))
-		}
-		w.Publish(ctx)
-		return
-	}
-	glog.Warnf("identify failed index=%d", ack.Index)
-}
-
 func (w *IdentifyWindow) Update(ctx Context) bool {
 	w.EnsureWindow(identifyWindowWidth, identifyWindowHeight)
 	if !w.IsOpen() {
@@ -210,14 +192,14 @@ func (w *IdentifyWindow) items(s *session.Session) []session.InventoryItem {
 }
 
 func (w *IdentifyWindow) identifySelected(ctx Context) {
+	if !w.IsOpen() {
+		return
+	}
 	items := w.items(ctx.Session)
 	if w.selectedRow < 0 || w.selectedRow >= len(items) {
 		return
 	}
-	w.identify(ctx, items[w.selectedRow])
-}
-
-func (w *IdentifyWindow) identify(ctx Context, item session.InventoryItem) {
+	item := items[w.selectedRow]
 	if ctx.Network == nil {
 		glog.Warnf("identify failed: not connected")
 		return
@@ -226,10 +208,14 @@ func (w *IdentifyWindow) identify(ctx Context, item session.InventoryItem) {
 		glog.Warnf("identify failed: %v", err)
 		return
 	}
+	w.Close()
 	glog.Debugf("identify requested index=%d item=%d", item.Index, item.ItemID)
 }
 
 func (w *IdentifyWindow) cancel(ctx Context) {
+	if !w.IsOpen() {
+		return
+	}
 	if ctx.Network != nil {
 		if err := ctx.Network.SendItemIdentify(identifyCancelIndex); err != nil {
 			glog.Warnf("identify cancel failed: %v", err)
@@ -237,15 +223,6 @@ func (w *IdentifyWindow) cancel(ctx Context) {
 		}
 	}
 	w.Close()
-}
-
-func (w *IdentifyWindow) removeIndex(index uint16) {
-	for i, candidate := range w.indexes {
-		if candidate == index {
-			w.indexes = append(w.indexes[:i], w.indexes[i+1:]...)
-			return
-		}
-	}
 }
 
 func (w *IdentifyWindow) ensureScrollSignal() state.Signal[float32] {

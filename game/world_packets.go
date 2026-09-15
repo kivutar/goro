@@ -434,7 +434,9 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 	} else if ok {
 		glog.Debugf("item identify ack index=%d success=%v", identifyAck.Index, identifyAck.Success)
 		applyItemIdentifyAck(ctx, identifyAck)
-		m.ui.identifyWindow.ApplyAck(ctx, identifyAck)
+		if !identifyAck.Success {
+			glog.Warnf("identify failed index=%d", identifyAck.Index)
+		}
 		m.ui.inventoryBag.ClampScroll(ctx.Session)
 		return nil, false
 	}
