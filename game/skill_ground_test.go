@@ -185,18 +185,59 @@ func TestGroundSkillUsesCompanionPositionAndMovePacket(t *testing.T) {
 }
 
 func TestMapChangeCancelsSkillTextPrompt(t *testing.T) {
-	ctx, mode, serverConn := groundSkillTestContext(t)
-	ctx.UIManager = &worldModeTestUIManager{}
-	skill := session.Skill{ID: db.SkillHTTalkiebox, Level: 1, Type: skillTargetPlace, Range: 9}
-	mode.openSkillTextPrompt(ctx, skill, 31, 31, "test")
-	mode.handleNetworkPacket(ctx, testMapChangePacket("prontera", 24, 24), time.Now())
-	if mode.ui.skillTextPrompt.IsOpen() || mode.pendingSkillText.skill.ID != 0 {
-		t.Fatal("map change retained the skill text prompt")
+	for _, targetMap := range []string{"prontera", "geffen"} {
+		t.Run(targetMap, func(t *testing.T) {
+			ctx, mode, serverConn := groundSkillTestContext(t)
+			ctx.World.MapName = "prontera"
+			manager := &worldModeTestUIManager{}
+			ctx.UIManager = manager
+			skill := session.Skill{ID: db.SkillHTTalkiebox, Level: 1, Type: skillTargetPlace, Range: 9}
+			mode.openSkillTextPrompt(ctx, skill, 31, 31, "test")
+			if !mode.ui.skillTextPrompt.IsOpen() || len(manager.overlays) != 1 {
+				t.Fatal("skill text prompt was not published")
+			}
+			mode.handleNetworkPacket(ctx, testMapChangePacket(targetMap, 24, 24), time.Now())
+			if mode.ui.skillTextPrompt.IsOpen() || mode.pendingSkillText.skill.ID != 0 || len(manager.overlays) != 0 {
+				t.Fatal("map change retained the skill text prompt or its overlay")
+			}
+			assertNoBotTestPacket(t, serverConn, func() error {
+				mode.sendPendingSkillText(ctx, "Too late")
+				return nil
+			})
+
+			// Complete the normal fade/handoff, including reuse of the same map.
+			mode.mapFade.started = time.Now().Add(-mapFadeOutDuration)
+			if next, err := mode.Update(ctx); err != nil || next != nil {
+				t.Fatalf("fade-out handoff = %T, err=%v", next, err)
+			}
+			for range mapFadeHandoffFrames {
+				mode.recordCoveredMapFrame()
+			}
+			next, err := mode.Update(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if targetMap == "prontera" {
+				if next != nil {
+					t.Fatalf("same-map warp replaced the world mode: %T", next)
+				}
+				readBotTestPackets(t, serverConn, network.BuildLoadEndAckPacket())
+			} else {
+				var ok bool
+				mode, ok = next.(*WorldMode)
+				if !ok {
+					t.Fatalf("map handoff = %T, want *WorldMode", next)
+				}
+			}
+			if mode.updateSkillTextPrompt(ctx) || mode.ui.skillTextPrompt.IsOpen() || len(manager.overlays) != 0 {
+				t.Fatal("completed map transition restored the canceled prompt")
+			}
+			assertNoBotTestPacket(t, serverConn, func() error {
+				mode.sendPendingSkillText(ctx, "Still too late")
+				return nil
+			})
+		})
 	}
-	assertNoBotTestPacket(t, serverConn, func() error {
-		mode.sendPendingSkillText(ctx, "Too late")
-		return nil
-	})
 }
 
 func TestUnreachableGroundTargetReplacesPreviousCast(t *testing.T) {
