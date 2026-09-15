@@ -192,9 +192,10 @@ func TestIdentifyIdleKeepsSelectionWithoutAllocations(t *testing.T) {
 	if len(w.snapshot) != 3 || w.selectedRow != -1 || w.ensureScrollSignal().Get() != 0 {
 		t.Fatal("removal did not refresh content and clamp selection/scroll")
 	}
-	w.ApplyAck(ctx, network.ItemIdentifyAck{Index: indexes[0], Success: true})
+	ctx.Session.Inventory.Items[0].Identified = true
+	w.Update(ctx)
 	if len(w.snapshot) != 2 || w.snapshot[0].Index != indexes[1] {
-		t.Fatalf("acknowledgement left stale items: %+v", w.snapshot)
+		t.Fatalf("inventory update left stale items: %+v", w.snapshot)
 	}
 }
 
