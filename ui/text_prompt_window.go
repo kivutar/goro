@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"github.com/kivutar/goro/input"
 	"strings"
 
 	"github.com/gogpu/ui/core/textfield"
 	"github.com/gogpu/ui/primitives"
 	"github.com/gogpu/ui/widget"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -42,8 +42,8 @@ func (w *TextPromptWindow) Open(ctx Context, title, label, placeholder string, m
 	w.inputField = nil
 	w.action = TextPromptAction{}
 	w.Window.Open(ctx, w.widgetTree(ctx))
-	w.focusInput()
 	w.Publish(ctx)
+	w.focusInput(ctx)
 }
 
 func (w *TextPromptWindow) Update(ctx Context) bool {
@@ -67,8 +67,8 @@ func (w *TextPromptWindow) Rebind(ctx Context) {
 	w.ctx = ctx
 	w.inputField = nil
 	content := w.widgetTree(ctx)
-	w.focusInput()
 	w.RebindContent(ctx, content)
+	w.focusInput(ctx)
 }
 
 func (w *TextPromptWindow) PopAction() TextPromptAction {
@@ -148,8 +148,13 @@ func (w *TextPromptWindow) submitFromFocusedEnter(ctx Context) bool {
 	return true
 }
 
-func (w *TextPromptWindow) focusInput() {
-	if w.inputField != nil {
+func (w *TextPromptWindow) focusInput(ctx Context) {
+	if w.inputField == nil {
+		return
+	}
+	if wc := windowWidgetContext(ctx); wc != nil {
+		wc.RequestFocus(w.inputField)
+	} else {
 		w.inputField.SetFocused(true)
 	}
 }
