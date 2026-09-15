@@ -92,6 +92,40 @@ func TestItemDialogListTracksAppraisalEligibility(t *testing.T) {
 	}
 }
 
+func TestItemDialogListCopiesInvalidateIndependently(t *testing.T) {
+	for _, change := range []string{"inventory", "indexes"} {
+		t.Run(change, func(t *testing.T) {
+			ctx, indexes := itemDialogBenchmarkContext(3)
+			var original itemDialogList
+			original.get(ctx.Session, indexes, false)
+			next := original
+			if change == "inventory" {
+				ctx.Session.Inventory.Items[0].Refine = 7
+			} else {
+				indexes[0] = indexes[1]
+			}
+			want := original.get(ctx.Session, indexes, false)
+			if got := next.get(ctx.Session, indexes, false); !slices.Equal(got, want) {
+				t.Fatalf("copied cache = %+v, want refreshed items %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestCardCompositionCopyRefreshesAfterOldCallback(t *testing.T) {
+	ctx, indexes := itemDialogBenchmarkContext(3)
+	var original CardCompositionWindow
+	original.OpenList(ctx, 105, network.ItemCompositionList{Indexes: indexes})
+	next := original // WorldMode.nextWorldMode copies persistent windows.
+	ctx.Session.Inventory.Items[0].Refine = 7
+	// An old button callback can run before the copied window's next Update.
+	original.composeSelected(ctx)
+	next.Update(ctx)
+	if next.snapshot[0].Refine != 7 {
+		t.Fatalf("copied window kept stale item: %+v", next.snapshot[0])
+	}
+}
+
 func itemDialogBenchmarkContext(count int) (Context, []uint16) {
 	ctx := Context{Input: input.NewState(), Session: session.New(), ScreenW: 800, ScreenH: 600}
 	indexes := make([]uint16, count)

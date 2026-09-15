@@ -8,8 +8,8 @@ import (
 )
 
 // itemDialogList caches the sorted inventory entries offered by the server.
-// Returned slices are immutable: table callbacks may still refer to the previous
-// list when an inventory update arrives.
+// All cached slices are immutable: windows are copied across map changes, and
+// table callbacks may still refer to the previous window and its list.
 type itemDialogList struct {
 	inventory        []session.InventoryItem
 	indexes          []uint16
@@ -25,8 +25,8 @@ func (l *itemDialogList) get(s *session.Session, indexes []uint16, unidentifiedO
 	if slices.Equal(l.inventory, inventory) && slices.Equal(l.indexes, indexes) && l.unidentifiedOnly == unidentifiedOnly {
 		return l.items
 	}
-	l.inventory = append(l.inventory[:0], inventory...)
-	l.indexes = append(l.indexes[:0], indexes...)
+	l.inventory = slices.Clone(inventory)
+	l.indexes = slices.Clone(indexes)
 	l.unidentifiedOnly = unidentifiedOnly
 
 	items := make([]session.InventoryItem, 0, len(indexes))
