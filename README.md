@@ -3,8 +3,9 @@
 `goro` is an open Ragnarok Online client recreation implemented in Go.
 
 The runtime uses GoGPU/wgpu for the window and presentation path, with a modern
-GPU pipeline and Vulkan support. Built 100% in Go without CGO, it is fully statically
-compiled and can be easily deployed.
+GPU pipeline and Vulkan support. Desktop builds use pure Go without CGO and can
+be statically compiled. The Android development build adds a small native
+Activity bridge and uses the NDK for audio and packaging.
 
 This project wouldn't be possible without the existence of other open source clients
 like ROBrowser Legacy and Open Midgard and their reverse engineering efforts.
@@ -42,6 +43,9 @@ We also have an active [Discord](https://discord.gg/5fXmjXJCwa) to provide live 
 CGO_ENABLED=0 go build -tags nofakecgo .
 ./goro
 ```
+
+For an Android arm64 development APK and USB installation, see the
+[Android build instructions](packaging/android/README.md).
 
 Configuration precedence, from highest to lowest:
 

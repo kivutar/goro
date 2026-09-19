@@ -1,4 +1,4 @@
-//go:build nofakecgo
+//go:build nofakecgo || android
 
 package audio
 

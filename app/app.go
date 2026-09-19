@@ -168,6 +168,18 @@ func (g *Game) RequestQuit() {
 	}
 }
 
+// Close releases resources after the render loop has stopped. Android can
+// start another game in the same process after a surface is recreated.
+func (g *Game) Close() {
+	g.RequestQuit()
+	if g.resource != nil {
+		for _, archive := range g.resource.Archives {
+			_ = archive.Close()
+		}
+		g.resource.Archives = nil
+	}
+}
+
 func (g *Game) RequestScreenshot() (string, error) {
 	path, err := config.NextScreenshotPath(time.Now())
 	if err != nil {

@@ -1,4 +1,4 @@
-//go:build nofakecgo
+//go:build nofakecgo || android
 
 package audio
 
@@ -505,7 +505,7 @@ func (b *BGM) ensureContext(preferredSampleRate int) *oto.Context {
 	if preferredSampleRate <= 0 {
 		preferredSampleRate = defaultSampleRate
 	}
-	context, ready, err := oto.NewContext(&oto.NewContextOptions{
+	context, ready, sampleRate, err := newAudioContext(&oto.NewContextOptions{
 		SampleRate:   preferredSampleRate,
 		ChannelCount: 2,
 		Format:       oto.FormatSignedInt16LE,
@@ -516,7 +516,7 @@ func (b *BGM) ensureContext(preferredSampleRate int) *oto.Context {
 	}
 	<-ready
 	b.context = context
-	b.sampleRate = preferredSampleRate
+	b.sampleRate = sampleRate
 	glog.Debugf("bgm created audio context sample_rate=%d", b.sampleRate)
 	return b.context
 }
