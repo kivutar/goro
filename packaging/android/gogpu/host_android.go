@@ -55,6 +55,9 @@ func AndroidSetWindow(handle uintptr, width, height int) {
 	platform.AndroidSetWindow(handle, width, height)
 }
 func AndroidClose() { platform.AndroidEvent(platform.Event{Type: platform.EventClose}) }
+func AndroidFocus(focused bool) {
+	platform.AndroidEvent(platform.Event{Type: platform.EventFocus, Focused: focused})
+}
 func AndroidPointer(ev gpucontext.PointerEvent) {
 	kind := platform.EventPointerMove
 	if ev.Type == gpucontext.PointerDown {

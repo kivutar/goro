@@ -228,6 +228,10 @@ type uiProfileStats struct {
 }
 
 type runner struct {
+	gamepads        *input.GamepadSource
+	gamepadUI       gamepadUIState
+	gamepadEvents   *fanoutEventSource
+	gamepadFocused  bool
 	app             *gogpu.App
 	ui              *uiapp.App
 	uiWindow        *uiWindowProvider
@@ -331,19 +335,21 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	)
 
 	r := &runner{
-		app:        gg,
-		ui:         ui,
-		uiWindow:   uiWindow,
-		game:       game,
-		width:      cfg.Width,
-		height:     cfg.Height,
-		duration:   time.Duration(renderCfg.BenchSeconds) * time.Second,
-		warmup:     time.Duration(renderCfg.BenchWarmupSeconds) * time.Second,
-		renderCfg:  renderCfg,
-		quit:       gg.Quit,
-		fullscreen: cfg.Fullscreen,
-		vsync:      renderCfg.VSync,
-		fps:        renderCfg.FPS,
+		gamepadEvents:  events,
+		gamepadFocused: true,
+		app:            gg,
+		ui:             ui,
+		uiWindow:       uiWindow,
+		game:           game,
+		width:          cfg.Width,
+		height:         cfg.Height,
+		duration:       time.Duration(renderCfg.BenchSeconds) * time.Second,
+		warmup:         time.Duration(renderCfg.BenchWarmupSeconds) * time.Second,
+		renderCfg:      renderCfg,
+		quit:           gg.Quit,
+		fullscreen:     cfg.Fullscreen,
+		vsync:          renderCfg.VSync,
+		fps:            renderCfg.FPS,
 	}
 	defer r.close()
 	if receiver, ok := game.(quitReceiver); ok {
@@ -354,8 +360,21 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	}
 	game.Resize(cfg.Width, cfg.Height)
 	wireInput(events, game.InputState())
+	events.OnFocus(func(focused bool) {
+		r.gamepadFocused = focused
+		if !focused {
+			r.gamepadUI = gamepadUIState{}
+		}
+	})
 
 	gg.OnSurfaceAvailable(func() {
+		if r.gamepads == nil {
+			var err error
+			r.gamepads, err = input.NewGamepadSource()
+			if err != nil {
+				glog.Warnf("gamepad input unavailable: %v", err)
+			}
+		}
 		// The primary window is registered before this callback, and close
 		// events are processed afterwards. X/Alt+F4 must drain UI redraws
 		// before GoGPU destroys that window, earlier than App.OnClose.
@@ -391,6 +410,10 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 }
 
 func (r *runner) close() {
+	if r.gamepads != nil {
+		r.gamepads.Close()
+		r.gamepads = nil
+	}
 	// App-level quits reach OnClose before native teardown. Window-close
 	// requests have already drained redraws through the pre-close callback.
 	if r.uiWindow != nil {
@@ -449,6 +472,8 @@ func graphicsAPI(name string) (gogputypes.GraphicsAPI, error) {
 }
 
 type fanoutEventSource struct {
+	physicalMouse        map[gpucontext.MouseButton]bool
+	controllerMouse      map[gpucontext.MouseButton]bool
 	inputState           *input.State
 	handleKeyPress       func(input.KeyCode)
 	prepareKeyInput      func(input.KeyCode, gpucontext.Modifiers)
@@ -528,14 +553,10 @@ func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 		}
 	})
 	source.OnMousePress(func(button gpucontext.MouseButton, x, y float64) {
-		for _, fn := range f.mousePress {
-			fn(button, x, y)
-		}
+		f.setMouseButton(false, button, true, x, y)
 	})
 	source.OnMouseRelease(func(button gpucontext.MouseButton, x, y float64) {
-		for _, fn := range f.mouseRelease {
-			fn(button, x, y)
-		}
+		f.setMouseButton(false, button, false, x, y)
 	})
 	source.OnScroll(func(x, y float64) {
 		for _, fn := range f.scroll {
@@ -550,8 +571,12 @@ func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 	source.OnFocus(func(focused bool) {
 		if !focused {
 			keyCode = gpucontext.KeyUnknown
+			clear(f.physicalMouse)
+			clear(f.controllerMouse)
 			if f.inputState != nil {
 				f.inputState.ResetKeyboard()
+				f.inputState.ResetGamepad()
+				f.inputState.ResetMouseButtons()
 			}
 		}
 		for _, fn := range f.focus {
@@ -668,6 +693,7 @@ func mapMouseButton(button gpucontext.MouseButton) (input.MouseButton, bool) {
 
 func (r *runner) update() error {
 	updateStart := time.Now()
+	r.updateGamepad(updateStart)
 	r.applyRuntimeSettings()
 	if r.duration > 0 && r.started.IsZero() {
 		r.started = time.Now()

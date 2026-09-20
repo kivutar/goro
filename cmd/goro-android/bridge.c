@@ -84,3 +84,24 @@ JNIEXPORT void JNICALL Java_org_goro_GoroActivity_nativeText(JNIEnv *env, jclass
     (void)env; (void)cls;
     GoroText(codepoint);
 }
+
+JNIEXPORT void JNICALL Java_org_goro_GoroActivity_nativeFocus(JNIEnv *env, jclass cls, jboolean focused) {
+    (void)env; (void)cls;
+    GoroFocus(focused);
+}
+
+JNIEXPORT void JNICALL Java_org_goro_GoroActivity_nativeGamepadDevice(JNIEnv *env, jclass cls, jint id, jstring name, jboolean connected) {
+    (void)cls;
+    const char *text = (*env)->GetStringUTFChars(env, name, NULL);
+    if (!text) return;
+    GoroGamepadDevice(id, (char *)text, connected);
+    (*env)->ReleaseStringUTFChars(env, name, text);
+}
+JNIEXPORT void JNICALL Java_org_goro_GoroActivity_nativeGamepadKey(JNIEnv *env, jclass cls, jint id, jint key, jboolean down) {
+    (void)env; (void)cls;
+    GoroGamepadKey(id, key, down);
+}
+JNIEXPORT void JNICALL Java_org_goro_GoroActivity_nativeGamepadMotion(JNIEnv *env, jclass cls, jint id, jfloat lx, jfloat ly, jfloat rx, jfloat ry, jfloat lt, jfloat rt, jfloat hx, jfloat hy) {
+    (void)env; (void)cls;
+    GoroGamepadMotion(id, lx, ly, rx, ry, lt, rt, hx, hy);
+}

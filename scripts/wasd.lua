@@ -1,5 +1,9 @@
 -- Physical WASD positions: these keys are ZQSD on an AZERTY keyboard.
 local controls = { "KeyW", "KeyA", "KeyS", "KeyD" }
+-- Positional names work across Xbox, PlayStation and other controller labels.
+local stick_deadzone = 0.3
+local attack_button = "west"
+local loot_button = "north"
 local horizon = 8
 local refill_distance = 3
 local action_radius = 8
@@ -248,6 +252,20 @@ end
 
 function input()
 	handle_skill_target_input(nil)
+	local pending = goro.pending_skill()
+	if pending ~= nil and pending.target == "actor" and goro.gamepad.available() then
+		if goro.gamepad.was_pressed("right_shoulder") then
+			cycle_skill_target(pending, false)
+			skill_input_handled = true
+		elseif goro.gamepad.was_pressed("left_shoulder") then
+			cycle_skill_target(pending, true)
+			skill_input_handled = true
+		elseif skill_target_id ~= nil and goro.gamepad.was_pressed("left_stick") then
+			goro.use_pending_skill(skill_target_id)
+			clear_skill_target()
+			skill_input_handled = true
+		end
+	end
 	if skill_input_handled then
 		skill_input_handled = false
 		fight_down = false
@@ -259,8 +277,8 @@ function input()
 	end
 
 	local controls_enabled = not shortcut_modifier_down()
-	fight_down = controls_enabled and goro.keyboard.is_down("KeyF")
-	loot_down = controls_enabled and goro.keyboard.is_down("Space")
+	fight_down = controls_enabled and (goro.keyboard.is_down("KeyF") or goro.gamepad.is_down(attack_button))
+	loot_down = controls_enabled and (goro.keyboard.is_down("Space") or goro.gamepad.is_down(loot_button))
 	if not fight_down then
 		attack_target_id = nil
 	end
@@ -279,6 +297,15 @@ function input()
 		if goro.keyboard.is_down("KeyA") then dx = dx - 1 end
 		if goro.keyboard.is_down("KeyS") then dy = dy - 1 end
 		if goro.keyboard.is_down("KeyD") then dx = dx + 1 end
+		local x = goro.gamepad.axis("left_x")
+		local y = goro.gamepad.axis("left_y")
+		if x < -stick_deadzone or goro.gamepad.is_down("dpad_left") then dx = dx - 1 end
+		if x > stick_deadzone or goro.gamepad.is_down("dpad_right") then dx = dx + 1 end
+		if y < -stick_deadzone or goro.gamepad.is_down("dpad_up") then dy = dy + 1 end
+		if y > stick_deadzone or goro.gamepad.is_down("dpad_down") then dy = dy - 1 end
+		-- Simultaneous keyboard/controller input must not double the stride.
+		dx = math.max(-1, math.min(1, dx))
+		dy = math.max(-1, math.min(1, dy))
 	end
 
 	if dx == 0 and dy == 0 then

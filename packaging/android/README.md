@@ -59,8 +59,15 @@ adb reverse tcp:5121 tcp:5121
   rotation. Pinch: mouse wheel for zoom.
 - **Keyboard** opens the Android IME for the currently focused game field.
   Physical keyboards use the shared desktop key mapping.
-- Gamepad A/B: left/right click at the pointer; left stick moves the pointer;
-  Start sends Escape; Select opens the keyboard.
+- Gamepads use the same `goro.gamepad` Lua API and bindings as desktop. Left
+  stick/D-pad moves the character, X/West attacks, and Y/North loots. Right stick
+  moves the pointer; A/South and B/East click; Start sends Escape; Select opens
+  the keyboard. Shoulder buttons cycle an armed skill's targets; left stick
+  click confirms. Chat/form focus suspends gameplay controls.
+- `wasd.lua` is embedded in the APK and enabled by default. To use an editable
+  script, set `[script] path = /path/to/script.lua` in the app's `goro.ini` (put
+  the section and assignment on separate lines). Set `path = none` to disable
+  it. An existing custom script configuration takes precedence.
 - Leaving the Activity stops the game and releases the Vulkan surface before
   Android destroys its native window. Returning starts at login again; the
   current server session is not preserved across backgrounding.

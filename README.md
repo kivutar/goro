@@ -47,6 +47,42 @@ CGO_ENABLED=0 go build -tags nofakecgo .
 For an Android arm64 development APK and USB installation, see the
 [Android build instructions](packaging/android/README.md).
 
+### Gamepad controls
+
+Enable the bundled keyboard/gamepad script on desktop:
+
+```sh
+./goro --data-dir /path/to/OldRO --script builtin:wasd
+```
+
+You can also use `--script scripts/wasd.lua` to edit the bindings in Lua. Android
+uses the bundled script by default when no other script is configured.
+
+| Control | Action |
+| --- | --- |
+| Left stick / D-pad | Move (eight directions) |
+| West face button (Xbox X / PlayStation Square) | Hold to attack |
+| North face button (Xbox Y / PlayStation Triangle) | Hold to loot |
+| Right stick | Move the pointer |
+| South / East face buttons | Left / right mouse click |
+| Start / Menu | Escape menu |
+| Right / left shoulder | Next / previous target for an armed actor skill |
+| Left stick click | Use the armed skill on the highlighted target |
+| Select / Back on Android | Open the keyboard |
+
+Gameplay controls pause while chat or a form has keyboard focus. Keyboard WASD,
+F and Space still work. The first detected controller stays selected until it
+disconnects; connecting and disconnecting controllers does not require a restart.
+
+Backends: Windows XInput, Linux evdev, macOS GameController, and Android
+InputDevice. Windows requires an XInput-compatible controller or driver; Linux
+requires read access to the controller's `/dev/input/event*` node and a driver
+using the kernel's standard gamepad layout. macOS supports controllers exposed
+with an extended gamepad profile by the system framework. Older nonstandard
+controller mappings may need a driver or mapping fix.
+
+### Configuration
+
 Configuration precedence, from highest to lowest:
 
 1. Command-line flags such as `--vsync=false`.

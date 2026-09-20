@@ -67,6 +67,7 @@ const (
 type TouchID int64
 
 type State struct {
+	gamepad           gamepadState
 	frameID           uint64
 	keys              map[Key]bool
 	prev              map[Key]bool
@@ -133,6 +134,8 @@ func (s *State) FrameID() uint64 {
 }
 
 func (s *State) EndFrame() {
+	clear(s.gamepad.pressed[:])
+	clear(s.gamepad.released[:])
 	s.frameID++
 	for key, down := range s.keys {
 		s.prev[key] = down
@@ -179,6 +182,14 @@ func (s *State) ResetKeyboard() {
 	clear(s.justKeyCodeUps)
 	clear(s.consumedKeyCodes)
 	s.textInput = s.textInput[:0]
+}
+
+// ResetMouseButtons cancels drags after focus loss without generating clicks.
+func (s *State) ResetMouseButtons() {
+	clear(s.buttons)
+	clear(s.prevMouse)
+	clear(s.justMouse)
+	clear(s.justMouseReleased)
 }
 
 func (s *State) SetKey(key Key, pressed bool) {
