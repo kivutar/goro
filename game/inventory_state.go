@@ -142,8 +142,14 @@ func applyItemCompositionAck(ctx client.Context, ack network.ItemCompositionAck)
 	}
 }
 
+func useItemAckIsLocal(ctx client.Context, ack network.UseItemAck) bool {
+	// AID identifies an account, never a character. Legacy 0x00A8
+	// acknowledgements omit AID and update the local inventory.
+	return ctx.Session != nil && (ack.AID == 0 || ack.AID == ctx.Session.AccountID)
+}
+
 func applyUseItemAck(ctx client.Context, ack network.UseItemAck) {
-	if ack.Result == 0 {
+	if ack.Result == 0 || !useItemAckIsLocal(ctx, ack) {
 		return
 	}
 	setSessionInventoryItemAmount(ctx.Session, ack.Index, int(ack.Amount))
