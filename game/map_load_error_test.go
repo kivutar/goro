@@ -189,15 +189,28 @@ func TestLoadGATPreservesReadErrors(t *testing.T) {
 }
 
 func TestWorldEnterWithGATStillAcknowledgesSuccessfulLoad(t *testing.T) {
-	ctx := mapRecoveryTestContext(t)
-	netClient, server := newBotTestConnection(t, 20080910)
-	ctx.Network = netClient
-	writeTestGAT(t, ctx.Resources.Root, "new_1-1.gat")
-	mode := NewWorldMode()
-	if next := mode.Enter(ctx); next != nil || ctx.World.GAT == nil {
-		t.Fatal("a valid GAT with optional rendering assets missing triggered recovery")
+	for _, source := range []string{"new_1-1.gat", "new_zone01.gat"} {
+		t.Run(source, func(t *testing.T) {
+			ctx := mapRecoveryTestContext(t)
+			netClient, server := newBotTestConnection(t, 20080910)
+			ctx.Network = netClient
+			writeTestGAT(t, ctx.Resources.Root, source)
+			if source != ctx.World.MapName {
+				table := []byte("new_1-1.gat#" + source + "#\n")
+				if err := os.WriteFile(filepath.Join(ctx.Resources.Root, "resnametable.txt"), table, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			mode := NewWorldMode()
+			if next := mode.Enter(ctx); next != nil || ctx.World.GAT == nil {
+				t.Fatal("a valid GAT with optional rendering assets missing triggered recovery")
+			}
+			if ctx.World.MapName != "new_1-1.gat" {
+				t.Fatalf("resource alias replaced the server's map identity: %q", ctx.World.MapName)
+			}
+			readBotTestPackets(t, server, network.BuildLoadEndAckPacket())
+		})
 	}
-	readBotTestPackets(t, server, network.BuildLoadEndAckPacket())
 }
 
 func writeTestGAT(t *testing.T, root, name string) {

@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -12,8 +15,10 @@ import (
 	"github.com/gogpu/ui/uitest"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
+	"golang.org/x/image/bmp"
 )
 
 type minimapTestUIApp struct {
@@ -36,6 +41,33 @@ func TestNormalizeMinimapMapName(t *testing.T) {
 	}
 	if got := normalizeMinimapMapName("izlude.gat"); got != "izlude" {
 		t.Fatalf("normalized gat = %q, want izlude", got)
+	}
+}
+
+func TestMinimapLoadsClonedMapImage(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "data", "texture", "유저인터페이스", "map")
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	var data bytes.Buffer
+	if err := bmp.Encode(&data, image.NewRGBA(image.Rect(0, 0, 40, 60))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "new_zone01.bmp"), data.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	table := []byte("유저인터페이스\\map\\new_1-1.bmp#유저인터페이스\\map\\new_zone01.bmp#\n")
+	if err := os.WriteFile(filepath.Join(root, "data", "resnametable.txt"), table, 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := &Minimap{}
+	m.ensureImage(&res.Manager{Root: root}, "new_1-1.gat")
+	if m.img == nil || m.img.Bounds().Dx() != 40 || m.img.Bounds().Dy() != 60 {
+		t.Fatal("clone minimap did not load the aliased image")
+	}
+	if m.mapName != "new_1-1" {
+		t.Fatalf("minimap identity changed to the source map: %q", m.mapName)
 	}
 }
 
