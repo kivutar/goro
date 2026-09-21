@@ -1,11 +1,14 @@
 package res
 
 import (
+	"bytes"
 	"errors"
+	"image"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"golang.org/x/image/bmp"
 	"golang.org/x/text/encoding/korean"
 )
 
@@ -225,6 +228,60 @@ func TestResourceCandidatesPreferDirectMapFiles(t *testing.T) {
 				t.Fatalf("alias fallback = %q, %v", got, err)
 			}
 		})
+	}
+}
+
+func TestResourceExactPathsPrecedeArchiveSuffixes(t *testing.T) {
+	for _, direct := range []bool{false, true} {
+		t.Run(map[bool]string{false: "alias", true: "direct"}[direct], func(t *testing.T) {
+			files := map[string][]byte{"data/source.gat": []byte("exact alias")}
+			want := "exact alias"
+			if direct {
+				files["data/clone.gat"] = []byte("exact direct")
+				want = "exact direct"
+			}
+			manager := &Manager{Root: t.TempDir(), Archives: []*GRF{
+				resourceAliasTestArchive(t, map[string][]byte{
+					"data/resnametable.txt":  []byte("clone.gat#source.gat#\n"),
+					"backup/data/clone.gat":  []byte("direct suffix"),
+					"backup/data/source.gat": []byte("alias suffix"),
+				}),
+				resourceAliasTestArchive(t, files),
+			}}
+			for _, read := range []func(string) ([]byte, error){manager.ReadFile, manager.ReadFileExact} {
+				if got, err := read("data/clone.gat"); err != nil || string(got) != want {
+					t.Fatalf("read = %q, %v; want %q", got, err, want)
+				}
+			}
+			if got, _, err := manager.ReadFileCandidates([]string{"data/clone.gat", "clone.gat"}); err != nil || string(got) != want {
+				t.Fatalf("candidate read = %q, %v; want %q", got, err, want)
+			}
+		})
+	}
+}
+
+func TestMinimapAliasPrecedesUnrelatedArchiveSuffix(t *testing.T) {
+	makeBMP := func(width, height int) []byte {
+		var buf bytes.Buffer
+		if err := bmp.Encode(&buf, image.NewRGBA(image.Rect(0, 0, width, height))); err != nil {
+			t.Fatal(err)
+		}
+		return buf.Bytes()
+	}
+	manager := &Manager{Root: t.TempDir(), Archives: []*GRF{resourceAliasTestArchive(t, map[string][]byte{
+		"data/resnametable.txt":                   []byte("유저인터페이스\\map\\new_1-1.bmp#유저인터페이스\\map\\new_zone01.bmp#\n"),
+		"data/texture/유저인터페이스/map/new_zone01.bmp": makeBMP(40, 60),
+		"data/texture/unrelated/new_1-1.bmp":      makeBMP(24, 24),
+	})}}
+	candidates := []string{"data/texture/유저인터페이스/map/new_1-1.bmp", "new_1-1.bmp"}
+	for _, load := range []func(*Manager, []string) (image.Image, string, error){LoadImage, LoadImageExact} {
+		img, source, err := load(manager, candidates)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if img.Bounds().Dx() != 40 || img.Bounds().Dy() != 60 || source != candidates[0] {
+			t.Fatalf("unrelated suffix replaced minimap alias: %v from %s", img.Bounds(), source)
+		}
 	}
 }
 

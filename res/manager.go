@@ -132,11 +132,8 @@ func (m *Manager) ReadFileExact(name string) ([]byte, error) {
 }
 
 func (m *Manager) readResource(name string, exact bool) ([]byte, error) {
-	data, err := m.readFileDirect(name, exact)
-	if !errors.Is(err, errResourceNotFound) {
-		return data, err
-	}
-	return m.readFileAlias(name, exact)
+	data, _, err := m.readFileCandidates([]string{name}, exact)
+	return data, err
 }
 
 func (m *Manager) readFileAlias(name string, exact bool) ([]byte, error) {
@@ -152,7 +149,8 @@ func (m *Manager) readFileAlias(name string, exact bool) ([]byte, error) {
 	return data, nil
 }
 
-// ReadFileCandidates tries all direct names before any resnametable alias.
+// ReadFileCandidates tries exact direct paths, then exact alias targets, and
+// finally the legacy archive suffix fallback if neither was found.
 // The returned name is the candidate that matched, for diagnostics.
 func (m *Manager) ReadFileCandidates(names []string) ([]byte, string, error) {
 	return m.readFileCandidates(names, false)
@@ -160,18 +158,23 @@ func (m *Manager) ReadFileCandidates(names []string) ([]byte, string, error) {
 
 func (m *Manager) readFileCandidates(names []string, exact bool) ([]byte, string, error) {
 	var readErrors []error
-	for _, read := range []func(string, bool) ([]byte, error){m.readFileDirect, m.readFileAlias} {
-		for _, name := range names {
-			data, err := read(name, exact)
-			if err == nil {
-				return data, name, nil
+	for _, exactLookup := range []bool{true, false} {
+		if exact && !exactLookup {
+			break
+		}
+		for _, read := range []func(string, bool) ([]byte, error){m.readFileDirect, m.readFileAlias} {
+			for _, name := range names {
+				data, err := read(name, exactLookup)
+				if err == nil {
+					return data, name, nil
+				}
+				if !errors.Is(err, errResourceNotFound) {
+					// An unreadable direct override must not silently fall back
+					// to a different resource or its alias.
+					return nil, name, err
+				}
+				readErrors = append(readErrors, err)
 			}
-			if !errors.Is(err, errResourceNotFound) {
-				// An unreadable direct override must not silently fall back
-				// to a different resource or its alias.
-				return nil, name, err
-			}
-			readErrors = append(readErrors, err)
 		}
 	}
 	if len(readErrors) == 0 {
