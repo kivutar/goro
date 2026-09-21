@@ -23,13 +23,13 @@ func TestAirshipCloudsDriftForwardForBothPhaseSigns(t *testing.T) {
 				x: 10, y: 20, phaseX: sign * math.Pi / 2, phaseY: -math.Pi / 2, rotStart: time.Minute,
 			}}}
 			state.update(params, nil, 0, 0, now.Add(100*time.Millisecond))
-			wantX, wantY := sign*0.03, -0.03
+			wantX, wantY := sign*0.06, -0.06
 			switch effectID {
 			case effectCloud5:
 				// Original Cloud(4): +0.20*abs(sin(x)) and 0.05*sin(y) per frame.
-				wantX = 0.12
+				wantX = 0.24
 			case effectCloud4:
-				wantX, wantY = sign*0.009, -0.009
+				wantX, wantY = sign*0.018, -0.018
 			}
 			if dx, dy := state.clouds[0].x-10, state.clouds[0].y-20; math.Abs(dx-wantX) > 1e-9 || math.Abs(dy-wantY) > 1e-9 {
 				t.Fatalf("effect %d phase sign %.0f: drift %f,%f, want %f,%f", effectID, sign, dx, dy, wantX, wantY)
@@ -50,7 +50,7 @@ func TestAirshipCloudsUseClassicDensityAndPlacement(t *testing.T) {
 	}
 	for _, cloud := range state.clouds {
 		dx, dy := math.Abs(cloud.x-239.5), math.Abs(cloud.y-62.5)
-		if dx < 2.5 || dx > 22.5 || dy < 2.5 || dy > 22.5 || cloud.z < -5 || cloud.z > -4 {
+		if dx < 5 || dx > 45 || dy < 5 || dy > 45 || cloud.z < -10 || cloud.z > -8 {
 			t.Fatalf("cloud outside classic sky placement: %+v", cloud)
 		}
 	}

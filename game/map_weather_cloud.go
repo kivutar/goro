@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	weatherCloudFrameRate       = 60
-	weatherCloudMaxStep         = 250 * time.Millisecond
-	weatherCloudClassicUnit     = 0.1
+	weatherCloudFrameRate = 60
+	weatherCloudMaxStep   = 250 * time.Millisecond
+	// One GAT cell is five original-client units; res.ParseGAT/ParseGND also
+	// convert heights by -0.2 because goro's vertical axis points up.
+	weatherCloudClassicUnit     = 0.2
 	weatherCloudClassicAlphaMax = 170.0 / 255.0
 )
 
@@ -31,6 +33,7 @@ type mapWeatherCloudParams struct {
 	sizeRand          float64
 	driftSpeed        float64
 	forwardDriftSpeed float64
+	minPlayerZ        float64 // zero disables the mountain-cloud altitude gate
 	ramp              time.Duration
 	fadeOut           time.Duration
 	rotStartMin       time.Duration
@@ -56,6 +59,7 @@ type mapWeatherCloud struct {
 	z            float64
 	size         float64
 	age          time.Duration
+	alpha        float64 // accumulated opacity for altitude-gated clouds
 	rotStart     time.Duration
 	phaseX       float64
 	phaseY       float64
@@ -68,7 +72,7 @@ type mapWeatherCloud struct {
 
 func weatherCloudParamsForEffect(effectID int) (mapWeatherCloudParams, bool) {
 	switch effectID {
-	case effectCloud2, effectCloud5:
+	case effectCloud, effectCloud2, effectCloud3, effectCloud5, effectCloud6, effectCloud7, effectCloud8:
 		params := mapWeatherCloudParams{
 			effectID:     effectID,
 			textureFiles: []string{"effect/cloud4.tga", "effect/cloud1.tga", "effect/cloud2.tga"},
@@ -92,11 +96,36 @@ func weatherCloudParamsForEffect(effectID int) (mapWeatherCloudParams, bool) {
 			disableFog:   true,
 			useGround:    false,
 		}
-		if effectID == effectCloud5 {
+		switch effectID {
+		case effectCloud, effectCloud3, effectCloud6:
+			params.count = 160
+			params.offsetMin = 0
+			params.radius = 150 * weatherCloudClassicUnit
+			params.alphaMax = 160.0 / 255.0
+			params.fadeOut = 160 * time.Second / weatherCloudFrameRate
+			params.zOffset = -10 * weatherCloudClassicUnit
+			if effectID == effectCloud {
+				// Original mountain clouds sit at Y=-125..-115 and only
+				// gain opacity while the player is above Y=-152.
+				params.zOffset = 115 * weatherCloudClassicUnit
+				params.minPlayerZ = 152 * weatherCloudClassicUnit
+			} else if effectID == effectCloud6 {
+				params.count = 320
+				params.zOffset = -30 * weatherCloudClassicUnit
+				params.tint = color.RGBA{R: 94, A: 255}
+				params.driftSpeed = 0.035 * weatherCloudFrameRate * weatherCloudClassicUnit
+			}
+		case effectCloud5:
 			// The original airship variant uses more clouds and a faster,
 			// consistently positive X drift to convey the ship's movement.
 			params.count = 320
 			params.forwardDriftSpeed = 0.20 * weatherCloudFrameRate * weatherCloudClassicUnit
+		case effectCloud7:
+			params.count = 320
+			params.tint = color.RGBA{A: 255}
+		case effectCloud8:
+			params.count = 320
+			params.tint = color.RGBA{R: 255, G: 180, B: 180, A: 255}
 		}
 		return params, true
 	case effectCloud4:
@@ -107,7 +136,7 @@ func weatherCloudParamsForEffect(effectID int) (mapWeatherCloudParams, bool) {
 			alphaMax:     weatherCloudClassicAlphaMax,
 			count:        320,
 			radius:       150 * weatherCloudClassicUnit,
-			zOffset:      -20 * weatherCloudClassicUnit,
+			zOffset:      20 * weatherCloudClassicUnit,
 			zRand:        5 * weatherCloudClassicUnit,
 			sizeBase:     35 * math.Sqrt2 * weatherCloudClassicUnit,
 			sizeRand:     10 * math.Sqrt2 * weatherCloudClassicUnit,
@@ -218,10 +247,24 @@ func (s *mapWeatherCloudState) update(params mapWeatherCloudParams, world *world
 		step = weatherCloudMaxStep
 	}
 	seconds := step.Seconds()
+	altitudeAllowed := weatherCloudAltitudeAllowed(params, world, centerX, centerY)
 	for i := range s.clouds {
 		cloud := &s.clouds[i]
+		previousAge := cloud.age
 		cloud.age += step
-		if cloud.age >= cloud.rotStart+params.fadeOut {
+		recycle := cloud.age >= cloud.rotStart+params.fadeOut
+		if params.minPlayerZ != 0 {
+			// The original altitude gate controls the fade-in, not visibility
+			// outright: clouds already formed finish their normal fade-out.
+			if altitudeAllowed {
+				rampStep := min(cloud.age, params.ramp) - min(previousAge, params.ramp)
+				cloud.alpha += params.alphaMax * float64(rampStep) / float64(params.ramp)
+			}
+			fadeStep := max(cloud.age-cloud.rotStart, 0) - max(previousAge-cloud.rotStart, 0)
+			cloud.alpha = clampFloat(cloud.alpha-params.alphaMax*float64(fadeStep)/float64(params.fadeOut), 0, params.alphaMax)
+			recycle = cloud.age > cloud.rotStart && cloud.alpha == 0
+		}
+		if recycle {
 			cloud.generation++
 			s.spawn(i, params, world, centerX, centerY)
 			continue
@@ -249,11 +292,14 @@ func (s *mapWeatherCloudState) spawn(index int, params mapWeatherCloudParams, wo
 	zJitter := weatherCloudHash01(index, generation, 3) * params.zRand
 	if params.useGround {
 		ground = terrainHeightAtRenderPoint(world, cloud.x, cloud.y)
-		zJitter = -zJitter
 	}
 	cloud.z = ground + params.zOffset + zJitter
 	cloud.size = params.sizeBase + weatherCloudHash01(index, generation, 4)*params.sizeRand
 	cloud.age = 0
+	cloud.alpha = 0
+	if !weatherCloudAltitudeAllowed(params, world, centerX, centerY) {
+		cloud.age = 300 * time.Second / weatherCloudFrameRate
+	}
 	cloud.rotStart = params.rotStartMin + time.Duration(weatherCloudHash01(index, generation, 12)*float64(params.rotStartRand))
 	cloud.phaseX = weatherCloudHash01(index, generation, 5) * 2 * math.Pi
 	cloud.phaseY = weatherCloudHash01(index, generation, 6) * 2 * math.Pi
@@ -286,6 +332,9 @@ func weatherCloudPhaseRate(index, generation, salt int) float64 {
 }
 
 func mapWeatherCloudAlpha(cloud mapWeatherCloud, params mapWeatherCloudParams) float64 {
+	if params.minPlayerZ != 0 {
+		return cloud.alpha
+	}
 	switch {
 	case cloud.age < params.ramp:
 		return params.alphaMax * float64(cloud.age) / float64(params.ramp)
@@ -296,6 +345,10 @@ func mapWeatherCloudAlpha(cloud mapWeatherCloud, params mapWeatherCloudParams) f
 	default:
 		return 0
 	}
+}
+
+func weatherCloudAltitudeAllowed(params mapWeatherCloudParams, world *worldstate.World, centerX, centerY float64) bool {
+	return params.minPlayerZ == 0 || terrainHeightAtRenderPoint(world, centerX, centerY) > params.minPlayerZ
 }
 
 func weatherCloudHashSigned(index, generation, salt int) float64 {

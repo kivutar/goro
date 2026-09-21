@@ -1,9 +1,13 @@
 # Map Effects And Weather TODO
 
-Source of truth for this list: roBrowser parses RSW effect objects in
+Reference clients: roBrowser parses RSW effect objects in
 `Loaders/World.js`, feeds them through `Renderer/Map/Effects.js`, and starts
 map-wide weather from `DB/Effects/WeatherEffect.js` through
-`Renderer/ScreenEffectManager.js`.
+`Renderer/ScreenEffectManager.js`. Automatic cloud assignments are verified
+against the 2008-09-10 original executable and classic-ro-client's
+`map_cloud_table.rs`; particle profiles come from the original client's
+`Cloud`, `PrimCloud`, and cloud rendering routines, cross-checked against
+classic-ro-client's `cloud.rs`.
 
 ## RSW-Placed Map Effects
 
@@ -32,9 +36,20 @@ original client starts the airship's `EF_CLOUD5` variant directly.
 
 - [x] `xmas.rsw` -> `snow` -> `EF_SNOW` `162`: snow weather.
 - [x] `comodo.rsw` -> `fireworks` -> `EF_POKJUK` `297`: fireworks weather.
+- [x] `gef_fild07`, `mjolnir_01` -> `EF_CLOUD` `229`: 160 white mountain clouds; fade-in requires player altitude above original Y=-152. Existing clouds finish their lifetime after descending.
+- [x] `yuno`, `gonryun`, `gon_dun02`, `ra_temsky`, `que_temsky`, `sch_gld`, `bat_fild02`, `bat_b01`, `bat_b02` -> `EF_CLOUD2` `230`: 240 white sky clouds.
+- [x] `valkyrie`, `rwc01`, `himinn`, `que_qsch01` through `que_qsch05`, `que_qaru01` through `que_qaru05` -> `EF_CLOUD3` `233`: 160 white clouds at the Valkyrie variant's elevation and opacity.
 - [x] `airplane.rsw`, `airplane_01.rsw` -> `EF_CLOUD5` `516`: original-client airship clouds, with faster one-way drift beneath the deck.
-- [x] `einbroch.rsw` -> `cloud3` -> `EF_CLOUD3` `233`: industrial clouds/smoke.
+- [x] `einbroch.rsw` -> `EF_CLOUD4` `515`: 320 ground-relative industrial fog particles.
+- [x] `thana_boss`, `moc_fild22`, `moc_fild22b` -> `EF_CLOUD6` `592`: 320 dark red clouds with slower drift.
+- [x] `6@tower` -> `EF_CLOUD7` `697`: 320 black clouds.
+- [x] `5@tower` -> `EF_CLOUD8` `698`: 320 pink clouds. Both tower variants also recognize the original three-character instance prefix.
 - [x] `payon.rsw` -> `rain` -> `EF_RAIN` `161`: rain renderer exists, but Payon routing is disabled by default because roBrowser comments it out and it does not look natural on this target.
+
+Cloud positions, sizes, and speeds use the same 0.2 world-unit conversion as
+GAT/GND geometry, with the vertical axis reversed. Cloud behavior is selected
+from the logical map name, independently of resource aliases. Missing map
+assets are not supplied by these weather assignments.
 
 ## Weather Systems Supported By roBrowser
 
@@ -57,8 +72,9 @@ we find maps or commands that need them.
 
 ## Sky And Cloud Color Overrides
 
-roBrowser also has `Weather.sky` entries. These are not particles, but they
-affect outdoor mood and should be treated as map rendering data.
+roBrowser also has `Weather.sky` entries that configure sky colors and its
+cloud particle renderer. Goro keeps the background colors separate from the
+original client's automatic cloud variants listed above.
 
 - [x] Blue sky/cloud overrides: `airplane.rsw`, `airplane_01.rsw`, `gonryun.rsw`, `gon_dun02.rsw`, `himinn.rsw`, `ra_temsky.rsw`, `rwc01.rsw`, `sch_gld.rsw`, `valkyrie.rsw`, `yuno.rsw`.
 - [x] Special sky colors: `5@tower.rsw`, `thana_boss.rsw`.

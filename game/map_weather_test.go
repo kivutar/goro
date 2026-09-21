@@ -77,10 +77,10 @@ func TestYunoCloudWeatherParamsMatchClassicProfile(t *testing.T) {
 	if params.tint != (color.RGBA{R: 255, G: 255, B: 255, A: 255}) || params.alphaMax != 240.0/255.0 {
 		t.Fatalf("EF_CLOUD2 tint/alpha = %+v", params)
 	}
-	if params.count != 240 || params.offsetMin != 2.5 || params.radius != 20 || params.zOffset != -5 || params.zRand != 1 {
+	if params.count != 240 || params.offsetMin != 5 || params.radius != 40 || params.zOffset != -10 || params.zRand != 2 {
 		t.Fatalf("EF_CLOUD2 placement = %+v", params)
 	}
-	if params.sizeBase != 30*math.Sqrt2*0.1 || params.sizeRand != 20*math.Sqrt2*0.1 {
+	if params.sizeBase != 30*math.Sqrt2*0.2 || params.sizeRand != 20*math.Sqrt2*0.2 {
 		t.Fatalf("EF_CLOUD2 size = %+v", params)
 	}
 	if params.ramp != 80*time.Second/60 || params.fadeOut != 240*time.Second/60 || params.rotStartMin != 5*time.Second || params.rotStartRand != 200*time.Second/60 {
@@ -113,7 +113,7 @@ func TestEinbrochCloudWeatherParamsMatchClassicProfile(t *testing.T) {
 	if len(params.textureFiles) != 3 || params.textureFiles[0] != "effect/fog1.tga" || params.tint != (color.RGBA{R: 252, G: 171, B: 143, A: 255}) {
 		t.Fatalf("EF_CLOUD4 weather cloud resources = %+v", params)
 	}
-	if params.count != 320 || params.radius != 15 || params.zOffset != -2 || params.zRand != 0.5 {
+	if params.count != 320 || params.radius != 30 || params.zOffset != 4 || params.zRand != 1 {
 		t.Fatalf("EF_CLOUD4 weather cloud placement = %+v", params)
 	}
 	if !params.useGround || params.alphaMax != weatherCloudClassicAlphaMax {
@@ -128,7 +128,7 @@ func TestEinbrochCloudWeatherParamsMatchClassicProfile(t *testing.T) {
 	if params.screenHaze != (color.RGBA{R: 252, G: 171, B: 143, A: 70}) {
 		t.Fatalf("EF_CLOUD4 screen haze = %+v, want peach weather tint", params.screenHaze)
 	}
-	if params.sizeBase != 35*math.Sqrt2*0.1 || params.sizeRand != 10*math.Sqrt2*0.1 {
+	if params.sizeBase != 35*math.Sqrt2*0.2 || params.sizeRand != 10*math.Sqrt2*0.2 {
 		t.Fatalf("EF_CLOUD4 weather cloud size = %+v", params)
 	}
 	if params.ramp != 170*time.Second/60 || params.rotStartMin != 5*time.Second || params.rotStartRand != 200*time.Second/60 {
@@ -152,11 +152,11 @@ func TestYunoCloudWeatherSpawnsInOuterSkyRing(t *testing.T) {
 	first := state.clouds[0]
 	dx := math.Abs(first.x - centerX)
 	dy := math.Abs(first.y - centerY)
-	if dx < 2.5 || dx > 22.5 || dy < 2.5 || dy > 22.5 {
-		t.Fatalf("Yuno cloud offset = %.2f,%.2f, want signed 2.5..22.5 from center", dx, dy)
+	if dx < 5 || dx > 45 || dy < 5 || dy > 45 {
+		t.Fatalf("Yuno cloud offset = %.2f,%.2f, want signed 5..45 from center", dx, dy)
 	}
-	if first.z < -5 || first.z > -4 {
-		t.Fatalf("Yuno cloud z = %.2f, want fixed weather height -5..-4", first.z)
+	if first.z < -10 || first.z > -8 {
+		t.Fatalf("Yuno cloud z = %.2f, want fixed weather height -10..-8", first.z)
 	}
 }
 

@@ -34,15 +34,34 @@ func mapWeatherForMap(name string) mapWeatherKind {
 }
 
 func mapWeatherEffectIDForMap(name string) int {
-	switch normalizeMapNameForWeather(name) {
+	name = normalizeMapNameForWeather(name)
+	// The 2008 client also recognizes the tower template after a three-byte
+	// instance prefix. Keep the full name as the particle state's map key.
+	if len(name) == len("0005@tower.rsw") && (name[3:] == "5@tower.rsw" || name[3:] == "6@tower.rsw") {
+		name = name[3:]
+	}
+	switch name {
 	case "xmas.rsw":
 		return effectSnow
-	case "yuno.rsw":
+	case "gef_fild07.rsw", "mjolnir_01.rsw":
+		return effectCloud
+	case "yuno.rsw", "gonryun.rsw", "gon_dun02.rsw", "ra_temsky.rsw", "que_temsky.rsw",
+		"sch_gld.rsw", "bat_fild02.rsw", "bat_b01.rsw", "bat_b02.rsw":
 		return effectCloud2
+	case "valkyrie.rsw", "rwc01.rsw", "himinn.rsw",
+		"que_qsch01.rsw", "que_qsch02.rsw", "que_qsch03.rsw", "que_qsch04.rsw", "que_qsch05.rsw",
+		"que_qaru01.rsw", "que_qaru02.rsw", "que_qaru03.rsw", "que_qaru04.rsw", "que_qaru05.rsw":
+		return effectCloud3
 	case "airplane.rsw", "airplane_01.rsw":
 		return effectCloud5
 	case "einbroch.rsw":
 		return effectCloud4
+	case "thana_boss.rsw", "moc_fild22.rsw", "moc_fild22b.rsw":
+		return effectCloud6
+	case "6@tower.rsw":
+		return effectCloud7
+	case "5@tower.rsw":
+		return effectCloud8
 	default:
 		return 0
 	}
