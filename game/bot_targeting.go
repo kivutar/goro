@@ -39,7 +39,7 @@ func (m *WorldMode) scriptHighlightActor(ctx client.Context, id uint32) bool {
 	}
 	actor, ok, _ := actorForCombatID(ctx, id)
 	_, dead := m.actorDeaths[id]
-	if !ok || dead || isWarpActor(actor) {
+	if !ok || dead || isWarpActor(actor) || actor.Job == actorJobHiddenWarpNPC {
 		return false
 	}
 	if m.scriptHighlight.id != id {

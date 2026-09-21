@@ -208,9 +208,9 @@ func TestGR2ResourcesDoNotUseSpriteFallbacks(t *testing.T) {
 
 func TestNoSpriteNPCJobsDoNotLoadFallbackSprite(t *testing.T) {
 	manager := &res.Manager{}
-	for _, job := range []int{actorJobWarpPortal, actorJobWarpPortalActive, actorJobWarpPortalWaiting, actorJobHiddenNPC, actorJobClearNPC} {
-		if view, status := loadNonPCSpriteView(manager, job, "nonpc"); view != nil {
-			t.Fatalf("job %d loaded fallback sprite: %s", job, status)
+	for _, job := range []int{actorJobWarpPortal, actorJobWarpPortalActive, actorJobWarpPortalWaiting, actorJobHiddenNPC, actorJobHiddenWarpNPC, actorJobClearNPC} {
+		if view, status := loadNonPCSpriteView(manager, job, "nonpc"); view != nil || !strings.HasSuffix(status, " no-sprite") {
+			t.Fatalf("job %d attempted to load a sprite: %s", job, status)
 		}
 	}
 }

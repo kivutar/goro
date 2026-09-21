@@ -96,7 +96,7 @@ func skillCanTargetDeadActor(skill session.Skill, actor worldstate.Actor) bool {
 }
 
 func skillTargetFlagsForActor(ctx client.Context, actor worldstate.Actor) (uint32, bool) {
-	if actor.ID == 0 || isWarpActor(actor) {
+	if actor.ID == 0 || isWarpActor(actor) || actor.Job == actorJobHiddenWarpNPC {
 		return 0, false
 	}
 	if isLocalActor(ctx, actor.ID) {
@@ -138,7 +138,7 @@ func actorCanOpenPlayerContext(ctx client.Context, actor worldstate.Actor) bool 
 }
 
 func actorCanBeAttackClicked(ctx client.Context, actor worldstate.Actor) bool {
-	if actor.ID == 0 || actorHasStealth(actor) || isLocalActor(ctx, actor.ID) {
+	if actor.ID == 0 || actor.Job == actorJobHiddenWarpNPC || actorHasStealth(actor) || isLocalActor(ctx, actor.ID) {
 		return false
 	}
 	if actorRepresentsPlayer(actor) {
@@ -760,6 +760,7 @@ const (
 	actorJobWarpPortalActive      = 128
 	actorJobWarpPortalWaiting     = 129
 	actorJobHiddenNPC             = 111
+	actorJobHiddenWarpNPC         = 139
 	actorJobClearNPC              = 844
 	actorObjectTypePC             = 0
 	actorObjectTypeDisguised      = 1
@@ -960,6 +961,11 @@ func (m *WorldMode) actorShadowRenderScale(ctx client.Context, entry sceneActorD
 }
 
 func appendActorDrawEntry(entries []sceneActorDrawEntry, world *worldstate.World, projection sceneProjection, actor worldstate.Actor, isPlayer bool, now time.Time, screenWidth, screenHeight int) []sceneActorDrawEntry {
+	// Hidden warp NPCs anchor scripted effects, such as the airship explosions.
+	// Keep them in the world for those effects, but give them no actor visuals.
+	if actor.Job == actorJobHiddenWarpNPC {
+		return entries
+	}
 	actorX, actorY := actorRenderPosition(actor, now)
 	actor.Dir = actorRenderDirection(actor, now)
 	actor = actorWithVisualJob(actor)
@@ -1092,6 +1098,9 @@ func actorDisplayLabels(ctx client.Context, actor worldstate.Actor, isPlayer boo
 }
 
 func actorDisplayPrimaryName(ctx client.Context, actor worldstate.Actor, isPlayer bool) string {
+	if actor.Job == actorJobHiddenWarpNPC {
+		return ""
+	}
 	if isPlayer {
 		if name := sanitizeActorName(selectedCharacterName(ctx.Session)); name != "" {
 			return actorDisplayNameWithParty(ctx, actor, name, true)
@@ -1212,6 +1221,9 @@ func (m *WorldMode) hoveredActorDisplayName(ctx client.Context, actor worldstate
 }
 
 func (m *WorldMode) hoveredActorDisplayLabels(ctx client.Context, actor worldstate.Actor, now time.Time) []string {
+	if actor.Job == actorJobHiddenWarpNPC {
+		return nil
+	}
 	if isLocalActor(ctx, actor.ID) {
 		return actorDisplayLabels(ctx, actor, true)
 	}

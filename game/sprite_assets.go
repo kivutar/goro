@@ -57,7 +57,7 @@ func actorJobHasNoSprite(job int) bool {
 	if isWarpActorJob(job) {
 		return true
 	}
-	return job == actorJobHiddenNPC || job == actorJobClearNPC
+	return job == actorJobHiddenNPC || job == actorJobHiddenWarpNPC || job == actorJobClearNPC
 }
 
 func isGR2Resource(resourceName string) bool {

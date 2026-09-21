@@ -420,7 +420,7 @@ func hoveredCursorActor(ctx client.Context, projection sceneProjection, mouseX, 
 		if actorHasStealth(actor) || isLocalActor(ctx, actor.ID) || actor.ID == 0 {
 			continue
 		}
-		if int(actor.Job) == actorJobClearNPC {
+		if actor.Job == actorJobClearNPC || actor.Job == actorJobHiddenWarpNPC {
 			continue
 		}
 		actorX, actorY := actorRenderPosition(actor, now)
@@ -442,7 +442,7 @@ func hoveredCursorActor(ctx client.Context, projection sceneProjection, mouseX, 
 }
 
 func cursorActorCanTalk(actor world.Actor) bool {
-	if actor.ID == 0 || !actor.HasObjectType {
+	if actor.ID == 0 || !actor.HasObjectType || actor.Job == actorJobHiddenWarpNPC {
 		return false
 	}
 	switch actor.ObjectType {
