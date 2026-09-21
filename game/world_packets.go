@@ -1118,6 +1118,13 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		m.applyActorResurrection(ctx, resurrection)
 		return nil, false
 	}
+	if change, ok, err := network.ParseNPCSpriteChange(pkt); err != nil {
+		glog.Errorf("parse NPC sprite change 0x%04X: %v", pkt.ID, err)
+		return nil, false
+	} else if ok {
+		applyNPCSpriteChange(ctx, change)
+		return nil, false
+	}
 	if look, ok, err := network.ParseActorLookChange(pkt); err != nil {
 		glog.Errorf("parse actor look change 0x%04X: %v", pkt.ID, err)
 	} else if ok {

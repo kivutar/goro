@@ -7,6 +7,8 @@ import (
 
 const legacyGuildFlagJob int16 = 722
 
+const PacketZCNPCSpriteChange uint16 = 0x01B0
+
 type ActorEntry struct {
 	ID               uint32
 	GuildID          uint32
@@ -78,6 +80,11 @@ type ActorLookChange struct {
 	ID    uint32
 	Type  uint8
 	Value uint32
+}
+
+type NPCSpriteChange struct {
+	ID  uint32
+	Job uint32
 }
 
 type ActorDirectionChange struct {
@@ -698,6 +705,21 @@ func ParseActorLookChange(packet Packet) (ActorLookChange, bool, error) {
 	default:
 		return ActorLookChange{}, false, nil
 	}
+}
+
+func ParseNPCSpriteChange(packet Packet) (NPCSpriteChange, bool, error) {
+	if packet.ID != PacketZCNPCSpriteChange {
+		return NPCSpriteChange{}, false, nil
+	}
+	if len(packet.Data) < 11 {
+		return NPCSpriteChange{}, false, fmt.Errorf("ZC_NPCSPRITE_CHANGE too short: %d", len(packet.Data))
+	}
+	// Unlike ZC_CHANGE_LOOK, the original client ignores the type byte at
+	// offset 6 and always replaces the NPC/monster's sprite class.
+	return NPCSpriteChange{
+		ID:  binary.LittleEndian.Uint32(packet.Data[2:6]),
+		Job: binary.LittleEndian.Uint32(packet.Data[7:11]),
+	}, true, nil
 }
 
 func ParseActorDirectionChange(packet Packet) (ActorDirectionChange, bool, error) {

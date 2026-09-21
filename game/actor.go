@@ -512,6 +512,25 @@ func (m *WorldMode) cleanupVanishedActors(ctx client.Context, now time.Time) {
 	}
 }
 
+func applyNPCSpriteChange(ctx client.Context, change network.NPCSpriteChange) {
+	if ctx.World == nil || change.ID == 0 || isLocalActor(ctx, change.ID) || change.ID == ctx.World.Player.ID {
+		return
+	}
+	if change.Job > math.MaxInt16 || res.HasPlayerJobToken(int(change.Job)) {
+		return
+	}
+	actor, ok := ctx.World.Actors[change.ID]
+	if !ok || actorRepresentsPlayer(actor) {
+		return
+	}
+	actor.Job = int16(change.Job)
+	actor.Appearance = true
+	// Sprite/model caches are keyed by job, so the next draw selects the new
+	// resources without changing views shared by other actors. Do not route
+	// this through upsertActor: that would restart an existing movement path.
+	ctx.World.Actors[change.ID] = actor
+}
+
 func applyActorLookChange(ctx client.Context, look network.ActorLookChange) bool {
 	if look.ID == 0 {
 		return false

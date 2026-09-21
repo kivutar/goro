@@ -67,6 +67,12 @@ the fixed Gospel/Full Strip skill notice (`0x0215`); rAthena sends that packet
 to 2008 clients even though it is not declared in the effective map parser
 table used to generate the full table below.
 
+NPC and monster transformations use `ZC_NPCSPRITE_CHANGE` (`0x01B0`, 11 bytes).
+Goro updates the existing actor's sprite class in both the login/bootstrap and
+world packet flows, preserving movement and identity. The packet's unused type
+byte is ignored, matching the original client; ordinary appearance changes
+continue to use `0x00C3`/`0x01D7`.
+
 ## High Priority Gaps
 
 | Opcode | Direction | rAthena symbol | Length | Handler | Priority |
@@ -360,7 +366,7 @@ email check.
 | `0x01AD` | S->C | referenced | `0x01ad` | `-1` | `-` | item_packets.go, packet.go |
 | `0x01AE` | C->S | implemented | `HEADER_CZ_REQ_MAKINGARROW` | `sizeof( PACKET_CZ_REQ_MAKINGARROW )` | `clif_parse_SelectArrow` | item_packets.go |
 | `0x01AF` | C->S | referenced | `0x01af` | `4` | `clif_parse_ChangeCart` | skill_packets.go |
-| `0x01B0` | S->C | untracked | `0x01b0` | `11` | `-` | - |
+| `0x01B0` | S->C | implemented | `ZC_NPCSPRITE_CHANGE` | `11` | `-` | actor_packets.go, packet.go |
 | `0x01B1` | S->C | implemented | `0x01b1` | `7` | `-` | packet.go, server_info_packets.go |
 | `0x01B2` | C->S | referenced | `0x01b2` | `-1` | `clif_parse_OpenVending` | vending_packets.go |
 | `0x01B5` | S->C | referenced | `0x01b5` | `18` | `-` | packet.go |

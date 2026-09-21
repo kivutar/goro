@@ -499,6 +499,13 @@ func (m *LoginMode) applyLoginParameterChange(ctx client.Context, pkt network.Pa
 }
 
 func (m *LoginMode) applyLoginActorBootstrapPacket(ctx client.Context, pkt network.Packet) bool {
+	if change, ok, err := network.ParseNPCSpriteChange(pkt); err != nil {
+		m.packets = append(m.packets, "parse NPC sprite change: "+err.Error())
+		return true
+	} else if ok {
+		applyNPCSpriteChange(ctx, change)
+		return true
+	}
 	if look, ok, err := network.ParseActorLookChange(pkt); err != nil {
 		m.packets = append(m.packets, "parse actor look change: "+err.Error())
 		return true
