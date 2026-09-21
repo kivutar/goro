@@ -61,13 +61,28 @@ func TestMinimapLoadsClonedMapImage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "data", "resnametable.txt"), table, 0600); err != nil {
 		t.Fatal(err)
 	}
+	manager := &res.Manager{Root: root}
 	m := &Minimap{}
-	m.ensureImage(&res.Manager{Root: root}, "new_1-1.gat")
+	m.ensureImage(manager, "new_1-1.gat")
 	if m.img == nil || m.img.Bounds().Dx() != 40 || m.img.Bounds().Dy() != 60 {
 		t.Fatal("clone minimap did not load the aliased image")
 	}
 	if m.mapName != "new_1-1" {
 		t.Fatalf("minimap identity changed to the source map: %q", m.mapName)
+	}
+	// A direct image in a later candidate location takes priority over an
+	// alias found through the canonical data/texture path.
+	data.Reset()
+	if err := bmp.Encode(&data, image.NewRGBA(image.Rect(0, 0, 20, 30))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "new_1-1.bmp"), data.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m = &Minimap{}
+	m.ensureImage(manager, "new_1-1.gat")
+	if m.img == nil || m.img.Bounds().Dx() != 20 || m.img.Bounds().Dy() != 30 {
+		t.Fatal("clone minimap alias overrode the direct image")
 	}
 }
 

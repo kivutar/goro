@@ -19,18 +19,12 @@ func loadGND(manager *res.Manager, mapName string) (*res.GND, string, error) {
 		"data/" + base + ".gnd",
 		base + ".gnd",
 	}
-	for _, candidate := range candidates {
-		data, err := manager.ReadFile(candidate)
-		if err != nil {
-			continue
-		}
-		gnd, err := res.ParseGND(data)
-		if err != nil {
-			return nil, candidate, err
-		}
-		return gnd, candidate, nil
+	data, source, err := manager.ReadFileCandidates(candidates)
+	if err != nil {
+		return nil, source, fmt.Errorf("cannot load GND for map %s: %w", mapName, err)
 	}
-	return nil, "", fmt.Errorf("gnd not found for map %s", mapName)
+	gnd, err := res.ParseGND(data)
+	return gnd, source, err
 }
 
 func (m *WorldMode) drawGNDWater(screen *render.Frame, manager *res.Manager, gnd *res.GND, rsw *res.RSW, projection sceneProjection, now time.Time, fog sceneFog) {

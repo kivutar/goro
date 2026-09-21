@@ -70,37 +70,53 @@ func TestManagerResourceAliases(t *testing.T) {
 }
 
 func TestManagerResourceAliasPriority(t *testing.T) {
-	manager := &Manager{Root: t.TempDir(), Archives: []*GRF{
+	archives := []*GRF{
 		resourceAliasTestArchive(t, map[string][]byte{
-			"data/resnametable.txt": []byte("a.gat#patch.gat#\nb.gat#patch.gat#\n"),
+			"data/resnametable.txt": []byte("a.gat#patch.gat#\na.gat#base.gat#\nb.gat#patch.gat#\n"),
 			"data/patch.gat":        []byte("patch"),
 			"data/direct.gat":       []byte("direct archive resource"),
 		}),
 		resourceAliasTestArchive(t, map[string][]byte{
-			"data/resnametable.txt": []byte("a.gat#base.gat#\nb.gat#base.gat#\nc.gat#base.gat#\n"),
+			"data/resnametable.txt": []byte("a.gat#base.gat#\nc.gat#base.gat#\n"),
 			"data/base.gat":         []byte("base"),
 		}),
-	}}
-	writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{
-		"data/resnametable.txt": []byte("a.gat#loose.gat#\ndirect.gat#loose.gat#\n"),
-		"data/loose.gat":        []byte("loose"),
-	})
-	for name, want := range map[string]string{
-		"a.gat": "loose", "b.gat": "patch", "c.gat": "base", "direct.gat": "direct archive resource",
-	} {
-		if got, err := manager.ReadFileExact("data/" + name); err != nil || string(got) != want {
-			t.Fatalf("read %s = %q, %v; want %q", name, got, err, want)
+	}
+	manager := &Manager{Root: t.TempDir(), Archives: archives}
+	for _, name := range []string{"a.gat", "b.gat"} {
+		if got, err := manager.ReadFileExact("data/" + name); err != nil || string(got) != "patch" {
+			t.Fatalf("archive priority/first definition: %s = %q, %v", name, got, err)
 		}
 	}
-	// An archive alias may point to a loose file, and a direct loose file
-	// still overrides that alias after the table has been cached.
+	if manager.HasFileExact("data/c.gat") {
+		t.Fatal("lower-priority table restored a removed alias")
+	}
+	// An archived table may point to a loose target.
 	writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{"data/patch.gat": []byte("loose target")})
 	if got, err := manager.ReadFile("data/b.gat"); err != nil || string(got) != "loose target" {
 		t.Fatalf("loose alias target = %q, %v", got, err)
 	}
-	writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{"data/b.gat": []byte("direct loose resource")})
-	if got, err := manager.ReadFile("data/b.gat"); err != nil || string(got) != "direct loose resource" {
-		t.Fatalf("direct loose resource = %q, %v", got, err)
+	// A new manager loads the loose replacement table as a whole.
+	writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{
+		"data/resnametable.txt": []byte("a.gat#loose.gat#\ndirect.gat#loose.gat#\n"),
+		"data/loose.gat":        []byte("loose"),
+	})
+	manager = &Manager{Root: manager.Root, Archives: archives}
+	for name, want := range map[string]string{"a.gat": "loose", "direct.gat": "direct archive resource"} {
+		if got, err := manager.ReadFileExact("data/" + name); err != nil || string(got) != want {
+			t.Fatalf("loose table priority: %s = %q, %v; want %q", name, got, err, want)
+		}
+	}
+	if manager.HasFileExact("data/b.gat") {
+		t.Fatal("archive table filled a gap in the loose replacement")
+	}
+	writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{"data/a.gat": []byte("direct loose resource")})
+	if got, err := manager.ReadFile("data/a.gat"); err != nil || string(got) != "direct loose resource" {
+		t.Fatalf("direct loose override = %q, %v", got, err)
+	}
+	writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{"data/resnametable.txt": []byte("// No aliases for this client\n")})
+	manager = &Manager{Root: manager.Root, Archives: archives}
+	if !manager.HasFileExact("data/direct.gat") || manager.HasFileExact("data/b.gat") {
+		t.Fatal("empty table did not disable aliases while preserving direct resources")
 	}
 }
 
@@ -155,6 +171,60 @@ func TestManagerResourceAliasPreservesReadErrors(t *testing.T) {
 		if _, err := read("data/clone.gat"); !errors.Is(err, os.ErrPermission) {
 			t.Fatalf("read error replaced by alias: %v", err)
 		}
+	}
+	if _, _, err := manager.ReadFileCandidates([]string{"data/clone.gat", "clone.gat"}); !errors.Is(err, os.ErrPermission) {
+		t.Fatalf("candidate lookup replaced the direct read error: %v", err)
+	}
+}
+
+func TestResourceAliasAfterGRFExtraction(t *testing.T) {
+	archive := resourceAliasTestArchive(t, map[string][]byte{
+		"data/resnametable.txt": []byte("clone.gat#Source.gat#\n"),
+		"data/Source.gat":       []byte("source"),
+	})
+	// Match grf-extract: archive.Names returns normalized lowercase paths.
+	root := t.TempDir()
+	for _, name := range archive.Names() {
+		data, err := archive.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeResourceAliasTestFiles(t, root, map[string][]byte{name: data})
+	}
+	manager := &Manager{Root: root}
+	if got, err := manager.ReadFileExact("data/clone.gat"); err != nil || string(got) != "source" {
+		t.Fatalf("extracted alias = %q, %v", got, err)
+	}
+	if !manager.HasFileExact("data/clone.gat") {
+		t.Fatal("HasFileExact missed the extracted alias target")
+	}
+}
+
+func TestResourceCandidatesPreferDirectMapFiles(t *testing.T) {
+	for _, ext := range []string{"gat", "gnd", "rsw"} {
+		t.Run(ext, func(t *testing.T) {
+			name := "new_1-1." + ext
+			source := "new_zone01." + ext
+			manager := &Manager{Root: t.TempDir(), Archives: []*GRF{resourceAliasTestArchive(t, map[string][]byte{
+				"data/resnametable.txt": []byte(name + "#" + source + "#\n"),
+				"data/" + source:        []byte("alias"),
+			})}}
+			writeResourceAliasTestFiles(t, manager.Root, map[string][]byte{name: []byte("direct")})
+			candidates := []string{`data\` + name, "data/" + name, name}
+			got, selected, err := manager.ReadFileCandidates(candidates)
+			if err != nil || string(got) != "direct" || selected != name {
+				t.Fatalf("direct lookup = %q, %q, %v", got, selected, err)
+			}
+			if path, got, ok := manager.ReadFirst(candidates); !ok || string(got) != "direct" || path != filepath.Join(manager.Root, name) {
+				t.Fatalf("ReadFirst = %q, %q, %v", path, got, ok)
+			}
+			if err := os.Remove(filepath.Join(manager.Root, name)); err != nil {
+				t.Fatal(err)
+			}
+			if got, _, err := manager.ReadFileCandidates(candidates); err != nil || string(got) != "alias" {
+				t.Fatalf("alias fallback = %q, %v", got, err)
+			}
+		})
 	}
 }
 

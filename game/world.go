@@ -2,7 +2,6 @@ package game
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"image"
@@ -1868,20 +1867,15 @@ func loadGAT(manager *res.Manager, mapName string) (*res.GAT, string, error) {
 		"data/" + base + ".gat",
 		base + ".gat",
 	}
-	var readErrors []error
-	for _, candidate := range candidates {
-		data, err := manager.ReadFile(candidate)
-		if err != nil {
-			readErrors = append(readErrors, fmt.Errorf("read %s: %w", candidate, err))
-			continue
-		}
-		gat, err := res.ParseGAT(data)
-		if err != nil {
-			return nil, candidate, fmt.Errorf("parse %s: %w", candidate, err)
-		}
-		return gat, candidate, nil
+	data, source, err := manager.ReadFileCandidates(candidates)
+	if err != nil {
+		return nil, source, fmt.Errorf("cannot load GAT for map %s: %w", mapName, err)
 	}
-	return nil, "", fmt.Errorf("cannot load GAT for map %s: %w", mapName, errors.Join(readErrors...))
+	gat, err := res.ParseGAT(data)
+	if err != nil {
+		return nil, source, fmt.Errorf("parse %s: %w", source, err)
+	}
+	return gat, source, nil
 }
 
 func loadRSW(manager *res.Manager, mapName string) (*res.RSW, string, error) {
@@ -1891,18 +1885,12 @@ func loadRSW(manager *res.Manager, mapName string) (*res.RSW, string, error) {
 		"data/" + base + ".rsw",
 		base + ".rsw",
 	}
-	for _, candidate := range candidates {
-		data, err := manager.ReadFile(candidate)
-		if err != nil {
-			continue
-		}
-		rsw, err := res.ParseRSW(data)
-		if err != nil {
-			return nil, candidate, err
-		}
-		return rsw, candidate, nil
+	data, source, err := manager.ReadFileCandidates(candidates)
+	if err != nil {
+		return nil, source, fmt.Errorf("cannot load RSW for map %s: %w", mapName, err)
 	}
-	return nil, "", fmt.Errorf("rsw not found for map %s", mapName)
+	rsw, err := res.ParseRSW(data)
+	return rsw, source, err
 }
 
 func loadRSMModels(manager *res.Manager, rsw *res.RSW, limit int) (map[string]*res.RSM, int) {

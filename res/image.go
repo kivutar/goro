@@ -13,39 +13,23 @@ import (
 )
 
 func LoadImage(manager *Manager, candidates []string) (image.Image, string, error) {
-	for _, candidate := range candidates {
-		data, err := manager.ReadFile(candidate)
-		if err != nil {
-			continue
-		}
-		img, _, err := image.Decode(bytes.NewReader(data))
-		if err != nil {
-			img, err = decodeTGA(data)
-			if err != nil {
-				return nil, candidate, fmt.Errorf("decode image: %w", err)
-			}
-		}
-		return applyROTransparency(img), candidate, nil
-	}
-	return nil, "", fmt.Errorf("image not found: %s", strings.Join(candidates, ", "))
+	return loadImageCandidates(manager, candidates, false)
 }
 
 func LoadImageExact(manager *Manager, candidates []string) (image.Image, string, error) {
-	for _, candidate := range candidates {
-		data, err := manager.ReadFileExact(candidate)
-		if err != nil {
-			continue
-		}
-		img, _, err := image.Decode(bytes.NewReader(data))
-		if err != nil {
-			img, err = decodeTGA(data)
-			if err != nil {
-				return nil, candidate, fmt.Errorf("decode image: %w", err)
-			}
-		}
-		return applyROTransparency(img), candidate, nil
+	return loadImageCandidates(manager, candidates, true)
+}
+
+func loadImageCandidates(manager *Manager, candidates []string, exact bool) (image.Image, string, error) {
+	data, source, err := manager.readFileCandidates(candidates, exact)
+	if err != nil {
+		return nil, source, fmt.Errorf("load image: %w", err)
 	}
-	return nil, "", fmt.Errorf("image not found: %s", strings.Join(candidates, ", "))
+	img, err := DecodeImageData(data)
+	if err != nil {
+		return nil, source, fmt.Errorf("decode image: %w", err)
+	}
+	return img, source, nil
 }
 
 func DecodeImageData(data []byte) (image.Image, error) {

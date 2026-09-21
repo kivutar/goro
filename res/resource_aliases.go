@@ -24,21 +24,16 @@ func (m *Manager) resourceAlias(name string) (string, bool) {
 
 func (m *Manager) loadResourceAliases() {
 	m.resourceAliases = make(map[string]string)
-	merge := func(data []byte) {
-		for key, target := range parseResourceAliases(data) {
-			if _, exists := m.resourceAliases[key]; !exists {
-				m.resourceAliases[key] = target
-			}
-		}
-	}
-	// Match resource priority: loose files first, then archives in order. A
-	// patch table can override individual aliases while keeping base entries.
+	// Like the original client's CResMgr::ReadResNameTable, use one table
+	// selected by normal resource priority. An empty replacement table can
+	// deliberately disable aliases from a lower-priority archive.
 	// Read directly to avoid consulting the table while loading the table.
 	names := []string{"data/resnametable.txt", "resnametable.txt"}
 	for _, name := range names {
 		if filename, ok := m.Find(name); ok {
 			if data, err := os.ReadFile(filename); err == nil {
-				merge(data)
+				m.resourceAliases = parseResourceAliases(data)
+				return
 			}
 		}
 	}
@@ -48,7 +43,8 @@ func (m *Manager) loadResourceAliases() {
 		}
 		for _, name := range names {
 			if data, err := archive.ReadFile(name); err == nil {
-				merge(data)
+				m.resourceAliases = parseResourceAliases(data)
+				return
 			}
 		}
 	}
@@ -65,7 +61,10 @@ func parseResourceAliases(data []byte) map[string]string {
 			key := strings.ToLower(resourceAliasPath(fields[i]))
 			target := resourceAliasPath(fields[i+1])
 			if key != "" && target != "" {
-				aliases[key] = target
+				if _, exists := aliases[key]; !exists {
+					// The original table reader keeps the first definition.
+					aliases[key] = target
+				}
 			}
 		}
 	}

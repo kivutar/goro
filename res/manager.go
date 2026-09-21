@@ -20,6 +20,7 @@ type Manager struct {
 	FoundFiles []string
 	Archives   []*GRF
 
+	looseDirectories         sync.Map
 	resourceAliases          map[string]string
 	resourceAliasesOnce      sync.Once
 	accessoryNames           map[int]string
@@ -117,7 +118,7 @@ func (m *Manager) Find(name string) (string, bool) {
 			return candidate, true
 		}
 	}
-	return "", false
+	return m.findCaseInsensitive(name)
 }
 
 func (m *Manager) ReadFile(name string) ([]byte, error) {
@@ -135,16 +136,48 @@ func (m *Manager) readResource(name string, exact bool) ([]byte, error) {
 	if !errors.Is(err, errResourceNotFound) {
 		return data, err
 	}
+	return m.readFileAlias(name, exact)
+}
+
+func (m *Manager) readFileAlias(name string, exact bool) ([]byte, error) {
 	alias, ok := m.resourceAlias(name)
 	if !ok {
-		return nil, err
+		return nil, fmt.Errorf("%w: %s", errResourceNotFound, name)
 	}
 	// Resolve once so self-references and cycles in custom tables terminate.
-	data, err = m.readFileDirect(alias, exact)
+	data, err := m.readFileDirect(alias, exact)
 	if err != nil {
 		return nil, fmt.Errorf("resource %s (alias %s): %w", name, alias, err)
 	}
 	return data, nil
+}
+
+// ReadFileCandidates tries all direct names before any resnametable alias.
+// The returned name is the candidate that matched, for diagnostics.
+func (m *Manager) ReadFileCandidates(names []string) ([]byte, string, error) {
+	return m.readFileCandidates(names, false)
+}
+
+func (m *Manager) readFileCandidates(names []string, exact bool) ([]byte, string, error) {
+	var readErrors []error
+	for _, read := range []func(string, bool) ([]byte, error){m.readFileDirect, m.readFileAlias} {
+		for _, name := range names {
+			data, err := read(name, exact)
+			if err == nil {
+				return data, name, nil
+			}
+			if !errors.Is(err, errResourceNotFound) {
+				// An unreadable direct override must not silently fall back
+				// to a different resource or its alias.
+				return nil, name, err
+			}
+			readErrors = append(readErrors, err)
+		}
+	}
+	if len(readErrors) == 0 {
+		return nil, "", errResourceNotFound
+	}
+	return nil, "", errors.Join(readErrors...)
 }
 
 func (m *Manager) readFileDirect(name string, exact bool) ([]byte, error) {
@@ -213,16 +246,14 @@ func (m *Manager) FindFirst(names []string) (string, bool) {
 }
 
 func (m *Manager) ReadFirst(names []string) (string, []byte, bool) {
-	for _, name := range names {
-		data, err := m.ReadFile(name)
-		if err == nil {
-			if path, ok := m.Find(name); ok {
-				return path, data, true
-			}
-			return name, data, true
-		}
+	data, name, err := m.ReadFileCandidates(names)
+	if err != nil {
+		return "", nil, false
 	}
-	return "", nil, false
+	if path, ok := m.Find(name); ok {
+		return path, data, true
+	}
+	return name, data, true
 }
 
 func (m *Manager) IsIndoorMap(mapName string) bool {

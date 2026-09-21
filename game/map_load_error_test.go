@@ -245,3 +245,41 @@ func drawMapErrorWindow(mode *LoginMode) *uitest.MockCanvas {
 	}
 	return &canvas.MockCanvas
 }
+
+func TestLoadGATPrefersLooseCloneOverArchivedAlias(t *testing.T) {
+	ctx := mapRecoveryTestContext(t)
+	writeTestGAT(t, ctx.Resources.Root, "new_1-1.gat") // Valid direct map: 1 x 1.
+	packRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(packRoot, "data"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	table := []byte("new_1-1.gat#new_zone01.gat#\n")
+	if err := os.WriteFile(filepath.Join(packRoot, "data/resnametable.txt"), table, 0600); err != nil {
+		t.Fatal(err)
+	}
+	source := make([]byte, 14+4*20)
+	copy(source, "GRAT")
+	source[4], source[5] = 1, 2
+	binary.LittleEndian.PutUint32(source[6:10], 2)
+	binary.LittleEndian.PutUint32(source[10:14], 2)
+	if err := os.WriteFile(filepath.Join(packRoot, "data/new_zone01.gat"), source, 0600); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "data.grf")
+	if _, err := res.PackGRF(archivePath, packRoot); err != nil {
+		t.Fatal(err)
+	}
+	archive, err := res.OpenGRF(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = archive.Close() })
+	ctx.Resources.Archives = []*res.GRF{archive}
+	gat, path, err := loadGAT(ctx.Resources, "new_1-1.gat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gat.Width != 1 || gat.Height != 1 {
+		t.Fatalf("direct loose clone replaced by alias: got %dx%d from %s; want direct 1x1", gat.Width, gat.Height, path)
+	}
+}
