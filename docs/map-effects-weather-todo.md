@@ -26,11 +26,13 @@ packets.
 
 ## Map-Wide Weather Effects
 
-These are not RSW object effects. roBrowser starts them from the map name through
-`Weather.effects`, then uses dedicated weather systems.
+These are not RSW object effects. They are started from the map name. roBrowser
+uses `Weather.effects` for weather and `Weather.sky` for airship clouds; the
+original client starts the airship's `EF_CLOUD5` variant directly.
 
 - [x] `xmas.rsw` -> `snow` -> `EF_SNOW` `162`: snow weather.
 - [x] `comodo.rsw` -> `fireworks` -> `EF_POKJUK` `297`: fireworks weather.
+- [x] `airplane.rsw`, `airplane_01.rsw` -> `EF_CLOUD5` `516`: original-client airship clouds, with faster one-way drift beneath the deck.
 - [x] `einbroch.rsw` -> `cloud3` -> `EF_CLOUD3` `233`: industrial clouds/smoke.
 - [x] `payon.rsw` -> `rain` -> `EF_RAIN` `161`: rain renderer exists, but Payon routing is disabled by default because roBrowser comments it out and it does not look natural on this target.
 

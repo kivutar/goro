@@ -23,10 +23,14 @@ func TestMapWeatherForComodoMatchesReferenceWeatherTable(t *testing.T) {
 
 func TestMapWeatherEffectIDForReferenceWeatherTable(t *testing.T) {
 	tests := map[string]int{
-		"xmas":           effectSnow,
-		"xmas.gat":       effectSnow,
-		"data\\yuno.gat": effectCloud2,
-		"einbroch":       effectCloud4,
+		"xmas":                 effectSnow,
+		"xmas.gat":             effectSnow,
+		"data\\yuno.gat":       effectCloud2,
+		"einbroch":             effectCloud4,
+		"airplane":             effectCloud5,
+		"airplane.rsw":         effectCloud5,
+		"airplane_01.gat":      effectCloud5,
+		"DATA/AIRPLANE_01.RSW": effectCloud5,
 	}
 	for name, want := range tests {
 		if got := mapWeatherEffectIDForMap(name); got != want {

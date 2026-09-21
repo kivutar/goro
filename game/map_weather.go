@@ -39,6 +39,8 @@ func mapWeatherEffectIDForMap(name string) int {
 		return effectSnow
 	case "yuno.rsw":
 		return effectCloud2
+	case "airplane.rsw", "airplane_01.rsw":
+		return effectCloud5
 	case "einbroch.rsw":
 		return effectCloud4
 	default:

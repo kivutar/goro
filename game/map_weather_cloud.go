@@ -18,28 +18,29 @@ const (
 )
 
 type mapWeatherCloudParams struct {
-	effectID     int
-	textureFiles []string
-	tint         color.RGBA
-	alphaMax     float64
-	count        int
-	offsetMin    float64
-	radius       float64
-	zOffset      float64
-	zRand        float64
-	sizeBase     float64
-	sizeRand     float64
-	driftSpeed   float64
-	ramp         time.Duration
-	fadeOut      time.Duration
-	rotStartMin  time.Duration
-	rotStartRand time.Duration
-	overlay      bool
-	additive     bool
-	blackKey     bool
-	disableFog   bool
-	useGround    bool
-	screenHaze   color.RGBA
+	effectID          int
+	textureFiles      []string
+	tint              color.RGBA
+	alphaMax          float64
+	count             int
+	offsetMin         float64
+	radius            float64
+	zOffset           float64
+	zRand             float64
+	sizeBase          float64
+	sizeRand          float64
+	driftSpeed        float64
+	forwardDriftSpeed float64
+	ramp              time.Duration
+	fadeOut           time.Duration
+	rotStartMin       time.Duration
+	rotStartRand      time.Duration
+	overlay           bool
+	additive          bool
+	blackKey          bool
+	disableFog        bool
+	useGround         bool
+	screenHaze        color.RGBA
 }
 
 type mapWeatherCloudState struct {
@@ -67,9 +68,9 @@ type mapWeatherCloud struct {
 
 func weatherCloudParamsForEffect(effectID int) (mapWeatherCloudParams, bool) {
 	switch effectID {
-	case effectCloud2:
-		return mapWeatherCloudParams{
-			effectID:     effectCloud2,
+	case effectCloud2, effectCloud5:
+		params := mapWeatherCloudParams{
+			effectID:     effectID,
 			textureFiles: []string{"effect/cloud4.tga", "effect/cloud1.tga", "effect/cloud2.tga"},
 			tint:         color.RGBA{R: 255, G: 255, B: 255, A: 255},
 			alphaMax:     240.0 / 255.0,
@@ -90,7 +91,14 @@ func weatherCloudParamsForEffect(effectID int) (mapWeatherCloudParams, bool) {
 			blackKey:     false,
 			disableFog:   true,
 			useGround:    false,
-		}, true
+		}
+		if effectID == effectCloud5 {
+			// The original airship variant uses more clouds and a faster,
+			// consistently positive X drift to convey the ship's movement.
+			params.count = 320
+			params.forwardDriftSpeed = 0.20 * weatherCloudFrameRate * weatherCloudClassicUnit
+		}
+		return params, true
 	case effectCloud4:
 		return mapWeatherCloudParams{
 			effectID:     effectCloud4,
@@ -218,7 +226,11 @@ func (s *mapWeatherCloudState) update(params mapWeatherCloudParams, world *world
 			s.spawn(i, params, world, centerX, centerY)
 			continue
 		}
-		cloud.x += params.driftSpeed * math.Sin(cloud.phaseX) * seconds
+		driftX := params.driftSpeed * math.Sin(cloud.phaseX)
+		if params.forwardDriftSpeed > 0 {
+			driftX = params.forwardDriftSpeed * math.Abs(math.Sin(cloud.phaseX))
+		}
+		cloud.x += driftX * seconds
 		cloud.y += params.driftSpeed * math.Sin(cloud.phaseY) * seconds
 		cloud.phaseX += cloud.phaseRateX * seconds
 		cloud.phaseY += cloud.phaseRateY * seconds
