@@ -155,17 +155,18 @@ func sessionItemFromNetwork(item network.InventoryItem) session.InventoryItem {
 		amount = 1
 	}
 	sessionItem := session.InventoryItem{
-		Index:      item.Index,
-		ItemID:     item.ItemID,
-		Type:       item.Type,
-		Location:   item.Location,
-		Identified: item.Identified,
-		Amount:     amount,
-		Equip:      item.Equip || inventoryItemTypeIsEquipment(item.Type),
-		Equipped:   item.Equipped,
-		Damaged:    item.Damaged,
-		Refine:     item.Refine,
-		Cards:      item.Cards,
+		Index:        item.Index,
+		ItemID:       item.ItemID,
+		Type:         item.Type,
+		Location:     item.Location,
+		WearLocation: item.WearLocation,
+		Identified:   item.Identified,
+		Amount:       amount,
+		Equip:        item.Equip || inventoryItemTypeIsEquipment(item.Type),
+		Equipped:     item.Equipped,
+		Damaged:      item.Damaged,
+		Refine:       item.Refine,
+		Cards:        item.Cards,
 	}
 	normalizeSessionInventoryItem(&sessionItem)
 	return sessionItem
@@ -236,14 +237,17 @@ func applyInventoryEquipAck(ctx client.Context, ack network.InventoryEquipAck) {
 	for i := range ctx.Session.Inventory.Items {
 		item := &ctx.Session.Inventory.Items[i]
 		if item.Index != ack.Index {
-			if !ack.Unequip && location != 0 && item.Equipped && item.Location&location != 0 {
+			if !ack.Unequip && location != 0 && item.Equipped && item.WearLocation&location != 0 {
 				item.Equipped = false
+				item.WearLocation = 0
 			}
 			continue
 		}
 		item.Equipped = !ack.Unequip
-		if !ack.Unequip && location != 0 {
-			item.Location = location
+		if ack.Unequip {
+			item.WearLocation = 0
+		} else {
+			item.WearLocation = location
 		}
 		if !ack.Unequip {
 			item.Equip = true
@@ -268,6 +272,7 @@ func normalizeSessionInventoryItem(item *session.InventoryItem) {
 	if item.Type == db.ItemTypeCard {
 		item.Equip = false
 		item.Equipped = false
+		item.WearLocation = 0
 		return
 	}
 	if inventoryItemTypeIsEquipment(item.Type) {
@@ -304,11 +309,11 @@ func rebuildLocalEquipmentAppearance(ctx client.Context) {
 			continue
 		}
 		sawEquipment = true
-		if !item.Equipped || item.Location == 0 {
+		if !item.Equipped || item.WearLocation == 0 {
 			continue
 		}
-		occupiesRightHand := item.Location&db.EquipWeapon != 0
-		occupiesLeftHand := item.Location&db.EquipShield != 0
+		occupiesRightHand := item.WearLocation&db.EquipWeapon != 0
+		occupiesLeftHand := item.WearLocation&db.EquipShield != 0
 		if occupiesRightHand {
 			hasWeapon = true
 			weapon = int(item.ItemID)
@@ -336,7 +341,7 @@ func normalAttackRangeFromEquippedItems(s *session.Session, manager *res.Manager
 		return 1
 	}
 	for _, item := range s.Inventory.Items {
-		if !item.Equip || !item.Equipped || item.Location&db.EquipWeapon == 0 {
+		if !item.Equip || !item.Equipped || item.WearLocation&db.EquipWeapon == 0 {
 			continue
 		}
 		if res.PlayerWeaponIsBow(manager, int(item.ItemID)) {

@@ -66,7 +66,8 @@ func TestParseViewedEquipment2008Layout(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[offset+2:offset+4], 1201)
 	data[offset+4] = 5
 	data[offset+5] = 1
-	binary.LittleEndian.PutUint16(data[offset+6:offset+8], 2)
+	// A dual-wieldable weapon can use either hand but occupies only one.
+	binary.LittleEndian.PutUint16(data[offset+6:offset+8], 0x0022)
 	binary.LittleEndian.PutUint16(data[offset+8:offset+10], 2)
 	data[offset+10] = 0
 	data[offset+11] = 3
@@ -82,7 +83,7 @@ func TestParseViewedEquipment2008Layout(t *testing.T) {
 		t.Fatalf("items len = %d", len(view.Items))
 	}
 	item := view.Items[0]
-	if item.Index != 7 || item.ItemID != 1201 || item.Type != 5 || item.Location != 2 || !item.Identified || !item.Equipped || item.Refine != 3 {
+	if item.Index != 7 || item.ItemID != 1201 || item.Type != 5 || item.Location != 0x0022 || item.WearLocation != 2 || !item.Identified || !item.Equipped || item.Refine != 3 {
 		t.Fatalf("unexpected item: %+v", item)
 	}
 }

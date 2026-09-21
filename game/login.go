@@ -479,6 +479,13 @@ func (m *LoginMode) Update(ctx client.Context) (Mode, error) {
 }
 
 func (m *LoginMode) applyLoginParameterChange(ctx client.Context, pkt network.Packet) bool {
+	if change, ok, err := network.ParseCoupleStatus(pkt); err != nil {
+		m.packets = append(m.packets, "parse couple status: "+err.Error())
+		return true
+	} else if ok {
+		applyCoupleStatus(ctx, change)
+		return true
+	}
 	change, ok, err := network.ParseParameterChange(pkt)
 	if err != nil {
 		m.packets = append(m.packets, "parse parameter change: "+err.Error())

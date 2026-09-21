@@ -430,7 +430,7 @@ func equipmentSnapshot(s *session.Session) string {
 		if !item.Equip || !item.Equipped {
 			continue
 		}
-		fmt.Fprintf(&b, "%d:%d:%d:%d:%d;", item.Index, item.ItemID, item.Location, item.Amount, item.Refine)
+		fmt.Fprintf(&b, "%d:%d:%d:%d:%d;", item.Index, item.ItemID, item.WearLocation, item.Amount, item.Refine)
 	}
 	return b.String()
 }
@@ -627,7 +627,7 @@ func equippedItemForSlot(s *session.Session, location uint16) (session.Inventory
 		return session.InventoryItem{}, false
 	}
 	for _, item := range s.Inventory.Items {
-		if !item.Equip || !item.Equipped || item.Location&location == 0 {
+		if !item.Equip || !item.Equipped || item.WearLocation&location == 0 {
 			continue
 		}
 		return item, true

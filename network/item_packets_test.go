@@ -765,6 +765,42 @@ func TestParseInventoryItemListEquipment5(t *testing.T) {
 	}
 }
 
+func TestEquipmentListsKeepAllowedAndOccupiedSlots(t *testing.T) {
+	for _, tc := range []struct {
+		id   uint16
+		size int
+		wide bool
+	}{
+		{0x00A4, 20, false}, {0x0295, 24, false}, {0x02D0, 26, false},
+		{0x0992, 31, true}, {0x0A0D, 57, true},
+	} {
+		for _, worn := range []uint16{0, 0x0008, 0x0080} {
+			data := make([]byte, 4+tc.size)
+			binary.LittleEndian.PutUint16(data[0:2], tc.id)
+			binary.LittleEndian.PutUint16(data[2:4], uint16(len(data)))
+			binary.LittleEndian.PutUint16(data[4:6], 11)
+			binary.LittleEndian.PutUint16(data[6:8], 2601)
+			data[8] = 4 // Armor.
+			if tc.wide {
+				binary.LittleEndian.PutUint32(data[9:13], 0x0088)
+				binary.LittleEndian.PutUint32(data[13:17], uint32(worn))
+				data[len(data)-1] = 1
+			} else {
+				data[9] = 1
+				binary.LittleEndian.PutUint16(data[10:12], 0x0088)
+				binary.LittleEndian.PutUint16(data[12:14], worn)
+			}
+			items, ok, err := ParseInventoryItemList(Packet{ID: tc.id, Data: data})
+			if err != nil || !ok || len(items) != 1 {
+				t.Fatalf("packet 0x%04X: items=%+v ok=%v err=%v", tc.id, items, ok, err)
+			}
+			if item := items[0]; item.Location != 0x0088 || item.WearLocation != worn || item.Equipped != (worn != 0) {
+				t.Errorf("packet 0x%04X wear 0x%04X: %+v", tc.id, worn, item)
+			}
+		}
+	}
+}
+
 func TestParseInventoryItemListEquipment2008(t *testing.T) {
 	data := make([]byte, 4+26)
 	binary.LittleEndian.PutUint16(data[0:2], 0x02D0)

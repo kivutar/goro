@@ -346,7 +346,7 @@ func TestRangedAttackApproachCellSkipsUnreachablePreferredCell(t *testing.T) {
 func TestCurrentNormalAttackRangeUsesEquippedBowAndVultureEye(t *testing.T) {
 	sessionState := &session.Session{
 		Inventory: session.Inventory{Items: []session.InventoryItem{
-			{Index: 1, ItemID: 1701, Location: db.EquipWeapon, Equip: true, Equipped: true},
+			{Index: 1, ItemID: 1701, Location: db.EquipWeapon, WearLocation: db.EquipWeapon, Equip: true, Equipped: true},
 		}},
 		Skills: session.Skills{List: []session.Skill{
 			{ID: 44, Level: 3},

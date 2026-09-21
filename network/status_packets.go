@@ -47,6 +47,13 @@ type ParameterChange struct {
 	Value int64
 }
 
+// CoupleStatus carries a base stat and its signed equipment/job/buff bonus.
+type CoupleStatus struct {
+	StatusID uint32
+	Base     int
+	Bonus    int
+}
+
 type StatusSnapshot struct {
 	Points int
 	Str    int
@@ -55,13 +62,6 @@ type StatusSnapshot struct {
 	Int    int
 	Dex    int
 	Luk    int
-
-	StrBonus int
-	AgiBonus int
-	VitBonus int
-	IntBonus int
-	DexBonus int
-	LukBonus int
 
 	StrCost int
 	AgiCost int
@@ -133,6 +133,20 @@ func ParseParameterChange(packet Packet) (ParameterChange, bool, error) {
 	return ParameterChange{
 		VarID: binary.LittleEndian.Uint16(packet.Data[2:4]),
 		Value: int64(binary.LittleEndian.Uint32(packet.Data[4:8])),
+	}, true, nil
+}
+
+func ParseCoupleStatus(packet Packet) (CoupleStatus, bool, error) {
+	if packet.ID != 0x0141 {
+		return CoupleStatus{}, false, nil
+	}
+	if len(packet.Data) < 14 {
+		return CoupleStatus{}, false, fmt.Errorf("ZC_COUPLESTATUS too short: %d", len(packet.Data))
+	}
+	return CoupleStatus{
+		StatusID: binary.LittleEndian.Uint32(packet.Data[2:6]),
+		Base:     int(int32(binary.LittleEndian.Uint32(packet.Data[6:10]))),
+		Bonus:    int(int32(binary.LittleEndian.Uint32(packet.Data[10:14]))),
 	}, true, nil
 }
 

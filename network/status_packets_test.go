@@ -24,6 +24,28 @@ func TestParseParameterChange(t *testing.T) {
 	}
 }
 
+func TestParseCoupleStatus(t *testing.T) {
+	for _, bonus := range []int32{2, 0, -5} {
+		data := make([]byte, 14)
+		binary.LittleEndian.PutUint16(data[0:2], 0x0141)
+		binary.LittleEndian.PutUint32(data[2:6], uint32(StatusStr))
+		binary.LittleEndian.PutUint32(data[6:10], 31)
+		binary.LittleEndian.PutUint32(data[10:14], uint32(bonus))
+		change, ok, err := ParseCoupleStatus(Packet{ID: 0x0141, Data: data})
+		if err != nil || !ok || change.StatusID != uint32(StatusStr) || change.Base != 31 || change.Bonus != int(bonus) {
+			t.Fatalf("bonus %d: change=%+v ok=%v err=%v", bonus, change, ok, err)
+		}
+	}
+	if _, ok, err := ParseCoupleStatus(Packet{ID: 0x00B0}); ok || err != nil {
+		t.Fatalf("unrelated packet: ok=%v err=%v", ok, err)
+	}
+	for size := 0; size < 14; size++ {
+		if _, ok, err := ParseCoupleStatus(Packet{ID: 0x0141, Data: make([]byte, size)}); ok || err == nil {
+			t.Errorf("truncated size %d: ok=%v err=%v", size, ok, err)
+		}
+	}
+}
+
 func TestParseLongParameterChange(t *testing.T) {
 	data := make([]byte, 8)
 	binary.LittleEndian.PutUint16(data[0:2], 0x00B1)

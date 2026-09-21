@@ -233,17 +233,18 @@ type UseItemAck struct {
 }
 
 type InventoryItem struct {
-	Index      uint16
-	ItemID     uint16
-	Type       uint8
-	Location   uint16
-	Identified bool
-	Amount     uint16
-	Equip      bool
-	Equipped   bool
-	Damaged    bool
-	Refine     uint8
-	Cards      [4]uint16
+	Index        uint16
+	ItemID       uint16
+	Type         uint8
+	Location     uint16 // Allowed equipment slots.
+	WearLocation uint16 // Occupied equipment slots, or zero when unequipped.
+	Identified   bool
+	Amount       uint16
+	Equip        bool
+	Equipped     bool
+	Damaged      bool
+	Refine       uint8
+	Cards        [4]uint16
 }
 
 type InventoryItemDelete struct {
@@ -588,17 +589,18 @@ func parseEquipInventoryItems(packet Packet, entrySize int) ([]InventoryItem, bo
 	for offset := 4; offset+entrySize <= len(packet.Data); offset += entrySize {
 		wearState := binary.LittleEndian.Uint16(packet.Data[offset+8 : offset+10])
 		items = append(items, InventoryItem{
-			Index:      binary.LittleEndian.Uint16(packet.Data[offset : offset+2]),
-			ItemID:     binary.LittleEndian.Uint16(packet.Data[offset+2 : offset+4]),
-			Type:       packet.Data[offset+4],
-			Identified: packet.Data[offset+5] != 0,
-			Location:   binary.LittleEndian.Uint16(packet.Data[offset+6 : offset+8]),
-			Amount:     1,
-			Equip:      true,
-			Equipped:   wearState != 0,
-			Damaged:    packet.Data[offset+10] != 0,
-			Refine:     packet.Data[offset+11],
-			Cards:      readItemCards(packet.Data, offset+12),
+			Index:        binary.LittleEndian.Uint16(packet.Data[offset : offset+2]),
+			ItemID:       binary.LittleEndian.Uint16(packet.Data[offset+2 : offset+4]),
+			Type:         packet.Data[offset+4],
+			Identified:   packet.Data[offset+5] != 0,
+			Location:     binary.LittleEndian.Uint16(packet.Data[offset+6 : offset+8]),
+			WearLocation: wearState,
+			Amount:       1,
+			Equip:        true,
+			Equipped:     wearState != 0,
+			Damaged:      packet.Data[offset+10] != 0,
+			Refine:       packet.Data[offset+11],
+			Cards:        readItemCards(packet.Data, offset+12),
 		})
 	}
 	return items, true, nil
@@ -614,18 +616,20 @@ func parseEquipInventoryItems4(packet Packet, entrySize int) ([]InventoryItem, b
 	items := make([]InventoryItem, 0, (len(packet.Data)-4)/entrySize)
 	for offset := 4; offset+entrySize <= len(packet.Data); offset += entrySize {
 		flag := packet.Data[offset+entrySize-1]
+		wearState := binary.LittleEndian.Uint32(packet.Data[offset+9 : offset+13])
 		items = append(items, InventoryItem{
-			Index:      binary.LittleEndian.Uint16(packet.Data[offset : offset+2]),
-			ItemID:     binary.LittleEndian.Uint16(packet.Data[offset+2 : offset+4]),
-			Type:       packet.Data[offset+4],
-			Identified: flag&1 != 0,
-			Location:   uint16(binary.LittleEndian.Uint32(packet.Data[offset+5 : offset+9])),
-			Amount:     1,
-			Equip:      true,
-			Equipped:   binary.LittleEndian.Uint32(packet.Data[offset+9:offset+13]) != 0,
-			Damaged:    flag&2 != 0,
-			Refine:     packet.Data[offset+13],
-			Cards:      readItemCards(packet.Data, offset+14),
+			Index:        binary.LittleEndian.Uint16(packet.Data[offset : offset+2]),
+			ItemID:       binary.LittleEndian.Uint16(packet.Data[offset+2 : offset+4]),
+			Type:         packet.Data[offset+4],
+			Identified:   flag&1 != 0,
+			Location:     uint16(binary.LittleEndian.Uint32(packet.Data[offset+5 : offset+9])),
+			WearLocation: uint16(wearState),
+			Amount:       1,
+			Equip:        true,
+			Equipped:     wearState != 0,
+			Damaged:      flag&2 != 0,
+			Refine:       packet.Data[offset+13],
+			Cards:        readItemCards(packet.Data, offset+14),
 		})
 	}
 	return items, true, nil

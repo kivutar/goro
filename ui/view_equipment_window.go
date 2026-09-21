@@ -30,16 +30,17 @@ func (w *ViewEquipmentWindow) Open(ctx Context, view network.ViewedEquipment, as
 	w.items = w.items[:0]
 	for _, item := range view.Items {
 		w.items = append(w.items, session.InventoryItem{
-			Index:      item.Index,
-			ItemID:     item.ItemID,
-			Type:       item.Type,
-			Location:   item.Location,
-			Identified: item.Identified,
-			Amount:     int(item.Amount),
-			Equip:      true,
-			Equipped:   item.Equipped,
-			Damaged:    item.Damaged,
-			Refine:     item.Refine,
+			Index:        item.Index,
+			ItemID:       item.ItemID,
+			Type:         item.Type,
+			Location:     item.Location,
+			WearLocation: item.WearLocation,
+			Identified:   item.Identified,
+			Amount:       int(item.Amount),
+			Equip:        true,
+			Equipped:     item.Equipped,
+			Damaged:      item.Damaged,
+			Refine:       item.Refine,
 		})
 	}
 	w.preview = nil
@@ -135,7 +136,7 @@ func (w *ViewEquipmentWindow) slotWidget(ctx Context, itemInfo *ItemWindows, slo
 
 func (w *ViewEquipmentWindow) itemForSlot(location uint16) (session.InventoryItem, bool) {
 	for _, item := range w.items {
-		if item.Location&location != 0 {
+		if item.Equipped && item.WearLocation&location != 0 {
 			return item, true
 		}
 	}
@@ -196,9 +197,9 @@ func viewedEquipmentCharacter(view network.ViewedEquipment, manager *res.Manager
 			continue
 		}
 		switch {
-		case item.Location&db.EquipWeapon != 0:
+		case item.WearLocation&db.EquipWeapon != 0:
 			character.Weapon = int16(res.PlayerWeaponViewID(manager, int(item.ItemID)))
-		case item.Location&db.EquipShield != 0:
+		case item.WearLocation&db.EquipShield != 0:
 			character.Shield = int16(item.ItemID)
 		}
 	}

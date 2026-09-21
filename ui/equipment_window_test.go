@@ -5,6 +5,7 @@ import (
 
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/input"
+	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
 	"github.com/kivutar/goro/world"
 )
@@ -14,7 +15,7 @@ func TestEquippedItemForSlotUsesEquippedWearLocation(t *testing.T) {
 		Inventory: session.Inventory{
 			Items: []session.InventoryItem{
 				{Index: 1, ItemID: 1201, Location: db.EquipWeapon, Equip: true},
-				{Index: 2, ItemID: 2101, Location: db.EquipShield, Equip: true, Equipped: true},
+				{Index: 2, ItemID: 2101, Location: db.EquipShield, WearLocation: db.EquipShield, Equip: true, Equipped: true},
 			},
 		},
 	}
@@ -38,6 +39,58 @@ func TestEquipmentSlotByLocationFindsFirstMatchingSlot(t *testing.T) {
 	}
 	if slot.location != db.EquipWeapon {
 		t.Fatalf("slot location = 0x%04X, want weapon first", slot.location)
+	}
+}
+
+func TestAccessoryWindowAndEquipSelectionUseOccupiedSlots(t *testing.T) {
+	for _, worn := range []uint16{db.EquipAccessory1, db.EquipAccessory2} {
+		free := (db.EquipAccessory1 | db.EquipAccessory2) &^ worn
+		ring := session.InventoryItem{Index: 11, ItemID: 2601, Type: db.ItemTypeArmor,
+			Location: db.EquipAccessory1 | db.EquipAccessory2, WearLocation: worn, Equip: true, Equipped: true}
+		s := &session.Session{Inventory: session.Inventory{Items: []session.InventoryItem{ring}}}
+		if item, ok := equippedItemForSlot(s, worn); !ok || item.Index != ring.Index {
+			t.Fatalf("missing Ring in worn slot 0x%04X", worn)
+		}
+		if _, ok := equippedItemForSlot(s, free); ok {
+			t.Fatalf("Ring duplicated in free slot 0x%04X", free)
+		}
+		next := session.InventoryItem{Index: 12, ItemID: 2602, Type: db.ItemTypeArmor,
+			Location: db.EquipAccessory1 | db.EquipAccessory2, Equip: true}
+		if got := inventoryItemEquipLocationForSession(s, next); got != free {
+			t.Fatalf("next accessory chooses 0x%04X, want free slot 0x%04X", got, free)
+		}
+		before := equipmentSnapshot(s)
+		s.Inventory.Items[0].WearLocation = free
+		if equipmentSnapshot(s) == before {
+			t.Fatal("moving the Ring did not invalidate the equipment window")
+		}
+	}
+}
+
+func TestEquipmentWindowKeepsGenuineMultipleSlotEquipment(t *testing.T) {
+	item := session.InventoryItem{Index: 11, ItemID: 1151, Location: db.EquipWeapon | db.EquipShield,
+		WearLocation: db.EquipWeapon | db.EquipShield, Equip: true, Equipped: true}
+	s := &session.Session{Inventory: session.Inventory{Items: []session.InventoryItem{item}}}
+	for _, slot := range []uint16{db.EquipWeapon, db.EquipShield} {
+		if got, ok := equippedItemForSlot(s, slot); !ok || got.Index != item.Index {
+			t.Fatalf("two-handed item missing from slot 0x%04X", slot)
+		}
+	}
+}
+
+func TestViewedEquipmentUsesOccupiedAccessorySlot(t *testing.T) {
+	w := &ViewEquipmentWindow{}
+	w.Open(Context{ScreenW: 800, ScreenH: 600}, network.ViewedEquipment{
+		Name: "Alice",
+		Items: []network.InventoryItem{{Index: 11, ItemID: 2601, Type: db.ItemTypeArmor,
+			Location: db.EquipAccessory1 | db.EquipAccessory2, WearLocation: db.EquipAccessory2,
+			Amount: 1, Equip: true, Equipped: true}},
+	}, nil)
+	if _, ok := w.itemForSlot(db.EquipAccessory1); ok {
+		t.Fatal("viewed Ring duplicated in the empty slot")
+	}
+	if item, ok := w.itemForSlot(db.EquipAccessory2); !ok || item.ItemID != 2601 {
+		t.Fatal("viewed Ring missing from its occupied slot")
 	}
 }
 
@@ -136,7 +189,7 @@ func TestInventoryEquipLocationChoosesFreeAccessorySlot(t *testing.T) {
 	s := &session.Session{
 		Inventory: session.Inventory{
 			Items: []session.InventoryItem{
-				{Index: 3, ItemID: 2601, Type: db.ItemTypeArmor, Location: db.EquipAccessory1, Equip: true, Equipped: true},
+				{Index: 3, ItemID: 2601, Type: db.ItemTypeArmor, Location: db.EquipAccessory1, WearLocation: db.EquipAccessory1, Equip: true, Equipped: true},
 			},
 		},
 	}
@@ -151,8 +204,8 @@ func TestInventoryEquipLocationKeepsAccessoryMaskWhenBothSlotsFull(t *testing.T)
 	s := &session.Session{
 		Inventory: session.Inventory{
 			Items: []session.InventoryItem{
-				{Index: 3, ItemID: 2601, Type: db.ItemTypeArmor, Location: db.EquipAccessory1, Equip: true, Equipped: true},
-				{Index: 4, ItemID: 2602, Type: db.ItemTypeArmor, Location: db.EquipAccessory2, Equip: true, Equipped: true},
+				{Index: 3, ItemID: 2601, Type: db.ItemTypeArmor, Location: db.EquipAccessory1, WearLocation: db.EquipAccessory1, Equip: true, Equipped: true},
+				{Index: 4, ItemID: 2602, Type: db.ItemTypeArmor, Location: db.EquipAccessory2, WearLocation: db.EquipAccessory2, Equip: true, Equipped: true},
 			},
 		},
 	}

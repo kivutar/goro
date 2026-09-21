@@ -61,17 +61,18 @@ func ParseViewedEquipment(packet Packet) (ViewedEquipment, bool, error) {
 	for offset := headerSize; offset+entrySize <= len(packet.Data); offset += entrySize {
 		wearState := binary.LittleEndian.Uint16(packet.Data[offset+8 : offset+10])
 		view.Items = append(view.Items, InventoryItem{
-			Index:      binary.LittleEndian.Uint16(packet.Data[offset : offset+2]),
-			ItemID:     binary.LittleEndian.Uint16(packet.Data[offset+2 : offset+4]),
-			Type:       packet.Data[offset+4],
-			Identified: packet.Data[offset+5] != 0,
-			Location:   binary.LittleEndian.Uint16(packet.Data[offset+6 : offset+8]),
-			Amount:     1,
-			Equip:      true,
-			Equipped:   wearState != 0,
-			Damaged:    packet.Data[offset+10] != 0,
-			Refine:     packet.Data[offset+11],
-			Cards:      readItemCards(packet.Data, offset+12),
+			Index:        binary.LittleEndian.Uint16(packet.Data[offset : offset+2]),
+			ItemID:       binary.LittleEndian.Uint16(packet.Data[offset+2 : offset+4]),
+			Type:         packet.Data[offset+4],
+			Identified:   packet.Data[offset+5] != 0,
+			Location:     binary.LittleEndian.Uint16(packet.Data[offset+6 : offset+8]),
+			WearLocation: wearState,
+			Amount:       1,
+			Equip:        true,
+			Equipped:     wearState != 0,
+			Damaged:      packet.Data[offset+10] != 0,
+			Refine:       packet.Data[offset+11],
+			Cards:        readItemCards(packet.Data, offset+12),
 		})
 	}
 	return view, true, nil

@@ -338,17 +338,18 @@ type Cart struct {
 }
 
 type InventoryItem struct {
-	Index      uint16
-	ItemID     uint16
-	Type       uint8
-	Location   uint16
-	Identified bool
-	Amount     int
-	Equip      bool
-	Equipped   bool
-	Damaged    bool
-	Refine     uint8
-	Cards      [4]uint16
+	Index        uint16
+	ItemID       uint16
+	Type         uint8
+	Location     uint16 // Allowed equipment slots.
+	WearLocation uint16 // Occupied equipment slots, or zero when unequipped.
+	Identified   bool
+	Amount       int
+	Equip        bool
+	Equipped     bool
+	Damaged      bool
+	Refine       uint8
+	Cards        [4]uint16
 }
 
 type Stats struct {

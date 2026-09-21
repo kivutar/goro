@@ -21,12 +21,7 @@ func applyStatusSnapshot(ctx client.Context, snapshot network.StatusSnapshot) {
 	setSessionStat(ctx.Session, network.StatusInt, snapshot.Int)
 	setSessionStat(ctx.Session, network.StatusDex, snapshot.Dex)
 	setSessionStat(ctx.Session, network.StatusLuk, snapshot.Luk)
-	ctx.Session.Stats.StrBonus = snapshot.StrBonus
-	ctx.Session.Stats.AgiBonus = snapshot.AgiBonus
-	ctx.Session.Stats.VitBonus = snapshot.VitBonus
-	ctx.Session.Stats.IntBonus = snapshot.IntBonus
-	ctx.Session.Stats.DexBonus = snapshot.DexBonus
-	ctx.Session.Stats.LukBonus = snapshot.LukBonus
+	// ZC_STATUS has no primary-stat bonuses; ZC_COUPLESTATUS updates them.
 	ctx.Session.Stats.StrCost = snapshot.StrCost
 	ctx.Session.Stats.AgiCost = snapshot.AgiCost
 	ctx.Session.Stats.VitCost = snapshot.VitCost
@@ -48,6 +43,30 @@ func applyStatusSnapshot(ctx client.Context, snapshot network.StatusSnapshot) {
 	ctx.Session.Stats.ASPD = snapshot.ASPD
 	ctx.Session.Stats.ASPDBonus = snapshot.ASPDBonus
 	glog.Debugf("status snapshot points=%d str=%d agi=%d vit=%d int=%d dex=%d luk=%d", snapshot.Points, snapshot.Str, snapshot.Agi, snapshot.Vit, snapshot.Int, snapshot.Dex, snapshot.Luk)
+}
+
+func applyCoupleStatus(ctx client.Context, change network.CoupleStatus) {
+	if ctx.Session == nil {
+		return
+	}
+	stats := &ctx.Session.Stats
+	switch change.StatusID {
+	case uint32(network.StatusStr):
+		stats.StrBonus = change.Bonus
+	case uint32(network.StatusAgi):
+		stats.AgiBonus = change.Bonus
+	case uint32(network.StatusVit):
+		stats.VitBonus = change.Bonus
+	case uint32(network.StatusInt):
+		stats.IntBonus = change.Bonus
+	case uint32(network.StatusDex):
+		stats.DexBonus = change.Bonus
+	case uint32(network.StatusLuk):
+		stats.LukBonus = change.Bonus
+	default:
+		return
+	}
+	setSessionStat(ctx.Session, uint16(change.StatusID), change.Base)
 }
 
 func setSessionStat(s *session.Session, statusID uint16, value int) {

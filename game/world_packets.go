@@ -1148,6 +1148,12 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		m.applyActorHPUpdate(life)
 		return nil, false
 	}
+	if change, ok, err := network.ParseCoupleStatus(pkt); err != nil {
+		glog.Errorf("parse couple status 0x%04X: %v", pkt.ID, err)
+	} else if ok {
+		applyCoupleStatus(ctx, change)
+		return nil, false
+	}
 	if snapshot, ok, err := network.ParseStatusSnapshot(pkt); err != nil {
 		glog.Errorf("parse status snapshot 0x%04X: %v", pkt.ID, err)
 	} else if ok {

@@ -1003,7 +1003,7 @@ func TestApplyInventoryEquipAckUpdatesEquippedState(t *testing.T) {
 		Inventory: session.Inventory{
 			Items: []session.InventoryItem{
 				{Index: 1, ItemID: 1201, Type: 4, Location: 0x0002, Equip: true},
-				{Index: 2, ItemID: 1202, Type: 4, Location: 0x0002, Equip: true, Equipped: true},
+				{Index: 2, ItemID: 1202, Type: 4, Location: 0x0002, WearLocation: 0x0002, Equip: true, Equipped: true},
 			},
 		},
 	}
@@ -1036,7 +1036,7 @@ func TestApplyInventoryEquipAckDefaultsAmmoLocation(t *testing.T) {
 	applyInventoryEquipAck(ctx, network.InventoryEquipAck{Index: 3, Success: true})
 
 	item := sessionState.Inventory.Items[0]
-	if !item.Equipped || item.Location != db.EquipAmmo {
+	if !item.Equipped || item.Location != db.EquipAmmo || item.WearLocation != db.EquipAmmo {
 		t.Fatalf("ammo item after equip ack = %+v, want equipped ammo location 0x%04X", item, db.EquipAmmo)
 	}
 }
@@ -1045,7 +1045,7 @@ func TestApplyEquippedArrowMarksAmmoSlot(t *testing.T) {
 	sessionState := &session.Session{
 		Inventory: session.Inventory{
 			Items: []session.InventoryItem{
-				{Index: 3, ItemID: 1750, Type: 10, Amount: 100, Location: db.EquipAmmo, Equip: true, Equipped: true},
+				{Index: 3, ItemID: 1750, Type: 10, Amount: 100, Location: db.EquipAmmo, WearLocation: db.EquipAmmo, Equip: true, Equipped: true},
 				{Index: 9, ItemID: 1751, Type: 10, Amount: 50},
 			},
 		},
@@ -1054,11 +1054,11 @@ func TestApplyEquippedArrowMarksAmmoSlot(t *testing.T) {
 
 	applyEquippedArrow(ctx, network.EquippedArrow{Index: 9})
 
-	if sessionState.Inventory.Items[0].Equipped {
+	if sessionState.Inventory.Items[0].Equipped || sessionState.Inventory.Items[0].WearLocation != 0 {
 		t.Fatal("previous arrow stayed equipped")
 	}
 	item := sessionState.Inventory.Items[1]
-	if !item.Equip || !item.Equipped || item.Location != db.EquipAmmo {
+	if !item.Equip || !item.Equipped || item.Location != db.EquipAmmo || item.WearLocation != db.EquipAmmo {
 		t.Fatalf("arrow item after ZC_EQUIP_ARROW = %+v, want equipped ammo location 0x%04X", item, db.EquipAmmo)
 	}
 }
@@ -1076,7 +1076,7 @@ func TestInventoryEquipmentRebuildsLocalWeaponAppearanceFromEquippedItem(t *test
 	ctx := client.Context{Session: sessionState, World: world}
 
 	applyInventoryItemList(ctx, []network.InventoryItem{
-		{Index: 2, ItemID: 1607, Type: 5, Location: 0x0002, Equip: true, Equipped: true, Identified: true},
+		{Index: 2, ItemID: 1607, Type: 5, Location: 0x0002, WearLocation: 0x0002, Equip: true, Equipped: true, Identified: true},
 	})
 
 	if sessionState.Selected.Weapon != 1607 || sessionState.Selected.Shield != 0 {

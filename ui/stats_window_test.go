@@ -153,3 +153,21 @@ func TestStatCostPrefersServerValue(t *testing.T) {
 		t.Fatalf("statCost() = %d, want 8", got)
 	}
 }
+
+func TestStatsWindowRefreshesForSignedBonuses(t *testing.T) {
+	s := &session.Session{Stats: session.Stats{Str: 10}}
+	for _, tc := range []struct {
+		bonus int
+		text  string
+	}{{2, "10 + 2"}, {-3, "10 - 3"}, {0, "10"}} {
+		before := statsWindowSnapshot(s)
+		s.Stats.StrBonus = tc.bonus
+		if statsWindowSnapshot(s) == before {
+			t.Fatalf("bonus %d did not invalidate the status window", tc.bonus)
+		}
+		row := statsRows(s)[0]
+		if got := formatStatValue(row.value, row.bonus); got != tc.text {
+			t.Fatalf("STR row = %q, want %q", got, tc.text)
+		}
+	}
+}
