@@ -390,7 +390,10 @@ func upsertActorAt(ctx client.Context, actor worldstate.Actor, now time.Time) {
 		return
 	}
 	existing, hasExisting := ctx.World.Actors[actor.ID]
-	if actor.Moving {
+	// Network movement entries have no local start time yet. Updates copied
+	// from a live actor already have one, even after the walk has finished;
+	// changing direction, appearance or status must not replay that path.
+	if actor.Moving && actor.MoveStarted.IsZero() {
 		if actor.FromX == 0 && actor.FromY == 0 {
 			if hasExisting {
 				actor.FromX = existing.X

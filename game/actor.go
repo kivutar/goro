@@ -526,8 +526,8 @@ func applyNPCSpriteChange(ctx client.Context, change network.NPCSpriteChange) {
 	actor.Job = int16(change.Job)
 	actor.Appearance = true
 	// Sprite/model caches are keyed by job, so the next draw selects the new
-	// resources without changing views shared by other actors. Do not route
-	// this through upsertActor: that would restart an existing movement path.
+	// resources without changing views shared by other actors. Updating the
+	// appearance leaves the actor's movement and other state intact.
 	ctx.World.Actors[change.ID] = actor
 }
 
