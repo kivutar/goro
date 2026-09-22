@@ -55,10 +55,16 @@ func testHeadlessLoginBotAndWarps(t *testing.T, serverSlot int) {
 	writeHeadlessFixture(t, root, "second.gat", gat)
 	writeHeadlessFixture(t, root, "bot.lua", []byte(`
 local sent = false
+local maps = 0
+function map_changed()
+    maps = maps + 1
+    assert(goro.message("map changed " .. maps))
+    sent = false
+end
 function tick()
     if not sent then
         assert(goro.walk(1, 0))
-        assert(goro.message("headless"))
+        assert(goro.message("headless " .. maps))
         sent = true
     end
 end
@@ -142,26 +148,30 @@ end
 		writeHeadlessPacket(t, conn, headlessPacket(0x0073, 11))
 		expectHeadlessPacket(t, conn, network.BuildLoadEndAckPacket())
 	}
-	botAction := func(conn net.Conn) {
+	botAction := func(conn net.Conn, maps int) {
 		t.Helper()
+		if maps > 0 {
+			expectHeadlessPacket(t, conn, network.BuildGlobalChatPacketForClientDate("Tester", fmt.Sprintf("map changed %d", maps), cfg.Packet.ClientDate))
+		}
 		move, ok := network.BuildWalkToXYPacketForClientDate(1, 0, cfg.Packet.ClientDate)
 		if !ok {
 			t.Fatal("invalid test destination")
 		}
 		expectHeadlessPacket(t, conn, move)
-		expectHeadlessPacket(t, conn, network.BuildGlobalChatPacketForClientDate("Tester", "headless", cfg.Packet.ClientDate))
+		expectHeadlessPacket(t, conn, network.BuildGlobalChatPacketForClientDate("Tester", fmt.Sprintf("headless %d", maps), cfg.Packet.ClientDate))
 	}
 	mapConn := accept()
 	enterMap(mapConn)
-	botAction(mapConn)
+	botAction(mapConn, 0)
 	warp := headlessPacket(0x0091, 22)
 	copy(warp[2:18], "first.gat")
 	writeHeadlessPacket(t, mapConn, warp)
 	expectHeadlessPacket(t, mapConn, network.BuildLoadEndAckPacket())
+	botAction(mapConn, 1)
 	copy(warp[2:18], "second.gat")
 	writeHeadlessPacket(t, mapConn, warp)
 	expectHeadlessPacket(t, mapConn, network.BuildLoadEndAckPacket())
-	botAction(mapConn)
+	botAction(mapConn, 2)
 	serverWarp := headlessPacket(0x0092, 28)
 	copy(serverWarp[2:18], "first.gat")
 	copy(serverWarp[22:26], []byte{127, 0, 0, 1})
@@ -169,7 +179,7 @@ end
 	writeHeadlessPacket(t, mapConn, serverWarp)
 	mapConn = accept()
 	enterMap(mapConn)
-	botAction(mapConn)
+	botAction(mapConn, 3)
 	cancel()
 	select {
 	case <-done:

@@ -420,6 +420,8 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	if ctx.World.MapName != "" {
 		gat, _, err := loadGAT(ctx.Resources, ctx.World.MapName)
 		if err != nil {
+			m.bot.close()
+			m.bot = nil
 			return newMapErrorMode(ctx, err, m.ui.console)
 		}
 		ctx.World.GAT = gat
@@ -505,6 +507,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 		if ctx.World.MapName != "" {
 			_ = ctx.Network.SendLoadEndAck()
 		}
+		m.botMapChanged(ctx)
 		return nil
 	}
 	playerStatus := ""
@@ -543,6 +546,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	glog.Debugf("player sprite resources char_id=%d name=%s admin=%t job=%d visual_job=%d hair=%d weapon=%d shield=%d head_top=%d head_mid=%d head_low=%d body_pal=%d head_pal=%d hair_color=%d account_sex=%d %s", character.ID, character.Name, localPlayerIsAdmin(ctx), character.Job, visualCharacter.Job, character.Hair, character.Weapon, character.Shield, character.HeadTop, character.HeadMid, character.HeadLow, character.BodyPal, character.HeadPal, character.HairColor, ctx.Session.Sex, playerStatus)
 	m.rebindPersistentUI(ctx)
 	if ctx.World.MapName == "" {
+		m.botMapChanged(ctx)
 		return nil
 	}
 
@@ -564,6 +568,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	}
 	m.preloadMapTextures(ctx)
 	_ = ctx.Network.SendLoadEndAck()
+	m.botMapChanged(ctx)
 	return nil
 }
 
@@ -1427,6 +1432,7 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 				glog.Warnf("same-map warp load ack failed map=%s x=%d y=%d: %v", change.MapName, change.X, change.Y, err)
 			}
 		}
+		m.botMapChanged(ctx)
 		return nil
 	}
 	if change.ServerMove {
@@ -1466,6 +1472,10 @@ func (m *WorldMode) handleLevelUpNotificationAction(ctx client.Context, action g
 
 func (m *WorldMode) nextWorldMode() *WorldMode {
 	next := NewWorldMode()
+	next.bot, m.bot = m.bot, nil
+	if next.bot != nil {
+		next.bot.mode = next
+	}
 	next.mail = m.mail
 	next.deferredPackets = m.deferredPackets
 	next.camera.yawOffset = m.camera.yawOffset
@@ -1517,6 +1527,8 @@ func (m *WorldMode) nextWorldMode() *WorldMode {
 }
 
 func (m *WorldMode) nextCharacterSelectMode(ctx client.Context) *LoginMode {
+	m.bot.close()
+	m.bot = nil
 	if ctx.Network != nil {
 		ctx.Network.Close()
 	}
