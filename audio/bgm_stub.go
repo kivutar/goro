@@ -75,4 +75,8 @@ func (b *BGM) PlaySFXVolume(string, float64) (string, error) {
 	return "", nil
 }
 
+func (b *BGM) PreloadSFX(string) error {
+	return nil
+}
+
 func (b *BGM) Stop() {}

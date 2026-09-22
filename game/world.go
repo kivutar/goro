@@ -552,6 +552,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 		ctx.World.RSW = rsw
 		ctx.World.RSM, ctx.World.RSMFail = loadRSMModels(ctx.Resources, rsw, defaultRSMLoadLimit)
 		m.playMapBGM(ctx, rswSource)
+		m.preloadMapSounds(ctx)
 	} else {
 		ctx.World.RSW = nil
 		ctx.World.RSM = nil

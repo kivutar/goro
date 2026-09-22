@@ -105,6 +105,20 @@ func (m *WorldMode) playScheduledSound(ctx client.Context, sound scheduledSound,
 	m.playSFXFirstVolume(ctx, volume, sound.paths...)
 }
 
+func (m *WorldMode) preloadMapSounds(ctx client.Context) {
+	if ctx.Audio == nil || ctx.World == nil || ctx.World.RSW == nil {
+		return
+	}
+	for _, sound := range ctx.World.RSW.Sounds {
+		if sound.Volume <= 0 {
+			continue
+		}
+		if err := ctx.Audio.PreloadSFX(sound.File); err != nil {
+			glog.Debugf("preload map sound %s: %v", sound.File, err)
+		}
+	}
+}
+
 func (m *WorldMode) processMapSounds(ctx client.Context, now time.Time) {
 	if ctx.World == nil || ctx.World.RSW == nil || ctx.World.GND == nil || len(ctx.World.RSW.Sounds) == 0 {
 		return

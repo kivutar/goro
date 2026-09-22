@@ -36,6 +36,7 @@ type BGM struct {
 	bgmVolume  float64
 	sfxVolume  float64
 	sfxPlayers []*oto.Player
+	sfxCache   sfxCache
 	disabled   bool
 }
 

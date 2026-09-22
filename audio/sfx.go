@@ -36,6 +36,27 @@ func (b *BGM) PlaySFX(path string) (string, error) {
 	return b.PlaySFXVolume(path, 1)
 }
 
+// PreloadSFX prepares a sound without playing it or opening the audio device.
+// Call it during map loading for sounds that must be ready during gameplay.
+func (b *BGM) PreloadSFX(path string) error {
+	if b == nil || b.disabled || b.sfxVolume <= 0 {
+		return nil
+	}
+	path = normalizeSFXPath(path)
+	if path == "" {
+		return nil
+	}
+	_, err := b.loadSFX(path, b.sfxSampleRate())
+	return err
+}
+
+func (b *BGM) sfxSampleRate() int {
+	if b.sampleRate > 0 {
+		return b.sampleRate
+	}
+	return defaultSampleRate
+}
+
 func (b *BGM) PlaySFXVolume(path string, volume float64) (string, error) {
 	if b == nil || b.disabled || b.sfxVolume <= 0 || volume <= 0 {
 		return "", nil
@@ -44,30 +65,46 @@ func (b *BGM) PlaySFXVolume(path string, volume float64) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	data, source, err := readSFXFile(b.resources, path)
+	sampleRate := b.sfxSampleRate()
+	sound, err := b.loadSFX(path, sampleRate)
 	if err != nil {
-		return "", err
+		return sound.source, err
 	}
-	context := b.ensureContext(defaultSampleRate)
+	context := b.ensureContext(sampleRate)
 	if context == nil {
-		return source, fmt.Errorf("audio context unavailable")
+		return sound.source, fmt.Errorf("audio context unavailable")
 	}
-	pcm, sourceRate, err := decodeWAVToPCM16Stereo(data)
-	if err != nil {
-		return source, fmt.Errorf("decode sfx %s: %w", source, err)
-	}
-	if sourceRate != b.sampleRate {
-		pcm, err = resamplePCM16Stereo(pcm, sourceRate, b.sampleRate)
-		if err != nil {
-			return source, fmt.Errorf("resample sfx %s: %w", source, err)
-		}
-	}
-	player := context.NewPlayer(bytes.NewReader(pcm))
+	player := context.NewPlayer(bytes.NewReader(sound.pcm))
 	player.SetVolume(b.sfxVolume * clampVolume(volume))
 	b.trimSFXPlayers()
 	b.sfxPlayers = append(b.sfxPlayers, player)
 	player.Play()
-	return source, nil
+	return sound.source, nil
+}
+
+func (b *BGM) loadSFX(path string, sampleRate int) (decodedSFX, error) {
+	key := sfxCacheKey{path: strings.ToLower(normalizeSFXPath(path)), sampleRate: sampleRate}
+	if sound, ok := b.sfxCache.get(key); ok {
+		return sound, nil
+	}
+	data, source, err := readSFXFile(b.resources, path)
+	if err != nil {
+		return decodedSFX{}, err
+	}
+	sound := decodedSFX{source: source}
+	pcm, sourceRate, err := decodeWAVToPCM16Stereo(data)
+	if err != nil {
+		return sound, fmt.Errorf("decode sfx %s: %w", source, err)
+	}
+	if sourceRate != sampleRate {
+		pcm, err = resamplePCM16Stereo(pcm, sourceRate, sampleRate)
+		if err != nil {
+			return sound, fmt.Errorf("resample sfx %s: %w", source, err)
+		}
+	}
+	sound.pcm = pcm
+	b.sfxCache.put(key, sound)
+	return sound, nil
 }
 
 func (b *BGM) trimSFXPlayers() {
