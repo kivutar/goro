@@ -9,6 +9,7 @@ import (
 type Image struct {
 	pix     *image.RGBA
 	version uint64
+	group   *ImageGroup
 }
 
 var whiteImage *Image

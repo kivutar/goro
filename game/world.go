@@ -32,6 +32,9 @@ type WorldMode struct {
 	whitePixel        *render.Image
 	tileCursor        *render.Image
 	textures          map[string]*render.Image
+	mapImages         *render.ImageGroup
+	mapTextureUploads []*render.Image
+	mapUploadBatch    int
 	textureMiss       map[string]struct{}
 	imageCache        map[string]image.Image
 	imageMiss         map[string]struct{}
@@ -386,7 +389,6 @@ const (
 	// Warm the base map, then allow a frame for the initial post-ack actors.
 	mapFadePrewarmFrames     = 2
 	actorNameRequestCooldown = time.Second
-	defaultRSMLoadLimit      = 128
 )
 
 var (
@@ -405,6 +407,7 @@ func (m *WorldMode) Name() string {
 }
 
 func (m *WorldMode) Enter(ctx client.Context) Mode {
+	m.releaseMapTextures()
 	now := time.Now()
 	m.bindNPCDialogLifecycle()
 	m.startMapPrewarm()
@@ -550,7 +553,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	}
 	if rsw, rswSource, err := loadRSW(ctx.Resources, ctx.World.MapName); err == nil {
 		ctx.World.RSW = rsw
-		ctx.World.RSM, ctx.World.RSMFail = loadRSMModels(ctx.Resources, rsw, defaultRSMLoadLimit)
+		ctx.World.RSM, ctx.World.RSMFail = loadRSMModels(ctx.Resources, rsw)
 		m.playMapBGM(ctx, rswSource)
 		m.preloadMapSounds(ctx)
 	} else {
@@ -559,6 +562,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 		ctx.World.RSMFail = 0
 		m.playMapBGM(ctx, ctx.World.MapName)
 	}
+	m.preloadMapTextures(ctx)
 	_ = ctx.Network.SendLoadEndAck()
 	return nil
 }
@@ -1561,6 +1565,10 @@ func (m *WorldMode) requestNPCTalk(ctx client.Context, actor worldstate.Actor, s
 }
 
 func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
+	if m.prepareMapTextureUploads(screen) {
+		clearWorldScene(screen, ctx.World.MapName)
+		return
+	}
 	width, height := screen.Bounds().Dx(), screen.Bounds().Dy()
 	now := time.Now()
 	projection := m.sceneProjection(ctx, width, height, now)
@@ -1623,6 +1631,12 @@ func (m *WorldMode) DrawOverlay(ctx client.Context, screen *render.Frame) {
 }
 
 func (m *WorldMode) FrameSubmitted() {
+	if m.mapUploadBatch > 0 {
+		clear(m.mapTextureUploads[:m.mapUploadBatch])
+		m.mapTextureUploads = m.mapTextureUploads[m.mapUploadBatch:]
+		m.mapUploadBatch = 0
+		return
+	}
 	m.recordCoveredMapFrame()
 }
 
@@ -1896,8 +1910,8 @@ func loadRSW(manager *res.Manager, mapName string) (*res.RSW, string, error) {
 	return rsw, source, err
 }
 
-func loadRSMModels(manager *res.Manager, rsw *res.RSW, limit int) (map[string]*res.RSM, int) {
-	if rsw == nil || limit == 0 {
+func loadRSMModels(manager *res.Manager, rsw *res.RSW) (map[string]*res.RSM, int) {
+	if rsw == nil {
 		return nil, 0
 	}
 	models := make(map[string]*res.RSM)
@@ -1909,16 +1923,12 @@ func loadRSMModels(manager *res.Manager, rsw *res.RSW, limit int) (map[string]*r
 		if _, ok := models[placement.Filename]; ok {
 			continue
 		}
-		if limit > 0 && len(models) >= limit {
-			break
-		}
-
 		rsm, err := loadRSMModel(manager, placement.Filename)
+		models[placement.Filename] = rsm
 		if err != nil {
 			failures++
 			continue
 		}
-		models[placement.Filename] = rsm
 	}
 	return models, failures
 }

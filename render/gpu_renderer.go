@@ -53,6 +53,7 @@ type gpuRenderer struct {
 	worldUniform           *wgpu.Buffer
 	samplers               map[samplerKey]*wgpu.Sampler
 	textures               map[*Image]*gpuImageTexture
+	imageGroups            map[*ImageGroup]struct{}
 	bindGroups             map[bindGroupKey]*wgpu.BindGroup
 	worldMeshes            map[*WorldMesh]*gpuWorldMesh
 	depthTex               *wgpu.Texture
@@ -484,6 +485,7 @@ func worldBillboardDepthCompare(depthTest bool) gputypes.CompareFunction {
 }
 
 func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
+	r.releaseImageGroups()
 	if screen == nil {
 		return false, nil
 	}
@@ -498,6 +500,11 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 	}
 	if width <= 0 || height <= 0 {
 		return false, nil
+	}
+	for _, upload := range screen.imageUploads {
+		if _, err := r.ensureTexture(ctx, upload.image, upload.options); err != nil {
+			return false, err
+		}
 	}
 	if err := r.queue.WriteBuffer(r.uniform, 0, uniformBytes(float32(width), float32(height))); err != nil {
 		return false, fmt.Errorf("upload screen uniform: %w", err)
@@ -770,6 +777,12 @@ func (r *gpuRenderer) ensureTexture(ctx *gogpu.Context, img *Image, opts DrawTri
 	}
 	out := &gpuImageTexture{tex: tex, version: img.version, width: w, height: h}
 	r.textures[img] = out
+	if img.group != nil {
+		if r.imageGroups == nil {
+			r.imageGroups = make(map[*ImageGroup]struct{})
+		}
+		r.imageGroups[img.group] = struct{}{}
+	}
 	return out, nil
 }
 

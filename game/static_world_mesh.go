@@ -90,6 +90,7 @@ func (m *WorldMode) drawGNDMeshes(screen *render.Frame, manager *res.Manager, gn
 	cache := m.gndMeshCache
 	if cache == nil || cache.gnd != gnd || cache.rsw != rsw {
 		cache = &gndRetainedMeshCache{gnd: gnd, rsw: rsw, lightmapAtlas: buildGNDLightmapAtlas(gnd), chunks: make(map[gndRetainedChunkKey][]retainedWorldMesh)}
+		m.ownMapImage(cache.lightmapAtlas.image)
 		m.gndMeshCache = cache
 	}
 	width := screen.Bounds().Dx()

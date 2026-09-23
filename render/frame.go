@@ -22,6 +22,7 @@ type Frame struct {
 	uiTextBoxes     []UITextBoxCommand
 	uiTextLabels    []UITextLabelCommand
 	uiActorLabels   []UIActorLabelCommand
+	imageUploads    []imageUpload
 
 	clear  color.RGBA
 	camera Camera3D
@@ -60,7 +61,27 @@ func (f *Frame) BeginFrame() {
 	f.uiTextBoxes = f.uiTextBoxes[:0]
 	f.uiTextLabels = f.uiTextLabels[:0]
 	f.uiActorLabels = f.uiActorLabels[:0]
+	clear(f.imageUploads)
+	f.imageUploads = f.imageUploads[:0]
 	f.camera = Camera3D{}
+}
+
+type imageUpload struct {
+	image   *Image
+	options DrawTrianglesOptions
+}
+
+// PrepareImage uploads a texture with this frame without drawing it. Callers
+// wait for FrameSubmitted before considering the upload complete.
+func (f *Frame) PrepareImage(img *Image, options *DrawTrianglesOptions) {
+	if f == nil || img == nil || img.pix == nil {
+		return
+	}
+	var opts DrawTrianglesOptions
+	if options != nil {
+		opts = *options
+	}
+	f.imageUploads = append(f.imageUploads, imageUpload{image: img, options: opts})
 }
 
 func (f *Frame) clearUIOverlayCommands() {

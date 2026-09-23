@@ -64,7 +64,7 @@ func (m *WorldMode) recordCoveredMapFrame() {
 }
 
 func (m *WorldMode) advanceMapPrewarm(now time.Time) {
-	if m.mapFade.phase == mapFadePrewarm && m.mapFade.coveredFrames >= mapFadePrewarmFrames {
+	if m.mapFade.phase == mapFadePrewarm && len(m.mapTextureUploads) == 0 && m.mapFade.coveredFrames >= mapFadePrewarmFrames {
 		m.startMapFadeIn(now)
 	}
 }

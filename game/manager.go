@@ -40,6 +40,9 @@ func NewManager(ctx client.Context, mode Mode) *Manager {
 
 func (m *Manager) enter(mode Mode) {
 	for mode != nil {
+		if leaving, ok := m.mode.(interface{ Leave() }); ok {
+			leaving.Leave()
+		}
 		m.mode = mode
 		mode = mode.Enter(m.ctx)
 	}
