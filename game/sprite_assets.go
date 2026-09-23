@@ -261,33 +261,24 @@ func loadCursorSpriteView(manager *res.Manager) (*spriteView, string) {
 }
 
 func loadPlayerIMF(manager *res.Manager, job int, sex byte) (*res.IMF, string, string) {
-	data, source, err := readFirstResource(manager, res.PlayerIMFResourceCandidates(job, sex))
+	imf, source, err := manager.LoadIMF(res.PlayerIMFResourceCandidates(job, sex))
 	if err != nil {
-		return nil, "", " imf=missing"
-	}
-	imf, err := res.ParseIMF(data)
-	if err != nil {
+		if source == "" {
+			return nil, "", " imf=missing"
+		}
 		return nil, "", fmt.Sprintf(" imf=%s parse-error=%v", source, err)
 	}
 	return imf, source, fmt.Sprintf(" imf=%s", source)
 }
 
 func loadSpriteView(manager *res.Manager, actCandidates []string, sprCandidates []string, palCandidates []string, label string) (*spriteView, string) {
-	actData, actSource, err := readFirstResource(manager, actCandidates)
+	act, actSource, err := manager.LoadACT(actCandidates)
 	if err != nil {
 		return nil, fmt.Sprintf("%s act: %v", label, err)
 	}
-	sprData, sprSource, err := readFirstResource(manager, sprCandidates)
+	spr, sprSource, err := manager.LoadSPR(sprCandidates)
 	if err != nil {
 		return nil, fmt.Sprintf("%s spr: %v", label, err)
-	}
-	act, err := res.ParseACT(actData)
-	if err != nil {
-		return nil, fmt.Sprintf("%s act parse %s: %v", label, actSource, err)
-	}
-	spr, err := res.ParseSPR(sprData)
-	if err != nil {
-		return nil, fmt.Sprintf("%s spr parse %s: %v", label, sprSource, err)
 	}
 	palette, paletteSource, paletteStatus := loadSpritePalette(manager, palCandidates)
 	return &spriteView{
@@ -312,13 +303,9 @@ func loadPetAccessorySpriteView(manager *res.Manager, base *spriteView, accessor
 		return nil, fmt.Sprintf("%s skipped: missing pet action path accessory=%d", label, accessoryID)
 	}
 	candidates := petActionResourceCandidates(path)
-	actData, actSource, err := readFirstResource(manager, candidates)
+	act, actSource, err := manager.LoadACT(candidates)
 	if err != nil {
 		return nil, fmt.Sprintf("%s act: %v", label, err)
-	}
-	act, err := res.ParseACT(actData)
-	if err != nil {
-		return nil, fmt.Sprintf("%s act parse %s: %v", label, actSource, err)
 	}
 	if !actFitsSPR(act, base.spr) {
 		return nil, fmt.Sprintf("%s act %s incompatible with %s", label, actSource, base.source)
@@ -365,11 +352,7 @@ func loadRicherNonPCSpritePair(manager *res.Manager, job int, resourceName strin
 	var best nonPCSpritePairUpgrade
 	for _, archive := range manager.Archives {
 		for _, candidate := range res.NonPCSpriteResourceCandidates(job, resourceName, "act") {
-			data, err := archive.ReadFile(candidate)
-			if err != nil {
-				continue
-			}
-			act, err := res.ParseACT(data)
+			act, err := manager.LoadArchiveACT(archive, candidate)
 			if err != nil {
 				continue
 			}
@@ -377,11 +360,7 @@ func loadRicherNonPCSpritePair(manager *res.Manager, job int, resourceName strin
 				continue
 			}
 			for _, sprCandidate := range res.NonPCSpriteResourceCandidates(job, resourceName, "spr") {
-				sprData, err := archive.ReadFile(sprCandidate)
-				if err != nil {
-					continue
-				}
-				spr, err := res.ParseSPR(sprData)
+				spr, err := manager.LoadArchiveSPR(archive, sprCandidate)
 				if err != nil || !actFitsSPR(act, spr) {
 					continue
 				}
@@ -430,15 +409,14 @@ func loadSpritePalette(manager *res.Manager, candidates []string) (*res.Palette,
 	if len(candidates) == 0 {
 		return nil, "", ""
 	}
-	data, source, err := readFirstResource(manager, candidates)
+	palette, source, err := manager.LoadPAL(candidates)
 	if err != nil {
-		return nil, "", " palette=default"
-	}
-	palette, err := res.ParsePAL(data)
-	if err != nil {
+		if source == "" {
+			return nil, "", " palette=default"
+		}
 		return nil, "", fmt.Sprintf(" palette=%s parse-error=%v", source, err)
 	}
-	return &palette, source, fmt.Sprintf(" palette=%s", source)
+	return palette, source, fmt.Sprintf(" palette=%s", source)
 }
 
 func readFirstResource(manager *res.Manager, candidates []string) ([]byte, string, error) {

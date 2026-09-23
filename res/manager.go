@@ -20,6 +20,7 @@ type Manager struct {
 	FoundFiles []string
 	Archives   []*GRF
 
+	sprites                  spriteResourceCache
 	looseDirectories         sync.Map
 	resourceAliases          map[string]string
 	resourceAliasesOnce      sync.Once
