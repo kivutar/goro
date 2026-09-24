@@ -215,13 +215,9 @@ public final class GoroActivity extends Activity {
         @Override public InputConnection onCreateInputConnection(EditorInfo info) {
             info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
             info.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_ACTION_DONE;
+            // The fallback connection owns composition and clears its buffer
+            // when it forwards committed text through sendKeyEvent below.
             return new BaseInputConnection(this, false) {
-                @Override public boolean commitText(CharSequence text, int cursor) { sendText(text); return true; }
-                @Override public boolean setComposingText(CharSequence text, int cursor) {
-                    // Visible-password input asks IMEs to commit directly. Retain
-                    // composition locally when an IME still chooses to compose.
-                    return super.setComposingText(text, cursor);
-                }
                 @Override public boolean deleteSurroundingText(int before, int after) {
                     for (int i = 0; i < before; i++) tapKey(KeyEvent.KEYCODE_DEL);
                     for (int i = 0; i < after; i++) tapKey(KeyEvent.KEYCODE_FORWARD_DEL);
@@ -229,6 +225,7 @@ public final class GoroActivity extends Activity {
                 }
                 @Override public boolean sendKeyEvent(KeyEvent event) { return dispatchKeyEvent(event); }
                 @Override public boolean performEditorAction(int action) {
+                    finishComposingText();
                     tapKey(KeyEvent.KEYCODE_ENTER);
                     ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(getWindowToken(), 0);
                     return true;
