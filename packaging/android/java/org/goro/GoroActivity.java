@@ -223,7 +223,11 @@ public final class GoroActivity extends Activity {
                     for (int i = 0; i < after; i++) tapKey(KeyEvent.KEYCODE_FORWARD_DEL);
                     return true;
                 }
-                @Override public boolean sendKeyEvent(KeyEvent event) { return dispatchKeyEvent(event); }
+                @Override public boolean sendKeyEvent(KeyEvent event) {
+                    // GameView also inherits dispatchKeyEvent; route IME input
+                    // through the Activity so it reaches the native game.
+                    return GoroActivity.this.dispatchKeyEvent(event);
+                }
                 @Override public boolean performEditorAction(int action) {
                     finishComposingText();
                     tapKey(KeyEvent.KEYCODE_ENTER);
