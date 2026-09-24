@@ -14,6 +14,8 @@ for tool in "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-androi
 done
 mkdir -p "$OUT"/{lib/arm64-v8a,classes,java,res/drawable,dex,overlay}
 export GOCACHE=${GOCACHE:-/tmp/goro-go-cache}
+# The Android patches need dependency sources before go build can download them.
+go mod download github.com/gogpu/gogpu github.com/ebitengine/oto/v3
 GOGPU_DIR=$(go list -m -f '{{.Dir}}' github.com/gogpu/gogpu)
 GOGPU_VERSION=$(go list -m -f '{{.Version}}' github.com/gogpu/gogpu)
 if [[ "$GOGPU_VERSION" != v0.54.0 ]]; then
