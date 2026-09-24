@@ -7,3 +7,6 @@
 /goro.ini
 run.sh
 /profiles/
+*.keystore
+*.jks
+*.p12

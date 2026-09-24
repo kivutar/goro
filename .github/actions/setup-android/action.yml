@@ -1,0 +1,26 @@
+name: Set up Android build
+description: Install the pinned Go, Java, and Android tools used by CI and releases.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache: true
+    - uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: '17'
+    - uses: android-actions/setup-android@v4
+      with:
+        packages: 'platforms;android-35 build-tools;36.0.0 ndk;29.0.14206865'
+    - name: Configure Android build tools
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ripgrep
+        {
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865"
+          echo "ANDROID_BUILD_TOOLS=$ANDROID_HOME/build-tools/36.0.0"
+          echo "GOCACHE=$(go env GOCACHE)"
+        } >> "$GITHUB_ENV"
