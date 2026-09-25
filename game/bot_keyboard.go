@@ -14,6 +14,7 @@ func (m *WorldMode) botKeyPress(ctx client.Context, code input.KeyCode) {
 	if path == "" || m.bot == nil || m.bot.path != path || m.bot.disabled {
 		return
 	}
+	m.bot.ctx = ctx
 	if err := m.bot.keyPress(code); err != nil {
 		glog.Warnf("lua script keypress failed path=%q: %v", m.bot.path, err)
 		m.bot.close()
@@ -35,9 +36,9 @@ func (b *luaBot) keyPress(code input.KeyCode) error {
 	return b.state.CallByParam(lua.P{Fn: fn, NRet: 0, Protect: true}, lua.LString(input.KeyCodeName(code)))
 }
 
-func registerLuaKeyboardAPI(state *lua.LState, api *lua.LTable, ctx client.Context, bot *luaBot) {
+func registerLuaKeyboardAPI(state *lua.LState, api *lua.LTable, bot *luaBot) {
 	available := func() bool {
-		return bot != nil && bot.keyboardAvailable && ctx.Input != nil
+		return bot != nil && bot.keyboardAvailable && bot.ctx.Input != nil
 	}
 	keyboard := state.NewTable()
 	state.SetFuncs(keyboard, map[string]lua.LGFunction{
@@ -47,29 +48,29 @@ func registerLuaKeyboardAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 		},
 		"is_down": func(L *lua.LState) int {
 			code, ok := input.KeyCodeFromName(L.CheckString(1))
-			L.Push(lua.LBool(ok && available() && ctx.Input.KeyCodeDown(code)))
+			L.Push(lua.LBool(ok && available() && bot.ctx.Input.KeyCodeDown(code)))
 			return 1
 		},
 		"was_pressed": func(L *lua.LState) int {
 			code, ok := input.KeyCodeFromName(L.CheckString(1))
-			L.Push(lua.LBool(ok && available() && ctx.Input.KeyCodeJustPressed(code)))
+			L.Push(lua.LBool(ok && available() && bot.ctx.Input.KeyCodeJustPressed(code)))
 			return 1
 		},
 		"was_released": func(L *lua.LState) int {
 			code, ok := input.KeyCodeFromName(L.CheckString(1))
-			L.Push(lua.LBool(ok && available() && ctx.Input.KeyCodeJustReleased(code)))
+			L.Push(lua.LBool(ok && available() && bot.ctx.Input.KeyCodeJustReleased(code)))
 			return 1
 		},
 		"consume_press": func(L *lua.LState) int {
 			code, ok := input.KeyCodeFromName(L.CheckString(1))
-			L.Push(lua.LBool(ok && available() && ctx.Input.ConsumeKeyCodePress(code)))
+			L.Push(lua.LBool(ok && available() && bot.ctx.Input.ConsumeKeyCodePress(code)))
 			return 1
 		},
 		"text": func(L *lua.LState) int {
 			if !available() {
 				L.Push(lua.LString(""))
 			} else {
-				L.Push(lua.LString(ctx.Input.TextInput()))
+				L.Push(lua.LString(bot.ctx.Input.TextInput()))
 			}
 			return 1
 		},
