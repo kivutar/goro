@@ -52,6 +52,8 @@ any `.gpf` patches. Relative paths are resolved from the data folder; absolute
 paths also work. `DATA.INI`, its section name, and relative archive paths are
 looked up case-insensitively. Both Windows and Unix separators are accepted in
 relative paths. Blank entries are ignored. Comment lines can start with `;` or `#`.
+These comments can also follow a section header, such as `[Data] ; archives`.
+UTF-8 files (with or without a BOM) and UTF-16 files with a BOM are supported.
 
 If `DATA.INI` is absent, Goro loads existing archives in this order:
 

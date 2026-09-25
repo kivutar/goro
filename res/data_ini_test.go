@@ -1,12 +1,48 @@
 package res
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf16"
 )
+
+func TestParseDataINIEncodings(t *testing.T) {
+	ini := "[Data]\r\n0=café.grf\r\n"
+	type iniEncoding struct {
+		name string
+		data []byte
+	}
+	encodings := []iniEncoding{
+		{"UTF-8", []byte(ini)},
+		{"UTF-8 BOM", []byte("\ufeff" + ini)},
+	}
+	for _, encoding := range []struct {
+		name  string
+		order binary.ByteOrder
+	}{
+		{"UTF-16 LE BOM", binary.LittleEndian},
+		{"UTF-16 BE BOM", binary.BigEndian},
+	} {
+		units := utf16.Encode([]rune("\ufeff" + ini))
+		data := make([]byte, 2*len(units))
+		for i, unit := range units {
+			encoding.order.PutUint16(data[2*i:], unit)
+		}
+		encodings = append(encodings, iniEncoding{encoding.name, data})
+	}
+	for _, encoding := range encodings {
+		t.Run(encoding.name, func(t *testing.T) {
+			names, err := parseDataINI(encoding.data)
+			if err != nil || !slices.Equal(names, []string{"café.grf"}) {
+				t.Fatalf("parseDataINI = %v, %v; want [café.grf]", names, err)
+			}
+		})
+	}
+}
 
 func TestManagerDataINIArchiveOrder(t *testing.T) {
 	root := t.TempDir()
@@ -57,7 +93,7 @@ func TestManagerDataINIPathsAndFormatting(t *testing.T) {
 	if err := writeTestGRF(external, "external.txt", []byte("external")); err != nil {
 		t.Fatal(err)
 	}
-	ini := "\ufeff; client archives\r\n[Other]\r\nignored=value\r\n[ dAtA ]\r\n# comment\r\n 2 = \"patches\\custom.grf\"\r\n 10 = '" + external + "'\r\n 11 = \r\n"
+	ini := "\ufeff; client archives\r\n[Other] ; ignored section\r\nignored=value\r\n[ dAtA ]# archive priority\r\n# comment\r\n 2 = \"patches\\custom.grf\"\r\n 10 = '" + external + "'\r\n 11 = \r\n"
 	if err := os.WriteFile(filepath.Join(root, "DaTa.InI"), []byte(ini), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -121,6 +157,8 @@ func TestManagerDataINIErrors(t *testing.T) {
 	for _, tc := range []struct{ name, ini, want string }{
 		{"missing section", "0=data.grf\n", "missing [Data]"},
 		{"bad section", "[Data\n", "line 1"},
+		{"section trailing text", "[Data] garbage\n", "invalid section header"},
+		{"section extra bracket", "[Data]]\n", "invalid section header"},
 		{"missing equals", "[Data]\ndata.grf\n", "line 2"},
 		{"non numeric priority", "[Data]\nfirst=data.grf\n", "invalid archive priority"},
 		{"negative priority", "[Data]\n-1=data.grf\n", "invalid archive priority"},

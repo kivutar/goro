@@ -2,12 +2,16 @@ package res
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 )
 
 func (m *Manager) scanKnownFiles() error {
@@ -70,7 +74,8 @@ func (m *Manager) scanKnownFiles() error {
 // parseDataINI returns only the archives explicitly listed in [Data], in
 // increasing numeric priority. An empty [Data] section selects no archives.
 func parseDataINI(data []byte) ([]string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(strings.TrimPrefix(string(data), "\ufeff")))
+	reader := transform.NewReader(bytes.NewReader(data), unicode.BOMOverride(transform.Nop))
+	scanner := bufio.NewScanner(reader)
 	section := ""
 	foundData := false
 	entries := make(map[int]string)
@@ -82,10 +87,12 @@ func parseDataINI(data []byte) ([]string, error) {
 			continue
 		}
 		if strings.HasPrefix(line, "[") {
-			if !strings.HasSuffix(line, "]") {
+			name, tail, ok := strings.Cut(line[1:], "]")
+			tail = strings.TrimSpace(tail)
+			if !ok || tail != "" && !strings.HasPrefix(tail, ";") && !strings.HasPrefix(tail, "#") {
 				return nil, fmt.Errorf("line %d: invalid section header", lineNo)
 			}
-			section = strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
+			section = strings.ToLower(strings.TrimSpace(name))
 			foundData = foundData || section == "data"
 			continue
 		}
