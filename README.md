@@ -142,6 +142,11 @@ The resource manager currently looks for loose files such as:
 - `System/clientinfo.xml`
 - `System/sclientinfo.xml`
 
+GRF archives are selected through `DATA.INI` in the data folder, with lower
+numeric entries taking priority. Without it, Goro loads existing `fdata.grf`,
+`rdata.grf`, `sdata.grf`, and `data.grf` in that order. Event and custom archives
+must be listed explicitly. See [GRF archive configuration](docs/client-setup.md#grf-archives).
+
 ## Current Scope
 
 Currently implemented (not a claim of complete reference-client parity):
