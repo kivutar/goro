@@ -7,7 +7,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <application android:label="Goro" android:icon="@drawable/icon"
         android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen"
-        android:debuggable="true" android:allowBackup="false" android:extractNativeLibs="true">
+        android:allowBackup="false" android:extractNativeLibs="true">
         <activity android:name=".GoroActivity" android:exported="true"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard|uiMode"
