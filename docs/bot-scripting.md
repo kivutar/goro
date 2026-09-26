@@ -10,7 +10,8 @@ Run a script with:
 ```
 
 The script must define a global `tick()` function. Goro calls it roughly every
-150 ms while the world mode is active.
+150 ms while the world mode is active. Lua state is retained across map changes
+and map-server transfers for the current character.
 
 ```lua
 function tick()
@@ -46,9 +47,102 @@ Stop the process with Ctrl+C.
 There is no automatic reconnect or Lua API for answering interactive dialogs.
 `--no-ui` only hides the graphical client's UI.
 
+## Acolyte companion
+
+Run [`scripts/companion.lua`](../scripts/companion.lua) on a second character:
+
+```sh
+./goro --data-dir ~/OldRO --script scripts/companion.lua
+```
+
+Say **follow** in public or party chat while near the bot. It replies
+"Following you." in the same channel and switches to the speaker, even without
+a party. Any visible player can become its leader this way. Commands ignore
+case and surrounding whitespace; acknowledgements are limited to one every
+two seconds. Say **heal** to request one Heal on yourself, even outside a party
+or when your HP is unknown. Stay within eight cells. The bot stands and stops
+walking first, waits for an ongoing cast, and reports insufficient SP or a
+locally rejected skill request. Healing someone does not change its leader.
+
+Edit the configuration at the top of the script to choose an initial `leader`,
+or set it to `""` to wait for a chat command. Heal, Blessing, and Increase AGI
+default to level 1; set these to levels your Acolyte has learned, or use 0 to
+disable a skill. The same script works with the headless login options above.
+
+The companion follows its visible leader when more than six cells away and
+aims for a cell at least four cells away from that player. The distances are
+configurable at the top of the script.
+If the direct approach lands on a blocked cell, it tries nearby cells around
+the leader while keeping the same gap. Movement requests are limited to once
+per second.
+It heals itself and its leader below 70% HP, prioritizing itself below 35%.
+Automatic healing of the leader needs party HP updates; outside a party it
+can follow and buff, but does not know when that player needs healing; use
+**heal** to request it explicitly.
+At critical HP it also uses red, orange, yellow, or white potions, including
+the condensed variants, from its inventory. It periodically attempts Blessing
+and Increase AGI on both characters, retaining SP for one Heal. At low SP it
+sits to recover, standing when its companion moves away, danger appears,
+it has enough SP for a needed Heal, or enough SP has recovered. Any nearby enemy
+is treated conservatively as danger when deciding whether to rest or buff.
+
+The script cannot inspect active buffs or learned skill levels, or confirm
+that the server accepted a skill. Buff refresh timers are estimates based on
+classic skill levels, and short pauses/retry limits avoid flooding requests.
+If the leader disappears, it approaches the last observed cell for up to
+`catch_up_seconds` (10 by default), including the usual gap between characters.
+This lets it try to enter the same map portal. It waits after reaching that
+cell or timing out, and resumes when the leader is visible again. It stops
+pursuing a known dead leader.
+
+The selected leader survives the bot's own map changes. Movement and resting
+state are reset on arrival, so old coordinates are never used on the new map.
+This is local catch-up, not route planning: it cannot track a distant teleport
+or operate NPC travel dialogs.
+Restart the script's client after editing its configuration; file changes are
+not automatically reloaded.
+
 ## API
 
 All functions are exposed through the global `goro` table.
+
+### Map changes
+
+An optional global `map_changed()` callback runs after map loading and the
+load acknowledgement, including a warp within the current map. Actions sent
+from the callback follow that acknowledgement. Use it to clear cached
+positions, walking or casting decisions, while retaining long-lived choices
+such as a leader. It is not called for a script's initial load. The `goro`
+functions, including cached references, use the current world mode.
+
+The WASD script clears movement and targeting state here, so a key held through
+a portal starts movement from the new position.
+
+Selecting another character starts a fresh script. Changing or removing
+`--script` also replaces or closes the previous instance. Callback errors
+disable the script as with `tick()` errors.
+
+### Receiving chat
+
+Define an optional global `chat(message)` callback to receive other players'
+public and party messages while the script is loaded. It runs during game
+updates, on the same thread as `tick()`. Normal chat display is unaffected.
+
+```lua
+function chat(message)
+	-- message.channel: "public" or "party"
+	-- message.sender_id: the speaker's ID from the server packet
+	-- message.sender_name: known name, or the packet's name prefix if not loaded
+	-- message.text: message body, with the matching "Name : " prefix removed
+end
+```
+
+Public speakers must be visible players; party speakers can also be identified
+from the party list. Names can be empty; use `sender_id` to identify a player.
+Self echoes, NPC speech, announcements, chat-room messages, and whispers are
+excluded. A callback error disables the script, as with `tick()` errors.
+
+### Keyboard callbacks
 
 Scripts may also define an optional global `input()` function. Goro calls it
 once per frame so keyboard edges can be handled without waiting for the slower

@@ -128,6 +128,9 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		glog.Errorf("parse chat message 0x%04X: %v", pkt.ID, err)
 	} else if ok {
 		m.handleChatMessage(ctx, chat, now)
+		if pkt.ID == network.PacketZCNotifyChat && !m.ui.chatRoom.IsOpen() {
+			m.botChat(ctx, "public", chat.GID, chat.Text)
+		}
 		return nil, false
 	}
 	if notify, ok, err := network.ParseExpNotify(pkt); err != nil {
@@ -881,6 +884,7 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		glog.Errorf("parse party chat 0x%04X: %v", pkt.ID, err)
 	} else if ok {
 		applyPartyChat(ctx, partyChat, &m.ui.console)
+		m.botChat(ctx, "party", partyChat.AccountID, partyChat.Message)
 		return nil, false
 	}
 	if tradeRequest, ok, err := network.ParseTradeRequest(pkt); err != nil {

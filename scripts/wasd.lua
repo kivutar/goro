@@ -48,6 +48,15 @@ local function clear_skill_target()
 	skill_target_skill_id = nil
 end
 
+function map_changed()
+	clear_target()
+	clear_skill_target()
+	loot_target_id, attack_target_id = nil, nil
+	fight_down, loot_down = false, false
+	last_attack_at, last_loot_at = -math.huge, -math.huge
+	skill_input_handled = false
+end
+
 local function has_flag(value, flag)
 	return value % (flag * 2) >= flag
 end
