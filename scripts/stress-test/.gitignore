@@ -1,0 +1,6 @@
+__pycache__/
+.state/
+*.ini
+*.tsv
+*.lock
+/goro
