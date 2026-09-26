@@ -46,6 +46,7 @@ func GoroStart(window C.uintptr_t, width, height C.int, directory *C.char) {
 	done := make(chan struct{})
 	host.done = done
 	gogpu.AndroidSetWindow(uintptr(window), int(width), int(height))
+	input.AndroidResetGamepads()
 	go func() {
 		defer close(done)
 		if err := run(dir, int(width), int(height)); err != nil {
@@ -68,6 +69,9 @@ func run(dir string, width, height int) error {
 	cfg, err := config.LoadConfig([]string{"--data-dir", dir, "--width", strconv.Itoa(width), "--height", strconv.Itoa(height), "--graphics-api", "vulkan", "--fullscreen"})
 	if err != nil {
 		return err
+	}
+	if cfg.Script.Path == "" {
+		cfg.Script.Path = "builtin:wasd"
 	}
 	closeLog, err := glog.Configure(cfg.Log)
 	if err != nil {
@@ -95,6 +99,7 @@ func GoroStop() {
 	<-done
 	host.Lock()
 	host.done = nil
+	input.AndroidResetGamepads()
 	host.Unlock()
 }
 
@@ -137,5 +142,23 @@ func GoroKey(code, mods, down C.int) {
 
 //export GoroText
 func GoroText(codepoint C.int) { gogpu.AndroidChar(rune(codepoint)) }
+
+//export GoroFocus
+func GoroFocus(focused C.int) { gogpu.AndroidFocus(focused != 0) }
+
+//export GoroGamepadDevice
+func GoroGamepadDevice(id C.int, name *C.char, connected C.int) {
+	input.AndroidGamepadDevice(int(id), C.GoString(name), connected != 0)
+}
+
+//export GoroGamepadKey
+func GoroGamepadKey(id, key, down C.int) {
+	input.AndroidGamepadKey(int(id), int(key), down != 0)
+}
+
+//export GoroGamepadMotion
+func GoroGamepadMotion(id C.int, lx, ly, rx, ry, lt, rt, hx, hy C.float) {
+	input.AndroidGamepadMotion(int(id), [input.GamepadAxisCount]float64{float64(lx), float64(ly), float64(rx), float64(ry), float64(lt), float64(rt)}, float64(hx), float64(hy))
+}
 
 func main() {}

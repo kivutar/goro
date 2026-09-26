@@ -9,6 +9,15 @@ Run a script with:
 ./goro --data-dir ~/OldRO --script scripts/loot-and-attack.lua
 ```
 
+The keyboard/gamepad controls script is also bundled in every binary:
+
+```sh
+./goro --data-dir ~/OldRO --script builtin:wasd
+```
+
+Use `--script scripts/wasd.lua` to load an editable copy, or `--script none` to
+disable scripting. The same values work as `path` under `[script]` in `goro.ini`.
+
 The script must define a global `tick()` function. Goro calls it roughly every
 150 ms while the world mode is active.
 
@@ -88,6 +97,37 @@ positions are ZQSD on an AZERTY keyboard.
 
 The keyboard API only reports input. Movement, combat, prompts, and other
 behavior remain Lua policy built from the generic functions below.
+
+### `goro.gamepad`
+
+The same interface works on Windows, Linux, macOS and Android. Goro selects the
+first detected controller and keeps it selected until it disconnects. Input
+snapshots become visible to Lua once per graphical frame; use `input()` for
+press/release edges. Linux device discovery and polling run in a background
+worker so driver calls cannot block game updates.
+
+- `connected()` reports whether a controller is connected, regardless of UI focus.
+- `name()` returns its name, or an empty string when disconnected.
+- `available()` reports whether gameplay input is allowed and a controller is connected.
+- `is_down(button)`, `was_pressed(button)`, `was_released(button)` report held state and frame edges.
+- `axis(name)` returns a normalized axis value. Sticks range from -1 to 1 (negative is left/up); triggers range from 0 to 1.
+
+Button names are positional: `south`, `east`, `west`, `north`, `left_shoulder`,
+`right_shoulder`, `back`, `start`, `left_stick`, `right_stick`, `dpad_up`,
+`dpad_down`, `dpad_left`, `dpad_right`. Axis names are `left_x`, `left_y`,
+`right_x`, `right_y`, `left_trigger`, `right_trigger`. Unknown names return
+false or zero. The API leaves deadzones to the script; `wasd.lua` uses 0.3.
+
+Gameplay queries return neutral input while chat/forms own the keyboard or the
+player cannot act. Disconnecting clears axes and held buttons and reports
+release edges; losing window focus clears input without generating press or
+release actions. Headless mode does not poll physical controllers.
+
+`wasd.lua` combines the left stick and D-pad with WASD, uses West for attack and
+North for loot, and preserves eight-direction movement. Shoulder buttons cycle
+targets for an armed actor skill; left stick click confirms that target.
+The right stick, South/East mouse clicks and Start/Escape are shared client menu
+controls and work even without a script.
 
 ### `goro.player()`
 

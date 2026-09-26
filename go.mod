@@ -5,6 +5,7 @@ go 1.26.4
 require (
 	github.com/charmbracelet/log v1.0.0
 	github.com/ebitengine/oto/v3 v3.5.0-alpha.8
+	github.com/ebitengine/purego v0.10.1
 	github.com/gogpu/gogpu v0.54.0
 	github.com/gogpu/gpucontext v0.31.3
 	github.com/gogpu/gputypes v0.8.0
@@ -13,6 +14,7 @@ require (
 	github.com/gogpu/wgpu v0.34.3
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/image v0.45.0
+	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.41.0
 )
 
@@ -23,7 +25,6 @@ require (
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
-	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -46,7 +47,6 @@ require (
 	github.com/godexture/sdk v0.0.0
 	github.com/gogpu/gg v0.52.5
 	github.com/jfreymuth/pulse v0.1.1 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 )
 
 replace github.com/godexture/codec-mp3 => github.com/godexture/godec/plugins/codec-mp3 v0.0.0-20260621142744-bd77e78cfab1

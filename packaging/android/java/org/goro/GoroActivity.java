@@ -2,11 +2,13 @@ package org.goro;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.KeyCharacterMap;
 import android.view.MotionEvent;
@@ -24,7 +26,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import java.io.File;
 
-public final class GoroActivity extends Activity {
+public final class GoroActivity extends Activity implements InputManager.InputDeviceListener {
     static { System.loadLibrary("goro"); }
     private static native void nativeStart(Surface surface, int width, int height, String dataDir);
     private static native void nativeStop();
@@ -33,23 +35,18 @@ public final class GoroActivity extends Activity {
     private static native void nativeScroll(float x, float y, float delta);
     private static native void nativeKey(int code, int mods, boolean down);
     private static native void nativeText(int codepoint);
+    private static native void nativeFocus(boolean focused);
+    private static native void nativeGamepadDevice(int id, String name, boolean connected);
+    private static native void nativeGamepadKey(int id, int key, boolean down);
+    private static native void nativeGamepadMotion(int id, float lx, float ly, float rx, float ry,
+        float lt, float rt, float hx, float hy);
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private GameView game;
     private File dataDir;
     private boolean running;
     private boolean resumed;
-    private final Runnable controllerTick = new Runnable() {
-        @Override public void run() {
-            if (!running) return;
-            if (Math.abs(game.stickX) > 0.15f || Math.abs(game.stickY) > 0.15f) {
-                game.pointerX = Math.max(0, Math.min(game.renderWidth - 1, game.pointerX + game.stickX * 12));
-                game.pointerY = Math.max(0, Math.min(game.renderHeight - 1, game.pointerY + game.stickY * 12));
-                nativePointer(2, -1, game.gamepadButtons, game.pointerX, game.pointerY);
-            }
-            handler.postDelayed(this, 16);
-        }
-    };
+    private InputManager inputManager;
     private final Runnable statusCheck = new Runnable() {
         @Override public void run() {
             if (!running) return;
@@ -67,6 +64,8 @@ public final class GoroActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        inputManager = (InputManager)getSystemService(INPUT_SERVICE);
+        inputManager.registerInputDeviceListener(this, handler);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         dataDir = getExternalFilesDir(null);
         if (dataDir == null) dataDir = getFilesDir();
@@ -106,6 +105,32 @@ public final class GoroActivity extends Activity {
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused);
         if (focused) immersive();
+        if (running) {
+            nativeFocus(focused);
+            for (int id : InputDevice.getDeviceIds()) {
+                if (focused) onInputDeviceAdded(id);
+                else nativeGamepadDevice(id, "", false);
+            }
+        }
+    }
+    @Override protected void onDestroy() {
+        if (inputManager != null) inputManager.unregisterInputDeviceListener(this);
+        super.onDestroy();
+    }
+    private static boolean isGamepad(InputDevice device) {
+        return device != null && (device.supportsSource(InputDevice.SOURCE_GAMEPAD)
+            || device.supportsSource(InputDevice.SOURCE_JOYSTICK));
+    }
+    @Override public void onInputDeviceAdded(int id) {
+        InputDevice device = InputDevice.getDevice(id);
+        if (running && isGamepad(device)) nativeGamepadDevice(id, device.getName(), true);
+    }
+    @Override public void onInputDeviceRemoved(int id) {
+        if (running) nativeGamepadDevice(id, "", false);
+    }
+    @Override public void onInputDeviceChanged(int id) {
+        onInputDeviceRemoved(id);
+        onInputDeviceAdded(id);
     }
     @Override protected void onResume() {
         super.onResume();
@@ -122,17 +147,15 @@ public final class GoroActivity extends Activity {
         if (!new File(dataDir, "data.grf").isFile() && !new File(dataDir, "data").isDirectory()) return;
         nativeStart(game.getHolder().getSurface(), game.renderWidth, game.renderHeight, dataDir.getAbsolutePath());
         running = true;
+        nativeFocus(hasWindowFocus());
         handler.postDelayed(statusCheck, 1000);
-        handler.post(controllerTick);
+        for (int id : InputDevice.getDeviceIds()) onInputDeviceAdded(id);
     }
     private void stopGame() {
         handler.removeCallbacks(statusCheck);
-        handler.removeCallbacks(controllerTick);
         if (!running) return;
         nativeStop();
         running = false;
-        game.stickX = game.stickY = 0;
-        game.gamepadButtons = 0;
     }
 
     private static void sendText(CharSequence text) {
@@ -150,22 +173,15 @@ public final class GoroActivity extends Activity {
             return super.dispatchKeyEvent(event);
         }
         if (!running) return super.dispatchKeyEvent(event);
-        if (key == KeyEvent.KEYCODE_BUTTON_SELECT) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) showKeyboard();
-            return true;
-        }
-        // A/B operate the pointer; Start opens the game's Escape menu.
-        if (key == KeyEvent.KEYCODE_BUTTON_A || key == KeyEvent.KEYCODE_BUTTON_B) {
-            int button = key == KeyEvent.KEYCODE_BUTTON_A ? 0 : 2;
+        if (isGamepad(event.getDevice()) && (KeyEvent.isGamepadButton(key)
+            || key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
+            || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)) {
+            onInputDeviceAdded(event.getDeviceId());
             boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
-            if (down && event.getRepeatCount() > 0) return true;
-            int mask = button == 0 ? 1 : 2;
-            if (down) game.gamepadButtons |= mask;
-            else game.gamepadButtons &= ~mask;
-            nativePointer(down ? 0 : 1, button, game.gamepadButtons, game.pointerX, game.pointerY);
+            nativeGamepadKey(event.getDeviceId(), key, down);
+            if (key == KeyEvent.KEYCODE_BUTTON_SELECT && down && event.getRepeatCount() == 0) showKeyboard();
             return true;
         }
-        if (key == KeyEvent.KEYCODE_BUTTON_START) key = KeyEvent.KEYCODE_ESCAPE;
         int mods = (event.isShiftPressed() ? 1 : 0) | (event.isCtrlPressed() ? 2 : 0)
             | (event.isAltPressed() ? 4 : 0) | (event.isMetaPressed() ? 8 : 0);
         if (event.getAction() == KeyEvent.ACTION_MULTIPLE && event.getCharacters() != null) {
@@ -185,8 +201,6 @@ public final class GoroActivity extends Activity {
         boolean surfaceReady;
         int renderWidth = 1280, renderHeight = 720;
         float pointerX = 640, pointerY = 360;
-        float stickX, stickY;
-        int gamepadButtons;
         boolean rightTouch;
         boolean touchReleased;
         float pinchDistance;
@@ -271,10 +285,17 @@ public final class GoroActivity extends Activity {
         @Override public boolean onGenericMotionEvent(MotionEvent event) {
             if (!running) return true;
             if (event.isFromSource(android.view.InputDevice.SOURCE_JOYSTICK)) {
-                stickX = event.getAxisValue(MotionEvent.AXIS_X);
-                stickY = event.getAxisValue(MotionEvent.AXIS_Y);
-                if (Math.abs(stickX) < 0.15f) stickX = 0;
-                if (Math.abs(stickY) < 0.15f) stickY = 0;
+                onInputDeviceAdded(event.getDeviceId());
+                InputDevice device = event.getDevice();
+                int rx = MotionEvent.AXIS_Z, ry = MotionEvent.AXIS_RZ;
+                if (device != null && device.getMotionRange(rx, event.getSource()) == null) {
+                    rx = MotionEvent.AXIS_RX; ry = MotionEvent.AXIS_RY;
+                }
+                nativeGamepadMotion(event.getDeviceId(), event.getAxisValue(MotionEvent.AXIS_X),
+                    event.getAxisValue(MotionEvent.AXIS_Y), event.getAxisValue(rx), event.getAxisValue(ry),
+                    Math.max(event.getAxisValue(MotionEvent.AXIS_LTRIGGER), event.getAxisValue(MotionEvent.AXIS_BRAKE)),
+                    Math.max(event.getAxisValue(MotionEvent.AXIS_RTRIGGER), event.getAxisValue(MotionEvent.AXIS_GAS)),
+                    event.getAxisValue(MotionEvent.AXIS_HAT_X), event.getAxisValue(MotionEvent.AXIS_HAT_Y));
                 return true;
             } else {
                 pointerX = event.getX() * renderWidth / getWidth();
