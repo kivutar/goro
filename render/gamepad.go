@@ -59,10 +59,9 @@ func (c *gamepadUIState) update(state *input.State, events *fanoutEventSource, n
 		}
 	}
 	c.lastX, c.lastY = state.MouseX, state.MouseY
-	for i, button := range [...]input.GamepadButton{input.GamepadSouth, input.GamepadEast} {
-		down := state.GamepadDown(button)
+	setMouseButton := func(i int, down bool) {
 		if down == c.buttons[i] {
-			continue
+			return
 		}
 		c.buttons[i] = down
 		mouse := gpucontext.MouseButtonLeft
@@ -71,7 +70,25 @@ func (c *gamepadUIState) update(state *input.State, events *fanoutEventSource, n
 		}
 		events.setMouseButton(true, mouse, down, c.x, c.y)
 	}
-	if state.GamepadJustPressed(input.GamepadStart) && !state.KeyCodeDown(gpucontext.KeyEscape) {
+	for _, change := range state.GamepadChanges() {
+		switch change.Button {
+		case input.GamepadSouth:
+			setMouseButton(0, change.Down)
+		case input.GamepadEast:
+			setMouseButton(1, change.Down)
+		case input.GamepadStart:
+			if change.Down {
+				tapGamepadEscape(state, events)
+			}
+		}
+	}
+	// Reconcile held buttons after a controller switch or input reset.
+	setMouseButton(0, state.GamepadDown(input.GamepadSouth))
+	setMouseButton(1, state.GamepadDown(input.GamepadEast))
+}
+
+func tapGamepadEscape(state *input.State, events *fanoutEventSource) {
+	if !state.KeyCodeDown(gpucontext.KeyEscape) {
 		// A complete tap avoids sharing a held keyboard key with a controller.
 		state.SetKeyCode(gpucontext.KeyEscape, true)
 		if events.handleKeyPress != nil {

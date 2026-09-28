@@ -361,6 +361,11 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	game.Resize(cfg.Width, cfg.Height)
 	wireInput(events, game.InputState())
 	events.OnFocus(func(focused bool) {
+		if r.gamepads != nil {
+			// Discard transitions queued before this focus change, including taps
+			// received while background rendering was suspended.
+			r.gamepads.Poll()
+		}
 		r.gamepadFocused = focused
 		if !focused {
 			r.gamepadUI = gamepadUIState{}

@@ -3,20 +3,18 @@ package input
 import (
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
-type gamepadSamples struct{ pads []GamepadSnapshot }
-
 // pollingGamepads keeps device discovery and driver calls off the frame thread.
-// Published snapshots are immutable; poll never waits for device I/O or a lock.
+// The lock only protects cached samples; it is never held during device I/O.
 // Only wrap backends whose OS APIs permit polling on a background goroutine.
 type pollingGamepads struct {
-	latest atomic.Pointer[gamepadSamples]
-	stop   chan struct{}
-	done   chan struct{}
-	once   sync.Once
+	mu   sync.Mutex
+	pads []GamepadSnapshot
+	stop chan struct{}
+	done chan struct{}
+	once sync.Once
 }
 
 func newPollingGamepads(backend gamepadBackend) *pollingGamepads {
@@ -32,12 +30,28 @@ func newPollingGamepads(backend gamepadBackend) *pollingGamepads {
 				return
 			default:
 			}
-			// The backend owns its returned slice. Copy it before publishing so
-			// later samples cannot mutate data the frame thread is still reading.
 			pads := backend.poll()
-			if previous := p.latest.Load(); previous == nil || !slices.Equal(previous.pads, pads) {
-				p.latest.Store(&gamepadSamples{pads: append([]GamepadSnapshot(nil), pads...)})
+			p.mu.Lock()
+			// Disconnects discard pending actions from that controller.
+			p.pads = slices.DeleteFunc(p.pads, func(old GamepadSnapshot) bool {
+				return !slices.ContainsFunc(pads, func(next GamepadSnapshot) bool { return next.ID == old.ID })
+			})
+			for _, next := range pads {
+				i := slices.IndexFunc(p.pads, func(old GamepadSnapshot) bool { return next.ID == old.ID })
+				if i < 0 {
+					i = len(p.pads)
+					p.pads = append(p.pads, GamepadSnapshot{ID: next.ID})
+				}
+				pad := &p.pads[i]
+				for _, change := range next.Changes {
+					pad.setButton(change.Button, change.Down)
+				}
+				for button, down := range next.Buttons {
+					pad.setButton(GamepadButton(button), down)
+				}
+				pad.Name, pad.Axes = next.Name, next.Axes
 			}
+			p.mu.Unlock()
 			select {
 			case <-p.stop:
 				return
@@ -49,10 +63,13 @@ func newPollingGamepads(backend gamepadBackend) *pollingGamepads {
 }
 
 func (p *pollingGamepads) poll() []GamepadSnapshot {
-	if sample := p.latest.Load(); sample != nil {
-		return sample.pads
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	pads := slices.Clone(p.pads)
+	for i := range p.pads {
+		p.pads[i].Changes = nil // Transfer ownership; later polls cannot replay edges.
 	}
-	return nil
+	return pads
 }
 
 func (p *pollingGamepads) close() {

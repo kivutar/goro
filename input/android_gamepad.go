@@ -47,6 +47,7 @@ func AndroidGamepadKey(id, key int, down bool) {
 	} else {
 		pad.triggers[key-104] = down
 	}
+	pad.updateButtons()
 	androidGamepads.pads[id] = pad
 }
 
@@ -59,7 +60,17 @@ func AndroidGamepadMotion(id int, axes [GamepadAxisCount]float64, hatX, hatY flo
 	}
 	pad.Axes = axes
 	pad.hat = [4]bool{hatY < -0.5, hatY > 0.5, hatX < -0.5, hatX > 0.5}
+	pad.updateButtons()
 	androidGamepads.pads[id] = pad
+}
+
+func (p *androidGamepad) updateButtons() {
+	for button, down := range p.keys {
+		if button >= int(GamepadUp) {
+			down = down || p.hat[button-int(GamepadUp)]
+		}
+		p.setButton(GamepadButton(button), down)
+	}
 }
 
 func AndroidResetGamepads() {
@@ -83,10 +94,9 @@ func (*androidGamepadBackend) poll() []GamepadSnapshot {
 	for _, id := range ids {
 		device := androidGamepads.pads[id]
 		pad := device.GamepadSnapshot
-		pad.Buttons = device.keys
-		for i, down := range device.hat {
-			pad.Buttons[int(GamepadUp)+i] = pad.Buttons[int(GamepadUp)+i] || down
-		}
+		// Transfer ownership of the queued transitions to the game thread.
+		device.Changes = nil
+		androidGamepads.pads[id] = device
 		for i, down := range device.triggers {
 			if down {
 				pad.Axes[int(GamepadLeftTrigger)+i] = 1

@@ -1,12 +1,66 @@
 package render
 
 import (
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/gogpu/gpucontext"
 	"github.com/kivutar/goro/input"
 )
+
+func TestGamepadDeliversShortTapsToUIInOrder(t *testing.T) {
+	events := &fanoutEventSource{}
+	state := input.NewState()
+	wireInput(events, state)
+	var got []string
+	events.OnMousePress(func(button gpucontext.MouseButton, _, _ float64) {
+		if button == gpucontext.MouseButtonLeft {
+			got = append(got, "left down")
+		} else {
+			got = append(got, "right down")
+		}
+	})
+	events.OnMouseRelease(func(button gpucontext.MouseButton, _, _ float64) {
+		if button == gpucontext.MouseButtonLeft {
+			got = append(got, "left up")
+		} else {
+			got = append(got, "right up")
+		}
+	})
+	events.OnKeyPress(func(key gpucontext.Key, _ gpucontext.Modifiers) {
+		if key == gpucontext.KeyEscape {
+			got = append(got, "escape")
+		}
+	})
+	pad := input.GamepadSnapshot{ID: "test", Changes: []input.GamepadButtonChange{
+		{Button: input.GamepadSouth, Down: true},
+		{Button: input.GamepadEast, Down: true},
+		{Button: input.GamepadSouth, Down: false},
+		{Button: input.GamepadStart, Down: true},
+		{Button: input.GamepadStart, Down: false},
+		{Button: input.GamepadEast, Down: false},
+		{Button: input.GamepadStart, Down: true},
+		{Button: input.GamepadStart, Down: false},
+	}}
+	state.SetGamepad(pad)
+	ui := gamepadUIState{}
+	ui.update(state, events, time.Now(), 300, 200)
+	want := []string{"left down", "right down", "left up", "escape", "right up", "escape"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("UI events = %v, want %v", got, want)
+	}
+	if state.MousePressed(input.MouseButtonLeft) || state.MousePressed(input.MouseButtonRight) || state.KeyCodeDown(gpucontext.KeyEscape) {
+		t.Fatal("a short tap left a held UI input")
+	}
+	state.EndFrame()
+	pad.Changes = nil
+	state.SetGamepad(pad)
+	ui.update(state, events, time.Now(), 300, 200)
+	if !slices.Equal(got, want) {
+		t.Fatal("consumed UI taps replayed on the next frame")
+	}
+}
 
 func TestGamepadCursorAndMouseShareHeldButtons(t *testing.T) {
 	source := &fanoutEventSource{}
@@ -82,6 +136,9 @@ func TestFocusLossCancelsControllerAndMouseWithoutClicks(t *testing.T) {
 	}
 	for _, fn := range source.focus {
 		fn(false)
+	}
+	if len(state.GamepadChanges()) != 0 {
+		t.Fatal("focus loss retained queued controller input")
 	}
 	if state.GamepadConnected() || state.GamepadJustReleased(input.GamepadSouth) || state.MousePressed(input.MouseButtonLeft) || state.MouseJustReleased(input.MouseButtonLeft) {
 		t.Fatal("focus loss retained held input or generated a click")

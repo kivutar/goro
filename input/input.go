@@ -136,6 +136,7 @@ func (s *State) FrameID() uint64 {
 func (s *State) EndFrame() {
 	clear(s.gamepad.pressed[:])
 	clear(s.gamepad.released[:])
+	s.gamepad.changes = s.gamepad.changes[:0]
 	s.frameID++
 	for key, down := range s.keys {
 		s.prev[key] = down

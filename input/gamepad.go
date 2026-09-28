@@ -67,12 +67,27 @@ type GamepadSnapshot struct {
 	Name    string
 	Buttons [GamepadButtonCount]bool
 	Axes    [GamepadAxisCount]float64
+	// Changes contains button transitions since the previous poll, in order.
+	Changes []GamepadButtonChange
+}
+
+type GamepadButtonChange struct {
+	Button GamepadButton
+	Down   bool
+}
+
+func (p *GamepadSnapshot) setButton(button GamepadButton, down bool) {
+	if button < GamepadButtonCount && p.Buttons[button] != down {
+		p.Buttons[button] = down
+		p.Changes = append(p.Changes, GamepadButtonChange{button, down})
+	}
 }
 
 type gamepadState struct {
 	GamepadSnapshot
 	pressed  [GamepadButtonCount]bool
 	released [GamepadButtonCount]bool
+	changes  []GamepadButtonChange
 }
 
 // SetGamepad runs on the game thread, like SetKeyCode. Sources must not mutate
@@ -84,13 +99,11 @@ func (s *State) SetGamepad(next GamepadSnapshot) {
 	if next.ID != s.gamepad.ID && next.ID != "" {
 		s.ResetGamepad()
 	}
+	for _, change := range next.Changes {
+		s.setGamepadButton(change.Button, change.Down)
+	}
 	for button, down := range next.Buttons {
-		if down && !s.gamepad.Buttons[button] {
-			s.gamepad.pressed[button] = true
-		}
-		if !down && s.gamepad.Buttons[button] {
-			s.gamepad.released[button] = true
-		}
+		s.setGamepadButton(GamepadButton(button), down)
 	}
 	for axis, value := range next.Axes {
 		if math.IsNaN(value) || math.IsInf(value, 0) {
@@ -102,8 +115,25 @@ func (s *State) SetGamepad(next GamepadSnapshot) {
 		}
 		next.Axes[axis] = max(low, min(1, value))
 	}
+	next.Changes = nil
 	s.gamepad.GamepadSnapshot = next
 }
+
+func (s *State) setGamepadButton(button GamepadButton, down bool) {
+	if button >= GamepadButtonCount || s.gamepad.Buttons[button] == down {
+		return
+	}
+	s.gamepad.Buttons[button] = down
+	if down {
+		s.gamepad.pressed[button] = true
+	} else {
+		s.gamepad.released[button] = true
+	}
+	s.gamepad.changes = append(s.gamepad.changes, GamepadButtonChange{button, down})
+}
+
+// GamepadChanges returns this frame's transitions for ordered UI delivery.
+func (s *State) GamepadChanges() []GamepadButtonChange { return s.gamepad.changes }
 
 func (s *State) ResetGamepad()          { s.gamepad = gamepadState{} }
 func (s *State) GamepadConnected() bool { return s.gamepad.ID != "" }
