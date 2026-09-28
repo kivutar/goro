@@ -3,36 +3,55 @@ package input
 import (
 	"fmt"
 	"strconv"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-type xinputBackend struct{ getState *windows.LazyProc }
+type xinputState struct {
+	Packet                       uint32
+	Buttons                      uint16
+	LeftTrigger, RightTrigger    uint8
+	LeftX, LeftY, RightX, RightY int16
+}
+
+type xinputBackend struct {
+	getState func(uintptr, *xinputState) uintptr
+	nextScan [4]time.Time
+}
 
 func newGamepadBackend() (gamepadBackend, error) {
 	for _, name := range []string{"xinput1_4.dll", "xinput1_3.dll", "xinput9_1_0.dll"} {
 		proc := windows.NewLazySystemDLL(name).NewProc("XInputGetState")
 		if proc.Find() == nil {
-			return &xinputBackend{getState: proc}, nil
+			return newPollingGamepads(&xinputBackend{getState: func(index uintptr, raw *xinputState) uintptr {
+				result, _, _ := proc.Call(index, uintptr(unsafe.Pointer(raw)))
+				return result
+			}}), nil
 		}
 	}
 	return nil, fmt.Errorf("XInput is unavailable")
 }
 
 func (b *xinputBackend) poll() []GamepadSnapshot {
+	return b.pollAt(time.Now())
+}
+
+func (b *xinputBackend) pollAt(now time.Time) []GamepadSnapshot {
 	var pads []GamepadSnapshot
 	for index := 0; index < 4; index++ {
-		var raw struct {
-			Packet                       uint32
-			Buttons                      uint16
-			LeftTrigger, RightTrigger    uint8
-			LeftX, LeftY, RightX, RightY int16
-		}
-		result, _, _ := b.getState.Call(uintptr(index), uintptr(unsafe.Pointer(&raw)))
-		if result != 0 {
+		if now.Before(b.nextScan[index]) {
 			continue
 		}
+		var raw xinputState
+		result := b.getState(uintptr(index), &raw)
+		if result != 0 {
+			// Empty XInput slots can be slow, even with no controller attached.
+			b.nextScan[index] = now.Add(2 * time.Second)
+			continue
+		}
+		b.nextScan[index] = time.Time{}
 		pad := GamepadSnapshot{ID: "xinput:" + strconv.Itoa(index), Name: "XInput controller " + strconv.Itoa(index+1)}
 		masks := [...]uint16{0x1000, 0x2000, 0x4000, 0x8000, 0x100, 0x200, 0x20, 0x10, 0x40, 0x80, 1, 2, 4, 8}
 		for button, mask := range masks {
