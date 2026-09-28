@@ -2,7 +2,8 @@
 
 The Android host runs the existing game and Vulkan renderer in a landscape
 SurfaceView at 1280×720. It targets arm64 devices with Android 10 (API 29) or
-newer and Vulkan support. The APK is a debug build with package ID `org.goro`.
+newer and Vulkan support. The package ID is `org.goro`; local builds default
+to a debug APK.
 
 ## Build and install
 
@@ -27,6 +28,42 @@ The scripts do not require Gradle or gomobile.
 `install.sh` installs the APK, optionally copies the supplied client assets, then
 launches Goro. Omit the data argument on subsequent installs to retain the
 device's assets and settings. It never copies the desktop `goro.ini`.
+
+## CI and release APKs
+
+CI builds an arm64 debug APK on pushes and pull requests. Download the
+`goro-android-arm64-debug` artifact from the workflow run. These builds use
+temporary debug keys and cannot update an installation signed with another
+key. CI checks compilation and packaging, not gameplay on an Android device.
+
+Creating a GitHub release also builds `goro-android-arm64.apk` and attaches it
+alongside the desktop binaries. Release APKs disable debugging, use the release
+tag as their version name, and use the Release workflow run number as their
+version code. CI and releases share the pinned SDK/NDK setup in
+`.github/actions/setup-android/action.yml`.
+
+Before the first release, configure these repository Actions secrets:
+
+- `ANDROID_KEYSTORE_BASE64`: the base64-encoded release keystore.
+- `ANDROID_KEYSTORE_PASSWORD`: the password for both the keystore and its key.
+
+Create a keystore once:
+
+```sh
+keytool -genkeypair -keystore goro-release.p12 -storetype PKCS12 \
+    -alias goro -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Keep the keystore and password backed up outside the repository: future APKs
+must use the same signing key to update existing installations and retain data.
+The release job fails if either secret is missing; it never generates a release
+key. Only the APK is uploaded.
+
+For a local release build, set `ANDROID_BUILD_TYPE=release`, `ANDROID_KEYSTORE`
+to the keystore path, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_VERSION_NAME`, and
+a positive `ANDROID_VERSION_CODE`, then run `packaging/android/build.sh`.
+`install.sh` continues to install the local debug APK; release APKs can be
+installed with `adb install -r dist/android/goro-android-arm64.apk`.
 
 ## Client data and servers
 

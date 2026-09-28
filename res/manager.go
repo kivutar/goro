@@ -6,7 +6,6 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -86,7 +85,17 @@ func NewManager(root string) (*Manager, error) {
 	}
 
 	m := &Manager{Root: filepath.Clean(root)}
-	m.scanKnownFiles()
+	initialized := false
+	defer func() {
+		if !initialized {
+			for _, archive := range m.Archives {
+				_ = archive.Close()
+			}
+		}
+	}()
+	if err := m.scanKnownFiles(); err != nil {
+		return nil, err
+	}
 	m.ClientInfo = ClientInfo{
 		Connections: []Connection{
 			{Display: "Local rAthena", Address: "127.0.0.1", Port: 6900, Version: 55, LangType: 0},
@@ -103,6 +112,7 @@ func NewManager(root string) (*Manager, error) {
 		}
 	}
 
+	initialized = true
 	return m, nil
 }
 
@@ -436,66 +446,6 @@ func parseFogColor(raw string) (color.RGBA, bool) {
 		B: uint8(value & 0xff),
 		A: 255,
 	}, true
-}
-
-func (m *Manager) scanKnownFiles() {
-	for _, name := range append(clientInfoCandidates, "data.grf", "rdata.grf", "fdata.grf", "event.grf") {
-		if path, ok := m.Find(name); ok {
-			m.FoundFiles = append(m.FoundFiles, path)
-		}
-	}
-
-	archivePaths := make([]string, 0)
-	seen := make(map[string]struct{})
-	if entries, err := os.ReadDir(m.Root); err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			name := entry.Name()
-			ext := strings.ToLower(filepath.Ext(name))
-			if ext != ".grf" && ext != ".gpf" {
-				continue
-			}
-			path := filepath.Join(m.Root, name)
-			archivePaths = append(archivePaths, path)
-			seen[strings.ToLower(path)] = struct{}{}
-		}
-	}
-	for _, name := range []string{"data.grf", "rdata.grf", "fdata.grf", "event.grf"} {
-		path := filepath.Join(m.Root, name)
-		if _, ok := seen[strings.ToLower(path)]; ok {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		archivePaths = append(archivePaths, path)
-	}
-	sort.SliceStable(archivePaths, func(i, j int) bool {
-		return archivePriority(archivePaths[i]) < archivePriority(archivePaths[j])
-	})
-	for _, path := range archivePaths {
-		archive, err := OpenGRF(path)
-		if err != nil {
-			continue
-		}
-		m.Archives = append(m.Archives, archive)
-	}
-}
-
-func archivePriority(path string) string {
-	name := strings.ToLower(filepath.Base(path))
-	switch name {
-	case "data.grf":
-		return "z-data.grf"
-	case "rdata.grf":
-		return "y-rdata.grf"
-	case "fdata.grf":
-		return "x-fdata.grf"
-	default:
-		return name
-	}
 }
 
 func normalizePath(name string) string {

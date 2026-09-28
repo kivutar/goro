@@ -2,6 +2,22 @@
 set -euo pipefail
 GORO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$GORO_ROOT"
+BUILD_TYPE=${ANDROID_BUILD_TYPE:-debug}
+case "$BUILD_TYPE" in
+    debug) ;;
+    release)
+        : "${ANDROID_KEYSTORE:?Set ANDROID_KEYSTORE to the release keystore path}"
+        : "${ANDROID_KEYSTORE_PASSWORD:?Set ANDROID_KEYSTORE_PASSWORD}"
+        : "${ANDROID_VERSION_NAME:?Set ANDROID_VERSION_NAME}"
+        : "${ANDROID_VERSION_CODE:?Set ANDROID_VERSION_CODE to a positive integer}"
+        if [[ ! -f "$ANDROID_KEYSTORE" ]]; then echo "Release keystore not found: $ANDROID_KEYSTORE" >&2; exit 1; fi
+        ;;
+    *) echo "ANDROID_BUILD_TYPE must be debug or release" >&2; exit 1 ;;
+esac
+VERSION_CODE=${ANDROID_VERSION_CODE:-1}
+if [[ ! "$VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]] || ((VERSION_CODE > 2100000000)); then
+    echo "ANDROID_VERSION_CODE must be an integer from 1 to 2100000000" >&2; exit 1
+fi
 SDK=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}
 NDK=${ANDROID_NDK_HOME:-$(find "$SDK/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)}
 BUILD_TOOLS=${ANDROID_BUILD_TOOLS:-$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)}
@@ -54,8 +70,10 @@ GOOS=android GOARCH=arm64 CGO_ENABLED=1 go build \
     -o "$OUT/lib/arm64-v8a/libgoro.so" ./cmd/goro-android
 cp internal/appicon/icon.png "$OUT/res/drawable/icon.png"
 "$BUILD_TOOLS/aapt2" compile --dir "$OUT/res" -o "$OUT/resources.zip"
+AAPT_FLAGS=(--replace-version --version-name "${ANDROID_VERSION_NAME:-0.1-dev}" --version-code "$VERSION_CODE")
+if [[ "$BUILD_TYPE" == debug ]]; then AAPT_FLAGS+=(--debug-mode); fi
 "$BUILD_TOOLS/aapt2" link -o "$OUT/resources.apk" -I "$ANDROID_JAR" \
-    --manifest packaging/android/AndroidManifest.xml --java "$OUT/java" "$OUT/resources.zip"
+    --manifest packaging/android/AndroidManifest.xml --java "$OUT/java" "${AAPT_FLAGS[@]}" "$OUT/resources.zip"
 mapfile -t JAVA_SOURCES < <(find packaging/android/java "$OUT/java" -name '*.java')
 "$JAVAC" -encoding UTF-8 --release 8 -classpath "$ANDROID_JAR" -d "$OUT/classes" "${JAVA_SOURCES[@]}"
 mapfile -t CLASSES < <(find "$OUT/classes" -name '*.class')
@@ -69,11 +87,19 @@ with zipfile.ZipFile(root / 'unsigned.apk', 'a', compression=zipfile.ZIP_DEFLATE
     apk.write(root / 'lib/arm64-v8a/libgoro.so', 'lib/arm64-v8a/libgoro.so')
 PY
 "$BUILD_TOOLS/zipalign" -f -P 16 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
-if [[ ! -f "$OUT/debug.keystore" ]]; then
-    "$KEYTOOL" -genkeypair -keystore "$OUT/debug.keystore" -storepass android -keypass android \
-        -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Goro,C=US'
+if [[ "$BUILD_TYPE" == debug ]]; then
+    ANDROID_KEYSTORE="$OUT/debug.keystore"
+    ANDROID_KEYSTORE_PASSWORD=android
+    APK="$OUT/goro-debug.apk"
+    if [[ ! -f "$ANDROID_KEYSTORE" ]]; then
+        "$KEYTOOL" -genkeypair -keystore "$ANDROID_KEYSTORE" -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Goro,C=US'
+    fi
+else
+    APK="$OUT/goro-android-arm64.apk"
 fi
-"$BUILD_TOOLS/apksigner" sign --ks "$OUT/debug.keystore" --ks-pass pass:android \
-    --out "$OUT/goro-debug.apk" "$OUT/aligned.apk"
-"$BUILD_TOOLS/apksigner" verify "$OUT/goro-debug.apk"
-echo "Built $OUT/goro-debug.apk"
+export ANDROID_KEYSTORE_PASSWORD
+"$BUILD_TOOLS/apksigner" sign --ks "$ANDROID_KEYSTORE" --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+    --key-pass env:ANDROID_KEYSTORE_PASSWORD --out "$APK" "$OUT/aligned.apk"
+"$BUILD_TOOLS/apksigner" verify "$APK"
+echo "Built $APK"

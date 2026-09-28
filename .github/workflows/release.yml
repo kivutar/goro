@@ -60,3 +60,28 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           files: dist/${{ matrix.name }}
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-android
+      - name: Build signed Android APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE: ${{ runner.temp }}/goro-release.keystore
+          ANDROID_BUILD_TYPE: release
+          ANDROID_VERSION_NAME: ${{ github.event.release.tag_name }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          : "${ANDROID_KEYSTORE_BASE64:?Set the ANDROID_KEYSTORE_BASE64 repository secret}"
+          : "${ANDROID_KEYSTORE_PASSWORD:?Set the ANDROID_KEYSTORE_PASSWORD repository secret}"
+          umask 077
+          trap 'rm -f "$ANDROID_KEYSTORE"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE"
+          packaging/android/build.sh
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/android/goro-android-arm64.apk
+          fail_on_unmatched_files: true

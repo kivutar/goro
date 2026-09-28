@@ -24,3 +24,17 @@ jobs:
       - run: go vet ./...
       - run: go install honnef.co/go/tools/cmd/staticcheck@latest
       - run: staticcheck ./...
+
+  android:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-android
+      - run: packaging/android/build.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: goro-android-arm64-debug
+          path: dist/android/goro-debug.apk
+          if-no-files-found: error
