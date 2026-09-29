@@ -16,6 +16,7 @@ type Session struct {
 	NoShift              bool
 	NoCtrl               bool
 	BattleMode           bool
+	ScriptPath           string // Runtime override; empty uses the configured script.
 	LessEffects          bool
 	HomunculusCustomAI   bool
 	HomunculusAggressive bool

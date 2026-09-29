@@ -28,7 +28,7 @@ type luaBot struct {
 }
 
 func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
-	path := strings.TrimSpace(ctx.Config.Script.Path)
+	path := ctx.ScriptPath()
 	if path == "" || path == "none" {
 		if m.bot != nil {
 			m.bot.close()
@@ -61,7 +61,7 @@ func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
 }
 
 func (m *WorldMode) updateBotInput(ctx client.Context, keyboardAvailable bool) {
-	path := strings.TrimSpace(ctx.Config.Script.Path)
+	path := ctx.ScriptPath()
 	if path == "" || m.bot == nil || m.bot.path != path || m.bot.disabled {
 		return
 	}
@@ -81,8 +81,12 @@ func newLuaBot(ctx client.Context, mode *WorldMode, path string) (*luaBot, error
 	}
 	bot.registerAPI(ctx, mode)
 	var err error
-	if path == "builtin:wasd" {
-		err = bot.state.DoString(scripts.WASD)
+	if name, builtin := strings.CutPrefix(path, "builtin:"); builtin {
+		var source []byte
+		source, err = scripts.Builtin.ReadFile(name + ".lua")
+		if err == nil {
+			err = bot.state.DoString(string(source))
+		}
 	} else {
 		err = bot.state.DoFile(path)
 	}

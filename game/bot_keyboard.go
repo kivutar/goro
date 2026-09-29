@@ -1,8 +1,6 @@
 package game
 
 import (
-	"strings"
-
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
@@ -10,7 +8,7 @@ import (
 )
 
 func (m *WorldMode) botKeyPress(ctx client.Context, code input.KeyCode) {
-	path := strings.TrimSpace(ctx.Config.Script.Path)
+	path := ctx.ScriptPath()
 	if path == "" || m.bot == nil || m.bot.path != path || m.bot.disabled {
 		return
 	}

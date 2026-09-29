@@ -18,6 +18,7 @@ import (
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/scripts"
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
@@ -400,6 +401,9 @@ func (c *ChatConsole) submitCommand(ctx client.Context, text string) bool {
 	}
 	command := strings.ToLower(strings.Fields(text)[0])
 	switch command {
+	case "/script":
+		c.submitScript(ctx, consoleCommandArgs(text))
+		return true
 	case "/bm", "/battlemode":
 		if ctx.Session == nil {
 			return true
@@ -521,6 +525,37 @@ func (c *ChatConsole) submitCommand(ctx client.Context, text string) bool {
 			return true
 		}
 		return false
+	}
+}
+
+func (c *ChatConsole) submitScript(ctx client.Context, name string) {
+	if name == "" {
+		entries, _ := scripts.Builtin.ReadDir(".")
+		names := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			names = append(names, strings.TrimSuffix(entry.Name(), ".lua"))
+		}
+		c.AddSystemMessage("Bundled scripts: %s. Use /script <name> or /script none.", strings.Join(names, ", "))
+		return
+	}
+	name = strings.TrimPrefix(name, "builtin:")
+	path := "none"
+	if name != "none" {
+		if _, err := scripts.Builtin.ReadFile(name + ".lua"); err != nil {
+			c.AddErrorMessage("Unknown bundled script: %s. Use /script to list scripts.", name)
+			return
+		}
+		path = "builtin:" + name
+	}
+	if ctx.Session == nil {
+		c.AddErrorMessage("script failed: no session")
+		return
+	}
+	ctx.Session.ScriptPath = path
+	if path == "none" {
+		c.AddSystemMessage("Scripting disabled.")
+	} else {
+		c.AddSystemMessage("Selected script: %s.", name)
 	}
 }
 
