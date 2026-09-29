@@ -97,28 +97,41 @@ func TestGamepadCursorAndMouseShareHeldButtons(t *testing.T) {
 }
 
 func TestGamepadStartTapsEscapeOnce(t *testing.T) {
-	events := &fanoutEventSource{}
-	state := input.NewState()
-	wireInput(events, state)
-	presses := 0
-	events.OnKeyPress(func(key gpucontext.Key, _ gpucontext.Modifiers) {
-		if key == gpucontext.KeyEscape {
-			presses++
-		}
-	})
-	pad := input.GamepadFrame{ID: "test"}
-	pad.Buttons[input.GamepadStart] = true
-	state.SetGamepad(pad)
-	ui := gamepadUIState{}
-	ui.update(state, events, time.Now(), 300, 200)
-	if presses != 1 || !state.JustPressed(input.KeyEscape) || state.KeyCodeDown(gpucontext.KeyEscape) {
-		t.Fatal("Start did not deliver one complete Escape tap")
-	}
-	state.EndFrame()
-	state.SetGamepad(pad)
-	ui.update(state, events, time.Now(), 300, 200)
-	if presses != 1 {
-		t.Fatal("held Start repeated")
+	for _, consumeAt := range []string{"none", "handler", "prepare"} {
+		t.Run(consumeAt, func(t *testing.T) {
+			events := &fanoutEventSource{}
+			state := input.NewState()
+			wireInput(events, state)
+			wantPresses := 0
+			switch consumeAt {
+			case "handler":
+				events.handleKeyPress = func(key input.KeyCode) { state.ConsumeKeyCodePress(key) }
+			case "prepare":
+				events.prepareKeyInput = func(key input.KeyCode, _ gpucontext.Modifiers) { state.ConsumeKeyCodePress(key) }
+			default:
+				wantPresses = 1
+			}
+			presses := 0
+			events.OnKeyPress(func(key gpucontext.Key, _ gpucontext.Modifiers) {
+				if key == gpucontext.KeyEscape {
+					presses++
+				}
+			})
+			pad := input.GamepadFrame{ID: "test"}
+			pad.Buttons[input.GamepadStart] = true
+			state.SetGamepad(pad)
+			ui := gamepadUIState{}
+			ui.update(state, events, time.Now(), 300, 200)
+			if presses != wantPresses || state.JustPressed(input.KeyEscape) != (wantPresses == 1) || state.KeyCodeDown(gpucontext.KeyEscape) {
+				t.Fatal("Start did not deliver one complete Escape tap")
+			}
+			state.EndFrame()
+			state.SetGamepad(pad)
+			ui.update(state, events, time.Now(), 300, 200)
+			if presses != wantPresses {
+				t.Fatal("held Start repeated")
+			}
+		})
 	}
 }
 

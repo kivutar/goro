@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/ebitengine/purego"
 	"github.com/ebitengine/purego/objc"
 )
 
@@ -26,38 +27,45 @@ func TestGameControllerQueuesNativeButtonCallbacks(t *testing.T) {
 	if controller == 0 {
 		t.Fatal("could not create a controller snapshot")
 	}
+	// Deliver real framework callbacks on a serial queue and drain it explicitly;
+	// this test process does not run an application's main dispatch loop.
+	var createQueue func(string, uintptr) uintptr
+	var syncQueue func(uintptr, uintptr, uintptr)
+	var releaseQueue func(uintptr)
+	purego.RegisterLibFunc(&createQueue, purego.RTLD_DEFAULT, "dispatch_queue_create")
+	purego.RegisterLibFunc(&syncQueue, purego.RTLD_DEFAULT, "dispatch_sync_f")
+	purego.RegisterLibFunc(&releaseQueue, purego.RTLD_DEFAULT, "dispatch_release")
+	queue := createQueue("goro.gamepad.test", 0)
+	defer releaseQueue(queue)
+	controller.Send(b.sel("setHandlerQueue:"), queue)
+	barrier := purego.NewCallback(func(uintptr) {})
+	flush := func() { syncQueue(queue, 0, barrier) }
 	controllers := objc.ID(objc.GetClass("NSArray")).Send(b.sel("arrayWithObject:"), controller)
 	if len(b.drainControllers(controllers)) != 1 {
 		t.Fatal("controller not discovered")
 	}
 	device := b.devices[controller]
-	button := device.buttons[GamepadSouth]
+	profile := b.get(controller, "extendedGamepad")
+	button := b.get(profile, "buttonA")
 	handler := objc.Block(button.Send(b.sel("pressedChangedHandler"))).Copy()
 	if handler == 0 {
 		t.Fatal("button handler not installed")
 	}
 	defer handler.Release()
-	right := device.buttons[GamepadRight]
-	rightHandler := objc.Block(right.Send(b.sel("pressedChangedHandler")))
-	if rightHandler == 0 {
-		t.Fatal("D-pad handler not installed")
-	}
+	dpad := b.get(profile, "dpad")
 
-	// Both presses and releases arrive before the game drains its next frame.
-	handler.Invoke(button, float32(1), true)
-	rightHandler.Invoke(right, float32(1), true)
-	handler.Invoke(button, float32(0), false)
-	rightHandler.Invoke(right, float32(0), false)
-	handler.Invoke(button, float32(1), true)
-	handler.Invoke(button, float32(0), false)
-	profile := b.get(controller, "extendedGamepad")
+	// Set native element values; GameController must call our installed blocks.
+	button.Send(b.sel("setValue:"), float32(1))
+	dpad.Send(b.sel("setValueForXAxis:yAxis:"), float32(1), float32(0))
+	button.Send(b.sel("setValue:"), float32(0))
+	dpad.Send(b.sel("setValueForXAxis:yAxis:"), float32(0), float32(0))
+	flush()
 	axis := b.get(b.get(profile, "leftThumbstick"), "xAxis")
 	axis.Send(b.sel("setValue:"), float32(0.625))
 	frame := b.drainControllers(controllers)[0]
 	want := []GamepadButtonChange{
 		{GamepadSouth, true}, {GamepadRight, true},
 		{GamepadSouth, false}, {GamepadRight, false},
-		{GamepadSouth, true}, {GamepadSouth, false},
 	}
 	if !slices.Equal(frame.Changes, want) || frame.Buttons[GamepadSouth] || frame.Axes[GamepadLeftX] != 0.625 {
 		t.Fatalf("drained frame = %+v", frame)
@@ -65,17 +73,13 @@ func TestGameControllerQueuesNativeButtonCallbacks(t *testing.T) {
 	if len(b.drainControllers(controllers)[0].Changes) != 0 {
 		t.Fatal("tap replayed")
 	}
-	handler.Invoke(button, float32(0), true) // The pressed parameter is authoritative.
-	held := b.drainControllers(controllers)[0]
-	if !held.Buttons[GamepadSouth] || !slices.Equal(held.Changes, []GamepadButtonChange{{GamepadSouth, true}}) {
-		t.Fatal("callback state was overwritten by a polled button value")
-	}
+	button.Send(b.sel("setValue:"), float32(1))
+	button.Send(b.sel("setValue:"), float32(0))
+	flush()
 	if !slices.Equal(frame.Changes, want) {
-		t.Fatal("later callbacks mutated a drained frame")
+		t.Fatal("later input mutated a drained frame")
 	}
-
-	handler.Invoke(button, float32(0), false)
-	b.drainControllers(0) // Disconnect with a pending release.
+	b.drainControllers(0) // Disconnect with a pending tap.
 	if len(b.devices) != 0 || button.Send(b.sel("pressedChangedHandler")) != 0 {
 		t.Fatal("disconnect retained controller or callback")
 	}

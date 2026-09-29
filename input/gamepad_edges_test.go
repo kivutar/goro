@@ -24,14 +24,17 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 	// A D-pad hat tap must survive too, even with newer analog samples.
 	AndroidGamepadMotion(7, [GamepadAxisCount]float64{}, 1, 0)
 	AndroidGamepadMotion(7, [GamepadAxisCount]float64{0.75}, 0, 0)
-	state.SetGamepad(source.DrainFrame())
+	frame := source.DrainFrame()
+	state.SetGamepad(frame)
 	want := []GamepadButtonChange{
 		{GamepadStart, true}, {GamepadStart, false},
 		{GamepadStart, true}, {GamepadStart, false},
 		{GamepadRight, true}, {GamepadRight, false},
 	}
-	if !slices.Equal(state.GamepadChanges(), want) {
-		t.Fatalf("button order = %v, want %v", state.GamepadChanges(), want)
+	for range 3 { // UI, Lua and diagnostics must see the same edges.
+		if !slices.Equal(state.GamepadChanges(), want) || !state.GamepadJustPressed(GamepadStart) || !state.GamepadJustReleased(GamepadStart) {
+			t.Fatalf("frame reader lost edges: %v", state.GamepadChanges())
+		}
 	}
 	if !state.GamepadJustPressed(GamepadStart) || !state.GamepadJustReleased(GamepadStart) || state.GamepadDown(GamepadStart) || state.GamepadValue(GamepadLeftX) != 0.75 {
 		t.Fatal("tap edges or latest analog position lost")
@@ -50,6 +53,10 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 		t.Fatal("disconnect retained pending input")
 	}
 	AndroidGamepadKey(7, 108, true)
+	source.DiscardPending()
+	if next := source.DrainFrame(); len(next.Changes) != 0 || !next.Buttons[GamepadStart] || !slices.Equal(frame.Changes, want) {
+		t.Fatal("discard lost held state or mutated an earlier frame")
+	}
 	AndroidResetGamepads() // Android focus loss.
 	AndroidGamepadDevice(7, "controller", true)
 	state.ResetGamepad()

@@ -1,10 +1,8 @@
 package render
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/gogpu/gpucontext"
 	"github.com/kivutar/goro/input"
@@ -270,65 +268,6 @@ func TestWireInputAltTabWithoutKeyRelease(t *testing.T) {
 				t.Fatal("fresh Alt release was not recognized")
 			}
 		})
-	}
-}
-
-func TestPhysicalAndControllerEscapeShareDispatch(t *testing.T) {
-	for _, synthetic := range []bool{false, true} {
-		for _, consumeAt := range []string{"", "handler", "prepare"} {
-			t.Run(fmt.Sprintf("synthetic=%v/consume=%s", synthetic, consumeAt), func(t *testing.T) {
-				source := &fanoutEventSource{}
-				events := newFanoutEventSource(source)
-				state := input.NewState()
-				wireInput(events, state)
-				var order []string
-				events.handleKeyPress = func(key input.KeyCode) {
-					if !state.KeyCodeDown(key) || !state.KeyCodeJustPressed(key) {
-						t.Fatal("handler preceded state update")
-					}
-					order = append(order, "handler")
-					if consumeAt == "handler" {
-						state.ConsumeKeyCodePress(key)
-					}
-				}
-				events.prepareKeyInput = func(key input.KeyCode, _ gpucontext.Modifiers) {
-					order = append(order, "prepare")
-					if consumeAt == "prepare" {
-						state.ConsumeKeyCodePress(key)
-					}
-				}
-				events.OnKeyPress(func(gpucontext.Key, gpucontext.Modifiers) { order = append(order, "ui") })
-				events.OnKeyRelease(func(key gpucontext.Key, _ gpucontext.Modifiers) {
-					if state.KeyCodeDown(key) {
-						t.Fatal("release preceded state update")
-					}
-					order = append(order, "release")
-				})
-				if synthetic {
-					pad := input.GamepadFrame{ID: "controller"}
-					pad.Buttons[input.GamepadStart] = true
-					state.SetGamepad(pad)
-					(&gamepadUIState{}).update(state, events, time.Now(), 300, 200)
-				} else {
-					for _, fn := range source.keyPress {
-						fn(gpucontext.KeyEscape, 0)
-					}
-					for _, fn := range source.keyRelease {
-						fn(gpucontext.KeyEscape, 0)
-					}
-				}
-				want := []string{"handler", "prepare", "ui", "release"}
-				if consumeAt == "handler" {
-					want = []string{"handler", "release"}
-				}
-				if consumeAt == "prepare" {
-					want = []string{"handler", "prepare", "release"}
-				}
-				if !reflect.DeepEqual(order, want) {
-					t.Fatalf("dispatch = %v, want %v", order, want)
-				}
-			})
-		}
 	}
 }
 

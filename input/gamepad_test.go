@@ -86,34 +86,3 @@ func TestGamepadSelectionSurvivesEnumerationChanges(t *testing.T) {
 		t.Fatal("last controller remained connected")
 	}
 }
-
-func TestGamepadFrameReadersDoNotConsumeChanges(t *testing.T) {
-	AndroidResetGamepads()
-	t.Cleanup(AndroidResetGamepads)
-	AndroidGamepadDevice(1, "controller", true)
-	source := &GamepadSource{backend: &androidGamepadBackend{}}
-	source.DrainFrame()
-	AndroidGamepadKey(1, 108, true)
-	AndroidGamepadKey(1, 108, false)
-	frame := source.DrainFrame()
-	state := NewState()
-	state.SetGamepad(frame)
-	// UI, Lua and diagnostics can all read the same frame's edges.
-	for range 3 {
-		if !state.GamepadJustPressed(GamepadStart) || !state.GamepadJustReleased(GamepadStart) || len(state.GamepadChanges()) != 2 {
-			t.Fatal("a state reader consumed frame transitions")
-		}
-	}
-	if next := source.DrainFrame(); len(next.Changes) != 0 || next.ID != frame.ID {
-		t.Fatal("draining replayed changes or lost current controller state")
-	}
-	AndroidGamepadKey(1, 108, true)
-	source.DiscardPending()
-	next := source.DrainFrame()
-	if len(next.Changes) != 0 || !next.Buttons[GamepadStart] {
-		t.Fatal("discard must drop actions while retaining current held state")
-	}
-	if len(frame.Changes) != 2 || frame.Changes[1].Down {
-		t.Fatal("later input mutated an already drained frame")
-	}
-}
