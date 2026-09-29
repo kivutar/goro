@@ -23,7 +23,7 @@ func TestWASDGamepadMovementAttackAndLoot(t *testing.T) {
 			ctx.World.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
 			ctx.World.Items[400] = worldstate.FloorItem{ID: 400, ItemID: 501, X: 11, Y: 20}
 			ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
-			pad := input.GamepadSnapshot{ID: "test"}
+			pad := input.GamepadFrame{ID: "test"}
 			switch name {
 			case "stick", "keyboard_and_stick":
 				pad.Axes[input.GamepadLeftX], pad.Axes[input.GamepadLeftY] = 0.8, -0.8
@@ -69,7 +69,7 @@ func TestWASDGamepadDeadzoneAndFocusedChat(t *testing.T) {
 	ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
 	mode := NewWorldMode()
 	loadKeyboardTestBot(t, ctx, mode)
-	pad := input.GamepadSnapshot{ID: "test"}
+	pad := input.GamepadFrame{ID: "test"}
 	pad.Axes[input.GamepadLeftX], pad.Axes[input.GamepadLeftY] = 0.2, -0.2
 	ctx.Input.SetGamepad(pad)
 	assertNoBotTestPacket(t, server, func() error { return mode.bot.inputFrame(true) })
@@ -99,7 +99,7 @@ func TestWASDGamepadDisconnectStopsWalking(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer bot.close()
-	pad := input.GamepadSnapshot{ID: "test"}
+	pad := input.GamepadFrame{ID: "test"}
 	pad.Axes[input.GamepadLeftY] = -1
 	state.SetGamepad(pad)
 	if err := bot.inputFrame(true); err != nil {
@@ -110,7 +110,7 @@ func TestWASDGamepadDisconnectStopsWalking(t *testing.T) {
 	state.EndFrame()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 28, FromX: 10, FromY: 20, ToX: 10, ToY: 28, Moving: true, MoveStarted: time.Now(), MoveDuration: 8 * time.Second, MovePath: []worldstate.WalkStep{{X: 10, Y: 20}, {X: 10, Y: 21}, {X: 10, Y: 28}}}
 	mode.walkCooldownUntil = time.Time{}
-	state.SetGamepad(input.GamepadSnapshot{})
+	state.SetGamepad(input.GamepadFrame{})
 	if err := bot.inputFrame(true); err != nil {
 		t.Fatal(err)
 	}

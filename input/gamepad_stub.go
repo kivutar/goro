@@ -4,6 +4,6 @@ package input
 
 type emptyGamepadBackend struct{}
 
-func newGamepadBackend() (gamepadBackend, error)    { return emptyGamepadBackend{}, nil }
-func (emptyGamepadBackend) poll() []GamepadSnapshot { return nil }
-func (emptyGamepadBackend) close()                  {}
+func newGamepadBackend() (gamepadBackend, error)  { return emptyGamepadBackend{}, nil }
+func (emptyGamepadBackend) drain() []GamepadFrame { return nil }
+func (emptyGamepadBackend) close()                {}

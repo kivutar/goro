@@ -34,12 +34,12 @@ func newGamepadBackend() (gamepadBackend, error) {
 	return nil, fmt.Errorf("XInput is unavailable")
 }
 
-func (b *xinputBackend) poll() []GamepadSnapshot {
+func (b *xinputBackend) drain() []GamepadFrame {
 	return b.pollAt(time.Now())
 }
 
-func (b *xinputBackend) pollAt(now time.Time) []GamepadSnapshot {
-	var pads []GamepadSnapshot
+func (b *xinputBackend) pollAt(now time.Time) []GamepadFrame {
+	var pads []GamepadFrame
 	for index := 0; index < 4; index++ {
 		if now.Before(b.nextScan[index]) {
 			continue
@@ -52,7 +52,7 @@ func (b *xinputBackend) pollAt(now time.Time) []GamepadSnapshot {
 			continue
 		}
 		b.nextScan[index] = time.Time{}
-		pad := GamepadSnapshot{ID: "xinput:" + strconv.Itoa(index), Name: "XInput controller " + strconv.Itoa(index+1)}
+		pad := GamepadFrame{ID: "xinput:" + strconv.Itoa(index), Name: "XInput controller " + strconv.Itoa(index+1)}
 		masks := [...]uint16{0x1000, 0x2000, 0x4000, 0x8000, 0x100, 0x200, 0x20, 0x10, 0x40, 0x80, 1, 2, 4, 8}
 		for button, mask := range masks {
 			pad.Buttons[button] = raw.Buttons&mask != 0

@@ -13,7 +13,7 @@ var androidGamepads = struct {
 }{pads: make(map[int]androidGamepad)}
 
 type androidGamepad struct {
-	GamepadSnapshot
+	GamepadFrame
 	keys     [GamepadButtonCount]bool
 	hat      [4]bool
 	triggers [2]bool
@@ -82,7 +82,7 @@ func AndroidResetGamepads() {
 type androidGamepadBackend struct{}
 
 func (*androidGamepadBackend) close() {}
-func (*androidGamepadBackend) poll() []GamepadSnapshot {
+func (*androidGamepadBackend) drain() []GamepadFrame {
 	androidGamepads.Lock()
 	defer androidGamepads.Unlock()
 	ids := make([]int, 0, len(androidGamepads.pads))
@@ -90,10 +90,10 @@ func (*androidGamepadBackend) poll() []GamepadSnapshot {
 		ids = append(ids, id)
 	}
 	sort.Ints(ids)
-	pads := make([]GamepadSnapshot, 0, len(ids))
+	pads := make([]GamepadFrame, 0, len(ids))
 	for _, id := range ids {
 		device := androidGamepads.pads[id]
-		pad := device.GamepadSnapshot
+		pad := device.GamepadFrame
 		// Transfer ownership of the queued transitions to the game thread.
 		device.Changes = nil
 		androidGamepads.pads[id] = device

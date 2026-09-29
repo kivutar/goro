@@ -53,19 +53,19 @@ func (b *gcBackend) value(element objc.ID) float64 {
 	return float64(objc.Send[float32](element, b.sel("value")))
 }
 
-func (b *gcBackend) poll() []GamepadSnapshot {
+func (b *gcBackend) drain() []GamepadFrame {
 	pool := objc.ID(objc.GetClass("NSAutoreleasePool")).Send(b.sel("alloc")).Send(b.sel("init"))
 	defer pool.Send(b.sel("drain"))
 	controllers := b.controller.Send(b.sel("controllers"))
 	count := int(controllers.Send(b.sel("count")))
-	var pads []GamepadSnapshot
+	var pads []GamepadFrame
 	for i := 0; i < count; i++ {
 		controller := controllers.Send(b.sel("objectAtIndex:"), uintptr(i))
 		profile := b.get(controller, "extendedGamepad")
 		if profile == 0 {
 			continue
 		}
-		pad := GamepadSnapshot{ID: "gc:" + strconv.FormatUint(uint64(controller), 16), Name: "GameController"}
+		pad := GamepadFrame{ID: "gc:" + strconv.FormatUint(uint64(controller), 16), Name: "GameController"}
 		if name := b.get(controller, "vendorName"); name != 0 {
 			pad.Name = objc.Send[string](name, b.sel("UTF8String"))
 		}

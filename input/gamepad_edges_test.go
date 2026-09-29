@@ -12,7 +12,7 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 	AndroidGamepadDevice(7, "controller", true)
 	source := &GamepadSource{backend: &androidGamepadBackend{}}
 	state := NewState()
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	state.EndFrame()
 
 	// Both taps occur while the game is drawing one slow frame.
@@ -24,7 +24,7 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 	// A D-pad hat tap must survive too, even with newer analog samples.
 	AndroidGamepadMotion(7, [GamepadAxisCount]float64{}, 1, 0)
 	AndroidGamepadMotion(7, [GamepadAxisCount]float64{0.75}, 0, 0)
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	want := []GamepadButtonChange{
 		{GamepadStart, true}, {GamepadStart, false},
 		{GamepadStart, true}, {GamepadStart, false},
@@ -37,7 +37,7 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 		t.Fatal("tap edges or latest analog position lost")
 	}
 	state.EndFrame()
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if len(state.GamepadChanges()) != 0 || state.GamepadJustPressed(GamepadStart) || state.GamepadJustReleased(GamepadStart) {
 		t.Fatal("consumed edges replayed on the next frame")
 	}
@@ -45,7 +45,7 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 	AndroidGamepadKey(7, 108, true)
 	AndroidGamepadDevice(7, "", false)
 	AndroidGamepadDevice(7, "controller", true)
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if len(state.GamepadChanges()) != 0 {
 		t.Fatal("disconnect retained pending input")
 	}
@@ -53,14 +53,14 @@ func TestAndroidGamepadTapBetweenFrames(t *testing.T) {
 	AndroidResetGamepads() // Android focus loss.
 	AndroidGamepadDevice(7, "controller", true)
 	state.ResetGamepad()
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if len(state.GamepadChanges()) != 0 {
 		t.Fatal("focus loss retained pending input")
 	}
 }
 
 func TestGamepadWorkerRetainsTransitionsUntilConsumed(t *testing.T) {
-	backend := &stalledGamepads{entered: make(chan struct{}), samples: make(chan []GamepadSnapshot), unblock: make(chan struct{})}
+	backend := &stalledGamepads{entered: make(chan struct{}), samples: make(chan []GamepadFrame), unblock: make(chan struct{})}
 	poller := newPollingGamepads(backend)
 	t.Cleanup(func() { close(backend.unblock); poller.close() })
 	awaitPoll := func() {
@@ -71,17 +71,17 @@ func TestGamepadWorkerRetainsTransitionsUntilConsumed(t *testing.T) {
 			t.Fatal("worker stalled")
 		}
 	}
-	sample := func(pads ...GamepadSnapshot) {
+	sample := func(pads ...GamepadFrame) {
 		t.Helper()
 		backend.samples <- pads
 		awaitPoll()
 	}
 	source := &GamepadSource{backend: poller}
 	state := NewState()
-	pad := GamepadSnapshot{ID: "controller"}
+	pad := GamepadFrame{ID: "controller"}
 	awaitPoll()
 	sample(pad)
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	state.EndFrame()
 
 	// The worker samples both edges between game updates.
@@ -90,7 +90,7 @@ func TestGamepadWorkerRetainsTransitionsUntilConsumed(t *testing.T) {
 	pad.Buttons[GamepadRightShoulder] = false
 	pad.Axes[GamepadLeftX] = 0.5
 	sample(pad)
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if !state.GamepadJustPressed(GamepadRightShoulder) || !state.GamepadJustReleased(GamepadRightShoulder) || state.GamepadDown(GamepadRightShoulder) || state.GamepadValue(GamepadLeftX) != 0.5 {
 		t.Fatal("sampled tap or latest stick position lost")
 	}
@@ -99,18 +99,18 @@ func TestGamepadWorkerRetainsTransitionsUntilConsumed(t *testing.T) {
 		t.Fatal("sampled edges out of order")
 	}
 	state.EndFrame()
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if len(state.GamepadChanges()) != 0 {
 		t.Fatal("sampled edges replayed")
 	}
 
 	pad.Buttons[GamepadRightShoulder] = true
 	sample(pad)
-	source.Poll() // The focus callback drains pending transitions.
+	source.DiscardPending() // The focus callback discards pending transitions.
 	state.ResetGamepad()
 	pad.Buttons[GamepadRightShoulder] = false
 	sample(pad)
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if state.GamepadJustPressed(GamepadRightShoulder) {
 		t.Fatal("tap from before focus change replayed")
 	}
@@ -119,13 +119,13 @@ func TestGamepadWorkerRetainsTransitionsUntilConsumed(t *testing.T) {
 	pad.Buttons[GamepadRightShoulder] = true
 	sample(pad)
 	sample() // Disconnect before this queued press reaches the game.
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if state.GamepadConnected() || len(state.GamepadChanges()) != 0 {
 		t.Fatal("disconnected controller delivered queued actions")
 	}
 	pad.Buttons[GamepadRightShoulder] = false
 	sample(pad)
-	state.SetGamepad(source.Poll())
+	state.SetGamepad(source.DrainFrame())
 	if len(state.GamepadChanges()) != 0 {
 		t.Fatal("reconnected controller replayed queued actions")
 	}

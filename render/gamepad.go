@@ -23,7 +23,7 @@ func (r *runner) updateGamepad(now time.Time) {
 	if state == nil {
 		return
 	}
-	pad := r.gamepads.Poll()
+	pad := r.gamepads.DrainFrame()
 	if r.gamepadFocused {
 		state.SetGamepad(pad)
 	} else {

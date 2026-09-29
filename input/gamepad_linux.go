@@ -110,12 +110,12 @@ func (b *evdevBackend) scan() {
 	}
 }
 
-func (b *evdevBackend) poll() []GamepadSnapshot {
+func (b *evdevBackend) drain() []GamepadFrame {
 	if time.Now().After(b.nextScan) {
 		b.scan()
 		b.nextScan = time.Now().Add(time.Second)
 	}
-	var pads []GamepadSnapshot
+	var pads []GamepadFrame
 	alive := b.devices[:0]
 	for _, device := range b.devices {
 		pad, err := device.snapshot()
@@ -130,8 +130,8 @@ func (b *evdevBackend) poll() []GamepadSnapshot {
 	return pads
 }
 
-func (d *evdevGamepad) snapshot() (GamepadSnapshot, error) {
-	pad := GamepadSnapshot{ID: d.file.Name(), Name: d.name}
+func (d *evdevGamepad) snapshot() (GamepadFrame, error) {
+	pad := GamepadFrame{ID: d.file.Name(), Name: d.name}
 	var keys [96]byte
 	if err := evdevRead(d.file.Fd(), 0x18, keys[:]); err != nil {
 		return pad, err

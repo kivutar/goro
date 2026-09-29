@@ -103,8 +103,10 @@ behavior remain Lua policy built from the generic functions below.
 The same interface works on Windows, Linux, macOS and Android. Goro selects the
 first detected controller and keeps it selected until it disconnects. Input
 snapshots become visible to Lua once per graphical frame; use `input()` for
-press/release edges. Linux device discovery and polling run in a background
-worker so driver calls cannot block game updates.
+press/release edges. Linux and Windows device discovery and polling run in a
+background worker so driver calls cannot block game updates. Queries read shared
+frame state without consuming it; repeated queries during a frame return the same
+edges. Only the window loop drains the device event queues, once per update.
 
 - `connected()` reports whether a controller is connected, regardless of UI focus.
 - `name()` returns its name, or an empty string when disconnected.

@@ -60,14 +60,15 @@ func GamepadAxisFromName(name string) (GamepadAxis, bool) {
 	return 0, false
 }
 
-// GamepadSnapshot is a normalized controller sample. Empty ID means disconnected.
+// GamepadFrame transfers the latest normalized controller state and the ordered
+// button transitions collected since the previous drain. Empty ID means disconnected.
 // Sticks use [-1,1], with negative Y pointing up; triggers use [0,1].
-type GamepadSnapshot struct {
+type GamepadFrame struct {
 	ID      string
 	Name    string
 	Buttons [GamepadButtonCount]bool
 	Axes    [GamepadAxisCount]float64
-	// Changes contains button transitions since the previous poll, in order.
+	// Changes belongs to the receiver; draining again cannot replay or mutate it.
 	Changes []GamepadButtonChange
 }
 
@@ -76,7 +77,7 @@ type GamepadButtonChange struct {
 	Down   bool
 }
 
-func (p *GamepadSnapshot) setButton(button GamepadButton, down bool) {
+func (p *GamepadFrame) setButton(button GamepadButton, down bool) {
 	if button < GamepadButtonCount && p.Buttons[button] != down {
 		p.Buttons[button] = down
 		p.Changes = append(p.Changes, GamepadButtonChange{button, down})
@@ -84,7 +85,7 @@ func (p *GamepadSnapshot) setButton(button GamepadButton, down bool) {
 }
 
 type gamepadState struct {
-	GamepadSnapshot
+	GamepadFrame
 	pressed  [GamepadButtonCount]bool
 	released [GamepadButtonCount]bool
 	changes  []GamepadButtonChange
@@ -92,9 +93,9 @@ type gamepadState struct {
 
 // SetGamepad runs on the game thread, like SetKeyCode. Sources must not mutate
 // State from OS callback threads. Switching controllers clears the old edges.
-func (s *State) SetGamepad(next GamepadSnapshot) {
+func (s *State) SetGamepad(next GamepadFrame) {
 	if next.ID == "" {
-		next = GamepadSnapshot{}
+		next = GamepadFrame{}
 	}
 	if next.ID != s.gamepad.ID && next.ID != "" {
 		s.ResetGamepad()
@@ -116,7 +117,7 @@ func (s *State) SetGamepad(next GamepadSnapshot) {
 		next.Axes[axis] = max(low, min(1, value))
 	}
 	next.Changes = nil
-	s.gamepad.GamepadSnapshot = next
+	s.gamepad.GamepadFrame = next
 }
 
 func (s *State) setGamepadButton(button GamepadButton, down bool) {
@@ -132,7 +133,8 @@ func (s *State) setGamepadButton(button GamepadButton, down bool) {
 	s.gamepad.changes = append(s.gamepad.changes, GamepadButtonChange{button, down})
 }
 
-// GamepadChanges returns this frame's transitions for ordered UI delivery.
+// GamepadChanges reads this frame's transitions without consuming them.
+// The returned slice is read-only and valid until EndFrame or ResetGamepad.
 func (s *State) GamepadChanges() []GamepadButtonChange { return s.gamepad.changes }
 
 func (s *State) ResetGamepad()          { s.gamepad = gamepadState{} }
@@ -155,12 +157,14 @@ func (s *State) GamepadValue(axis GamepadAxis) float64 {
 }
 
 type gamepadBackend interface {
-	poll() []GamepadSnapshot
+	// drain transfers pending changes for every device, together with its current state.
+	drain() []GamepadFrame
 	close()
 }
 
 // GamepadSource keeps the first controller selected until it disconnects.
-// Create, poll and close on the window's thread (required by macOS).
+// It has one consumer: the window loop. Create, drain and close on that thread
+// (required by macOS). Other consumers read the shared State after SetGamepad.
 type GamepadSource struct {
 	backend  gamepadBackend
 	selected string
@@ -174,8 +178,11 @@ func NewGamepadSource() (*GamepadSource, error) {
 	return &GamepadSource{backend: backend}, nil
 }
 
-func (s *GamepadSource) Poll() GamepadSnapshot {
-	pads := s.backend.poll()
+// DrainFrame consumes queued changes for all controllers and returns the selected
+// controller's frame. Call once per update, then pass it to State.SetGamepad.
+// Diagnostics and other readers must query State instead of draining the source.
+func (s *GamepadSource) DrainFrame() GamepadFrame {
+	pads := s.backend.drain()
 	for _, pad := range pads {
 		if pad.ID == s.selected {
 			return pad
@@ -190,7 +197,11 @@ func (s *GamepadSource) Poll() GamepadSnapshot {
 		glog.Infof("gamepad disconnected id=%q", s.selected)
 	}
 	s.selected = ""
-	return GamepadSnapshot{}
+	return GamepadFrame{}
 }
 
 func (s *GamepadSource) Close() { s.backend.close() }
+
+// DiscardPending drops queued actions at a focus boundary, even if updates were
+// suspended while unfocused. The next drain still reports current held state.
+func (s *GamepadSource) DiscardPending() { s.DrainFrame() }

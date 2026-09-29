@@ -8,12 +8,12 @@ import (
 
 type stalledGamepads struct {
 	entered chan struct{}
-	samples chan []GamepadSnapshot
+	samples chan []GamepadFrame
 	unblock chan struct{}
 	closed  atomic.Bool
 }
 
-func (b *stalledGamepads) poll() []GamepadSnapshot {
+func (b *stalledGamepads) drain() []GamepadFrame {
 	select {
 	case b.entered <- struct{}{}:
 	case <-b.unblock:
@@ -29,7 +29,7 @@ func (b *stalledGamepads) poll() []GamepadSnapshot {
 func (b *stalledGamepads) close() { b.closed.Store(true) }
 
 func TestGamepadPollDoesNotWaitForDeviceIO(t *testing.T) {
-	backend := &stalledGamepads{entered: make(chan struct{}), samples: make(chan []GamepadSnapshot), unblock: make(chan struct{})}
+	backend := &stalledGamepads{entered: make(chan struct{}), samples: make(chan []GamepadFrame), unblock: make(chan struct{})}
 	poller := newPollingGamepads(backend)
 	t.Cleanup(func() { close(backend.unblock); poller.close() })
 	awaitIO := func() {
@@ -40,10 +40,10 @@ func TestGamepadPollDoesNotWaitForDeviceIO(t *testing.T) {
 			t.Fatal("device worker did not enter poll")
 		}
 	}
-	read := func() []GamepadSnapshot {
+	read := func() []GamepadFrame {
 		t.Helper()
-		result := make(chan []GamepadSnapshot, 1)
-		go func() { result <- poller.poll() }()
+		result := make(chan []GamepadFrame, 1)
+		go func() { result <- poller.drain() }()
 		select {
 		case pads := <-result:
 			return pads
@@ -56,9 +56,9 @@ func TestGamepadPollDoesNotWaitForDeviceIO(t *testing.T) {
 	if len(read()) != 0 {
 		t.Fatal("unexpected initial sample")
 	}
-	pad := GamepadSnapshot{ID: "test"}
+	pad := GamepadFrame{ID: "test"}
 	pad.Buttons[GamepadWest] = true
-	sample := []GamepadSnapshot{pad}
+	sample := []GamepadFrame{pad}
 	backend.samples <- sample
 	awaitIO() // Publishing completed; the next device call is now stalled.
 	if pads := read(); len(pads) != 1 || !pads[0].Buttons[GamepadWest] {

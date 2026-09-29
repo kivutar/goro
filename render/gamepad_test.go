@@ -33,7 +33,7 @@ func TestGamepadDeliversShortTapsToUIInOrder(t *testing.T) {
 			got = append(got, "escape")
 		}
 	})
-	pad := input.GamepadSnapshot{ID: "test", Changes: []input.GamepadButtonChange{
+	pad := input.GamepadFrame{ID: "test", Changes: []input.GamepadButtonChange{
 		{Button: input.GamepadSouth, Down: true},
 		{Button: input.GamepadEast, Down: true},
 		{Button: input.GamepadSouth, Down: false},
@@ -71,7 +71,7 @@ func TestGamepadCursorAndMouseShareHeldButtons(t *testing.T) {
 	ui := gamepadUIState{}
 	now := time.Now()
 	ui.update(state, events, now, 300, 200)
-	pad := input.GamepadSnapshot{ID: "test"}
+	pad := input.GamepadFrame{ID: "test"}
 	pad.Axes[input.GamepadRightX] = 1
 	pad.Buttons[input.GamepadSouth] = true
 	state.SetGamepad(pad)
@@ -83,7 +83,7 @@ func TestGamepadCursorAndMouseShareHeldButtons(t *testing.T) {
 		fn(gpucontext.MouseButtonLeft, 110, 100)
 	}
 	state.EndFrame()
-	state.SetGamepad(input.GamepadSnapshot{})
+	state.SetGamepad(input.GamepadFrame{})
 	ui.update(state, events, now.Add(time.Second/30), 300, 200)
 	if !state.MousePressed(input.MouseButtonLeft) || state.MouseJustReleased(input.MouseButtonLeft) {
 		t.Fatal("controller disconnect released a physical mouse button")
@@ -106,7 +106,7 @@ func TestGamepadStartTapsEscapeOnce(t *testing.T) {
 			presses++
 		}
 	})
-	pad := input.GamepadSnapshot{ID: "test"}
+	pad := input.GamepadFrame{ID: "test"}
 	pad.Buttons[input.GamepadStart] = true
 	state.SetGamepad(pad)
 	ui := gamepadUIState{}
@@ -127,7 +127,7 @@ func TestFocusLossCancelsControllerAndMouseWithoutClicks(t *testing.T) {
 	events := newFanoutEventSource(source)
 	state := input.NewState()
 	wireInput(events, state)
-	pad := input.GamepadSnapshot{ID: "test"}
+	pad := input.GamepadFrame{ID: "test"}
 	pad.Buttons[input.GamepadSouth] = true
 	state.SetGamepad(pad)
 	events.setMouseButton(true, gpucontext.MouseButtonLeft, true, 10, 20)

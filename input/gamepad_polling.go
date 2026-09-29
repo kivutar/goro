@@ -11,7 +11,7 @@ import (
 // Only wrap backends whose OS APIs permit polling on a background goroutine.
 type pollingGamepads struct {
 	mu   sync.Mutex
-	pads []GamepadSnapshot
+	pads []GamepadFrame
 	stop chan struct{}
 	done chan struct{}
 	once sync.Once
@@ -30,17 +30,17 @@ func newPollingGamepads(backend gamepadBackend) *pollingGamepads {
 				return
 			default:
 			}
-			pads := backend.poll()
+			pads := backend.drain()
 			p.mu.Lock()
 			// Disconnects discard pending actions from that controller.
-			p.pads = slices.DeleteFunc(p.pads, func(old GamepadSnapshot) bool {
-				return !slices.ContainsFunc(pads, func(next GamepadSnapshot) bool { return next.ID == old.ID })
+			p.pads = slices.DeleteFunc(p.pads, func(old GamepadFrame) bool {
+				return !slices.ContainsFunc(pads, func(next GamepadFrame) bool { return next.ID == old.ID })
 			})
 			for _, next := range pads {
-				i := slices.IndexFunc(p.pads, func(old GamepadSnapshot) bool { return next.ID == old.ID })
+				i := slices.IndexFunc(p.pads, func(old GamepadFrame) bool { return next.ID == old.ID })
 				if i < 0 {
 					i = len(p.pads)
-					p.pads = append(p.pads, GamepadSnapshot{ID: next.ID})
+					p.pads = append(p.pads, GamepadFrame{ID: next.ID})
 				}
 				pad := &p.pads[i]
 				for _, change := range next.Changes {
@@ -62,7 +62,7 @@ func newPollingGamepads(backend gamepadBackend) *pollingGamepads {
 	return p
 }
 
-func (p *pollingGamepads) poll() []GamepadSnapshot {
+func (p *pollingGamepads) drain() []GamepadFrame {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	pads := slices.Clone(p.pads)
