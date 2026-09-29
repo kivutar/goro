@@ -10,6 +10,7 @@ import (
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/session"
+	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
 )
 
@@ -159,6 +160,55 @@ func TestWASDKeyboardSkillTargetSurvivesWithoutGamepad(t *testing.T) {
 	}
 }
 
+func TestWASDGamepadTargetCyclingKeepsEnemyAndSkillSelectionsSeparate(t *testing.T) {
+	ctx := chatShortcutTestContext(t)
+	ctx.Config.Script.Path = "builtin:wasd"
+	ctx.World = worldstate.New()
+	ctx.World.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+	ctx.Session.AccountID = ctx.World.Player.ID
+	ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 12, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
+	ctx.World.Actors[301] = worldstate.Actor{ID: 301, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
+	ctx.World.Actors[302] = worldstate.Actor{ID: 302, X: 10, Y: 21, ObjectType: actorObjectTypeMob, HasObjectType: true}
+	ctx.World.Actors[303] = worldstate.Actor{ID: 303, X: 10, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
+	mode := NewWorldMode()
+	mode.actorDeaths = map[uint32]time.Time{303: time.Now()}
+	loadKeyboardTestBot(t, ctx, mode)
+	pad := input.GamepadFrame{ID: "test"}
+	press := func(button input.GamepadButton, want uint32) {
+		t.Helper()
+		pad.Buttons[button] = true
+		ctx.Input.SetGamepad(pad)
+		mode.HandleGamepadInput(ctx, 1.0/60)
+		if mode.bot.disabled || mode.scriptHighlight.id != want {
+			t.Fatalf("target = %d, want %d (script disabled: %v)", mode.scriptHighlight.id, want, mode.bot.disabled)
+		}
+		ctx.Input.EndFrame()
+		pad.Buttons[button] = false
+		ctx.Input.SetGamepad(pad)
+		mode.HandleGamepadInput(ctx, 1.0/60)
+		ctx.Input.EndFrame()
+	}
+	// Nearest first, ID breaks distance ties; both directions wrap.
+	for _, want := range []uint32{301, 302, 300, 301} {
+		press(input.GamepadRightShoulder, want)
+	}
+	press(input.GamepadLeftShoulder, 300)
+
+	mode.pendingSkill = pendingSkillTarget{skill: session.Skill{ID: db.SkillALHeal, Type: skillTargetFriend, Level: 1}}
+	press(input.GamepadRightShoulder, ctx.Session.AccountID)
+	mode.pendingSkill = pendingSkillTarget{}
+	mode.HandleGamepadInput(ctx, 1.0/60)
+	if mode.scriptHighlight.id != 300 {
+		t.Fatal("ending skill targeting lost the selected enemy")
+	}
+	press(input.GamepadLeftShoulder, 302)
+	delete(ctx.World.Actors, 302)
+	press(input.GamepadRightShoulder, 301)
+	clear(ctx.World.Actors)
+	press(input.GamepadRightShoulder, 0)
+	press(input.GamepadLeftShoulder, 0)
+}
+
 type gamepadHoverTestUI struct {
 	client.UIManager
 	blocked bool
@@ -295,6 +345,79 @@ func TestWASDGamepadNPCDialogYieldsToDisconnect(t *testing.T) {
 				t.Fatal("controller callback failed")
 			}
 		})
+	}
+}
+
+func TestNPCDialogModalPriorityForKeyboardAndGamepad(t *testing.T) {
+	for _, name := range []string{"friend", "trade", "party", "pet", "homunculus", "mercenary"} {
+		t.Run(name, func(t *testing.T) {
+			ctx := chatShortcutTestContext(t)
+			ctx.Network, _ = newBotTestConnection(t, 20080910)
+			ctx.Config.Script.Path = "builtin:wasd"
+			ctx.World = worldstate.New()
+			mode := NewWorldMode()
+			loadKeyboardTestBot(t, ctx, mode)
+			mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogSay, NPCID: 100, Message: "Hello"})
+			mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogClose, NPCID: 100})
+			mode.ui.npcDialog.Update(ctx) // Publish before testing keyboard dispatch.
+			modal := map[string]*gameui.ConfirmModal{
+				"friend": &mode.ui.friendRequest, "trade": &mode.ui.tradeRequest,
+				"party": &mode.ui.partyInfo, "pet": &mode.ui.petConfirm,
+				"homunculus": &mode.ui.homunculusConfirm, "mercenary": &mode.ui.mercenaryConfirm,
+			}[name]
+			modal.OpenAlert(ctx, name, "Confirm", nil)
+			ctx.Input.EndFrame()
+			pad := input.GamepadFrame{ID: "test"}
+			pad.Buttons[input.GamepadSouth] = true
+			ctx.Input.SetGamepad(pad)
+			capture := mode.HandleGamepadInput(ctx, 1.0/60)
+			if capture.Buttons[input.GamepadSouth] || capture.Buttons[input.GamepadEast] || !mode.ui.npcDialog.IsOpen() {
+				t.Fatal("NPC stole controller input from the modal")
+			}
+			ctx.Input.SetKeyCode(gpucontext.KeyEnter, true)
+			if _, err := mode.Update(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if modal.IsOpen() || !mode.ui.npcDialog.IsOpen() {
+				t.Fatal("Enter did not confirm only the higher-priority modal")
+			}
+			// An ordinary window must not become a blanket blocker for NPCs.
+			mode.ui.settingsWindow.OpenWindow(ctx)
+			ctx.Input.EndFrame()
+			ctx.Input.SetKeyCode(gpucontext.KeyEnter, false)
+			pad.Buttons[input.GamepadSouth] = false
+			ctx.Input.SetGamepad(pad)
+			mode.HandleGamepadInput(ctx, 1.0/60)
+			ctx.Input.EndFrame()
+			pad.Buttons[input.GamepadSouth] = true
+			ctx.Input.SetGamepad(pad)
+			capture = mode.HandleGamepadInput(ctx, 1.0/60)
+			if !capture.Buttons[input.GamepadSouth] || mode.ui.npcDialog.IsOpen() || mode.bot.disabled {
+				t.Fatal("NPC controller input did not resume after confirming the modal")
+			}
+		})
+	}
+}
+
+func TestNPCDialogKeyboardYieldsToGuildPrompt(t *testing.T) {
+	ctx := chatShortcutTestContext(t)
+	ctx.Network = network.NewClient(20080910, false)
+	t.Cleanup(func() { ctx.Network.Close() })
+	ctx.World = worldstate.New()
+	mode := NewWorldMode()
+	mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogSay, NPCID: 100, Message: "Hello"})
+	mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogClose, NPCID: 100})
+	mode.ui.npcDialog.Update(ctx)
+	// This modal's Update runs after NPC dispatch, so ordering alone cannot
+	// give it priority. The shared eligibility check must protect it too.
+	mode.ui.guildMemberPrompt.Open(ctx, "Guild", "Reason", "", 40)
+	ctx.Input.EndFrame()
+	ctx.Input.SetKeyCode(gpucontext.KeyEscape, true)
+	if _, err := mode.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if mode.ui.guildMemberPrompt.IsOpen() || !mode.ui.npcDialog.IsOpen() {
+		t.Fatal("Escape did not cancel only the guild prompt above the NPC")
 	}
 }
 

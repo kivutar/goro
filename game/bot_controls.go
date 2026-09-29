@@ -78,8 +78,7 @@ func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 			return 0
 		},
 		"npc_dialog": func(L *lua.LState) int {
-			open := m.ui.npcDialog.IsOpen() && !m.uiInputSuspended() &&
-				!m.ui.disconnectDialog.IsOpen() && !m.ui.interactionModalOpen() && !m.ui.escapeMenu.IsOpen()
+			open := m.ui.npcDialog.IsOpen() && !m.uiInputSuspended() && m.ui.npcInputAvailable()
 			if open && L.GetTop() != 0 {
 				m.ui.npcDialog.Control(ctx, L.CheckString(1))
 			}

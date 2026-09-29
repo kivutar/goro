@@ -69,6 +69,22 @@ local function append_skill_targets(targets, seen, entries)
 	end
 end
 
+local function sort_targets(targets, x, y)
+	table.sort(targets, function(a, b)
+		local adx = a.x - x
+		local ady = a.y - y
+		local bdx = b.x - x
+		local bdy = b.y - y
+		local adistance = adx * adx + ady * ady
+		local bdistance = bdx * bdx + bdy * bdy
+		if adistance == bdistance then
+			return a.id < b.id
+		end
+		return adistance < bdistance
+	end)
+	return targets
+end
+
 local function skill_targets(pending)
 	local targets = {}
 	local seen = {}
@@ -87,32 +103,14 @@ local function skill_targets(pending)
 
 	local caster_x = pending.caster_x or goro.player().x
 	local caster_y = pending.caster_y or goro.player().y
-	table.sort(targets, function(a, b)
-		local adx = a.x - caster_x
-		local ady = a.y - caster_y
-		local bdx = b.x - caster_x
-		local bdy = b.y - caster_y
-		local adistance = adx * adx + ady * ady
-		local bdistance = bdx * bdx + bdy * bdy
-		if adistance == bdistance then
-			return a.id < b.id
-		end
-		return adistance < bdistance
-	end)
-	return targets
+	return sort_targets(targets, caster_x, caster_y)
 end
 
-local function cycle_skill_target(pending, reverse)
-	local targets = skill_targets(pending)
-	if #targets == 0 then
-		clear_skill_target()
-		skill_target_skill_id = pending.id
-		return
-	end
-
+local function next_target_id(targets, current_id, reverse)
+	if #targets == 0 then return nil end
 	local current = nil
 	for index, target in ipairs(targets) do
-		if target.id == skill_target_id then
+		if target.id == current_id then
 			current = index
 			break
 		end
@@ -127,8 +125,12 @@ local function cycle_skill_target(pending, reverse)
 		next_index = current % #targets + 1
 	end
 
-	local id = targets[next_index].id
-	if goro.highlight_actor(id) then
+	return targets[next_index].id
+end
+
+local function cycle_skill_target(pending, reverse)
+	local id = next_target_id(skill_targets(pending), skill_target_id, reverse)
+	if id ~= nil and goro.highlight_actor(id) then
 		skill_target_id = id
 	else
 		clear_skill_target()
@@ -321,11 +323,13 @@ function gamepad(dt)
 		if pending ~= nil and pending.target == "actor" then
 			cycle_skill_target(pending, previous)
 		elseif pending == nil then
-			skill_target_id = selected_enemy_id
-			cycle_skill_target({ id = 0, type = skill_target_enemy }, previous)
-			selected_enemy_id = skill_target_id
-			skill_target_id = nil
-			skill_target_skill_id = nil
+			local player = goro.player()
+			local targets = sort_targets(goro.enemies(), player.x, player.y)
+			selected_enemy_id = next_target_id(targets, selected_enemy_id, previous)
+			if not goro.highlight_actor(selected_enemy_id) then
+				selected_enemy_id = nil
+				goro.highlight_actor(nil)
+			end
 			attack_target_id = nil
 		end
 	end

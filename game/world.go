@@ -249,18 +249,10 @@ func (u *worldUI) nonConsoleKeyboardInputBlockedExcept(ctx client.Context, excep
 	}
 	open := func(w *gameui.Window) bool { return w != except && w.IsOpen() }
 	return u.npcDialog.IsOpen() ||
-		u.escapeMenu.IsOpen() ||
-		u.disconnectDialog.IsOpen() ||
-		u.interactionModalOpen() ||
-		u.partyInfo.IsOpen() ||
-		u.petConfirm.IsOpen() ||
-		u.homunculusConfirm.IsOpen() ||
-		u.mercenaryConfirm.IsOpen() ||
-		u.starPlaceConfirm.IsOpen() ||
+		!u.npcInputAvailable() ||
 		open(&u.settingsWindow.Window) ||
 		u.chatShortcuts.IsOpen() ||
 		u.worldMap.IsOpen() ||
-		u.autoSpellWindow.IsOpen() ||
 		u.monsterInfoWindow.IsOpen() ||
 		u.identifyWindow.IsOpen() ||
 		u.cardWindow.IsOpen() ||
@@ -275,7 +267,6 @@ func (u *worldUI) nonConsoleKeyboardInputBlockedExcept(ctx client.Context, excep
 		open(&u.mercenaryInfo.Window) ||
 		u.mercenarySkill.IsOpen() ||
 		u.changeCartWindow.IsOpen() ||
-		u.inventoryBag.KeyboardShortcutsBlocked() ||
 		u.itemWindows.KeyboardShortcutsBlocked() ||
 		u.shopWindow.KeyboardShortcutsBlocked() ||
 		u.vendingWindow.KeyboardShortcutsBlocked() ||
@@ -290,6 +281,19 @@ func (u *worldUI) nonConsoleKeyboardInputBlockedExcept(ctx client.Context, excep
 		u.partyCreate.IsOpen() ||
 		u.partyInvite.IsOpen() ||
 		u.skillTextPrompt.IsOpen()
+}
+
+// Higher-priority modals block NPC input in both normal UI dispatch and Lua.
+// This does not require an open NPC dialog: Update also unpublishes closed ones.
+func (u *worldUI) npcInputAvailable() bool {
+	return !u.disconnectDialog.IsOpen() &&
+		!u.escapeMenu.IsOpen() &&
+		!u.interactionModalOpen() &&
+		!u.partyInfo.IsOpen() &&
+		!u.petConfirm.IsOpen() &&
+		!u.homunculusConfirm.IsOpen() &&
+		!u.mercenaryConfirm.IsOpen() &&
+		!u.inventoryBag.KeyboardShortcutsBlocked()
 }
 
 func (u *worldUI) interactionModalOpen() bool {
@@ -930,7 +934,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.updateAutoSpellWindow(ctx) {
 		return nil, nil
 	}
-	if m.ui.npcDialog.Update(ctx) {
+	if m.ui.npcInputAvailable() && m.ui.npcDialog.Update(ctx) {
 		return nil, nil
 	}
 	if m.ui.npcCutin.Update(ctx) {
