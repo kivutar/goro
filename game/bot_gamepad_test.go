@@ -255,6 +255,49 @@ func TestWASDGamepadCameraMovementAndDialogFocus(t *testing.T) {
 	}
 }
 
+func TestWASDGamepadNPCDialogYieldsToDisconnect(t *testing.T) {
+	for name, button := range map[string]input.GamepadButton{"south": input.GamepadSouth, "east": input.GamepadEast} {
+		t.Run(name, func(t *testing.T) {
+			ctx := chatShortcutTestContext(t)
+			ctx.Config.Script.Path = "builtin:wasd"
+			ctx.World = worldstate.New()
+			mode := NewWorldMode()
+			loadKeyboardTestBot(t, ctx, mode)
+			mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogSay, NPCID: 100, Message: "Hello"})
+			mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogClose, NPCID: 100})
+			openDisconnectDialog(ctx, &mode.ui.disconnectDialog, "Disconnected")
+			ctx.Input.EndFrame()
+			pad := input.GamepadFrame{ID: "test"}
+			pad.Buttons[button] = true
+			ctx.Input.SetGamepad(pad)
+			capture := mode.HandleGamepadInput(ctx, 1.0/60)
+			if capture.Buttons[input.GamepadSouth] || capture.Buttons[input.GamepadEast] || capture.Pointer {
+				t.Fatal("NPC captured pointer controls belonging to the disconnect alert")
+			}
+			if !mode.ui.npcDialog.IsOpen() || !mode.ui.disconnectDialog.IsOpen() {
+				t.Fatal("controller acted on a dialog instead of leaving input to the pointer")
+			}
+
+			// Removing the alert restores normal NPC confirmation/cancellation.
+			mode.ui.disconnectDialog.Close(ctx)
+			ctx.Input.EndFrame()
+			pad.Buttons[button] = false
+			ctx.Input.SetGamepad(pad)
+			mode.HandleGamepadInput(ctx, 1.0/60)
+			ctx.Input.EndFrame()
+			pad.Buttons[button] = true
+			ctx.Input.SetGamepad(pad)
+			capture = mode.HandleGamepadInput(ctx, 1.0/60)
+			if !capture.Buttons[button] || mode.ui.npcDialog.IsOpen() {
+				t.Fatal("NPC controls did not resume after the alert closed")
+			}
+			if mode.bot.disabled {
+				t.Fatal("controller callback failed")
+			}
+		})
+	}
+}
+
 func TestWASDGamepadMovementFollowsRotatedCamera(t *testing.T) {
 	ctx := chatShortcutTestContext(t)
 	conn, server := newBotTestConnection(t, 20080910)
