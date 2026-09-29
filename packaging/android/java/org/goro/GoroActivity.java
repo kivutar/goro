@@ -286,6 +286,10 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
         private float distance(MotionEvent event) {
             return (float)Math.hypot(event.getX(0) - event.getX(1), event.getY(0) - event.getY(1));
         }
+        private float gamepadAxisValue(MotionEvent event, int axis, int sample) {
+            return sample < event.getHistorySize()
+                ? event.getHistoricalAxisValue(axis, sample) : event.getAxisValue(axis);
+        }
         @Override public boolean onGenericMotionEvent(MotionEvent event) {
             if (!running) return true;
             if (event.isFromSource(android.view.InputDevice.SOURCE_JOYSTICK)) {
@@ -295,11 +299,15 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
                 if (device != null && device.getMotionRange(rx, event.getSource()) == null) {
                     rx = MotionEvent.AXIS_RX; ry = MotionEvent.AXIS_RY;
                 }
-                nativeGamepadMotion(event.getDeviceId(), event.getAxisValue(MotionEvent.AXIS_X),
-                    event.getAxisValue(MotionEvent.AXIS_Y), event.getAxisValue(rx), event.getAxisValue(ry),
-                    Math.max(event.getAxisValue(MotionEvent.AXIS_LTRIGGER), event.getAxisValue(MotionEvent.AXIS_BRAKE)),
-                    Math.max(event.getAxisValue(MotionEvent.AXIS_RTRIGGER), event.getAxisValue(MotionEvent.AXIS_GAS)),
-                    event.getAxisValue(MotionEvent.AXIS_HAT_X), event.getAxisValue(MotionEvent.AXIS_HAT_Y));
+                // Replay the batch oldest first so a D-pad tap is not lost when
+                // its release is the current sample. Analog state ends at the latest value.
+                for (int sample = 0; sample <= event.getHistorySize(); sample++) {
+                    nativeGamepadMotion(event.getDeviceId(), gamepadAxisValue(event, MotionEvent.AXIS_X, sample),
+                        gamepadAxisValue(event, MotionEvent.AXIS_Y, sample), gamepadAxisValue(event, rx, sample), gamepadAxisValue(event, ry, sample),
+                        Math.max(gamepadAxisValue(event, MotionEvent.AXIS_LTRIGGER, sample), gamepadAxisValue(event, MotionEvent.AXIS_BRAKE, sample)),
+                        Math.max(gamepadAxisValue(event, MotionEvent.AXIS_RTRIGGER, sample), gamepadAxisValue(event, MotionEvent.AXIS_GAS, sample)),
+                        gamepadAxisValue(event, MotionEvent.AXIS_HAT_X, sample), gamepadAxisValue(event, MotionEvent.AXIS_HAT_Y, sample));
+                }
                 return true;
             } else {
                 pointerX = event.getX() * renderWidth / getWidth();
