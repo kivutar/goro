@@ -228,6 +228,10 @@ type uiProfileStats struct {
 }
 
 type runner struct {
+	gamepads        *input.GamepadSource
+	gamepadUI       gamepadUIState
+	gamepadEvents   *fanoutEventSource
+	gamepadFocused  bool
 	app             *gogpu.App
 	ui              *uiapp.App
 	uiWindow        *uiWindowProvider
@@ -331,19 +335,21 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	)
 
 	r := &runner{
-		app:        gg,
-		ui:         ui,
-		uiWindow:   uiWindow,
-		game:       game,
-		width:      cfg.Width,
-		height:     cfg.Height,
-		duration:   time.Duration(renderCfg.BenchSeconds) * time.Second,
-		warmup:     time.Duration(renderCfg.BenchWarmupSeconds) * time.Second,
-		renderCfg:  renderCfg,
-		quit:       gg.Quit,
-		fullscreen: cfg.Fullscreen,
-		vsync:      renderCfg.VSync,
-		fps:        renderCfg.FPS,
+		gamepadEvents:  events,
+		gamepadFocused: true,
+		app:            gg,
+		ui:             ui,
+		uiWindow:       uiWindow,
+		game:           game,
+		width:          cfg.Width,
+		height:         cfg.Height,
+		duration:       time.Duration(renderCfg.BenchSeconds) * time.Second,
+		warmup:         time.Duration(renderCfg.BenchWarmupSeconds) * time.Second,
+		renderCfg:      renderCfg,
+		quit:           gg.Quit,
+		fullscreen:     cfg.Fullscreen,
+		vsync:          renderCfg.VSync,
+		fps:            renderCfg.FPS,
 	}
 	defer r.close()
 	if receiver, ok := game.(quitReceiver); ok {
@@ -354,8 +360,26 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 	}
 	game.Resize(cfg.Width, cfg.Height)
 	wireInput(events, game.InputState())
+	events.OnFocus(func(focused bool) {
+		if r.gamepads != nil {
+			// Discard transitions queued before this focus change, including taps
+			// received while background rendering was suspended.
+			r.gamepads.DiscardPending()
+		}
+		r.gamepadFocused = focused
+		if !focused {
+			r.gamepadUI = gamepadUIState{}
+		}
+	})
 
 	gg.OnSurfaceAvailable(func() {
+		if r.gamepads == nil {
+			var err error
+			r.gamepads, err = input.NewGamepadSource()
+			if err != nil {
+				glog.Warnf("gamepad input unavailable: %v", err)
+			}
+		}
 		// The primary window is registered before this callback, and close
 		// events are processed afterwards. X/Alt+F4 must drain UI redraws
 		// before GoGPU destroys that window, earlier than App.OnClose.
@@ -391,6 +415,10 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 }
 
 func (r *runner) close() {
+	if r.gamepads != nil {
+		r.gamepads.Close()
+		r.gamepads = nil
+	}
 	// App-level quits reach OnClose before native teardown. Window-close
 	// requests have already drained redraws through the pre-close callback.
 	if r.uiWindow != nil {
@@ -449,6 +477,8 @@ func graphicsAPI(name string) (gogputypes.GraphicsAPI, error) {
 }
 
 type fanoutEventSource struct {
+	physicalMouse        map[gpucontext.MouseButton]bool
+	controllerMouse      map[gpucontext.MouseButton]bool
 	inputState           *input.State
 	handleKeyPress       func(input.KeyCode)
 	prepareKeyInput      func(input.KeyCode, gpucontext.Modifiers)
@@ -467,44 +497,63 @@ type fanoutEventSource struct {
 	imeCompositionUpdate []func(gpucontext.IMEState)
 }
 
+// Physical and synthetic keys share recording, consumption and UI dispatch.
+// Text association stays in the physical event callback: a controller tap must
+// not change which physical key a later text event belongs to.
+func (f *fanoutEventSource) dispatchKeyPress(key gpucontext.Key, mods gpucontext.Modifiers) {
+	repeated := false
+	if f.inputState != nil {
+		repeated = f.inputState.KeyCodeDown(key)
+		f.inputState.SetKeyCode(key, true)
+	}
+	if !repeated && f.handleKeyPress != nil {
+		f.handleKeyPress(key)
+	}
+	if f.keyConsumed(key) {
+		return
+	}
+	// Editing keys do not generate text events. Restore their destination
+	// before UI dispatch so the first Delete/Backspace is not lost.
+	if f.prepareKeyInput != nil {
+		f.prepareKeyInput(key, mods)
+	}
+	if f.keyConsumed(key) {
+		return
+	}
+	for _, fn := range f.keyPress {
+		fn(key, mods)
+	}
+}
+
+func (f *fanoutEventSource) dispatchKeyRelease(key gpucontext.Key, mods gpucontext.Modifiers) {
+	if f.inputState != nil {
+		f.inputState.SetKeyCode(key, false)
+	}
+	for _, fn := range f.keyRelease {
+		fn(key, mods)
+	}
+}
+
+func (f *fanoutEventSource) tapKey(key gpucontext.Key) {
+	if f.inputState != nil && f.inputState.KeyCodeDown(key) {
+		return // A synthetic tap must not release a physically held key.
+	}
+	f.dispatchKeyPress(key, 0)
+	f.dispatchKeyRelease(key, 0)
+}
+
 func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 	f := &fanoutEventSource{}
 	keyCode := gpucontext.KeyUnknown
 	source.OnKeyPress(func(key gpucontext.Key, mods gpucontext.Modifiers) {
 		keyCode = key
-		repeated := false
-		if f.inputState != nil {
-			repeated = f.inputState.KeyCodeDown(key)
-			f.inputState.SetKeyCode(key, true)
-		}
-		if !repeated && f.handleKeyPress != nil {
-			f.handleKeyPress(key)
-		}
-		if f.keyConsumed(key) {
-			return
-		}
-		// Editing keys do not generate text events. Restore their destination
-		// before UI dispatch so the first Delete/Backspace is not lost.
-		if f.prepareKeyInput != nil {
-			f.prepareKeyInput(key, mods)
-		}
-		if f.keyConsumed(key) {
-			return
-		}
-		for _, fn := range f.keyPress {
-			fn(key, mods)
-		}
+		f.dispatchKeyPress(key, mods)
 	})
 	source.OnKeyRelease(func(key gpucontext.Key, mods gpucontext.Modifiers) {
-		if f.inputState != nil {
-			f.inputState.SetKeyCode(key, false)
-		}
 		if key == keyCode {
 			keyCode = gpucontext.KeyUnknown
 		}
-		for _, fn := range f.keyRelease {
-			fn(key, mods)
-		}
+		f.dispatchKeyRelease(key, mods)
 	})
 	source.OnTextInput(func(text string) {
 		if f.inputState != nil {
@@ -528,14 +577,10 @@ func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 		}
 	})
 	source.OnMousePress(func(button gpucontext.MouseButton, x, y float64) {
-		for _, fn := range f.mousePress {
-			fn(button, x, y)
-		}
+		f.setMouseButton(false, button, true, x, y)
 	})
 	source.OnMouseRelease(func(button gpucontext.MouseButton, x, y float64) {
-		for _, fn := range f.mouseRelease {
-			fn(button, x, y)
-		}
+		f.setMouseButton(false, button, false, x, y)
 	})
 	source.OnScroll(func(x, y float64) {
 		for _, fn := range f.scroll {
@@ -550,8 +595,12 @@ func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 	source.OnFocus(func(focused bool) {
 		if !focused {
 			keyCode = gpucontext.KeyUnknown
+			clear(f.physicalMouse)
+			clear(f.controllerMouse)
 			if f.inputState != nil {
 				f.inputState.ResetKeyboard()
+				f.inputState.ResetGamepad()
+				f.inputState.ResetMouseButtons()
 			}
 		}
 		for _, fn := range f.focus {
@@ -668,6 +717,7 @@ func mapMouseButton(button gpucontext.MouseButton) (input.MouseButton, bool) {
 
 func (r *runner) update() error {
 	updateStart := time.Now()
+	r.updateGamepad(updateStart)
 	r.applyRuntimeSettings()
 	if r.duration > 0 && r.started.IsZero() {
 		r.started = time.Now()

@@ -270,3 +270,31 @@ func TestWireInputAltTabWithoutKeyRelease(t *testing.T) {
 		})
 	}
 }
+
+func TestControllerTapPreservesPhysicalKeysAndTextAssociation(t *testing.T) {
+	source := &fanoutEventSource{}
+	events := newFanoutEventSource(source)
+	state := input.NewState()
+	wireInput(events, state)
+	events.handleKeyPress = func(key input.KeyCode) {
+		if key == gpucontext.KeyM {
+			state.ConsumeKeyCodePress(key)
+		}
+	}
+	for _, fn := range source.keyPress {
+		fn(gpucontext.KeyM, 0)
+	}
+	events.tapKey(gpucontext.KeyEscape)
+	events.OnTextInput(func(string) { t.Fatal("synthetic key changed physical shortcut/text association") })
+	for _, fn := range source.textInput {
+		fn("m")
+	}
+	for _, fn := range source.keyPress {
+		fn(gpucontext.KeyEscape, 0)
+	}
+	state.EndFrame()
+	events.tapKey(gpucontext.KeyEscape)
+	if !state.KeyCodeDown(gpucontext.KeyEscape) || state.KeyCodeJustReleased(gpucontext.KeyEscape) || state.KeyCodeJustPressed(gpucontext.KeyEscape) {
+		t.Fatal("controller tap changed a physically held Escape key")
+	}
+}

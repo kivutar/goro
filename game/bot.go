@@ -9,6 +9,7 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
+	"github.com/kivutar/goro/scripts"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
@@ -28,7 +29,7 @@ type luaBot struct {
 
 func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
 	path := strings.TrimSpace(ctx.Config.Script.Path)
-	if path == "" {
+	if path == "" || path == "none" {
 		if m.bot != nil {
 			m.bot.close()
 			m.bot = nil
@@ -79,7 +80,13 @@ func newLuaBot(ctx client.Context, mode *WorldMode, path string) (*luaBot, error
 		nextTick: time.Now().Add(botTickInterval),
 	}
 	bot.registerAPI(ctx, mode)
-	if err := bot.state.DoFile(path); err != nil {
+	var err error
+	if path == "builtin:wasd" {
+		err = bot.state.DoString(scripts.WASD)
+	} else {
+		err = bot.state.DoFile(path)
+	}
+	if err != nil {
 		bot.close()
 		return nil, err
 	}
@@ -226,6 +233,7 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 		},
 	})
 	registerLuaKeyboardAPI(b.state, api, ctx, b)
+	registerLuaGamepadAPI(b.state, api, ctx, b)
 	b.state.SetGlobal("goro", api)
 }
 
