@@ -135,6 +135,65 @@ func TestGamepadStartTapsEscapeOnce(t *testing.T) {
 	}
 }
 
+func TestCapturedGamepadControlsDoNotMoveOrClickPointer(t *testing.T) {
+	events := &fanoutEventSource{}
+	state := input.NewState()
+	wireInput(events, state)
+	state.SetMousePosition(100, 100)
+	clicks := 0
+	events.OnMousePress(func(gpucontext.MouseButton, float64, float64) { clicks++ })
+	now := time.Now()
+	ui := gamepadUIState{}
+	ui.update(state, events, now, 300, 200)
+	pad := input.GamepadFrame{ID: "test"}
+	pad.Axes[input.GamepadRightX] = 1
+	pad.Buttons[input.GamepadSouth] = true
+	state.SetGamepad(pad)
+	ui.capture.Pointer = true
+	ui.capture.Buttons[input.GamepadSouth] = true
+	ui.update(state, events, now.Add(time.Second/60), 300, 200)
+	if state.MouseX != 100 || clicks != 0 {
+		t.Fatal("captured controls reached the pointer")
+	}
+	state.EndFrame()
+	ui.capture = input.GamepadCapture{}
+	ui.update(state, events, now.Add(time.Second/30), 300, 200)
+	if clicks != 0 || state.MousePressed(input.MouseButtonLeft) {
+		t.Fatal("releasing modifier turned a held face button into a click")
+	}
+	pad.Buttons[input.GamepadSouth] = false
+	state.SetGamepad(pad)
+	ui.update(state, events, now.Add(time.Second/20), 300, 200)
+	state.EndFrame()
+	pad.Buttons[input.GamepadSouth] = true
+	state.SetGamepad(pad)
+	ui.update(state, events, now.Add(time.Second/15), 300, 200)
+	if clicks != 1 {
+		t.Fatal("pointer click did not return after releasing the button")
+	}
+	// A release and new press may share one frame. The new press must follow
+	// the current capture, even when the previous press belonged to the UI.
+	state.EndFrame()
+	pad.Changes = []input.GamepadButtonChange{
+		{Button: input.GamepadSouth, Down: false},
+		{Button: input.GamepadSouth, Down: true},
+	}
+	state.SetGamepad(pad)
+	ui.capture.Buttons[input.GamepadSouth] = true
+	ui.update(state, events, now.Add(time.Second/10), 300, 200)
+	if clicks != 1 || state.MousePressed(input.MouseButtonLeft) {
+		t.Fatal("captured re-press leaked after releasing a UI press in the same frame")
+	}
+	// Conversely, releasing a captured press allows a fresh unclaimed press.
+	state.EndFrame()
+	state.SetGamepad(pad)
+	ui.capture = input.GamepadCapture{}
+	ui.update(state, events, now.Add(time.Second/5), 300, 200)
+	if clicks != 2 || !state.MousePressed(input.MouseButtonLeft) {
+		t.Fatal("a fresh pointer press inherited the previous press's capture")
+	}
+}
+
 func TestFocusLossCancelsControllerAndMouseWithoutClicks(t *testing.T) {
 	source := &fanoutEventSource{}
 	events := newFanoutEventSource(source)

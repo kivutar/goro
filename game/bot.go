@@ -9,6 +9,7 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
+	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/scripts"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
@@ -25,6 +26,8 @@ type luaBot struct {
 	nextTick          time.Time
 	disabled          bool
 	keyboardAvailable bool
+	gamepadInput      bool
+	gamepadCapture    input.GamepadCapture
 }
 
 func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
@@ -238,6 +241,7 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 	})
 	registerLuaKeyboardAPI(b.state, api, ctx, b)
 	registerLuaGamepadAPI(b.state, api, ctx, b)
+	registerLuaControlsAPI(b.state, api, ctx, b)
 	b.state.SetGlobal("goro", api)
 }
 

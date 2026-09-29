@@ -64,19 +64,27 @@ current run, including map changes.
 
 | Control | Action |
 | --- | --- |
-| Left stick / D-pad | Move (eight directions) |
-| West face button (Xbox X / PlayStation Square) | Hold to attack |
-| North face button (Xbox Y / PlayStation Triangle) | Hold to loot |
+| Left stick / D-pad | Move relative to camera (eight directions) |
+| West face button (Xbox X / PlayStation Square) | Hold to loot |
 | Right stick | Move the pointer |
-| South / East face buttons | Left / right mouse click |
+| L2 + right stick | Rotate / tilt camera (where the map allows it) |
+| R2 + right stick up/down | Zoom in/out (where the map allows it) |
+| R2 + South / East / West / North | Hotbar slots 1 / 2 / 3 / 4 in the active row |
+| South | Hold to attack selected enemy; confirm armed skill; otherwise left click |
+| East | Cancel skill / clear target; otherwise right click |
 | Start / Menu | Escape menu |
-| Right / left shoulder | Next / previous target for an armed actor skill |
+| Right / left shoulder | Next / previous enemy, or eligible target for an armed skill |
+| D-pad up/down, South/East in NPC dialogs | Select choice, confirm / cancel |
 | Left stick click | Use the armed skill on the highlighted target |
 | Select / Back on Android | Open the keyboard |
 
 Gameplay controls pause while chat or a form has keyboard focus. Keyboard WASD,
 F and Space still work. The first detected controller stays selected until it
 disconnects; connecting and disconnecting controllers does not require a restart.
+
+Skill shortcuts cast immediately on a selected eligible enemy; otherwise use the
+shoulders and South to choose and confirm an actor target. Ground skills use the
+pointer and South. Self skills and items activate immediately.
 
 Backends: Windows XInput, Linux evdev, macOS GameController, and Android
 InputDevice. Windows requires an XInput-compatible controller or driver; Linux

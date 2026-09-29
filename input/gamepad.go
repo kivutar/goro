@@ -77,6 +77,13 @@ type GamepadButtonChange struct {
 	Down   bool
 }
 
+// GamepadCapture lets gameplay claim controls before the pointer fallback.
+// It applies to one frame; button captures last until release in the renderer.
+type GamepadCapture struct {
+	Buttons [GamepadButtonCount]bool
+	Pointer bool
+}
+
 func (p *GamepadFrame) setButton(button GamepadButton, down bool) {
 	if button < GamepadButtonCount && p.Buttons[button] != down {
 		p.Buttons[button] = down
