@@ -197,33 +197,10 @@ func (d *NPCDialog) Update(ctx Context) bool {
 		return true
 	}
 	if ctx.Input.JustPressed(input.KeyEscape) {
-		switch d.action {
-		case npcDialogActionMenu:
-			d.choose(ctx, 255)
-		case npcDialogActionClose:
-			d.close(ctx)
-		default:
-			// The original client claims Escape while an NPC dialog is open,
-			// but only closes a menu or a dialog that is waiting for Close.
-			// In particular, a dialog waiting for Next must remain intact.
-			return true
-		}
-		d.publish(ctx)
-		return true
+		return d.Control(ctx, "cancel")
 	}
 	if ctx.Input.JustPressed(input.KeyEnter) {
-		switch d.action {
-		case npcDialogActionNext:
-			d.next(ctx)
-		case npcDialogActionClose:
-			d.close(ctx)
-		case npcDialogActionMenu:
-			d.chooseSelected(ctx)
-		case npcDialogActionNumberInput, npcDialogActionStringInput:
-			d.submitInput(ctx)
-		}
-		d.publish(ctx)
-		return true
+		return d.Control(ctx, "confirm")
 	}
 
 	consumed := false
@@ -241,6 +218,55 @@ func (d *NPCDialog) Update(ctx Context) bool {
 		return true
 	}
 	return false
+}
+
+// Control shares dialog actions between keyboard and scripted controllers.
+func (d *NPCDialog) Control(ctx Context, action string) bool {
+	if !d.IsOpen() {
+		return false
+	}
+	switch action {
+	case "confirm":
+		switch d.action {
+		case npcDialogActionNext:
+			d.next(ctx)
+		case npcDialogActionClose:
+			d.close(ctx)
+		case npcDialogActionMenu:
+			d.chooseSelected(ctx)
+		case npcDialogActionNumberInput, npcDialogActionStringInput:
+			d.submitInput(ctx)
+		}
+	case "cancel":
+		// Like Escape in the original client, only cancel menus and Close.
+		switch d.action {
+		case npcDialogActionMenu:
+			d.choose(ctx, 255)
+		case npcDialogActionClose:
+			d.close(ctx)
+		}
+	case "up", "down":
+		if d.action == npcDialogActionMenu && len(d.options) != 0 {
+			delta := 1
+			if action == "up" {
+				delta = -1
+			}
+			d.menuRow = max(0, min(len(d.options)-1, d.menuRow+delta))
+			scroll := d.ensureMenuScrollSignal()
+			top := float32(d.menuRow * npcMenuRowH)
+			if top < scroll.Get() {
+				scroll.Set(top)
+			} else if bottom := top + npcMenuRowH; bottom > scroll.Get()+npcMenuMaxRows*npcMenuRowH {
+				scroll.Set(bottom - npcMenuMaxRows*npcMenuRowH)
+			}
+			d.dirty = true
+			d.refresh(ctx)
+		}
+	default:
+		return false
+	}
+	d.publish(ctx)
+	return true
 }
 
 func (d *NPCDialog) next(ctx Context) {

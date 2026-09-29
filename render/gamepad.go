@@ -13,6 +13,8 @@ type gamepadUIState struct {
 	x, y         float64
 	lastX, lastY int
 	buttons      [2]bool
+	suppressed   [2]bool
+	capture      input.GamepadCapture
 }
 
 func (r *runner) updateGamepad(now time.Time) {
@@ -29,11 +31,20 @@ func (r *runner) updateGamepad(now time.Time) {
 	} else {
 		state.ResetGamepad()
 	}
+	r.gamepadUI.capture = input.GamepadCapture{}
+	if handler, ok := r.game.(interface {
+		HandleGamepadInput(float64) input.GamepadCapture
+	}); ok {
+		dt := 0.0
+		if !r.gamepadUI.lastUpdate.IsZero() {
+			dt = max(0, min(now.Sub(r.gamepadUI.lastUpdate).Seconds(), 0.05))
+		}
+		r.gamepadUI.capture = handler.HandleGamepadInput(dt)
+	}
 	r.gamepadUI.update(state, r.gamepadEvents, now, r.width, r.height)
 }
 
-// Menu controls work even before a Lua script is loaded. Gameplay bindings
-// (left stick, D-pad, West/North, shoulders) remain entirely in Lua.
+// Unclaimed controls provide pointer navigation even without a Lua script.
 func (c *gamepadUIState) update(state *input.State, events *fanoutEventSource, now time.Time, width, height int) {
 	dt := 0.0
 	if !c.lastUpdate.IsZero() {
@@ -51,7 +62,7 @@ func (c *gamepadUIState) update(state *input.State, events *fanoutEventSource, n
 		return math.Copysign((math.Abs(v)-0.2)/0.8, v)
 	}
 	x, y := axis(input.GamepadRightX), axis(input.GamepadRightY)
-	if x != 0 || y != 0 {
+	if !c.capture.Pointer && (x != 0 || y != 0) {
 		c.x = max(0, min(float64(max(0, width-1)), c.x+x*800*dt))
 		c.y = max(0, min(float64(max(0, height-1)), c.y+y*800*dt))
 		for _, fn := range events.mouseMove {
@@ -70,21 +81,32 @@ func (c *gamepadUIState) update(state *input.State, events *fanoutEventSource, n
 		}
 		events.setMouseButton(true, mouse, down, c.x, c.y)
 	}
+	mouseButtons := [...]input.GamepadButton{input.GamepadSouth, input.GamepadEast}
+	applyMouseButton := func(i int, down bool) {
+		if down && c.capture.Buttons[mouseButtons[i]] && !c.buttons[i] {
+			c.suppressed[i] = true
+		}
+		setMouseButton(i, down && !c.suppressed[i])
+		if !down {
+			c.suppressed[i] = false
+		}
+	}
 	for _, change := range state.GamepadChanges() {
 		switch change.Button {
 		case input.GamepadSouth:
-			setMouseButton(0, change.Down)
+			applyMouseButton(0, change.Down)
 		case input.GamepadEast:
-			setMouseButton(1, change.Down)
+			applyMouseButton(1, change.Down)
 		case input.GamepadStart:
-			if change.Down {
+			if change.Down && !c.capture.Buttons[change.Button] {
 				events.tapKey(gpucontext.KeyEscape)
 			}
 		}
 	}
 	// Reconcile held buttons after a controller switch or input reset.
-	setMouseButton(0, state.GamepadDown(input.GamepadSouth))
-	setMouseButton(1, state.GamepadDown(input.GamepadEast))
+	for i, button := range mouseButtons {
+		applyMouseButton(i, state.GamepadDown(button))
+	}
 }
 
 // A controller release must not release a button still held on a real mouse.

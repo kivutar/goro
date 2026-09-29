@@ -57,7 +57,7 @@ keeps the collision grid, game data, network updates, and Lua scripts. Combat
 uses server timings and existing fallback durations when no sprite is loaded.
 Stop the process with Ctrl+C.
 
-There is no automatic reconnect or Lua API for answering interactive dialogs.
+There is no automatic reconnect. Scripts can answer NPC dialogs with `goro.npc_dialog`.
 `--no-ui` only hides the graphical client's UI.
 
 ## API
@@ -119,22 +119,42 @@ edges. Only the window loop drains the device event queues, once per update.
 - `is_down(button)`, `was_pressed(button)`, `was_released(button)` report held state and frame edges.
 - `axis(name)` returns a normalized axis value. Sticks range from -1 to 1 (negative is left/up); triggers range from 0 to 1.
 
+An optional `gamepad(dt)` callback runs before controller pointer dispatch in
+graphical mode. `dt` is elapsed seconds, capped at 0.05. Within this callback,
+button and axis queries also work while a dialog has focus; check `available()`
+before performing gameplay actions. Call `consume(button)` or `consume_pointer()`
+to claim controls for this frame. A claimed mouse button remains suppressed until
+release, so releasing a modifier cannot turn a held skill button into a click.
+The ordinary `input()` callback retains its gameplay focus filtering.
+
+The following actions support scripted controller bindings:
+
+- `goro.use_shortcut(slot)` activates slot 1–9 of the active hotbar row and returns `used, skill_id`: a success flag and the activated skill ID (zero for items).
+- `goro.rotate_camera(yaw, pitch)` adds angles in degrees, respecting map camera locks.
+- `goro.zoom_camera(delta)` adjusts camera distance, respecting map zoom locks and limits; positive zooms out.
+- `goro.camera_yaw()` returns the current map camera yaw in degrees.
+- `goro.cancel_skill()` cancels skill targeting.
+- `goro.npc_dialog()` reports whether an NPC dialog is available; pass `"up"`, `"down"`, `"confirm"`, or `"cancel"` to operate it. Cancellation follows the normal NPC dialog rules.
+- `goro.pointer_over_ui()` reports whether the pointer is over a UI overlay.
+
 Button names are positional: `south`, `east`, `west`, `north`, `left_shoulder`,
 `right_shoulder`, `back`, `start`, `left_stick`, `right_stick`, `dpad_up`,
 `dpad_down`, `dpad_left`, `dpad_right`. Axis names are `left_x`, `left_y`,
 `right_x`, `right_y`, `left_trigger`, `right_trigger`. Unknown names return
 false or zero. The API leaves deadzones to the script; `wasd.lua` uses 0.3.
 
-Gameplay queries return neutral input while chat/forms own the keyboard or the
-player cannot act. Disconnecting clears axes and held buttons and reports
-release edges; losing window focus clears input without generating press or
-release actions. Headless mode does not poll physical controllers.
+Outside `gamepad(dt)`, gameplay queries return neutral input while chat/forms
+own the keyboard or the player cannot act. Disconnecting clears axes and held
+buttons and reports release edges; losing window focus clears input without
+generating press or release actions. Headless mode does not poll physical controllers.
 
-`wasd.lua` combines the left stick and D-pad with WASD, uses West for attack and
-North for loot, and preserves eight-direction movement. Shoulder buttons cycle
-targets for an armed actor skill; left stick click confirms that target.
-The right stick, South/East mouse clicks and Start/Escape are shared client menu
-controls and work even without a script.
+`wasd.lua` moves relative to the camera with the left stick/D-pad, uses West for
+loot, L2 + right stick to rotate/tilt the camera, R2 + right stick up/down to zoom,
+and R2 + South/East/West/North for hotbar slots 1–4. Shoulders cycle enemies or
+eligible skill targets; South attacks or confirms and East cancels. NPC dialogs
+use D-pad up/down and South/East.
+Unclaimed right-stick movement, South/East mouse clicks and Start/Escape remain
+shared client menu controls and work even without a script.
 
 ### `goro.player()`
 

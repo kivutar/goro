@@ -52,6 +52,15 @@ func (m *Manager) UpdateContext(ctx client.Context) {
 	m.ctx = ctx
 }
 
+func (m *Manager) HandleGamepadInput(ctx client.Context, dt float64) input.GamepadCapture {
+	if handler, ok := m.mode.(interface {
+		HandleGamepadInput(client.Context, float64) input.GamepadCapture
+	}); ok {
+		return handler.HandleGamepadInput(ctx, dt)
+	}
+	return input.GamepadCapture{}
+}
+
 func (m *Manager) HandleKeyPress(ctx client.Context, code input.KeyCode) {
 	if handler, ok := m.mode.(interface {
 		HandleKeyPress(client.Context, input.KeyCode)

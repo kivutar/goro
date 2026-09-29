@@ -8,6 +8,24 @@ import (
 	"github.com/kivutar/goro/network"
 )
 
+func TestNPCDialogControllerSelectionScrollsAndClamps(t *testing.T) {
+	dialog := NPCDialog{}
+	dialog.Apply(network.NPCDialog{Kind: network.NPCDialogMenu, NPCID: 100,
+		Options: []string{"One", "Two", "Three", "Four", "Five", "Six", "Seven"}})
+	for i := 0; i < 10; i++ {
+		dialog.Control(Context{}, "down")
+	}
+	if dialog.menuRow != 6 || dialog.menuScrollY.Get() != 2*npcMenuRowH {
+		t.Fatalf("last choice not selected and visible: row=%d scroll=%v", dialog.menuRow, dialog.menuScrollY.Get())
+	}
+	for i := 0; i < 10; i++ {
+		dialog.Control(Context{}, "up")
+	}
+	if dialog.menuRow != 0 || dialog.menuScrollY.Get() != 0 {
+		t.Fatal("first choice not selected and visible")
+	}
+}
+
 func TestNPCDialogTextRunsParseColorCodes(t *testing.T) {
 	base := color.RGBA{R: 246, G: 242, B: 232, A: 255}
 	runs := npcDialogTextRuns("hello ^FF3300red^000000 base", base)

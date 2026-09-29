@@ -2,8 +2,12 @@
 local controls = { "KeyW", "KeyA", "KeyS", "KeyD" }
 -- Positional names work across Xbox, PlayStation and other controller labels.
 local stick_deadzone = 0.3
-local attack_button = "west"
-local loot_button = "north"
+local attack_button = "south"
+local loot_button = "west"
+local skill_buttons = { "south", "east", "west", "north" }
+local skill_buttons_held = {}
+local selected_enemy_id = nil
+local pad_attack_down = false
 local horizon = 8
 local refill_distance = 3
 local action_radius = 8
@@ -46,7 +50,7 @@ end
 
 local function clear_skill_target()
 	if skill_target_id ~= nil or skill_target_skill_id ~= nil then
-		goro.highlight_actor(nil)
+		goro.highlight_actor(selected_enemy_id)
 	end
 	skill_target_id = nil
 	skill_target_skill_id = nil
@@ -63,6 +67,22 @@ local function append_skill_targets(targets, seen, entries)
 			table.insert(targets, entry)
 		end
 	end
+end
+
+local function sort_targets(targets, x, y)
+	table.sort(targets, function(a, b)
+		local adx = a.x - x
+		local ady = a.y - y
+		local bdx = b.x - x
+		local bdy = b.y - y
+		local adistance = adx * adx + ady * ady
+		local bdistance = bdx * bdx + bdy * bdy
+		if adistance == bdistance then
+			return a.id < b.id
+		end
+		return adistance < bdistance
+	end)
+	return targets
 end
 
 local function skill_targets(pending)
@@ -83,32 +103,14 @@ local function skill_targets(pending)
 
 	local caster_x = pending.caster_x or goro.player().x
 	local caster_y = pending.caster_y or goro.player().y
-	table.sort(targets, function(a, b)
-		local adx = a.x - caster_x
-		local ady = a.y - caster_y
-		local bdx = b.x - caster_x
-		local bdy = b.y - caster_y
-		local adistance = adx * adx + ady * ady
-		local bdistance = bdx * bdx + bdy * bdy
-		if adistance == bdistance then
-			return a.id < b.id
-		end
-		return adistance < bdistance
-	end)
-	return targets
+	return sort_targets(targets, caster_x, caster_y)
 end
 
-local function cycle_skill_target(pending, reverse)
-	local targets = skill_targets(pending)
-	if #targets == 0 then
-		clear_skill_target()
-		skill_target_skill_id = pending.id
-		return
-	end
-
+local function next_target_id(targets, current_id, reverse)
+	if #targets == 0 then return nil end
 	local current = nil
 	for index, target in ipairs(targets) do
-		if target.id == skill_target_id then
+		if target.id == current_id then
 			current = index
 			break
 		end
@@ -123,8 +125,12 @@ local function cycle_skill_target(pending, reverse)
 		next_index = current % #targets + 1
 	end
 
-	local id = targets[next_index].id
-	if goro.highlight_actor(id) then
+	return targets[next_index].id
+end
+
+local function cycle_skill_target(pending, reverse)
+	local id = next_target_id(skill_targets(pending), skill_target_id, reverse)
+	if id ~= nil and goro.highlight_actor(id) then
 		skill_target_id = id
 	else
 		clear_skill_target()
@@ -190,7 +196,7 @@ local function select_nearest(entries, current_id)
 end
 
 local function schedule_attack(now)
-	local target = select_nearest(goro.enemies(), attack_target_id)
+	local target = select_nearest(goro.enemies(), selected_enemy_id or attack_target_id)
 	if target == nil then
 		attack_target_id = nil
 		return false
@@ -250,21 +256,147 @@ function keypress(code)
 	end
 end
 
+-- Runs before the client's pointer fallback. All controller bindings live here;
+-- the Go bridge only exposes camera, hotbar and dialog actions.
+function gamepad(dt)
+	if goro.gamepad.was_released("south") or not goro.gamepad.is_down("south") then
+		pad_attack_down = false
+	end
+	if pad_attack_down then goro.gamepad.consume("south") end
+	for _, button in ipairs(skill_buttons) do
+		if goro.gamepad.was_released(button) or not goro.gamepad.is_down(button) then
+			skill_buttons_held[button] = nil
+		end
+		if skill_buttons_held[button] then goro.gamepad.consume(button) end
+	end
+	if not goro.gamepad.connected() then
+		if selected_enemy_id ~= nil then
+			selected_enemy_id = nil
+			goro.highlight_actor(skill_target_id)
+		end
+		return
+	end
+	if goro.npc_dialog() then
+		goro.gamepad.consume("south")
+		goro.gamepad.consume("east")
+		if goro.gamepad.was_pressed("dpad_up") then goro.npc_dialog("up") end
+		if goro.gamepad.was_pressed("dpad_down") then goro.npc_dialog("down") end
+		if goro.gamepad.was_pressed("south") then
+			skill_buttons_held.south = true
+			goro.npc_dialog("confirm")
+		elseif goro.gamepad.was_pressed("east") then
+			skill_buttons_held.east = true
+			goro.npc_dialog("cancel")
+		end
+		return
+	end
+	if not goro.gamepad.available() then return end
+
+	if goro.gamepad.axis("left_trigger") > 0.5 or goro.gamepad.axis("right_trigger") > 0.5 then
+		goro.gamepad.consume_pointer()
+		local function camera_axis(name)
+			local value = goro.gamepad.axis(name)
+			if math.abs(value) < 0.2 then return 0 end
+			return value
+		end
+		if goro.gamepad.axis("right_trigger") > 0.5 then
+			goro.zoom_camera(camera_axis("right_y") * dt * 60)
+		else
+			goro.rotate_camera(camera_axis("right_x") * dt * 100, camera_axis("right_y") * dt * 45)
+		end
+	end
+	if selected_enemy_id ~= nil then
+		local present = false
+		for _, enemy in ipairs(goro.enemies()) do
+			if enemy.id == selected_enemy_id then present = true; break end
+		end
+		if not present then
+			selected_enemy_id = nil
+			goro.highlight_actor(skill_target_id)
+		end
+	end
+	handle_skill_target_input(nil)
+	local pending = goro.pending_skill()
+	local previous = goro.gamepad.was_pressed("left_shoulder")
+	local next_target = goro.gamepad.was_pressed("right_shoulder")
+	if previous or next_target then
+		if pending ~= nil and pending.target == "actor" then
+			cycle_skill_target(pending, previous)
+		elseif pending == nil then
+			local player = goro.player()
+			local targets = sort_targets(goro.enemies(), player.x, player.y)
+			selected_enemy_id = next_target_id(targets, selected_enemy_id, previous)
+			if not goro.highlight_actor(selected_enemy_id) then
+				selected_enemy_id = nil
+				goro.highlight_actor(nil)
+			end
+			attack_target_id = nil
+		end
+	end
+	if goro.gamepad.axis("right_trigger") > 0.5 then
+		pad_attack_down = false
+		for _, button in ipairs(skill_buttons) do
+			goro.gamepad.consume(button)
+			if goro.gamepad.is_down(button) then skill_buttons_held[button] = true end
+		end
+		for slot, button in ipairs(skill_buttons) do
+			if goro.gamepad.was_pressed(button) then
+				local used, skill_id = goro.use_shortcut(slot)
+				if not used then break end
+				handle_skill_target_input(nil)
+				pending = goro.pending_skill()
+				if pending ~= nil and pending.id == skill_id and pending.target == "actor" then
+					-- Cast on the selected enemy if this skill accepts it;
+					-- otherwise select a candidate and let South confirm.
+					local selected = false
+					for _, target in ipairs(skill_targets(pending)) do
+						if target.id == selected_enemy_id then
+							selected = goro.use_pending_skill(target.id)
+							break
+						end
+					end
+					if not selected then cycle_skill_target(pending, false) end
+				end
+				skill_input_handled = true
+				break
+			end
+		end
+		return
+	end
+	if goro.gamepad.was_pressed("east") and not skill_buttons_held.east
+		and (pending ~= nil or selected_enemy_id ~= nil) then
+		goro.gamepad.consume("east")
+		skill_buttons_held.east = true
+		goro.cancel_skill()
+		selected_enemy_id = nil
+		clear_skill_target()
+		goro.highlight_actor(nil)
+		goro.stop()
+	end
+	if not goro.pointer_over_ui() and not skill_buttons_held.south then
+		if pending ~= nil and pending.target == "actor" and skill_target_id ~= nil then
+			goro.gamepad.consume("south")
+			if goro.gamepad.was_pressed("south") then
+				goro.use_pending_skill(skill_target_id)
+				clear_skill_target()
+				skill_buttons_held.south = true
+				skill_input_handled = true
+			end
+		elseif pending == nil and selected_enemy_id ~= nil and goro.gamepad.was_pressed("south") then
+			pad_attack_down = true
+			goro.gamepad.consume("south")
+		end
+	end
+end
+
 function input()
 	handle_skill_target_input(nil)
 	local pending = goro.pending_skill()
-	if pending ~= nil and pending.target == "actor" and goro.gamepad.available() then
-		if goro.gamepad.was_pressed("right_shoulder") then
-			cycle_skill_target(pending, false)
-			skill_input_handled = true
-		elseif goro.gamepad.was_pressed("left_shoulder") then
-			cycle_skill_target(pending, true)
-			skill_input_handled = true
-		elseif skill_target_id ~= nil and goro.gamepad.was_pressed("left_stick") then
-			goro.use_pending_skill(skill_target_id)
-			clear_skill_target()
-			skill_input_handled = true
-		end
+	if pending ~= nil and pending.target == "actor" and skill_target_id ~= nil
+		and goro.gamepad.was_pressed("left_stick") then
+		goro.use_pending_skill(skill_target_id)
+		clear_skill_target()
+		skill_input_handled = true
 	end
 	if skill_input_handled then
 		skill_input_handled = false
@@ -277,8 +409,12 @@ function input()
 	end
 
 	local controls_enabled = not shortcut_modifier_down()
-	fight_down = controls_enabled and (goro.keyboard.is_down("KeyF") or goro.gamepad.is_down(attack_button))
-	loot_down = controls_enabled and (goro.keyboard.is_down("Space") or goro.gamepad.is_down(loot_button))
+	local pad_actions = goro.gamepad.axis("right_trigger") <= 0.5
+	fight_down = controls_enabled and (goro.keyboard.is_down("KeyF")
+		or (pad_actions and not skill_buttons_held.south and pending == nil and selected_enemy_id ~= nil
+			and pad_attack_down and goro.gamepad.is_down(attack_button)))
+	loot_down = controls_enabled and (goro.keyboard.is_down("Space")
+		or (pad_actions and not skill_buttons_held.west and goro.gamepad.is_down(loot_button)))
 	if not fight_down then
 		attack_target_id = nil
 	end
@@ -299,10 +435,16 @@ function input()
 		if goro.keyboard.is_down("KeyD") then dx = dx + 1 end
 		local x = goro.gamepad.axis("left_x")
 		local y = goro.gamepad.axis("left_y")
-		if x < -stick_deadzone or goro.gamepad.is_down("dpad_left") then dx = dx - 1 end
-		if x > stick_deadzone or goro.gamepad.is_down("dpad_right") then dx = dx + 1 end
-		if y < -stick_deadzone or goro.gamepad.is_down("dpad_up") then dy = dy + 1 end
-		if y > stick_deadzone or goro.gamepad.is_down("dpad_down") then dy = dy - 1 end
+		if goro.gamepad.is_down("dpad_left") then x = x - 1 end
+		if goro.gamepad.is_down("dpad_right") then x = x + 1 end
+		if goro.gamepad.is_down("dpad_up") then y = y - 1 end
+		if goro.gamepad.is_down("dpad_down") then y = y + 1 end
+		if x * x + y * y > stick_deadzone * stick_deadzone then
+			local angle = math.atan2(-y, x) + math.rad(goro.camera_yaw())
+			local octant = math.floor(angle / (math.pi / 4) + 0.5) * math.pi / 4
+			dx = dx + math.floor(math.cos(octant) + 0.5)
+			dy = dy + math.floor(math.sin(octant) + 0.5)
+		end
 		-- Simultaneous keyboard/controller input must not double the stride.
 		dx = math.max(-1, math.min(1, dx))
 		dy = math.max(-1, math.min(1, dy))

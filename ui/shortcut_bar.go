@@ -307,35 +307,51 @@ func (b *ShortcutBar) ClearDepletedItem(ctx Context, index, itemID uint16) bool 
 	return true
 }
 
-func (b *ShortcutBar) activate(ctx Context, actions GameActions, slot int) {
+// ActivateSlot uses a one-based slot from the active row, just like F1-F9.
+// It returns the skill ID (zero for an item) and whether activation succeeded.
+func (b *ShortcutBar) ActivateSlot(ctx Context, actions GameActions, slot int) (uint16, bool) {
+	if slot < 1 || slot > shortcutCols {
+		return 0, false
+	}
+	b.SyncFromSession(ctx)
+	index := b.activeRow*shortcutCols + slot - 1
+	if !b.activate(ctx, actions, index) {
+		return 0, false
+	}
+	return b.slots[index].skillID, true
+}
+
+func (b *ShortcutBar) activate(ctx Context, actions GameActions, slot int) bool {
 	if slot < 0 || slot >= len(b.slots) {
-		return
+		return false
 	}
 	entry := b.slots[slot]
 	switch entry.kind {
 	case shortcutItem:
 		item, ok := inventoryItemForShortcut(ctx.Session, entry.itemIndex, entry.itemID)
 		if !ok {
-			return
+			return false
 		}
 		if err := UseInventoryItem(ctx, item); err != nil {
-			return
+			return false
 		}
 		glog.Debugf("shortcut item use slot=%d index=%d item=%d", slot+1, item.Index, item.ItemID)
 	case shortcutSkill:
 		skill, ok := skillForShortcut(ctx.Session, entry)
 		if !ok {
-			return
+			return false
 		}
 		if actions == nil {
-			return
+			return false
 		}
 		if err := actions.UseShortcutSkill(ctx, skill); err != nil {
-			return
+			return false
 		}
 	default:
+		return false
 	}
 	b.redraw()
+	return true
 }
 
 func (b *ShortcutBar) slotAt(ctx Context, mx, my int) (int, bool) {
