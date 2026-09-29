@@ -497,44 +497,63 @@ type fanoutEventSource struct {
 	imeCompositionUpdate []func(gpucontext.IMEState)
 }
 
+// Physical and synthetic keys share recording, consumption and UI dispatch.
+// Text association stays in the physical event callback: a controller tap must
+// not change which physical key a later text event belongs to.
+func (f *fanoutEventSource) dispatchKeyPress(key gpucontext.Key, mods gpucontext.Modifiers) {
+	repeated := false
+	if f.inputState != nil {
+		repeated = f.inputState.KeyCodeDown(key)
+		f.inputState.SetKeyCode(key, true)
+	}
+	if !repeated && f.handleKeyPress != nil {
+		f.handleKeyPress(key)
+	}
+	if f.keyConsumed(key) {
+		return
+	}
+	// Editing keys do not generate text events. Restore their destination
+	// before UI dispatch so the first Delete/Backspace is not lost.
+	if f.prepareKeyInput != nil {
+		f.prepareKeyInput(key, mods)
+	}
+	if f.keyConsumed(key) {
+		return
+	}
+	for _, fn := range f.keyPress {
+		fn(key, mods)
+	}
+}
+
+func (f *fanoutEventSource) dispatchKeyRelease(key gpucontext.Key, mods gpucontext.Modifiers) {
+	if f.inputState != nil {
+		f.inputState.SetKeyCode(key, false)
+	}
+	for _, fn := range f.keyRelease {
+		fn(key, mods)
+	}
+}
+
+func (f *fanoutEventSource) tapKey(key gpucontext.Key) {
+	if f.inputState != nil && f.inputState.KeyCodeDown(key) {
+		return // A synthetic tap must not release a physically held key.
+	}
+	f.dispatchKeyPress(key, 0)
+	f.dispatchKeyRelease(key, 0)
+}
+
 func newFanoutEventSource(source gpucontext.EventSource) *fanoutEventSource {
 	f := &fanoutEventSource{}
 	keyCode := gpucontext.KeyUnknown
 	source.OnKeyPress(func(key gpucontext.Key, mods gpucontext.Modifiers) {
 		keyCode = key
-		repeated := false
-		if f.inputState != nil {
-			repeated = f.inputState.KeyCodeDown(key)
-			f.inputState.SetKeyCode(key, true)
-		}
-		if !repeated && f.handleKeyPress != nil {
-			f.handleKeyPress(key)
-		}
-		if f.keyConsumed(key) {
-			return
-		}
-		// Editing keys do not generate text events. Restore their destination
-		// before UI dispatch so the first Delete/Backspace is not lost.
-		if f.prepareKeyInput != nil {
-			f.prepareKeyInput(key, mods)
-		}
-		if f.keyConsumed(key) {
-			return
-		}
-		for _, fn := range f.keyPress {
-			fn(key, mods)
-		}
+		f.dispatchKeyPress(key, mods)
 	})
 	source.OnKeyRelease(func(key gpucontext.Key, mods gpucontext.Modifiers) {
-		if f.inputState != nil {
-			f.inputState.SetKeyCode(key, false)
-		}
 		if key == keyCode {
 			keyCode = gpucontext.KeyUnknown
 		}
-		for _, fn := range f.keyRelease {
-			fn(key, mods)
-		}
+		f.dispatchKeyRelease(key, mods)
 	})
 	source.OnTextInput(func(text string) {
 		if f.inputState != nil {

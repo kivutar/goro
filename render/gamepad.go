@@ -78,37 +78,13 @@ func (c *gamepadUIState) update(state *input.State, events *fanoutEventSource, n
 			setMouseButton(1, change.Down)
 		case input.GamepadStart:
 			if change.Down {
-				tapGamepadEscape(state, events)
+				events.tapKey(gpucontext.KeyEscape)
 			}
 		}
 	}
 	// Reconcile held buttons after a controller switch or input reset.
 	setMouseButton(0, state.GamepadDown(input.GamepadSouth))
 	setMouseButton(1, state.GamepadDown(input.GamepadEast))
-}
-
-func tapGamepadEscape(state *input.State, events *fanoutEventSource) {
-	if !state.KeyCodeDown(gpucontext.KeyEscape) {
-		// A complete tap avoids sharing a held keyboard key with a controller.
-		state.SetKeyCode(gpucontext.KeyEscape, true)
-		if events.handleKeyPress != nil {
-			events.handleKeyPress(gpucontext.KeyEscape)
-		}
-		if !events.keyConsumed(gpucontext.KeyEscape) {
-			if events.prepareKeyInput != nil {
-				events.prepareKeyInput(gpucontext.KeyEscape, 0)
-			}
-			if !events.keyConsumed(gpucontext.KeyEscape) {
-				for _, fn := range events.keyPress {
-					fn(gpucontext.KeyEscape, 0)
-				}
-			}
-		}
-		state.SetKeyCode(gpucontext.KeyEscape, false)
-		for _, fn := range events.keyRelease {
-			fn(gpucontext.KeyEscape, 0)
-		}
-	}
 }
 
 // A controller release must not release a button still held on a real mouse.
