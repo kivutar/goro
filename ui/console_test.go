@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,38 @@ import (
 	"github.com/kivutar/goro/session"
 	worldstate "github.com/kivutar/goro/world"
 )
+
+func TestConsoleScriptCommandsStayLocal(t *testing.T) {
+	for _, test := range []struct {
+		command, path, message string
+		wantError              bool
+	}{
+		{"/script", "", "Bundled scripts: wasd", false},
+		{"/script wasd", "builtin:wasd", "Selected script: wasd", false},
+		{" /SCRIPT builtin:wasd ", "builtin:wasd", "Selected script: wasd", false},
+		{"/script none", "none", "Scripting disabled", false},
+		{"/script missing", "", "Unknown bundled script", true},
+		{"/script ../wasd", "", "Unknown bundled script", true},
+		{"/script wasd extra", "", "Unknown bundled script", true},
+	} {
+		t.Run(test.command, func(t *testing.T) {
+			console := &ChatConsole{}
+			ctx := client.Context{Session: session.New()}
+			ctx.Config.Script.Path = "external.lua"
+			// No network: every form must be consumed locally, including typos.
+			if !console.SendText(ctx, test.command) {
+				t.Fatal("script command fell through to server chat")
+			}
+			if ctx.Session.ScriptPath != test.path || ctx.Config.Script.Path != "external.lua" {
+				t.Fatalf("script override = %q, config = %q", ctx.Session.ScriptPath, ctx.Config.Script.Path)
+			}
+			messages := console.Messages()
+			if len(messages) != 1 || !strings.Contains(messages[0].Text, test.message) || (messages[0].Color == consoleColorError) != test.wantError {
+				t.Fatalf("messages = %+v", messages)
+			}
+		})
+	}
+}
 
 func TestConsolePreservesRepeatedConfirmationsButSuppressesRepeatedErrors(t *testing.T) {
 	console := &ChatConsole{}

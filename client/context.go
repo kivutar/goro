@@ -1,6 +1,7 @@
 package client
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gogpu/ui/widget"
@@ -57,6 +58,13 @@ type RuntimeSettings interface {
 	SetVSync(bool)
 	FPS() bool
 	SetFPS(bool)
+}
+
+func (c Context) ScriptPath() string {
+	if c.Session != nil && c.Session.ScriptPath != "" {
+		return c.Session.ScriptPath
+	}
+	return strings.TrimSpace(c.Config.Script.Path)
 }
 
 func (c Context) ScreenSize() (int, int) {

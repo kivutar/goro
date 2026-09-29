@@ -18,6 +18,11 @@ The keyboard/gamepad controls script is also bundled in every binary:
 Use `--script scripts/wasd.lua` to load an editable copy, or `--script none` to
 disable scripting. The same values work as `path` under `[script]` in `goro.ini`.
 
+In game, use `/script wasd` in chat to select the bundled controls, `/script none`
+to disable scripting, or `/script` to list bundled scripts. `wasd` is currently
+the only bundled script. The selection replaces any configured script for the
+current run, survives map changes, and does not modify `goro.ini`.
+
 The script must define a global `tick()` function. Goro calls it roughly every
 150 ms while the world mode is active.
 

@@ -58,6 +58,10 @@ Enable the bundled keyboard/gamepad script on desktop:
 You can also use `--script scripts/wasd.lua` to edit the bindings in Lua. Android
 uses the bundled script by default when no other script is configured.
 
+You can also enable it from chat with `/script wasd`. Use `/script none` to stop
+scripting, or `/script` to list bundled scripts. Chat selection lasts for the
+current run, including map changes.
+
 | Control | Action |
 | --- | --- |
 | Left stick / D-pad | Move (eight directions) |
