@@ -63,6 +63,10 @@ func normalizePickScale(scale float64) float64 {
 }
 
 func actorCanBeSkillTargeted(ctx client.Context, skill session.Skill, actor worldstate.Actor) bool {
+	return actorCanBeSkillTargetedWithOverride(ctx, skill, actor, skillTargetOverrideActive(ctx))
+}
+
+func actorCanBeSkillTargetedWithOverride(ctx client.Context, skill session.Skill, actor worldstate.Actor, override bool) bool {
 	if actor.ID == 0 || isWarpActor(actor) {
 		return false
 	}
@@ -82,7 +86,7 @@ func actorCanBeSkillTargeted(ctx client.Context, skill session.Skill, actor worl
 		}
 		return true
 	}
-	if skillTargetOverrideActive(ctx) || skillTargetMapStateAllowsMismatch(ctx, actor) {
+	if override || skillTargetMapStateAllowsMismatch(ctx, actor) {
 		if isLocalActor(ctx, actor.ID) && skill.Type&skillTargetEnemy != 0 {
 			return false
 		}

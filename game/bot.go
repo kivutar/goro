@@ -207,6 +207,10 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 			L.Push(luaPendingSkill(L, ctx, mode))
 			return 1
 		},
+		"skill_targets": func(L *lua.LState) int {
+			L.Push(luaSkillTargets(L, ctx, mode, L.OptBool(1, false)))
+			return 1
+		},
 		"use_pending_skill": func(L *lua.LState) int {
 			id := luaOptionalActorID(L, 1)
 			L.Push(lua.LBool(mode.scriptUsePendingSkill(ctx, id)))
@@ -235,7 +239,11 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 			return 2
 		},
 		"player": func(L *lua.LState) int {
-			L.Push(luaPlayerTable(L, ctx))
+			player := luaPlayerTable(L, ctx)
+			if mode != nil {
+				player.RawSetString("walk_sequence", lua.LNumber(mode.walkSequence))
+			}
+			L.Push(player)
 			return 1
 		},
 	})
@@ -575,6 +583,7 @@ func luaPlayerTable(L *lua.LState, ctx client.Context) *lua.LTable {
 	result.RawSetString("sp", lua.LNumber(sp))
 	result.RawSetString("max_sp", lua.LNumber(maxSP))
 	result.RawSetString("dead", lua.LBool(playerIsDead(ctx)))
+	result.RawSetString("moving", lua.LBool(ctx.World != nil && actorIsMovingAt(ctx.World.Player, now)))
 	return result
 }
 

@@ -25,6 +25,7 @@ import (
 type WorldMode struct {
 	mail              mailState
 	walkCooldownUntil time.Time
+	walkSequence      uint64
 	nextHeldWalkAt    time.Time
 	camera            followCamera
 	cameraShakeStart  time.Time

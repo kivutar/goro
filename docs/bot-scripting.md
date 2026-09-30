@@ -170,6 +170,12 @@ Fields:
 - `sp`
 - `max_sp`
 - `dead`
+- `moving` (whether the server-confirmed walk is still in progress)
+- `walk_sequence` (a counter incremented whenever the client sends a walk request)
+
+A script can save `walk_sequence` after `goro.walk()` succeeds. If it changes,
+another movement request, such as a pointer action or skill chase, has replaced
+that walk. `moving` can remain false while a request awaits the server's reply.
 
 ### `goro.hp()`
 
@@ -320,6 +326,20 @@ Fields:
 
 The caster fields are omitted when the caster is not currently available.
 
+### `goro.skill_targets(ignore_shift = false)`
+
+Returns the living actors eligible for the currently armed actor-target skill,
+including yourself when allowed. Each entry has `id`, `name`, `x`, `y`, `job`,
+and `distance`; the array is unordered. It is empty when no actor-target skill
+is waiting for selection.
+
+Eligibility follows pointer targeting, including Shift, `/noshift` and PvP
+rules. With `/noshift` enabled, Heal can select monsters, including undead.
+The WASD script uses this list for both Tab and controller shoulder cycling.
+Pass `true` to ignore held Shift while still respecting `/noshift` and PvP.
+WASD does this on both devices so Tab/Shift+Tab and the shoulders cycle the
+same targets; `/noshift` controls whether friendly skills can select enemies.
+
 ### `goro.use_pending_skill(id)`
 
 Submits an actor as the target of the skill returned by `goro.pending_skill()`. It returns `true` when the target is valid and the use or chase was started, otherwise `false`.
@@ -467,17 +487,33 @@ end
 The same script is available as
 [`scripts/loot-and-attack.lua`](../scripts/loot-and-attack.lua).
 
-## Bundled Keyboard Profile
+## Bundled Keyboard and Controller Profile
 
 Run [`scripts/wasd.lua`](../scripts/wasd.lua) to enable an optional
-keyboard-oriented control profile:
+keyboard and controller control profile:
 
 - Hold the physical WASD positions to move, including diagonally. These
   positions are ZQSD on AZERTY.
-- Hold Space to pick up nearby items one at a time.
-- Hold the physical F key to attack a nearby enemy.
-- After arming an actor-targeted skill, use Tab or Shift+Tab to cycle valid
-  targets and Enter to cast.
+- Hold Space or West to pick up nearby items one at a time.
+- Hold the physical F key or South to attack the selected enemy, or the nearest
+  enemy within eight cells when none is selected. The character approaches if
+  needed. Controller pointer clicks on UI and NPC dialogs take priority.
+
+Targeting follows the same rules on both devices:
+
+| Action | Keyboard | Controller |
+| --- | --- | --- |
+| Next / previous target | Tab / Shift+Tab | Right / left shoulder |
+| Use hotbar slot | F1–F9 | R2 + South/East/West/North for slots 1–4 |
+| Confirm skill target | Enter | South |
+| Cancel targeting | Escape | East |
+
+Cycle enemies before choosing a skill to cast immediately on the selected
+target if eligible. Alternatively, choose a skill first: it selects the nearest
+eligible target, then cycling and confirmation let you choose whom to cast on.
+An ineligible preselected target also enters this selection step. Enable
+`/noshift` to include monsters when selecting Heal targets. With no skill armed,
+Enter retains its normal chat behavior.
 
 Ctrl, Alt, and Super/Command combinations remain available to the client;
 holding these modifiers also pauses the profile's continuous controls.
