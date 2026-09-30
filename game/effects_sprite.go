@@ -202,8 +202,12 @@ func (m *WorldMode) drawSPREffect(screen *render.Frame, ctx client.Context, proj
 	if component.spriteRepeat {
 		motion = spriteMotionIndexWithDelay(action, effect.starts, now, true, delayMS)
 	} else {
+		if delayMS <= 0 {
+			delayMS = 150
+		}
 		motion = spriteMotionIndexWithDelay(action, effect.starts, now, false, delayMS)
-		if motion >= len(action.Animations)-1 && !component.spriteStopAtEnd && component.duration <= 0 {
+		// The last frame remains visible until its own delay has elapsed.
+		if !component.spriteStopAtEnd && component.duration <= 0 && float64(now.Sub(effect.starts))/float64(time.Millisecond) >= float64(len(action.Animations))*delayMS {
 			return
 		}
 	}

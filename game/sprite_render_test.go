@@ -460,7 +460,7 @@ func TestSpriteLayerCenterTreatsPositiveYAsScreenDown(t *testing.T) {
 	}
 }
 
-func TestSpriteLayerAngleMatchesReferenceSign(t *testing.T) {
+func TestSpriteLayerAngleMatchesHighPriest(t *testing.T) {
 	source := render.NewImage(3, 3)
 	source.RGBA().SetRGBA(1, 0, color.RGBA{R: 255, A: 255})
 	target := render.NewImage(21, 21)
@@ -476,8 +476,34 @@ func TestSpriteLayerAngleMatchesReferenceSign(t *testing.T) {
 	if !opaque {
 		t.Fatal("rotated layer drew no pixels")
 	}
-	if minX >= 10 || maxX >= 10 {
-		t.Fatalf("positive ACT angle rotated to x=%d..%d, want left of center like robr 3D renderer", minX, maxX)
+	if minX <= 10 || maxX <= 10 {
+		t.Fatalf("positive ACT angle rotated to x=%d..%d, want right of center like HighPriest RenderSprite", minX, maxX)
+	}
+}
+
+func TestSingleSpriteBillboardPreservesRotatedLayers(t *testing.T) {
+	source := render.NewImage(4, 40)
+	source.Fill(color.White)
+	view := &spriteView{
+		spr:    &res.SPR{Frames: []res.SPRFrame{{Width: 4, Height: 40}}},
+		images: map[spriteFrameKey]*render.Image{{}: source},
+	}
+	anim := res.ACTAnimation{Layers: []res.ACTLayer{{
+		X: 21, Y: 8, ScaleX: 1, ScaleY: 1, Angle: 90, Color: [4]float32{1, 1, 1, 1},
+	}}}
+	for _, ignore := range []bool{false, true} {
+		billboard, ok := composeSingleSpriteBillboardWithOptions(view, anim, ignore)
+		if !ok {
+			t.Fatal("could not compose rotated sprite")
+		}
+		minX, minY, maxX, maxY, opaque := billboardOpaqueBounds(billboard.image)
+		wantW, wantH := 40, 4
+		if ignore {
+			wantW, wantH = 4, 40
+		}
+		if !opaque || maxX-minX+1 != wantW || maxY-minY+1 != wantH {
+			t.Fatalf("ignore angle=%t: visible sprite is %dx%d, want %dx%d without clipping", ignore, maxX-minX+1, maxY-minY+1, wantW, wantH)
+		}
 	}
 }
 

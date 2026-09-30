@@ -511,7 +511,7 @@ func cursorFrameBillboard(view *spriteView, actionIndex, motion int, anchorX, an
 		return billboard, true
 	}
 	anim := action.Animations[motion]
-	minX, minY, maxX, maxY, ok := spriteAnimationLayerBounds(view, anim)
+	minX, minY, maxX, maxY, ok := spriteAnimationLayerBounds(view, anim, false)
 	if !ok {
 		return nil, false
 	}
@@ -617,7 +617,7 @@ func composeSingleSpriteBillboard(view *spriteView, anim res.ACTAnimation) (*spr
 }
 
 func composeSingleSpriteBillboardWithOptions(view *spriteView, anim res.ACTAnimation, ignoreLayerAngles bool) (*spriteBillboard, bool) {
-	minX, minY, maxX, maxY, ok := spriteAnimationLayerBounds(view, anim)
+	minX, minY, maxX, maxY, ok := spriteAnimationLayerBounds(view, anim, ignoreLayerAngles)
 	if !ok {
 		return nil, false
 	}
@@ -644,7 +644,7 @@ func composeSingleSpriteBillboardWithOptions(view *spriteView, anim res.ACTAnima
 	}, true
 }
 
-func spriteAnimationLayerBounds(view *spriteView, anim res.ACTAnimation) (float64, float64, float64, float64, bool) {
+func spriteAnimationLayerBounds(view *spriteView, anim res.ACTAnimation, ignoreLayerAngles bool) (float64, float64, float64, float64, bool) {
 	minX, minY := math.Inf(1), math.Inf(1)
 	maxX, maxY := math.Inf(-1), math.Inf(-1)
 	ok := false
@@ -666,6 +666,11 @@ func spriteAnimationLayerBounds(view *spriteView, anim res.ACTAnimation) (float6
 		}
 		width *= scaleX
 		height *= scaleY
+		if layer.Angle != 0 && !ignoreLayerAngles {
+			sin, cos := math.Sincos(float64(layer.Angle) * math.Pi / 180)
+			sin, cos = math.Abs(sin), math.Abs(cos)
+			width, height = width*cos+height*sin, width*sin+height*cos
+		}
 		centerX, centerY := spriteLayerCenter(0, 0, layer)
 		minX = math.Min(minX, centerX-width*0.5)
 		maxX = math.Max(maxX, centerX+width*0.5)
@@ -1295,7 +1300,8 @@ func drawSpriteLayerWithOptions(target *render.Image, img *render.Image, layer r
 	opts.GeoM.Translate(-width/2, -height/2)
 	opts.GeoM.Scale(scaleX, scaleY)
 	if layer.Angle != 0 && !ignoreLayerAngle {
-		opts.GeoM.Rotate(float64(-layer.Angle) * math.Pi / 180)
+		// HighPriest's RenderSprite rotates clockwise in screen coordinates.
+		opts.GeoM.Rotate(float64(layer.Angle) * math.Pi / 180)
 	}
 	layerCenterX, layerCenterY := spriteLayerCenter(centerX, centerY, layer)
 	opts.GeoM.Translate(layerCenterX, layerCenterY)

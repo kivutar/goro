@@ -3191,6 +3191,56 @@ func TestEmotionEffectSpecUsesEntityAttachmentOffset(t *testing.T) {
 	}
 }
 
+func TestSPREffectShowsEveryFrameBeforeExpiring(t *testing.T) {
+	image := render.NewImage(4, 4)
+	image.Fill(color.White)
+	animation := res.ACTAnimation{Layers: []res.ACTLayer{{
+		ScaleX: 1, ScaleY: 1, Color: [4]float32{1, 1, 1, 1},
+	}}}
+	act := &res.ACT{Actions: make([]res.ACTAction, 20)}
+	act.Actions[0] = res.ACTAction{Animations: []res.ACTAnimation{animation}, DelayMS: 50}
+	// Pupa's sweating emotion uses action 19: 24 frames at 50 ms each.
+	act.Actions[19] = res.ACTAction{Animations: make([]res.ACTAnimation, 24), DelayMS: 50}
+	for i := range act.Actions[19].Animations {
+		act.Actions[19].Animations[i] = animation
+	}
+	view := &spriteView{
+		act:        act,
+		spr:        &res.SPR{Frames: []res.SPRFrame{{Width: 4, Height: 4}}},
+		images:     map[spriteFrameKey]*render.Image{{}: image},
+		billboards: make(map[singleSpriteBillboardKey]*spriteBillboard),
+	}
+	mode := WorldMode{effectViews: map[string]*spriteView{"emotion": view}}
+	ctx := client.Context{Resources: &res.Manager{}}
+	projection := newSceneProjectionForTarget(800, 600, 0, 0, 0)
+	starts := time.Unix(10, 0)
+	for _, tc := range []struct {
+		name                  string
+		action, ms            int
+		stop, repeat, visible bool
+	}{
+		{"first", 19, 0, false, false, true},
+		{"last begins", 19, 1150, false, false, true},
+		{"last ends", 19, 1199, false, false, true},
+		{"expired", 19, 1200, false, false, false},
+		{"single frame", 0, 0, false, false, true},
+		{"single expired", 0, 50, false, false, false},
+		{"hold last", 19, 1200, true, false, true},
+		{"repeat", 19, 1200, false, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			screen := render.NewFrame(800, 600)
+			effect := worldEffect{starts: starts, hasSpriteFrame: true, spriteFrameOverride: tc.action}
+			component := worldEffectComponent{spriteFile: "emotion", spriteStopAtEnd: tc.stop, spriteRepeat: tc.repeat}
+			mode.drawSPREffect(screen, ctx, projection, effect, component, 0, 0, 0, starts.Add(time.Duration(tc.ms)*time.Millisecond))
+			visible := !reflect.DeepEqual(screen, render.NewFrame(800, 600))
+			if visible != tc.visible {
+				t.Fatalf("visible=%t, want %t", visible, tc.visible)
+			}
+		})
+	}
+}
+
 func TestWorldEffectDuplicateDeltasMatchRobrowserSemantics(t *testing.T) {
 	component := worldEffectComponent{
 		alphaMax:      0.2,
