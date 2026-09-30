@@ -4649,24 +4649,9 @@ var EffectSpecs = map[int]EffectSpec{
 		}},
 	},
 	effectFrostDiverHit: strEffectSpecAttached("freeze", "effect\\ef_frostdiver2.wav", false),
-	effectLightningBolt: {
-		Components: []EffectComponent{
-			{
-				Kind:           EffectComponentSTR,
-				STRFile:        "lightning",
-				AttachedEntity: true,
-			},
-			{
-				Kind:           EffectComponentSTR,
-				STRFile:        "windhit%d",
-				STRRandMin:     1,
-				STRRandMax:     3,
-				AttachedEntity: true,
-			},
-		},
-	},
-	effectThunderStorm: strEffectSpec("thunderstorm", "effect\\magician_thunderstorm.wav"),
-	effectFireArrow:    soundOnlyEffectSpec("effect\\ef_firearrow1.wav"),
+	effectLightningBolt: strEffectSpecAttached("lightning", "", false),
+	effectThunderStorm:  strEffectSpec("thunderstorm", "effect\\magician_thunderstorm.wav"),
+	effectFireArrow:     soundOnlyEffectSpec("effect\\ef_firearrow1.wav"),
 	effectTeleportOld: {
 		Duration: 1000 * time.Millisecond,
 		SFX:      []string{"effect\\ef_teleportation.wav"},

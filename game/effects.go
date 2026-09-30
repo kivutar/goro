@@ -1778,6 +1778,7 @@ func itemUseEffectSpec(itemID uint16) itemEffectSpec {
 }
 
 type skillEffectSpec struct {
+	effectTiming           db.SkillEffectTiming
 	effectIDs              []int
 	effectIDsOnCaster      []int
 	beforeHitEffectIDs     []int
@@ -1957,6 +1958,7 @@ func skillEffectSpecFor(skillID uint16) skillEffectSpec {
 func importedSkillEffectSpec(skillID uint16) skillEffectSpec {
 	out := skillEffectSpec{}
 	if spec, ok := db.SkillEffects[skillID]; ok {
+		out.effectTiming = spec.EffectTiming
 		out.effectIDs = copyIntSlice(spec.EffectIDs)
 		out.effectIDsOnCaster = copyIntSlice(spec.EffectIDsOnCaster)
 		out.beforeHitEffectIDs = copyIntSlice(spec.BeforeHitEffectIDs)

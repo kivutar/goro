@@ -3598,7 +3598,17 @@ var SkillResourceName = map[uint16]string{
 	SkillEfstDressUp:                        "EFST_DRESS_UP",
 }
 
+type SkillEffectTiming uint8
+
+const (
+	SkillEffectAtHit SkillEffectTiming = iota
+	SkillEffectAtActionStart
+)
+
 type SkillEffectSpec struct {
+	// EffectTiming controls EffectIDs and EffectIDsOnCaster in attack notifications.
+	// HitEffectIDs and HitEffectIDsOnCaster always follow the damage timing.
+	EffectTiming           SkillEffectTiming
 	EffectIDs              []int
 	EffectIDsOnCaster      []int
 	GroundEffectIDs        []int
@@ -3820,7 +3830,7 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillMGFireball:                 {HitEffectIDs: []int{49}, BeforeHitEffectIDs: []int{24}},
 	SkillMGFirewall:                 {GroundEffectIDs: []int{25}, HitEffectIDs: []int{49}},
 	SkillMGFirebolt:                 {HitEffectIDs: []int{49}, BeforeHitEffectIDs: []int{SkillEffectFireBolt}},
-	SkillMGLightningbolt:            {EffectIDs: []int{29}, HitEffectIDs: []int{52}},
+	SkillMGLightningbolt:            {EffectTiming: SkillEffectAtActionStart, EffectIDs: []int{29}, HitEffectIDs: []int{52}}, // Lightning.str already contains its lead-in and full sequence.
 	SkillMGThunderstorm:             {EffectIDs: []int{30}, HitEffectIDs: []int{52}},
 	SkillALRuwach:                   {HitEffectIDs: []int{1}},
 	SkillALPneuma:                   {GroundEffectIDs: []int{141}},

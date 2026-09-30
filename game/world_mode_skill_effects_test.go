@@ -1207,6 +1207,72 @@ func TestApplyActorActionNotifyRepeatsFireBoltHits(t *testing.T) {
 	}
 }
 
+func TestLightningBoltStartsWithSkillAction(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		hits   uint16
+		damage int32
+	}{
+		{"single hit", 1, 100},
+		{"four hits", 4, 400},
+		{"ten hits", 10, 1000},
+		{"zero damage", 4, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			world := worldstate.New()
+			world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+			world.UpsertActor(worldstate.Actor{ID: 300, X: 11, Y: 20, Job: 1002, ObjectType: actorObjectTypeMob, HasObjectType: true})
+			mode := &WorldMode{}
+			ctx := client.Context{Session: &session.Session{AccountID: 2000000}, World: world}
+			mode.applyActorActionNotify(ctx, network.ActorActionNotify{
+				SkillID: db.SkillMGLightningbolt, SkillLevel: tt.hits,
+				SourceID: 2000000, TargetID: 300, SourceSpeed: 580, TargetSpeed: 480,
+				Damage: tt.damage, HitCount: tt.hits, Action: network.ActorActionSkill,
+			})
+
+			hitCount := int(tt.hits)
+			if tt.damage == 0 {
+				hitCount = 0
+			}
+			if len(mode.worldEffects) != 1+hitCount {
+				t.Fatalf("effects = %d, want one lightning animation and %d impacts", len(mode.worldEffects), hitCount)
+			}
+			started := mode.actorAnims[2000000].started
+			bolt := mode.worldEffects[0]
+			if started.IsZero() || bolt.effectID != effectLightningBolt || bolt.actorID != 300 || !bolt.starts.Equal(started) {
+				t.Fatalf("lightning = %+v, want one animation on target starting with caster at %s", bolt, started)
+			}
+			for i, hit := range mode.worldEffects[1:] {
+				want := started.Add(580*time.Millisecond + time.Duration(i)*200*time.Millisecond)
+				if hit.effectID != effectWindHit || hit.actorID != 300 || !hit.starts.Equal(want) {
+					t.Fatalf("impact %d = %+v, want wind hit on target at %s", i, hit, want)
+				}
+			}
+			var damageTimes []time.Time
+			for _, floater := range mode.damageFloaters {
+				if floater.kind == damageFloaterNormal {
+					damageTimes = append(damageTimes, floater.starts)
+				}
+			}
+			if len(damageTimes) != hitCount {
+				t.Fatalf("damage numbers = %d, want %d", len(damageTimes), hitCount)
+			}
+			for i, hitAt := range damageTimes {
+				if !hitAt.Equal(mode.worldEffects[i+1].starts) {
+					t.Fatalf("damage %d does not coincide with its impact", i)
+				}
+			}
+		})
+	}
+}
+
+func TestLightningBoltHasNoExtraImpactFlash(t *testing.T) {
+	spec, ok := worldEffectSpecForID(effectLightningBolt)
+	if !ok || len(spec.components) != 1 || spec.components[0].strFile != "lightning" {
+		t.Fatal("lightning must play only its STR; impact flashes are scheduled per damage hit")
+	}
+}
+
 func TestZeroDamageSkillKeepsExecutionEffectsWithoutHitReaction(t *testing.T) {
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20, Dir: 4}
@@ -1289,6 +1355,10 @@ func TestZeroDamageSkillKeepsImmediateEffectWithoutHitEffect(t *testing.T) {
 
 	if len(mode.worldEffects) != 1 || mode.worldEffects[0].effectID != effectFrostDiver {
 		t.Fatalf("world effects = %+v, want Frost Diver execution effect without hit effect", mode.worldEffects)
+	}
+	wantStart := mode.actorAnims[2000000].started.Add(580 * time.Millisecond)
+	if !mode.worldEffects[0].starts.Equal(wantStart) {
+		t.Fatalf("default effect start = %s, want hit time %s", mode.worldEffects[0].starts, wantStart)
 	}
 }
 

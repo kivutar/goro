@@ -586,7 +586,7 @@ func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.Ac
 			}
 		}
 		if action.SkillID > 0 {
-			m.addSkillEffect(ctx, action, hitAt)
+			m.addSkillEffect(ctx, action, now, hitAt)
 			if dealsDamage {
 				m.addSkillHitEffect(ctx, action, hitAt)
 			}
@@ -708,16 +708,21 @@ func normalAttackProjectileEffectIDForName(name string) (int, bool) {
 	}
 }
 
-func (m *WorldMode) addSkillEffect(ctx client.Context, action network.ActorActionNotify, starts time.Time) {
+func (m *WorldMode) addSkillEffect(ctx client.Context, action network.ActorActionNotify, actionAt, hitAt time.Time) {
 	if action.SkillID == 0 {
 		return
 	}
-	for _, effectID := range skillEffectIDs(action.SkillID) {
+	spec := skillEffectSpecFor(action.SkillID)
+	starts := hitAt
+	if spec.effectTiming == db.SkillEffectAtActionStart {
+		starts = actionAt
+	}
+	for _, effectID := range spec.effectIDs {
 		if m.addWorldEffectBetweenAt(ctx, effectID, action.TargetID, action.SourceID, starts) {
 			glog.Debugf("skill effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
 		}
 	}
-	for _, effectID := range skillEffectOnCasterIDs(action.SkillID) {
+	for _, effectID := range spec.effectIDsOnCaster {
 		if m.addWorldEffectAt(ctx, effectID, action.SourceID, starts) {
 			glog.Debugf("skill caster effect skill=%d src=%d target=%d effect=%d", action.SkillID, action.SourceID, action.TargetID, effectID)
 		}
