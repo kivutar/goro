@@ -268,6 +268,23 @@ func (m *WorldMode) pendingTargetCursorSkill() (session.Skill, bool) {
 	return session.Skill{}, false
 }
 
+func (m *WorldMode) drawPendingTargetBanner(screen *render.Frame, ctx client.Context) {
+	skill, ok := m.pendingTargetCursorSkill()
+	if !ok {
+		return
+	}
+	name := skillLabel(skill)
+	if ctx.Resources != nil && skill.ID != petCaptureSkillID {
+		if displayName, ok := ctx.Resources.SkillDisplayName(int(skill.ID)); ok {
+			name = displayName
+		}
+	}
+	width, height := screen.Bounds().Dx(), screen.Bounds().Dy()
+	// HighPriest places the skill name at 46/480 of the viewport height.
+	y := float64(46 * height / 480)
+	render.DrawUITextBanner(screen, name, float64(width)/2, y, float64(minInt(520, width)), color.RGBA{R: 50, G: 255, B: 50, A: 255}, 12, false)
+}
+
 func (m *WorldMode) cursorActorMagnetOffset(ctx client.Context, projection sceneProjection, actor world.Actor, now time.Time) (float64, float64) {
 	targetX, targetY, scale, ok := m.cursorActorMagnetTarget(ctx, projection, actor, now)
 	if !ok || !pointInCursorSnapDistance(float64(ctx.Input.MouseX), float64(ctx.Input.MouseY), targetX, targetY, actorCursorSnapRadius(scale)) {
