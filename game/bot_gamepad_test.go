@@ -15,7 +15,7 @@ import (
 )
 
 func TestWASDGamepadMovementAttackAndLoot(t *testing.T) {
-	for _, name := range []string{"stick", "dpad", "keyboard_and_stick", "attack", "loot"} {
+	for _, name := range []string{"stick", "dpad", "keyboard_and_stick", "attack", "nearest_attack", "loot"} {
 		t.Run(name, func(t *testing.T) {
 			ctx := chatShortcutTestContext(t)
 			conn, server := newBotTestConnection(t, 20080910)
@@ -35,6 +35,8 @@ func TestWASDGamepadMovementAttackAndLoot(t *testing.T) {
 			case "attack":
 				pad.Buttons[input.GamepadSouth] = true
 				pad.Buttons[input.GamepadRightShoulder] = true
+			case "nearest_attack":
+				pad.Buttons[input.GamepadSouth] = true
 			case "loot":
 				pad.Buttons[input.GamepadWest] = true
 			}
@@ -51,7 +53,7 @@ func TestWASDGamepadMovementAttackAndLoot(t *testing.T) {
 				t.Fatal(err)
 			}
 			switch name {
-			case "attack":
+			case "attack", "nearest_attack":
 				readLegacyBotTestActionPacket(t, server, 300, network.ActionAttack)
 			case "loot":
 				readBotTestPackets(t, server, network.BuildItemPickupPacketForClientDate(400, 20080910))
@@ -160,6 +162,64 @@ func TestWASDKeyboardSkillTargetSurvivesWithoutGamepad(t *testing.T) {
 	}
 }
 
+func TestWASDGamepadHealTargetsRespectNoShift(t *testing.T) {
+	for _, override := range []string{"none", "shift", "noshift"} {
+		t.Run(override, func(t *testing.T) {
+			ctx := chatShortcutTestContext(t)
+			conn, server := newBotTestConnection(t, 20080910)
+			ctx.Network = conn
+			ctx.Config.Script.Path = "builtin:wasd"
+			ctx.World = worldstate.New()
+			ctx.Session.AccountID, ctx.Session.CharID = 100, 200
+			ctx.World.Player = worldstate.Actor{ID: 200, X: 10, Y: 20}
+			ctx.World.Actors[100] = ctx.World.Player // Local actor aliases must not duplicate self.
+			ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 12, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
+			ctx.World.Actors[301] = worldstate.Actor{ID: 301, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
+			ctx.World.Actors[302] = worldstate.Actor{ID: 302, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true, EffectState: db.EffectStateHide}
+			ctx.World.Actors[303] = worldstate.Actor{ID: 303, X: 11, Y: 20, Job: actorJobHiddenWarpNPC}
+			skill := session.Skill{ID: db.SkillALHeal, Type: skillTargetFriend, Level: 3, Range: 9}
+			ctx.Session.Skills.List = []session.Skill{skill}
+			ctx.Session.Hotkeys = session.Hotkeys{Loaded: true, Version: 1, Slots: []session.HotkeySlot{
+				{Type: network.HotkeyTypeSkill, ID: uint32(skill.ID), Level: 3},
+			}}
+			mode := NewWorldMode()
+			mode.actorDeaths = map[uint32]time.Time{301: time.Now()}
+			loadKeyboardTestBot(t, ctx, mode)
+			pad := input.GamepadFrame{ID: "test"}
+			pad.Axes[input.GamepadRightTrigger] = 1
+			pad.Buttons[input.GamepadSouth] = true
+			ctx.Input.SetGamepad(pad)
+			mode.HandleGamepadInput(ctx, 1.0/60)
+			if mode.scriptHighlight.id != ctx.Session.AccountID {
+				t.Fatalf("Heal initially selected %d, want self", mode.scriptHighlight.id)
+			}
+			ctx.Input.EndFrame()
+			pad.Axes[input.GamepadRightTrigger] = 0
+			pad.Buttons[input.GamepadSouth] = false
+			pad.Buttons[input.GamepadRightShoulder] = true
+			ctx.Input.SetGamepad(pad)
+			// Changing the override after arming the skill must affect cycling.
+			ctx.Session.NoShift = override == "noshift"
+			shift, _ := input.KeyCodeFromName("ShiftLeft")
+			ctx.Input.SetKeyCode(shift, override == "shift")
+			mode.HandleGamepadInput(ctx, 1.0/60)
+			want := ctx.Session.AccountID
+			if override == "noshift" {
+				want = 300
+			}
+			if mode.bot.disabled || mode.scriptHighlight.id != want {
+				t.Fatalf("Heal target = %d, want %d", mode.scriptHighlight.id, want)
+			}
+			ctx.Input.EndFrame()
+			pad.Buttons[input.GamepadRightShoulder] = false
+			pad.Buttons[input.GamepadSouth] = true
+			ctx.Input.SetGamepad(pad)
+			mode.HandleGamepadInput(ctx, 1.0/60)
+			readBotTestPackets(t, server, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 3, want, 20080910))
+		})
+	}
+}
+
 func TestWASDGamepadTargetCyclingKeepsEnemyAndSkillSelectionsSeparate(t *testing.T) {
 	ctx := chatShortcutTestContext(t)
 	ctx.Config.Script.Path = "builtin:wasd"
@@ -217,37 +277,41 @@ type gamepadHoverTestUI struct {
 func (u *gamepadHoverTestUI) PointerBlocked(int, int) bool { return u.blocked }
 
 func TestWASDGamepadUIClickDoesNotBecomeAnAttackWhenPointerLeavesWindow(t *testing.T) {
-	ctx := chatShortcutTestContext(t)
-	conn, server := newBotTestConnection(t, 20080910)
-	ctx.Network = conn
-	ctx.Config.Script.Path = "builtin:wasd"
-	ctx.World = worldstate.New()
-	ctx.World.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
-	ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
-	ui := &gamepadHoverTestUI{blocked: true}
-	ctx.UIManager = ui
-	mode := NewWorldMode()
-	loadKeyboardTestBot(t, ctx, mode)
-	pad := input.GamepadFrame{ID: "test"}
-	pad.Buttons[input.GamepadRightShoulder] = true
-	pad.Buttons[input.GamepadSouth] = true
-	ctx.Input.SetGamepad(pad)
-	capture := mode.HandleGamepadInput(ctx, 1.0/60)
-	if capture.Buttons[input.GamepadSouth] || mode.scriptHighlight.id != 300 {
-		t.Fatal("press over UI was not left to the pointer")
-	}
-	// Pointer motion follows the early callback; the held press still belongs
-	// to the UI, both in this frame and after dragging outside the window.
-	ui.blocked = false
-	for i := 0; i < 2; i++ {
-		assertNoBotTestPacket(t, server, func() error {
-			mode.updateBotInput(ctx, true)
-			return mode.bot.tick()
+	for _, name := range []string{"selected", "nearest"} {
+		t.Run(name, func(t *testing.T) {
+			ctx := chatShortcutTestContext(t)
+			conn, server := newBotTestConnection(t, 20080910)
+			ctx.Network = conn
+			ctx.Config.Script.Path = "builtin:wasd"
+			ctx.World = worldstate.New()
+			ctx.World.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
+			ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
+			ui := &gamepadHoverTestUI{blocked: true}
+			ctx.UIManager = ui
+			mode := NewWorldMode()
+			loadKeyboardTestBot(t, ctx, mode)
+			pad := input.GamepadFrame{ID: "test"}
+			pad.Buttons[input.GamepadRightShoulder] = name == "selected"
+			pad.Buttons[input.GamepadSouth] = true
+			ctx.Input.SetGamepad(pad)
+			capture := mode.HandleGamepadInput(ctx, 1.0/60)
+			if capture.Buttons[input.GamepadSouth] {
+				t.Fatal("press over UI was not left to the pointer")
+			}
+			// Pointer motion follows the early callback; the held press still belongs
+			// to the UI, both in this frame and after dragging outside the window.
+			ui.blocked = false
+			for i := 0; i < 2; i++ {
+				assertNoBotTestPacket(t, server, func() error {
+					mode.updateBotInput(ctx, true)
+					return mode.bot.tick()
+				})
+				ctx.Input.EndFrame()
+				pad.Buttons[input.GamepadRightShoulder] = false
+				ctx.Input.SetGamepad(pad)
+				mode.HandleGamepadInput(ctx, 1.0/60)
+			}
 		})
-		ctx.Input.EndFrame()
-		pad.Buttons[input.GamepadRightShoulder] = false
-		ctx.Input.SetGamepad(pad)
-		mode.HandleGamepadInput(ctx, 1.0/60)
 	}
 }
 

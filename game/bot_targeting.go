@@ -6,8 +6,43 @@ import (
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/glog"
+	worldstate "github.com/kivutar/goro/world"
 	lua "github.com/yuin/gopher-lua"
 )
+
+// Use the same eligibility rules as pointer targeting and use_pending_skill,
+// optionally ignoring Shift when the script uses it for a different action.
+func luaSkillTargets(L *lua.LState, ctx client.Context, mode *WorldMode, ignoreShift bool) *lua.LTable {
+	result := L.NewTable()
+	if mode == nil || ctx.World == nil {
+		return result
+	}
+	pending := mode.pendingSkill
+	if pending.skill.ID == 0 || pending.targetID != 0 || isGroundTargetSkill(pending.skill) || isSelfTargetSkill(pending.skill) {
+		return result
+	}
+	override := skillTargetOverrideActive(ctx)
+	if ignoreShift {
+		override = ctx.Session != nil && ctx.Session.NoShift
+	}
+	x, y := currentPlayerCell(ctx, time.Now())
+	appendTarget := func(actor worldstate.Actor) {
+		if _, dead := mode.actorDeaths[actor.ID]; dead || !actorCanBeSkillTargetedWithOverride(ctx, pending.skill, actor, override) {
+			return
+		}
+		result.Append(luaActorTable(L, actor, x, y))
+	}
+	if actor, ok, _ := actorForCombatID(ctx, localSkillTarget(ctx)); ok && !playerIsDead(ctx) {
+		actor.X, actor.Y = x, y
+		appendTarget(actor)
+	}
+	for _, actor := range ctx.World.Actors {
+		if !isLocalActor(ctx, actor.ID) {
+			appendTarget(actor)
+		}
+	}
+	return result
+}
 
 func (m *WorldMode) scriptUsePendingSkill(ctx client.Context, id uint32) bool {
 	if m == nil || id == 0 {

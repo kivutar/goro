@@ -47,7 +47,7 @@ CGO_ENABLED=0 go build -tags nofakecgo .
 For an Android arm64 development APK and USB installation, see the
 [Android build instructions](packaging/android/README.md).
 
-### Gamepad controls
+### Keyboard and gamepad controls
 
 Enable the bundled keyboard/gamepad script on desktop:
 
@@ -70,7 +70,7 @@ current run, including map changes.
 | L2 + right stick | Rotate / tilt camera (where the map allows it) |
 | R2 + right stick up/down | Zoom in/out (where the map allows it) |
 | R2 + South / East / West / North | Hotbar slots 1 / 2 / 3 / 4 in the active row |
-| South | Hold to attack selected enemy; confirm armed skill; otherwise left click |
+| South | Confirm armed skill; otherwise hold to attack selected or nearest enemy; UI / pointer left click when unclaimed |
 | East | Cancel skill / clear target; otherwise right click |
 | Start / Menu | Escape menu |
 | Right / left shoulder | Next / previous enemy, or eligible target for an armed skill |
@@ -78,13 +78,20 @@ current run, including map changes.
 | Left stick click | Use the armed skill on the highlighted target |
 | Select / Back on Android | Open the keyboard |
 
-Gameplay controls pause while chat or a form has keyboard focus. Keyboard WASD,
-F and Space still work. The first detected controller stays selected until it
-disconnects; connecting and disconnecting controllers does not require a restart.
+Keyboard WASD moves, Space loots, and F attacks the selected enemy or the nearest
+one within eight cells. Tab / Shift+Tab cycle targets like the shoulders; F1–F9
+activate hotbar slots; Enter confirms a skill target and Escape cancels targeting.
 
-Skill shortcuts cast immediately on a selected eligible enemy; otherwise use the
-shoulders and South to choose and confirm an actor target. Ground skills use the
-pointer and South. Self skills and items activate immediately.
+Both devices support target-first and skill-first play. A skill shortcut casts
+immediately on an eligible selected target. Otherwise it highlights the nearest
+eligible target; cycle to another or confirm. Enable `/noshift` to target monsters
+with Heal. Ground skills use the pointer and left click / South. Self skills and
+items activate immediately.
+
+Gameplay controls pause while chat or a form has keyboard focus. UI pointer
+clicks and NPC dialogs take priority over controller attacks. The first detected
+controller stays selected until it disconnects; connecting and disconnecting
+controllers does not require a restart.
 
 Backends: Windows XInput, Linux evdev, macOS GameController, and Android
 InputDevice. Windows requires an XInput-compatible controller or driver; Linux

@@ -164,6 +164,7 @@ func (m *WorldMode) requestWalk(ctx client.Context, targetX, targetY int, source
 	playerX, playerY := currentPlayerCell(ctx, time.Now())
 	glog.Debugf("%s walk request from=%d,%d to=%d,%d", source, playerX, playerY, targetX, targetY)
 	if err := ctx.Network.SendWalkToXY(targetX, targetY); err == nil {
+		m.walkSequence++
 		m.setWalkCooldown(walkRequestCooldown)
 		return true
 	} else {

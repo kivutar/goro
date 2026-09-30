@@ -331,7 +331,11 @@ func TestLuaBotCanStartLongWalkFromPhysicalKey(t *testing.T) {
 		t.Fatal("physical W held state was consumed")
 	}
 
-	world.Player.Y = 21
+	// Model an acknowledged walk, one cell along the eight-cell path.
+	world.Player = worldstate.Actor{
+		ID: 2000000, X: 10, Y: 28, FromX: 10, FromY: 20, ToX: 10, ToY: 28,
+		Moving: true, MoveStarted: time.Now().Add(-time.Second), MoveDuration: 8 * time.Second,
+	}
 	mode.walkCooldownUntil = time.Time{}
 	if err := bot.inputFrame(true); err != nil {
 		t.Fatal(err)
@@ -343,7 +347,7 @@ func TestLuaBotCanStartLongWalkFromPhysicalKey(t *testing.T) {
 		t.Fatal("held key unexpectedly refreshed the active walk")
 	}
 
-	world.Player.Y = 25
+	world.Player.MoveStarted = time.Now().Add(-5 * time.Second)
 	mode.walkCooldownUntil = time.Time{}
 	if err := bot.inputFrame(true); err != nil {
 		t.Fatal(err)
@@ -811,6 +815,60 @@ func TestWASDLuaCyclesFriendlySkillTargets(t *testing.T) {
 		if got := mode.scriptHighlight.id; got != want {
 			t.Fatalf("friendly Tab target %d = %d, want %d", index+1, got, want)
 		}
+	}
+}
+
+func TestWASDHealReverseCycleThenConfirm(t *testing.T) {
+	for _, tc := range []struct {
+		name, shift string
+		noShift     bool
+	}{
+		{"left_shift", "ShiftLeft", false},
+		{"right_shift", "ShiftRight", false},
+		{"noshift_left", "ShiftLeft", true},
+		{"noshift_right", "ShiftRight", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := chatShortcutTestContext(t)
+			conn, server := newBotTestConnection(t, 20080910)
+			ctx.Network = conn
+			ctx.Config.Script.Path = "builtin:wasd"
+			ctx.Session.AccountID, ctx.Session.CharID = 100, 200
+			ctx.Session.NoShift = tc.noShift
+			ctx.World = worldstate.New()
+			ctx.World.Player = worldstate.Actor{ID: 200, X: 10, Y: 20}
+			ctx.World.Actors[300] = worldstate.Actor{ID: 300, X: 11, Y: 20, HasObjectType: true, ObjectType: actorObjectTypeMob}
+			mode := NewWorldMode()
+			skill := session.Skill{ID: db.SkillALHeal, Type: skillTargetFriend, Level: 3, Range: 9}
+			mode.pendingSkill = pendingSkillTarget{skill: skill}
+			loadKeyboardTestBot(t, ctx, mode)
+			tab, _ := input.KeyCodeFromName("Tab")
+			shift, _ := input.KeyCodeFromName(tc.shift)
+			enter, _ := input.KeyCodeFromName("Enter")
+			ctx.Input.SetKeyCode(tab, true)
+			botKeyPressForTest(t, mode.bot, tab)
+			if mode.scriptHighlight.id != ctx.Session.AccountID {
+				t.Fatal("initial Tab should select self")
+			}
+			ctx.Input.SetKeyCode(tab, false)
+			ctx.Input.EndFrame()
+			ctx.Input.SetKeyCode(shift, true)
+			ctx.Input.SetKeyCode(tab, true)
+			botKeyPressForTest(t, mode.bot, tab)
+			want := ctx.Session.AccountID
+			if tc.noShift {
+				want = 300
+			}
+			if mode.scriptHighlight.id != want {
+				t.Fatalf("Shift+Tab selected %d, want %d", mode.scriptHighlight.id, want)
+			}
+			ctx.Input.SetKeyCode(tab, false)
+			ctx.Input.SetKeyCode(shift, false)
+			ctx.Input.EndFrame()
+			ctx.Input.SetKeyCode(enter, true)
+			botKeyPressForTest(t, mode.bot, enter)
+			readBotTestPackets(t, server, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 3, want, 20080910))
+		})
 	}
 }
 
