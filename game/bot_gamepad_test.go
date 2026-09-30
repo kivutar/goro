@@ -145,6 +145,66 @@ func TestWASDGamepadSkillChordUsesSelectedEnemyWithoutAttackOrLoot(t *testing.T)
 	}
 }
 
+func TestWASDGamepadDpadSkillChordsDoNotBecomeMovement(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		button     input.GamepadButton
+		slot, x, y int
+	}{
+		{"up", input.GamepadUp, 5, 10, 28},
+		{"right", input.GamepadRight, 6, 18, 20},
+		{"down", input.GamepadDown, 7, 10, 12},
+		{"left", input.GamepadLeft, 8, 2, 20},
+	} {
+		for _, contents := range []string{"skill", "empty"} {
+			t.Run(tc.name+"/"+contents, func(t *testing.T) {
+				ctx := wasdControlsTestContext(t)
+				conn, server := newBotTestConnection(t, 20080910)
+				ctx.Network = conn
+				skill := ctx.Session.Skills.List[0]
+				ctx.Session.Hotkeys.Slots = make([]session.HotkeySlot, 9)
+				if contents == "skill" {
+					ctx.Session.Hotkeys.Slots[tc.slot-1] = session.HotkeySlot{Type: network.HotkeyTypeSkill, ID: uint32(skill.ID), Level: 3}
+				}
+				mode := NewWorldMode()
+				loadKeyboardTestBot(t, ctx, mode)
+				wasdControlPress(t, ctx, mode, "gamepad", "next")
+				pad := input.GamepadFrame{ID: "test"}
+				frame := func() {
+					ctx.Input.SetGamepad(pad)
+					mode.HandleGamepadInput(ctx, 1.0/60)
+					mode.updateBotInput(ctx, true)
+					if err := mode.bot.tick(); err != nil {
+						t.Fatal(err)
+					}
+					ctx.Input.EndFrame()
+					if mode.bot.disabled {
+						t.Fatal("control script failed")
+					}
+				}
+				pad.Axes[input.GamepadRightTrigger] = 1
+				pad.Buttons[tc.button] = true
+				frame()
+				if contents == "skill" {
+					readBotTestPackets(t, server, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 3, 300, 20080910))
+				}
+				// Holding a chord must neither repeat the skill nor start walking,
+				// including when R2 is released before the direction.
+				for _, trigger := range []float64{1, 0} {
+					pad.Axes[input.GamepadRightTrigger] = trigger
+					assertNoBotTestPacket(t, server, func() error { frame(); return nil })
+				}
+				pad.Buttons[tc.button] = false
+				frame()
+				pad.Buttons[tc.button] = true
+				frame()
+				walk, _ := network.BuildWalkToXYPacketForClientDate(tc.x, tc.y, 20080910)
+				readBotTestPackets(t, server, walk)
+			})
+		}
+	}
+}
+
 func TestWASDKeyboardSkillTargetSurvivesWithoutGamepad(t *testing.T) {
 	ctx := chatShortcutTestContext(t)
 	ctx.Config.Script.Path = "builtin:wasd"

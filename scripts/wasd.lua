@@ -4,7 +4,7 @@ local controls = { "KeyW", "KeyA", "KeyS", "KeyD" }
 local stick_deadzone = 0.3
 local attack_button = "south"
 local loot_button = "west"
-local skill_buttons = { "south", "east", "west", "north" }
+local skill_buttons = { "south", "east", "west", "north", "dpad_up", "dpad_right", "dpad_down", "dpad_left" }
 local skill_buttons_held = {}
 local selected_enemy_id = nil
 local pad_attack_down = false
@@ -397,10 +397,13 @@ function input()
 		if goro.keyboard.is_down("KeyD") then dx = dx + 1 end
 		local x = goro.gamepad.axis("left_x")
 		local y = goro.gamepad.axis("left_y")
-		if goro.gamepad.is_down("dpad_left") then x = x - 1 end
-		if goro.gamepad.is_down("dpad_right") then x = x + 1 end
-		if goro.gamepad.is_down("dpad_up") then y = y - 1 end
-		if goro.gamepad.is_down("dpad_down") then y = y + 1 end
+		-- Skill chords keep their D-pad buttons until release, even after R2.
+		if pad_actions then
+			if not skill_buttons_held.dpad_left and goro.gamepad.is_down("dpad_left") then x = x - 1 end
+			if not skill_buttons_held.dpad_right and goro.gamepad.is_down("dpad_right") then x = x + 1 end
+			if not skill_buttons_held.dpad_up and goro.gamepad.is_down("dpad_up") then y = y - 1 end
+			if not skill_buttons_held.dpad_down and goro.gamepad.is_down("dpad_down") then y = y + 1 end
+		end
 		if x * x + y * y > stick_deadzone * stick_deadzone then
 			local angle = math.atan2(-y, x) + math.rad(goro.camera_yaw())
 			local octant = math.floor(angle / (math.pi / 4) + 0.5) * math.pi / 4

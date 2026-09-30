@@ -70,6 +70,7 @@ current run, including map changes.
 | L2 + right stick | Rotate / tilt camera (where the map allows it) |
 | R2 + right stick up/down | Zoom in/out (where the map allows it) |
 | R2 + South / East / West / North | Hotbar slots 1 / 2 / 3 / 4 in the active row |
+| R2 + D-pad Up / Right / Down / Left | Hotbar slots 5 / 6 / 7 / 8 in the active row |
 | South | Confirm armed skill; otherwise hold to attack selected or nearest enemy; UI / pointer left click when unclaimed |
 | East | Cancel skill / clear target; otherwise right click |
 | Start / Menu | Escape menu |

@@ -150,9 +150,10 @@ generating press or release actions. Headless mode does not poll physical contro
 
 `wasd.lua` moves relative to the camera with the left stick/D-pad, uses West for
 loot, L2 + right stick to rotate/tilt the camera, R2 + right stick up/down to zoom,
-and R2 + South/East/West/North for hotbar slots 1–4. Shoulders cycle enemies or
-eligible skill targets; South attacks or confirms and East cancels. NPC dialogs
-use D-pad up/down and South/East.
+and R2 + South/East/West/North for hotbar slots 1–4. R2 + D-pad Up/Right/Down/Left
+uses slots 5–8; those directions resume movement only after release. Shoulders
+cycle enemies or eligible skill targets; South attacks or confirms and East
+cancels. NPC dialogs use D-pad up/down and South/East.
 Unclaimed right-stick movement, South/East mouse clicks and Start/Escape remain
 shared client menu controls and work even without a script.
 
@@ -504,7 +505,7 @@ Targeting follows the same rules on both devices:
 | Action | Keyboard | Controller |
 | --- | --- | --- |
 | Next / previous target | Tab / Shift+Tab | Right / left shoulder |
-| Use hotbar slot | F1–F9 | R2 + South/East/West/North for slots 1–4 |
+| Use hotbar slot | F1–F9 | R2 + South/East/West/North for slots 1–4; R2 + D-pad Up/Right/Down/Left for slots 5–8 |
 | Confirm skill target | Enter | South |
 | Cancel targeting | Escape | East |
 
