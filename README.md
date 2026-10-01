@@ -49,7 +49,9 @@ For an Android arm64 development APK and USB installation, see the
 
 ### Keyboard and gamepad controls
 
-Enable the bundled keyboard/gamepad script on desktop:
+Enable **Keyboard & joypad controls** in Settings to use the bundled WASD script.
+The checkbox takes effect immediately and remembers your choice across restarts.
+You can also enable it from the command line:
 
 ```sh
 ./goro --data-dir /path/to/OldRO --script builtin:wasd

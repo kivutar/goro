@@ -160,21 +160,6 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 		),
 
 		rotheme.Checkbox(
-			checkbox.Checked(settingsLessEffects(ctx)),
-			checkbox.LabelOpt("Less Effects"),
-			checkbox.OnToggle(func(enabled bool) {
-				if ctx.Session != nil {
-					ctx.Session.LessEffects = enabled
-				}
-				if ctx.Network != nil {
-					_ = ctx.Network.SendLessEffect(enabled)
-				}
-				w.saveSettings(ctx)
-				w.refresh(ctx)
-			}),
-		),
-
-		rotheme.Checkbox(
 			checkbox.Checked(settingsSnapTargets(ctx)),
 			checkbox.LabelOpt("Snap to targets"),
 			checkbox.OnToggle(func(enabled bool) {
@@ -194,6 +179,25 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 					ctx.Session.SnapItems = enabled
 				}
 				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}),
+		),
+
+		rotheme.Checkbox(
+			checkbox.Checked(ctx.ScriptPath() == "builtin:wasd"),
+			checkbox.LabelOpt("Keyboard & joypad controls"),
+			checkbox.OnToggle(func(enabled bool) {
+				if ctx.Session == nil {
+					return
+				}
+				path := "none"
+				if enabled {
+					path = "builtin:wasd"
+				}
+				ctx.Session.ScriptPath = path
+				if _, err := ctx.Config.SaveScriptPath(path); err != nil {
+					glog.Warnf("settings save failed: %v", err)
+				}
 				w.refresh(ctx)
 			}),
 		),
