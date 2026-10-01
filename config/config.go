@@ -16,9 +16,12 @@ import (
 
 type Config struct {
 	// ConfigPath is the absolute file path selected by LoadConfig for saving settings.
-	ConfigPath    string
-	Headless      bool
-	DataDir       string
+	ConfigPath string
+	Headless   bool
+	DataDir    string
+	// AIStateDir holds writable AI overrides when a platform uses read-only assets.
+	// Empty keeps the desktop behavior of writing inside DataDir.
+	AIStateDir    string
 	Window        WindowConfig
 	Packet        PacketConfig
 	Login         LoginConfig

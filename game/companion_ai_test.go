@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
@@ -122,6 +123,106 @@ function AI(id) end
 	}
 	if string(data) != "ok" {
 		t.Fatalf("test.txt = %q, want ok", string(data))
+	}
+}
+
+func TestCompanionAISelectedFolderFileIOAndSavedScripts(t *testing.T) {
+	for _, selected := range []bool{false, true} {
+		name := "native"
+		if selected {
+			name = "selected folder"
+		}
+		t.Run(name, func(t *testing.T) {
+			root, state := t.TempDir(), t.TempDir()
+			t.Chdir(t.TempDir()) // Neither the client folder nor writable AI state.
+			if err := os.MkdirAll(filepath.Join(root, "AI", "USER_AI"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			script := `
+local config = assert(io.open("./AI/USER_AI/H_Config.lua", "rb"))
+assert(io.type(config) == "file")
+assert(config:seek("end") == 15)
+assert(config:seek("set") == 0)
+assert(config:read(6) == "value=")
+assert(config:seek() == 6)
+assert(config:read("*n") == 42)
+assert(config:read("*l") == "")
+assert(config:read("*l") == "next")
+assert(config:read() == nil)
+assert(io.close(config))
+assert(io.type(config) == "closed file")
+local a = assert(io.open("AI/USER_AI/H_Config.lua"))
+local b = assert(io.open("AI/USER_AI/append.txt"))
+assert(a:lines()() == "value=42") -- Opening b must not retarget a's methods.
+assert(b:read("*a") == "seed")
+a:close(); b:close()
+
+local added = assert(io.open("AI/USER_AI/append.txt", "a"))
+added:write("!"); added:close()
+local updated = assert(io.open("AI/USER_AI/update.txt", "r+"))
+updated:write("new"); updated:close()
+local readback = assert(io.open("AI/USER_AI/update.txt", "r"))
+assert(readback:read("*a") == "new"); readback:close()
+
+local saved = assert(io.open("./AI/USER_AI/data/state.lua", "w"))
+saved:write("saved_value = 37\n"); saved:close()
+dofile("./AI/USER_AI/data/state.lua")
+assert(saved_value == 37)
+saved_value = nil
+local saved2 = assert(io.open("AI/USER_AI/data/required.lua", "w"))
+saved2:write("saved_value = 38\n"); saved2:close()
+require("AI/USER_AI/data/required")
+assert(saved_value == 38)
+function AI(id) end
+`
+			for name, content := range map[string]string{
+				"AI.lua": script, "H_Config.lua": "value=42\r\nnext\n", "append.txt": "seed", "update.txt": "old",
+			} {
+				if err := os.WriteFile(filepath.Join(root, "AI", "USER_AI", name), []byte(content), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var resources *res.Manager
+			var err error
+			cfg := config.Config{DataDir: root}
+			if selected {
+				resources, err = res.NewManagerFS(os.DirFS(root))
+				cfg.DataDir, cfg.AIStateDir = t.TempDir(), state
+			} else {
+				resources, err = res.NewManager(root)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := client.Context{Config: cfg, Resources: resources, Session: session.New()}
+			ctx.Session.HomunculusCustomAI = true
+			ai, err := newCompanionAI(ctx, NewWorldMode(), companionAIHomunculus, time.Now())
+			if err != nil {
+				t.Fatal(err)
+			}
+			ai.close()
+			if !selected {
+				state = root
+			}
+			// A fresh Lua state restores the files saved by the previous one.
+			reloaded := &companionAI{state: lua.NewState(), stateDir: cfg.AIStateDir, loaded: make(map[string]bool)}
+			defer reloaded.close()
+			if err := reloaded.doAIFile(resources, "AI/USER_AI/data/state.lua"); err != nil {
+				t.Fatal(err)
+			}
+			assertLuaGlobalNumber(t, reloaded.state, "saved_value", 37)
+			if got, err := os.ReadFile(filepath.Join(state, "AI", "USER_AI", "append.txt")); err != nil || string(got) != "seed!" {
+				t.Fatalf("appended file = %q, %v", got, err)
+			}
+			if selected {
+				if got, err := os.ReadFile(filepath.Join(root, "AI", "USER_AI", "update.txt")); err != nil || string(got) != "old" {
+					t.Fatalf("selected file was modified: %q, %v", got, err)
+				}
+				if _, err := os.Stat(filepath.Join(state, "AI", "USER_AI", "H_Config.lua")); !os.IsNotExist(err) {
+					t.Fatalf("read-only configuration was copied to disk: %v", err)
+				}
+			}
+		})
 	}
 }
 

@@ -13,8 +13,12 @@ package main
 import "C"
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,23 +29,26 @@ import (
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 )
 
 var host struct {
 	sync.Mutex
 	done   chan struct{}
 	status string
+	game   *app.Game
 }
 var epoch = time.Now()
 
 //export GoroStart
-func GoroStart(window C.uintptr_t, width, height C.int, directory *C.char) {
+func GoroStart(window C.uintptr_t, width, height C.int, directory, source *C.char) {
 	host.Lock()
 	defer host.Unlock()
 	if host.done != nil {
 		return
 	}
 	dir := C.GoString(directory)
+	dataSource := C.GoString(source)
 	host.status = ""
 	done := make(chan struct{})
 	host.done = done
@@ -49,7 +56,7 @@ func GoroStart(window C.uintptr_t, width, height C.int, directory *C.char) {
 	input.AndroidResetGamepads()
 	go func() {
 		defer close(done)
-		if err := run(dir, int(width), int(height)); err != nil {
+		if err := run(dir, dataSource, int(width), int(height)); err != nil {
 			glog.Errorf("Android: %v", err)
 			host.Lock()
 			host.status = err.Error()
@@ -58,12 +65,16 @@ func GoroStart(window C.uintptr_t, width, height C.int, directory *C.char) {
 	}()
 }
 
-func run(dir string, width, height int) error {
-	// Config, screenshots and resource paths must all be writable app storage.
+func run(dir, dataSource string, width, height int) error {
+	// Settings and screenshots stay in writable app storage. Assets may instead
+	// come from a read-only document tree granted by Android's folder picker.
 	if err := os.Chdir(dir); err != nil {
 		return err
 	}
 	if err := os.Setenv("XDG_DATA_HOME", dir); err != nil {
+		return err
+	}
+	if err := os.Setenv("XDG_CONFIG_HOME", dir); err != nil {
 		return err
 	}
 	cfg, err := config.LoadConfig([]string{"--data-dir", dir, "--width", strconv.Itoa(width), "--height", strconv.Itoa(height), "--graphics-api", "vulkan", "--fullscreen"})
@@ -78,11 +89,50 @@ func run(dir string, width, height int) error {
 		return err
 	}
 	defer closeLog()
-	game, err := app.New(cfg)
-	if err != nil {
-		return err
+	var game *app.Game
+	if strings.HasPrefix(dataSource, "content://") {
+		files := newDocumentFS(dataSource)
+		// Check the grant before loading: a revoked or moved folder must return
+		// to the picker instead of starting with an empty resource manager.
+		entries, err := files.ReadDir(".")
+		if err != nil {
+			return err
+		}
+		hasData := false
+		for _, entry := range entries {
+			switch strings.ToLower(entry.Name()) {
+			case "data":
+				hasData = hasData || entry.IsDir()
+			case "data.ini", "data.grf", "fdata.grf", "rdata.grf", "sdata.grf":
+				hasData = hasData || !entry.IsDir()
+			}
+		}
+		if !hasData {
+			return fmt.Errorf("no Ragnarok client data found: choose the folder containing DATA.INI, data.grf, or data/")
+		}
+		resource, err := res.NewManagerFS(files)
+		if err != nil {
+			return err
+		}
+		// Keep saved AI files separate for each selected client folder.
+		cfg.AIStateDir = filepath.Join(dir, "ai-state", fmt.Sprintf("%x", sha256.Sum256([]byte(dataSource))))
+		game = app.NewWithResources(cfg, resource)
+	} else {
+		cfg.DataDir = dataSource
+		game, err = app.New(cfg)
+		if err != nil {
+			return err
+		}
 	}
-	defer game.Close()
+	host.Lock()
+	host.game = game
+	host.Unlock()
+	defer func() {
+		host.Lock()
+		host.game = nil
+		host.Unlock()
+		game.Close()
+	}()
 	glog.Infof("Android starting Vulkan renderer at %dx%d", width, height)
 	return render.Run(game, cfg.Window, cfg.Render)
 }
@@ -115,6 +165,16 @@ func GoroStatus() *C.char {
 		}
 	}
 	return C.CString(host.status)
+}
+
+//export GoroCanChooseFolder
+func GoroCanChooseFolder() C.int {
+	host.Lock()
+	defer host.Unlock()
+	if host.game == nil || host.game.InLogin() {
+		return 1
+	}
+	return 0
 }
 
 //export GoroPointer

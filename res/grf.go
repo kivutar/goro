@@ -31,9 +31,15 @@ var (
 
 type GRF struct {
 	path    string
-	file    *os.File
+	file    grfFile
 	version uint32
 	entries map[string]GRFEntry
+}
+
+type grfFile interface {
+	io.Reader
+	io.ReaderAt
+	io.Closer
 }
 
 type GRFEntry struct {
@@ -50,7 +56,10 @@ func OpenGRF(path string) (*GRF, error) {
 	if err != nil {
 		return nil, err
 	}
+	return openGRFFile(path, file)
+}
 
+func openGRFFile(path string, file grfFile) (*GRF, error) {
 	grf := &GRF{
 		path:    path,
 		file:    file,
@@ -61,6 +70,22 @@ func OpenGRF(path string) (*GRF, error) {
 		return nil, err
 	}
 	return grf, nil
+}
+
+func (m *Manager) openArchive(path string) (*GRF, error) {
+	if m.files == nil {
+		return OpenGRF(path)
+	}
+	file, err := m.files.Open(filepath.ToSlash(path))
+	if err != nil {
+		return nil, err
+	}
+	reader, ok := file.(grfFile)
+	if !ok {
+		_ = file.Close()
+		return nil, fmt.Errorf("archive %s does not support random access", path)
+	}
+	return openGRFFile(path, reader)
 }
 
 func (g *GRF) Close() error {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,6 +18,7 @@ type Manager struct {
 	ClientInfo ClientInfo
 	FoundFiles []string
 	Archives   []*GRF
+	files      fs.FS
 
 	sprites                  spriteResourceCache
 	looseDirectories         sync.Map
@@ -84,7 +85,19 @@ func NewManager(root string) (*Manager, error) {
 		return nil, errors.New("empty root")
 	}
 
-	m := &Manager{Root: filepath.Clean(root)}
+	return newManager(&Manager{Root: filepath.Clean(root)})
+}
+
+// NewManagerFS reads client data from a granted directory, such as an Android
+// document tree. Archive files must support io.ReaderAt; assets are not copied.
+func NewManagerFS(files fs.FS) (*Manager, error) {
+	if files == nil {
+		return nil, errors.New("nil resource filesystem")
+	}
+	return newManager(&Manager{Root: ".", files: files})
+}
+
+func newManager(m *Manager) (*Manager, error) {
 	initialized := false
 	defer func() {
 		if !initialized {
@@ -125,7 +138,7 @@ func (m *Manager) Find(name string) (string, bool) {
 	}
 
 	for _, candidate := range candidates {
-		if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
+		if stat, err := m.statLoose(candidate); err == nil && !stat.IsDir() {
 			return candidate, true
 		}
 	}
@@ -197,7 +210,7 @@ func (m *Manager) readFileCandidates(names []string, exact bool) ([]byte, string
 func (m *Manager) readFileDirect(name string, exact bool) ([]byte, error) {
 	path, ok := m.Find(name)
 	if ok {
-		return os.ReadFile(path)
+		return m.readLoose(path)
 	}
 
 	for _, archive := range m.Archives {

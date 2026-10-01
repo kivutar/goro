@@ -2,10 +2,14 @@ package org.goro;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.hardware.input.InputManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.DocumentsContract;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -28,9 +32,11 @@ import java.io.File;
 
 public final class GoroActivity extends Activity implements InputManager.InputDeviceListener {
     static { System.loadLibrary("goro"); }
-    private static native void nativeStart(Surface surface, int width, int height, String dataDir);
+    private static final int PICK_RO_FOLDER = 1;
+    private static native void nativeStart(Surface surface, int width, int height, String appDir, String dataSource);
     private static native void nativeStop();
     private static native String nativeStatus();
+    private static native boolean nativeCanChooseFolder();
     private static native void nativePointer(int kind, int button, int buttons, float x, float y);
     private static native void nativeScroll(float x, float y, float delta);
     private static native void nativeKey(int code, int mods, boolean down);
@@ -44,18 +50,33 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
     private final Handler handler = new Handler(Looper.getMainLooper());
     private GameView game;
     private File dataDir;
+    private String dataSource;
+    private TextView instructions;
+    private Button folder;
+    private boolean choosingFolder;
+    private boolean startupFailed;
     private boolean running;
     private boolean resumed;
     private InputManager inputManager;
     private final Runnable statusCheck = new Runnable() {
         @Override public void run() {
             if (!running) return;
+            folder.setVisibility(nativeCanChooseFolder() ? View.VISIBLE : View.GONE);
             String error = nativeStatus();
             if (!error.isEmpty()) {
                 stopGame();
                 if (error.equals("@closed")) { finish(); return; }
+                startupFailed = true;
+                updateFolderPrompt();
                 new AlertDialog.Builder(GoroActivity.this).setTitle("Goro could not start")
-                    .setMessage(error).setPositiveButton("Close", (dialog, which) -> finish()).show();
+                    .setMessage(error)
+                    .setPositiveButton("Choose RO folder", (dialog, which) -> chooseFolder())
+                    .setNeutralButton("Retry", (dialog, which) -> {
+                        startupFailed = false;
+                        updateFolderPrompt();
+                        startGame();
+                    })
+                    .setNegativeButton("Close", (dialog, which) -> finish()).show();
                 return;
             }
             handler.postDelayed(this, 1000);
@@ -70,16 +91,23 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
         dataDir = getExternalFilesDir(null);
         if (dataDir == null) dataDir = getFilesDir();
         dataDir.mkdirs();
+        DocumentTree.init(this);
+        dataSource = getPreferences(MODE_PRIVATE).getString("ro_folder", dataDir.getAbsolutePath());
+        choosingFolder = state != null && state.getBoolean("choosing_folder", false);
         FrameLayout root = new FrameLayout(this);
         game = new GameView();
         root.addView(game, new FrameLayout.LayoutParams(-1, -1));
-        if (!new File(dataDir, "data.grf").isFile() && !new File(dataDir, "data").isDirectory()) {
-            TextView instructions = new TextView(this);
-            instructions.setText("Copy your Ragnarok client data to:\n" + dataDir + "\nThen reopen Goro.");
-            instructions.setTextSize(20);
-            instructions.setGravity(Gravity.CENTER);
-            root.addView(instructions, new FrameLayout.LayoutParams(-1, -1));
-        }
+        instructions = new TextView(this);
+        instructions.setText("Choose your extracted Ragnarok Online folder\nusing the RO folder button.");
+        instructions.setTextSize(20);
+        instructions.setGravity(Gravity.CENTER);
+        root.addView(instructions, new FrameLayout.LayoutParams(-1, -1));
+        updateFolderPrompt();
+        folder = new Button(this);
+        folder.setText("RO folder");
+        folder.setAlpha(0.65f);
+        folder.setOnClickListener(v -> chooseFolder());
+        root.addView(folder, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT));
         Button keyboard = new Button(this);
         keyboard.setText("Keyboard");
         keyboard.setAlpha(0.65f);
@@ -88,6 +116,79 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
         root.addView(keyboard, buttonLayout);
         setContentView(root);
         immersive();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("choosing_folder", choosingFolder);
+        super.onSaveInstanceState(state);
+    }
+
+    private boolean hasClientData() {
+        if (dataSource.startsWith("content://")) return true; // Validated by the resource reader.
+        File[] files = new File(dataSource).listFiles();
+        if (files == null) return false;
+        for (File file : files) {
+            String name = file.getName();
+            if (file.isDirectory() && name.equalsIgnoreCase("data")) return true;
+            if (file.isFile() && (name.equalsIgnoreCase("DATA.INI") || name.equalsIgnoreCase("data.grf")
+                || name.equalsIgnoreCase("fdata.grf") || name.equalsIgnoreCase("rdata.grf")
+                || name.equalsIgnoreCase("sdata.grf"))) return true;
+        }
+        return false;
+    }
+
+    private void updateFolderPrompt() {
+        instructions.setVisibility(startupFailed || !hasClientData() ? View.VISIBLE : View.GONE);
+    }
+
+    private void chooseFolder() {
+        // The UI is refreshed periodically; reject a stale click after login.
+        if (running && !nativeCanChooseFolder()) return;
+        choosingFolder = true;
+        stopGame();
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+            | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+        if (dataSource.startsWith("content://")) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse(dataSource));
+        }
+        try {
+            startActivityForResult(intent, PICK_RO_FOLDER);
+        } catch (ActivityNotFoundException error) {
+            choosingFolder = false;
+            new AlertDialog.Builder(this).setTitle("Folder picker unavailable")
+                .setMessage("Enable the Android Files app to choose your RO folder.")
+                .setPositiveButton("OK", (dialog, which) -> startGame()).show();
+        }
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != PICK_RO_FOLDER) return;
+        choosingFolder = false;
+        if (result == RESULT_OK && data != null && data.getData() != null) {
+            Uri uri = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                String previous = dataSource;
+                dataSource = uri.toString();
+                getPreferences(MODE_PRIVATE).edit().putString("ro_folder", dataSource).apply();
+                startupFailed = false;
+                if (!previous.equals(dataSource) && previous.startsWith("content://")) {
+                    try {
+                        getContentResolver().releasePersistableUriPermission(Uri.parse(previous), Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (SecurityException ignored) { }
+                }
+            } catch (SecurityException error) {
+                new AlertDialog.Builder(this).setTitle("Folder access unavailable")
+                    .setMessage("Please select the folder again and allow Goro to read it.")
+                    .setPositiveButton("Choose RO folder", (dialog, which) -> chooseFolder())
+                    .setNegativeButton("Cancel", null).show();
+            }
+        }
+        updateFolderPrompt();
+        startGame();
     }
 
     private void immersive() {
@@ -143,9 +244,8 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
         super.onPause();
     }
     private void startGame() {
-        if (!resumed || running || !game.surfaceReady) return;
-        if (!new File(dataDir, "data.grf").isFile() && !new File(dataDir, "data").isDirectory()) return;
-        nativeStart(game.getHolder().getSurface(), game.renderWidth, game.renderHeight, dataDir.getAbsolutePath());
+        if (!resumed || running || choosingFolder || startupFailed || !game.surfaceReady || !hasClientData()) return;
+        nativeStart(game.getHolder().getSurface(), game.renderWidth, game.renderHeight, dataDir.getAbsolutePath(), dataSource);
         running = true;
         nativeFocus(hasWindowFocus());
         handler.postDelayed(statusCheck, 1000);
@@ -156,6 +256,7 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
         if (!running) return;
         nativeStop();
         running = false;
+        folder.setVisibility(View.VISIBLE);
     }
 
     private static void sendText(CharSequence text) {

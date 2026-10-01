@@ -1,6 +1,8 @@
 package game
 
 import (
+	"sync/atomic"
+
 	"github.com/gogpu/gpucontext"
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
@@ -28,8 +30,9 @@ type frameSubmittedMode interface {
 }
 
 type Manager struct {
-	ctx  client.Context
-	mode Mode
+	ctx   client.Context
+	mode  Mode
+	login atomic.Bool
 }
 
 func NewManager(ctx client.Context, mode Mode) *Manager {
@@ -44,8 +47,15 @@ func (m *Manager) enter(mode Mode) {
 			leaving.Leave()
 		}
 		m.mode = mode
+		_, login := mode.(*LoginMode)
+		m.login.Store(login)
 		mode = mode.Enter(m.ctx)
 	}
+}
+
+// InLogin can be queried by platform UI threads without reading the live mode.
+func (m *Manager) InLogin() bool {
+	return m.login.Load()
 }
 
 func (m *Manager) UpdateContext(ctx client.Context) {
