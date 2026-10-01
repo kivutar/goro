@@ -79,7 +79,8 @@ func TestHitRingGeometryAndCapturedFacing(t *testing.T) {
 			bottom = add3(bottom, mul3(point(2*i), 0.1))
 			top = add3(top, mul3(point(2*i+1), 0.1))
 		}
-		wantBottom := add3(modelPoint3{x: 10, y: 5, z: 20}, mul3(tt.axis, 0.133))
+		// The origin, like the facing, stays at the captured impact position.
+		wantBottom := add3(modelPoint3{x: .5, y: 2.07, z: .5}, mul3(tt.axis, 0.133))
 		wantTop := add3(wantBottom, mul3(tt.axis, 0.7))
 		if !modelPointNear(bottom, wantBottom, 1e-5) || !modelPointNear(top, wantTop, 1e-5) {
 			t.Fatalf("direction %d: centers = %+v/%+v, want %+v/%+v", tt.dir, bottom, top, wantBottom, wantTop)
@@ -109,18 +110,22 @@ func TestHitRingCapturesFacingAtImpact(t *testing.T) {
 		mode.drawWorldEffects(render.NewFrame(800, 600), ctx, sceneProjection{}, at)
 	}
 	draw(starts.Add(-time.Millisecond))
-	if mode.worldEffects[0].hasActorDirection {
+	if mode.worldEffects[0].hasActorTransform {
 		t.Fatal("facing captured before the scheduled impact")
 	}
-	world.Actors[42] = worldstate.Actor{ID: 42, Dir: 2}
+	world.Actors[42] = worldstate.Actor{ID: 42, Dir: 2, X: 12, Y: 14}
 	draw(starts)
-	if effect := mode.worldEffects[0]; !effect.hasActorDirection || effect.actorDirection != 2 {
+	if effect := mode.worldEffects[0]; !effect.hasActorTransform || effect.actorDirection != 2 {
 		t.Fatalf("impact facing = %d, want current target direction 2", effect.actorDirection)
 	}
-	world.Actors[42] = worldstate.Actor{ID: 42, Dir: 4}
+	wantOrigin := modelPoint3{x: 12.5, y: .07, z: 14.5}
+	if mode.worldEffects[0].actorOrigin != wantOrigin {
+		t.Fatal("origin captured before the scheduled impact")
+	}
+	world.Actors[42] = worldstate.Actor{ID: 42, Dir: 4, X: 30, Y: 40}
 	draw(starts.Add(50 * time.Millisecond))
-	if mode.worldEffects[0].actorDirection != 2 {
-		t.Fatal("ring changed facing after impact")
+	if effect := mode.worldEffects[0]; effect.actorDirection != 2 || effect.actorOrigin != wantOrigin {
+		t.Fatal("ring moved or turned with the actor after impact")
 	}
 }
 

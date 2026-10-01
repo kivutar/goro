@@ -727,7 +727,8 @@ type worldEffect struct {
 	actorID                              uint32
 	targetID                             uint32
 	actorDirection                       int
-	hasActorDirection                    bool
+	actorOrigin                          modelPoint3
+	hasActorTransform                    bool
 	x                                    int
 	y                                    int
 	starts                               time.Time
@@ -754,6 +755,8 @@ type worldEffectSpec struct {
 
 type worldEffectComponent struct {
 	kind               effectComponentKind
+	hitRing            *db.EffectHitRing
+	hitParticles       *db.EffectHitParticles
 	funcAdapter        effectFuncAdapter
 	funcName           string
 	color              color.RGBA
@@ -2249,6 +2252,8 @@ func convertDBWorldEffectSpec(spec db.EffectSpec) worldEffectSpec {
 func convertDBWorldEffectComponent(component db.EffectComponent) worldEffectComponent {
 	return worldEffectComponent{
 		kind:               convertDBEffectComponentKind(component.Kind),
+		hitRing:            component.HitRing,
+		hitParticles:       component.HitParticles,
 		funcAdapter:        effectFuncAdapterForName(component.FuncName),
 		funcName:           component.FuncName,
 		color:              component.Color,
@@ -2436,12 +2441,16 @@ func effectFuncAdapterForName(name string) effectFuncAdapter {
 		return effectFuncFlatColorTile
 	case "GroundTexture", "SpiderWeb":
 		return effectFuncGroundTexture
-	case "EffectBodyColor":
+	case "EffectBodyColor", "MagicCrasherBodyColor", "TransBlueBody":
 		return effectFuncBodyColor
 	case "MapPillar":
 		return effectFuncMapPillar
 	case "HitRing":
 		return effectFuncHitRing
+	case "HitParticles":
+		return effectFuncHitParticles
+	case "BlessingCircle":
+		return effectFuncBlessingCircle
 	default:
 		return effectFuncUnknown
 	}
@@ -2468,20 +2477,13 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 			active = append(active, effect)
 			continue
 		}
-		if !effect.hasActorDirection {
+		if !effect.hasActorTransform {
 			effect.actorDirection = effectActorDirection(ctx, effect.actorID, effect.starts)
-			effect.hasActorDirection = true
+			effect.actorOrigin = effectWorldAnchor(ctx, effect, effect.starts)
+			effect.hasActorTransform = true
 		}
 		active = append(active, effect)
-		x, y := float64(effect.x), float64(effect.y)
-		if actor, ok := ctx.World.Actors[effect.actorID]; ok {
-			x, y = actorRenderPosition(actor, now)
-		} else if isLocalActor(ctx, effect.actorID) {
-			x, y = actorRenderPosition(ctx.World.Player, now)
-		}
-		worldX := cellCenter(x)
-		worldY := cellCenter(y)
-		worldZ := terrainHeightAt(ctx.World, x, y) + 0.07
+		anchor := effectWorldAnchor(ctx, effect, now)
 		for index, component := range spec.components {
 			if effect.persistent {
 				component.repeat = true
@@ -2494,10 +2496,20 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 			if progress >= 1 {
 				continue
 			}
-			m.drawWorldEffectComponent(screen, ctx, projection, effect, component, index, worldX, worldY, worldZ, progress, componentDuration, now)
+			m.drawWorldEffectComponent(screen, ctx, projection, effect, component, index, anchor.x, anchor.z, anchor.y, progress, componentDuration, now)
 		}
 	}
 	m.worldEffects = active
+}
+
+func effectWorldAnchor(ctx client.Context, effect worldEffect, at time.Time) modelPoint3 {
+	x, y := float64(effect.x), float64(effect.y)
+	if actor, ok := ctx.World.Actors[effect.actorID]; ok {
+		x, y = actorRenderPosition(actor, at)
+	} else if isLocalActor(ctx, effect.actorID) {
+		x, y = actorRenderPosition(ctx.World.Player, at)
+	}
+	return modelPoint3{x: cellCenter(x), y: terrainHeightAt(ctx.World, x, y) + 0.07, z: cellCenter(y)}
 }
 
 func (m *WorldMode) worldEffectResolvedComponentDuration(ctx client.Context, spec worldEffectSpec, component worldEffectComponent) time.Duration {

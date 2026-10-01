@@ -189,7 +189,7 @@ func TestRobrowserWaterBallAndSonicBlowSpecs(t *testing.T) {
 		t.Fatalf("EF_SONICBLOW ring = %+v", ring)
 	}
 	spin, ok := worldEffectSpecForID(effectSonicBlowHit)
-	if !ok || len(spin.components) != 1 || spin.components[0].kind != effectComponentFUNC || spin.components[0].funcName != "SonicBlowHitSpin" || !spin.components[0].attachedEntity {
+	if !ok || len(spin.components) != 1 || spin.components[0].kind != effectComponentFUNC || spin.components[0].funcAdapter != effectFuncHitRing || !spin.components[0].attachedEntity {
 		t.Fatalf("EF_SONICBLOWHIT spec = %+v ok=%t", spin, ok)
 	}
 }
@@ -828,38 +828,7 @@ func TestRegularHitEffectKeepsRobrowserParticleBurst(t *testing.T) {
 	}
 }
 
-func TestSkillHitEffectSpecsMatchRobrowserCylindersAndSlashes(t *testing.T) {
-	hit3, ok := worldEffectSpecForID(effectHit3)
-	if !ok || len(hit3.components) != 2 {
-		t.Fatalf("hit3 spec = %+v ok=%t, want two cylinders", hit3, ok)
-	}
-	if len(hit3.sfx) != 1 || hit3.sfx[0] != "effect\\ef_hit3.wav" {
-		t.Fatalf("hit3 sfx = %v", hit3.sfx)
-	}
-	if first, second := hit3.components[0], hit3.components[1]; first.kind != effectComponentCylinder || second.kind != effectComponentCylinder || first.textureName != "lens2" || second.textureName != "lens2" {
-		t.Fatalf("hit3 cylinder resources = %+v %+v", first, second)
-	}
-	if hit3.components[0].bottomSize != 0.37 || hit3.components[0].topSize != 1 || hit3.components[1].bottomSize != 0.37 || hit3.components[1].topSize != 0.37 {
-		t.Fatalf("hit3 cylinder sizes = %+v %+v", hit3.components[0], hit3.components[1])
-	}
-	for i, component := range hit3.components {
-		if component.duration != 150*time.Millisecond || component.alphaMax != 0.8 || !component.fade || component.animation != 1 || component.posZ != 1 || component.height != 4 || component.angleX != -90 || !component.rotateWithCamera || !component.attachedEntity {
-			t.Fatalf("hit3 component %d = %+v", i, component)
-		}
-	}
-
-	hit4, ok := worldEffectSpecForID(effectHit4)
-	if !ok || len(hit4.components) != 1 {
-		t.Fatalf("hit4 spec = %+v ok=%t, want one cylinder", hit4, ok)
-	}
-	component := hit4.components[0]
-	if component.kind != effectComponentCylinder || component.textureName != "lens2" || component.bottomSize != 0.15 || component.topSize != 1 || component.duration != 150*time.Millisecond || component.angleX != -90 || !component.attachedEntity {
-		t.Fatalf("hit4 component = %+v", component)
-	}
-	if len(hit4.sfx) != 1 || hit4.sfx[0] != "effect\\ef_hit4.wav" {
-		t.Fatalf("hit4 sfx = %v", hit4.sfx)
-	}
-
+func TestSkillHitSlashSpecsMatchRobrowser(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		effectID int
@@ -3160,17 +3129,8 @@ func TestBlessingEffectSpecUsesRobrowserSpritesAndParticles(t *testing.T) {
 	}
 
 	aura := spec.components[3]
-	if aura.kind != effectComponent3D || aura.textureFile != "effect/pok2.tga" {
-		t.Fatalf("aura resource = %+v", aura)
-	}
-	if aura.duration != 2500*time.Millisecond || aura.alphaMax != 0.3 || !aura.fadeIn || !aura.fadeOut {
-		t.Fatalf("aura timing/fade = %+v", aura)
-	}
-	if aura.color != (color.RGBA{R: 25, G: 191, B: 255, A: 255}) || !aura.blendAdditive {
-		t.Fatalf("aura tint/blend = %+v", aura)
-	}
-	if aura.sizeStart != 140*effectPixelRatio || aura.sizeEnd != 140*effectPixelRatio {
-		t.Fatalf("aura size = %+v", aura)
+	if aura.funcAdapter != effectFuncBlessingCircle || aura.textureName != "alpha_down" || !aura.overlay {
+		t.Fatalf("blessing ground circle = %+v", aura)
 	}
 }
 

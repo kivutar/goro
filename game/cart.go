@@ -250,7 +250,7 @@ func (m *WorldMode) drawActorCart3D(screen *render.Frame, ctx client.Context, pr
 		return false
 	}
 	billboard = cartDirectionOffsetBillboard(billboard, cartSpriteDirection(actor, cameraYaw))
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, entry.scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, entry.scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, render.BlendSourceOver)
 	return true
 }
 

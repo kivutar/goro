@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/kivutar/goro/db"
 )
 
 func TestBashBeginEffectSpecUsesCylinderComponents(t *testing.T) {
@@ -2337,21 +2339,21 @@ func TestRobrowserBasilicaDrainAndMagicEffectsThreeFiftyToFourHundredMatchTableR
 	}
 
 	trans, ok := worldEffectSpecForID(effectTransBlueBody)
-	if !ok || len(trans.components) != 1 || trans.duration != 900*time.Millisecond {
+	if !ok || len(trans.components) != 1 || trans.duration != 200*db.EffectFrameDuration {
 		t.Fatalf("EF_TRANSBLUEBODY spec = %+v ok=%t", trans, ok)
 	}
-	if component := trans.components[0]; component.kind != effectComponentFUNC || component.funcName != "TransBlueBody" || component.funcAdapter != effectFuncUnknown || !component.attachedEntity {
+	if component := trans.components[0]; component.kind != effectComponentFUNC || component.funcName != "TransBlueBody" || component.funcAdapter != effectFuncBodyColor || !component.attachedEntity {
 		t.Fatalf("EF_TRANSBLUEBODY component = %+v", component)
 	}
 
 	magic, ok := worldEffectSpecForID(effectMagicCrasher)
-	if !ok || len(magic.components) != 2 || magic.duration != time.Second {
+	if !ok || len(magic.components) != 2 || magic.duration != 100*db.EffectFrameDuration {
 		t.Fatalf("EF_MAGICCRASHER spec = %+v ok=%t", magic, ok)
 	}
-	if len(magic.sfx) != 1 || magic.sfx[0] != "effect\\매직 크래쉬.wav" || magic.cameraShakeDelay != 300*time.Millisecond || magic.cameraShake != 200*time.Millisecond {
+	if len(magic.sfx) != 1 || magic.sfx[0] != "effect\\매직 크래쉬.wav" || magic.cameraShakeDelay != 30*db.EffectFrameDuration || magic.cameraShake != 200*time.Millisecond {
 		t.Fatalf("EF_MAGICCRASHER timing/sfx = sfx %#v delay %s shake %s", magic.sfx, magic.cameraShakeDelay, magic.cameraShake)
 	}
-	if body, quake := magic.components[0], magic.components[1]; body.kind != effectComponentFUNC || body.funcName != "MagicCrasherBodyColor" || !body.attachedEntity || quake.kind != effectComponentFUNC || quake.funcName != "CameraQuake" || quake.delay != 300*time.Millisecond || !quake.attachedEntity {
+	if body, quake := magic.components[0], magic.components[1]; body.kind != effectComponentFUNC || body.funcName != "MagicCrasherBodyColor" || !body.attachedEntity || quake.kind != effectComponentFUNC || quake.funcName != "CameraQuake" || quake.delay != 30*db.EffectFrameDuration || !quake.attachedEntity {
 		t.Fatalf("EF_MAGICCRASHER components = %+v", magic.components)
 	}
 

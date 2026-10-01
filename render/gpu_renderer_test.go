@@ -230,12 +230,38 @@ func TestWorldBillboardInstanceDataCarriesFogToggle(t *testing.T) {
 	}
 }
 
-func TestWorldBillboardDepthCompareHonorsDepthTestOption(t *testing.T) {
-	if got := worldBillboardDepthCompare(true); got != gputypes.CompareFunctionLessEqual {
+func TestWorldDepthCompareHonorsDepthTestOption(t *testing.T) {
+	if got := worldDepthCompare(true); got != gputypes.CompareFunctionLessEqual {
 		t.Fatalf("depth-tested billboard compare = %v, want less-equal", got)
 	}
-	if got := worldBillboardDepthCompare(false); got != gputypes.CompareFunctionAlways {
+	if got := worldDepthCompare(false); got != gputypes.CompareFunctionAlways {
 		t.Fatalf("overlay billboard compare = %v, want always", got)
+	}
+}
+
+func TestWorldPipelineHonorsIndependentDepthOptions(t *testing.T) {
+	r := &gpuRenderer{worldPipelines: make(map[worldPipelineKey]*wgpu.RenderPipeline)}
+	for _, blend := range []Blend{BlendSourceOver, BlendLighter, BlendSrcAlphaDstAlpha} {
+		for _, depthTest := range []bool{false, true} {
+			for _, depthWrite := range []bool{false, true} {
+				key := worldPipelineKey{blend, depthTest, depthWrite}
+				r.worldPipelines[key] = &wgpu.RenderPipeline{}
+			}
+		}
+	}
+	for key, pipeline := range r.worldPipelines {
+		options := DrawTrianglesOptions{Blend: key.blend, DepthTest: key.depthTest, DepthWrite: key.depthWrite}
+		if got := r.worldPipelineFor(options); got != pipeline {
+			t.Fatalf("pipeline for %+v = %p, want %p", options, got, pipeline)
+		}
+		desc := r.worldPipelineDescriptor(nil, gputypes.BlendStateAlpha(), key.depthTest, key.depthWrite, "test")
+		wantCompare := gputypes.CompareFunctionAlways
+		if key.depthTest {
+			wantCompare = gputypes.CompareFunctionLessEqual
+		}
+		if desc.DepthStencil.DepthCompare != wantCompare || desc.DepthStencil.DepthWriteEnabled != key.depthWrite {
+			t.Fatalf("GPU depth state for %+v = %+v", options, desc.DepthStencil)
+		}
 	}
 }
 

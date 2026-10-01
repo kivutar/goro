@@ -37,12 +37,7 @@ type gpuRenderer struct {
 	pipelineAlpha          *wgpu.RenderPipeline
 	pipelineAdd            *wgpu.RenderPipeline
 	pipelineSrcDst         *wgpu.RenderPipeline
-	worldAlphaWrite        *wgpu.RenderPipeline
-	worldAddWrite          *wgpu.RenderPipeline
-	worldSrcDstWrite       *wgpu.RenderPipeline
-	worldAlphaRead         *wgpu.RenderPipeline
-	worldAddRead           *wgpu.RenderPipeline
-	worldSrcDstRead        *wgpu.RenderPipeline
+	worldPipelines         map[worldPipelineKey]*wgpu.RenderPipeline
 	billboardAlphaRead     *wgpu.RenderPipeline
 	billboardAddRead       *wgpu.RenderPipeline
 	billboardSrcDstRead    *wgpu.RenderPipeline
@@ -114,6 +109,12 @@ type worldBillboardBatch struct {
 	key           drawBatchKey
 	firstInstance uint32
 	instanceCount uint32
+}
+
+type worldPipelineKey struct {
+	blend      Blend
+	depthTest  bool
+	depthWrite bool
 }
 
 type renderPassState struct {
@@ -294,29 +295,19 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 	if err != nil {
 		return err
 	}
-	r.worldAlphaWrite, err = r.createWorldPipeline(worldShader, gputypes.BlendStateAlpha(), true, "goro-world-pipeline-alpha-write")
-	if err != nil {
-		return err
-	}
-	r.worldAddWrite, err = r.createWorldPipeline(worldShader, add, true, "goro-world-pipeline-add-write")
-	if err != nil {
-		return err
-	}
-	r.worldSrcDstWrite, err = r.createWorldPipeline(worldShader, srcDst, true, "goro-world-pipeline-src-alpha-dst-alpha-write")
-	if err != nil {
-		return err
-	}
-	r.worldAlphaRead, err = r.createWorldPipeline(worldShader, gputypes.BlendStateAlpha(), false, "goro-world-pipeline-alpha-read")
-	if err != nil {
-		return err
-	}
-	r.worldAddRead, err = r.createWorldPipeline(worldShader, add, false, "goro-world-pipeline-add-read")
-	if err != nil {
-		return err
-	}
-	r.worldSrcDstRead, err = r.createWorldPipeline(worldShader, srcDst, false, "goro-world-pipeline-src-alpha-dst-alpha-read")
-	if err != nil {
-		return err
+	r.worldPipelines = make(map[worldPipelineKey]*wgpu.RenderPipeline)
+	for blend, state := range []gputypes.BlendState{gputypes.BlendStateAlpha(), add, srcDst} {
+		for _, depthTest := range []bool{false, true} {
+			for _, depthWrite := range []bool{false, true} {
+				key := worldPipelineKey{Blend(blend), depthTest, depthWrite}
+				label := fmt.Sprintf("goro-world-pipeline-blend-%d-test-%t-write-%t", blend, depthTest, depthWrite)
+				pipeline, err := r.createWorldPipeline(worldShader, state, depthTest, depthWrite, label)
+				if err != nil {
+					return err
+				}
+				r.worldPipelines[key] = pipeline
+			}
+		}
 	}
 	r.billboardAlphaRead, err = r.createWorldBillboardPipeline(billboardShader, gputypes.BlendStateAlpha(), true, "goro-world-billboard-alpha-read")
 	if err != nil {
@@ -380,8 +371,12 @@ func (r *gpuRenderer) createPipeline(shader *wgpu.ShaderModule, blend gputypes.B
 	})
 }
 
-func (r *gpuRenderer) createWorldPipeline(shader *wgpu.ShaderModule, blend gputypes.BlendState, depthWrite bool, label string) (*wgpu.RenderPipeline, error) {
-	return r.dev.CreateRenderPipeline(&wgpu.RenderPipelineDescriptor{
+func (r *gpuRenderer) createWorldPipeline(shader *wgpu.ShaderModule, blend gputypes.BlendState, depthTest, depthWrite bool, label string) (*wgpu.RenderPipeline, error) {
+	return r.dev.CreateRenderPipeline(r.worldPipelineDescriptor(shader, blend, depthTest, depthWrite, label))
+}
+
+func (r *gpuRenderer) worldPipelineDescriptor(shader *wgpu.ShaderModule, blend gputypes.BlendState, depthTest, depthWrite bool, label string) *wgpu.RenderPipelineDescriptor {
+	return &wgpu.RenderPipelineDescriptor{
 		Label:  label,
 		Layout: r.worldLayout,
 		Vertex: wgpu.VertexState{
@@ -409,7 +404,7 @@ func (r *gpuRenderer) createWorldPipeline(shader *wgpu.ShaderModule, blend gputy
 		DepthStencil: &wgpu.DepthStencilState{
 			Format:            gputypes.TextureFormatDepth24Plus,
 			DepthWriteEnabled: depthWrite,
-			DepthCompare:      gputypes.CompareFunctionLessEqual,
+			DepthCompare:      worldDepthCompare(depthTest),
 		},
 		Fragment: &wgpu.FragmentState{
 			Module:     shader,
@@ -420,7 +415,7 @@ func (r *gpuRenderer) createWorldPipeline(shader *wgpu.ShaderModule, blend gputy
 				WriteMask: gputypes.ColorWriteMaskAll,
 			}},
 		},
-	})
+	}
 }
 
 func (r *gpuRenderer) createWorldBillboardPipeline(shader *wgpu.ShaderModule, blend gputypes.BlendState, depthTest bool, label string) (*wgpu.RenderPipeline, error) {
@@ -463,7 +458,7 @@ func (r *gpuRenderer) createWorldBillboardPipeline(shader *wgpu.ShaderModule, bl
 		DepthStencil: &wgpu.DepthStencilState{
 			Format:            gputypes.TextureFormatDepth24Plus,
 			DepthWriteEnabled: false,
-			DepthCompare:      worldBillboardDepthCompare(depthTest),
+			DepthCompare:      worldDepthCompare(depthTest),
 		},
 		Fragment: &wgpu.FragmentState{
 			Module:     shader,
@@ -477,7 +472,7 @@ func (r *gpuRenderer) createWorldBillboardPipeline(shader *wgpu.ShaderModule, bl
 	})
 }
 
-func worldBillboardDepthCompare(depthTest bool) gputypes.CompareFunction {
+func worldDepthCompare(depthTest bool) gputypes.CompareFunction {
 	if depthTest {
 		return gputypes.CompareFunctionLessEqual
 	}
@@ -609,7 +604,7 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 				_ = pass.End()
 				return false, err
 			}
-			worldState.setPipeline(pass, r.worldPipelineFor(batch.key.options.Blend, batch.key.options.DepthWrite))
+			worldState.setPipeline(pass, r.worldPipelineFor(batch.key.options))
 			worldState.setBindGroup(pass, bg)
 			pass.DrawIndexed(gputypes.DrawIndexedArgs{
 				IndexCount:    batch.indexCount,
@@ -930,7 +925,7 @@ func (r *gpuRenderer) drawWorldMesh(ctx *gogpu.Context, pass *wgpu.RenderPassEnc
 	if err != nil {
 		return err
 	}
-	state.setPipeline(pass, r.worldPipelineFor(mesh.options.Blend, mesh.options.DepthWrite))
+	state.setPipeline(pass, r.worldPipelineFor(mesh.options))
 	state.setBindGroup(pass, bg)
 	state.setVertexBuffer(pass, gpuMesh.vertexBuf)
 	state.setIndexBuffer(pass, gpuMesh.indexBuf)
@@ -1015,7 +1010,7 @@ func (r *gpuRenderer) drawWorldMeshBatch(ctx *gogpu.Context, pass *wgpu.RenderPa
 	if err != nil {
 		return err
 	}
-	state.setPipeline(pass, r.worldPipelineFor(batch.key.options.Blend, batch.key.options.DepthWrite))
+	state.setPipeline(pass, r.worldPipelineFor(batch.key.options))
 	state.setBindGroup(pass, bg)
 	gpuBatch, err := r.ensureWorldMeshBatch(batch)
 	if err != nil {
@@ -1259,23 +1254,12 @@ func (r *gpuRenderer) pipeline(blend Blend) *wgpu.RenderPipeline {
 	return r.pipelineAlpha
 }
 
-func (r *gpuRenderer) worldPipelineFor(blend Blend, depthWrite bool) *wgpu.RenderPipeline {
-	if blend == BlendLighter {
-		if depthWrite {
-			return r.worldAddWrite
-		}
-		return r.worldAddRead
+func (r *gpuRenderer) worldPipelineFor(options DrawTrianglesOptions) *wgpu.RenderPipeline {
+	blend := options.Blend
+	if blend != BlendLighter && blend != BlendSrcAlphaDstAlpha {
+		blend = BlendSourceOver
 	}
-	if blend == BlendSrcAlphaDstAlpha {
-		if depthWrite {
-			return r.worldSrcDstWrite
-		}
-		return r.worldSrcDstRead
-	}
-	if depthWrite {
-		return r.worldAlphaWrite
-	}
-	return r.worldAlphaRead
+	return r.worldPipelines[worldPipelineKey{blend, options.DepthTest, options.DepthWrite}]
 }
 
 func (r *gpuRenderer) ensureDepth(width, height int) error {
@@ -1369,23 +1353,8 @@ func (r *gpuRenderer) release() {
 	if r.pipelineSrcDst != nil {
 		r.pipelineSrcDst.Release()
 	}
-	if r.worldAlphaWrite != nil {
-		r.worldAlphaWrite.Release()
-	}
-	if r.worldAddWrite != nil {
-		r.worldAddWrite.Release()
-	}
-	if r.worldSrcDstWrite != nil {
-		r.worldSrcDstWrite.Release()
-	}
-	if r.worldAlphaRead != nil {
-		r.worldAlphaRead.Release()
-	}
-	if r.worldAddRead != nil {
-		r.worldAddRead.Release()
-	}
-	if r.worldSrcDstRead != nil {
-		r.worldSrcDstRead.Release()
+	for _, pipeline := range r.worldPipelines {
+		pipeline.Release()
 	}
 	for _, pipeline := range []*wgpu.RenderPipeline{
 		r.billboardAlphaRead,

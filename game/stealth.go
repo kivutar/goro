@@ -6,6 +6,7 @@ import (
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
+	"github.com/kivutar/goro/render"
 	worldstate "github.com/kivutar/goro/world"
 )
 
@@ -49,6 +50,14 @@ func (v stealthView) tint(tint color.RGBA) color.RGBA {
 		tint.R, tint.G, tint.B = 0, 0, 0
 	}
 	return tint
+}
+
+func (v stealthView) blend(blend render.Blend) render.Blend {
+	if v == stealthSilhouette {
+		// An additive black silhouette would disappear completely.
+		return render.BlendSourceOver
+	}
+	return blend
 }
 
 func localStealthAllowsSkill(ctx client.Context, skillID uint16) bool {

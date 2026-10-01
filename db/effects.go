@@ -729,6 +729,8 @@ type EffectSpec struct {
 
 type EffectComponent struct {
 	Kind               EffectComponentKind
+	HitRing            *EffectHitRing
+	HitParticles       *EffectHitParticles
 	FuncName           string
 	Color              color.RGBA
 	Duration           time.Duration
@@ -2407,15 +2409,16 @@ func energyDrainProjectileEffectSpec(tint color.RGBA, sizeStart, sizeEnd float64
 }
 
 func transBlueBodyEffectSpec() EffectSpec {
-	return funcEffectSpec("TransBlueBody", 900*time.Millisecond, true)
+	return funcEffectSpec("TransBlueBody", 200*EffectFrameDuration, true)
 }
 
 func magicCrasherEffectSpec() EffectSpec {
 	return EffectSpec{
-		Duration:         time.Second,
+		Duration:         100 * EffectFrameDuration,
 		CameraShake:      200 * time.Millisecond,
-		CameraShakeDelay: 300 * time.Millisecond,
+		CameraShakeDelay: 30 * EffectFrameDuration,
 		SFX:              []string{"effect\\매직 크래쉬.wav"},
+		SFXDelays:        []time.Duration{25 * EffectFrameDuration},
 		Components: []EffectComponent{
 			{
 				Kind:           EffectComponentFUNC,
@@ -2425,7 +2428,7 @@ func magicCrasherEffectSpec() EffectSpec {
 			{
 				Kind:           EffectComponentFUNC,
 				FuncName:       "CameraQuake",
-				Delay:          300 * time.Millisecond,
+				Delay:          30 * EffectFrameDuration,
 				AttachedEntity: true,
 			},
 		},
@@ -3322,13 +3325,14 @@ func sonicBlowEffectSpec() EffectSpec {
 }
 
 func sonicBlowHitEffectSpec() EffectSpec {
+	ring := hitRingComponent("magic_red", 12, 4, 7, 3.5, 0.4, 6)
+	ring.PosZ = 11.0 / 5
+	ring.HitRing.InitialDistance = 2.0 / 5
+	ring.HitRing.RandomImpactOffset = true
 	return EffectSpec{
-		Duration: 500 * time.Millisecond,
-		Components: []EffectComponent{{
-			Kind:           EffectComponentFUNC,
-			FuncName:       "SonicBlowHitSpin",
-			AttachedEntity: true,
-		}},
+		Duration:   ring.Duration,
+		SFX:        []string{"effect\\assasin_sonicblow.wav"},
+		Components: []EffectComponent{ring},
 	}
 }
 
@@ -3966,44 +3970,15 @@ var EffectSpecs = map[int]EffectSpec{
 			SizeEnd:     effectTableSize(10),
 			SizeRand:    effectTableSize(20),
 			SizeSmooth:  true,
-		}, {
-			// Sakexe/HighPriest CRagEffect::Hit1: native units / 5;
-			// flip the X rotation because our vertical axis points up.
-			Kind:           EffectComponentFUNC,
-			FuncName:       "HitRing",
-			TextureName:    "ring_blue",
-			Duration:       10 * time.Second / 60,
-			FrameDelay:     time.Second / 60,
-			AlphaMax:       254.0 / 255,
-			BottomSize:     1,
-			TopSize:        2,
-			Height:         0.7,
-			PosZ:           2,
-			AngleX:         90,
-			CircleSides:    10,
-			AttachedEntity: true,
-		}},
+		}, hitRingComponent("ring_blue", 10, 5, 10, 3.5, 0.7, 5)},
 	},
 	effectBashHit: {
 		Duration:   350 * time.Millisecond,
 		SFX:        []string{"effect\\ef_hit2.wav"},
 		Components: bashHitComponents(),
 	},
-	effectHit3: {
-		Duration: 150 * time.Millisecond,
-		SFX:      []string{"effect\\ef_hit3.wav"},
-		Components: []EffectComponent{
-			hitCylinderComponent(0.37, 1),
-			hitCylinderComponent(0.37, 0.37),
-		},
-	},
-	effectHit4: {
-		Duration: 150 * time.Millisecond,
-		SFX:      []string{"effect\\ef_hit4.wav"},
-		Components: []EffectComponent{
-			hitCylinderComponent(0.15, 1),
-		},
-	},
+	effectHit3: legacyHitEffectSpec(false),
+	effectHit4: legacyHitEffectSpec(true),
 	effectHit5: {
 		Duration: 400 * time.Millisecond,
 		SFX:      []string{"effect\\ef_hit5.wav"},
@@ -4863,16 +4838,17 @@ var EffectSpecs = map[int]EffectSpec{
 				SizeEnd:         50 * EffectPixelRatio,
 			},
 			{
-				Kind:          EffectComponent3D,
-				Color:         color.RGBA{R: 25, G: 191, B: 255, A: 255},
-				TextureFile:   "effect/pok2.tga",
-				Duration:      2500 * time.Millisecond,
-				AlphaMax:      0.3,
-				FadeIn:        true,
-				FadeOut:       true,
-				SizeStart:     140 * EffectPixelRatio,
-				SizeEnd:       140 * EffectPixelRatio,
-				BlendAdditive: true,
+				Kind:           EffectComponentFUNC,
+				FuncName:       "BlessingCircle",
+				TextureName:    "alpha_down",
+				Color:          color.RGBA{R: 0x20, G: 0xb0, B: 0xe8, A: 255},
+				Duration:       150 * EffectFrameDuration,
+				FrameDelay:     EffectFrameDuration,
+				AlphaMax:       100.0 / 255,
+				SizeStart:      2,
+				CircleSides:    10,
+				Overlay:        true,
+				AttachedEntity: true,
 			},
 		},
 	},
@@ -5686,26 +5662,6 @@ func bashHitComponents() []EffectComponent {
 		})
 	}
 	return components
-}
-
-func hitCylinderComponent(bottomSize, topSize float64) EffectComponent {
-	return EffectComponent{
-		Kind:             EffectComponentCylinder,
-		TextureName:      "lens2",
-		Duration:         150 * time.Millisecond,
-		AlphaMax:         0.8,
-		Fade:             true,
-		RotateWithCamera: true,
-		Animation:        1,
-		BottomSize:       bottomSize,
-		TopSize:          topSize,
-		Height:           4,
-		PosZ:             1,
-		AngleX:           -90,
-		AttachedEntity:   true,
-		TotalCircleSides: 24,
-		CircleSides:      24,
-	}
 }
 
 func hitSlashComponent(kind EffectComponentKind, sizeX, sizeEndY, angleStart, angleEnd float64, overlay bool) EffectComponent {

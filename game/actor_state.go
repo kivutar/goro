@@ -9,6 +9,7 @@ import (
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
 	worldstate "github.com/kivutar/goro/world"
 )
@@ -229,10 +230,38 @@ func (m *WorldMode) playerRenderTint(ctx client.Context, actor worldstate.Actor,
 	return tint
 }
 
+func (m *WorldMode) actorRenderBlend(actorID uint32, now time.Time) render.Blend {
+	if actorID != 0 {
+		for _, effect := range m.worldEffects {
+			if effect.actorID == actorID && effect.effectID == effectMagicCrasher && !now.After(effect.expires) && magicCrasherFlashActive(now.Sub(effect.starts)) {
+				return render.BlendLighter // BL_LIGHT_BODY selects RF_EFFECT in the original client.
+			}
+		}
+	}
+	return render.BlendSourceOver
+}
+
+func (m *WorldMode) playerRenderBlend(ctx client.Context, actor worldstate.Actor, now time.Time) render.Blend {
+	if ctx.Session != nil {
+		for _, id := range []uint32{ctx.Session.AccountID, ctx.Session.CharID} {
+			if blend := m.actorRenderBlend(id, now); blend != render.BlendSourceOver {
+				return blend
+			}
+		}
+	}
+	return m.actorRenderBlend(actor.ID, now)
+}
+
+func magicCrasherFlashActive(elapsed time.Duration) bool {
+	frame := elapsed / db.EffectFrameDuration
+	return frame >= 30 && frame <= 60
+}
+
 func (m *WorldMode) actorBodyColorTint(actorID uint32, tint color.RGBA, now time.Time) color.RGBA {
 	if actorID == 0 {
 		return tint
 	}
+	base := tint
 	for _, effect := range m.worldEffects {
 		if effect.actorID != actorID || now.Before(effect.starts) || now.After(effect.expires) {
 			continue
@@ -244,6 +273,18 @@ func (m *WorldMode) actorBodyColorTint(actorID uint32, tint color.RGBA, now time
 			tint = portal5BodyColorTint(tint, now.Sub(effect.starts))
 		case effectMagicCrasher2:
 			tint = magicCrasher2BodyColorTint(tint, actorID, effect.starts, now.Sub(effect.starts))
+		case effectMagicCrasher:
+			frame := now.Sub(effect.starts) / db.EffectFrameDuration
+			if magicCrasherFlashActive(now.Sub(effect.starts)) {
+				seed := uint64(actorID)*0x9e3779b185ebca87 ^ uint64(effect.starts.UnixNano()) ^ uint64(frame)*0xc2b2ae3d27d4eb4f
+				tint = multiplyTint(base, randomBodyColorChannel(seed), randomBodyColorChannel(seed+1), randomBodyColorChannel(seed+2), 1)
+			}
+		case effectTransBlueBody:
+			frame := now.Sub(effect.starts) / db.EffectFrameDuration
+			if frame < 200 {
+				channel := float64(205-frame) / 255
+				tint = multiplyTint(base, channel, channel, 1, 1)
+			}
 		}
 	}
 	return tint

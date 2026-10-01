@@ -60,6 +60,10 @@ func (m *WorldMode) drawNonPCGR2Model3D(screen *render.Frame, ctx client.Context
 		m.whitePixel.Fill(color.White)
 	}
 	options := gr2ModelDrawOptions()
+	options.Blend = entry.stealth.blend(m.actorRenderBlend(actor.ID, now))
+	if options.Blend == render.BlendLighter {
+		options.DepthWrite = false
+	}
 	for _, batch := range view.geometry.Batches {
 		texture := m.gr2BatchTexture(ctx, actor, view, batch.TextureIndex)
 		if texture == nil {

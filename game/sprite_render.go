@@ -199,7 +199,7 @@ func (m *WorldMode) drawPlayerSprite3D(ctx client.Context, screen *render.Frame,
 	if !ok {
 		return false
 	}
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerRenderScale(ctx, actor, entry.scale, now), alpha, shadow, entry.stealth.tint(m.playerRenderTint(ctx, actor, now)))
+	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerRenderScale(ctx, actor, entry.scale, now), alpha, shadow, entry.stealth.tint(m.playerRenderTint(ctx, actor, now)), entry.stealth.blend(m.playerRenderBlend(ctx, actor, now)))
 	return true
 }
 
@@ -234,8 +234,10 @@ func actorAnimationOverridesWalk(anim actorAnimation, playerLike bool) bool {
 	return anim.actionFamily == spriteActionNonPCDeath
 }
 
-func drawActorSpriteBillboardTintAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA) {
-	drawSpriteBillboardTintAlpha3D(screen, projection, billboard, worldX, worldY, actorSpriteWorldZ(worldZ), scale, alpha, shadow, tintColor)
+func drawActorSpriteBillboardTintAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, blend render.Blend) {
+	options := spriteBillboardTriangleDrawOptions()
+	options.Blend = blend
+	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, worldX, worldY, actorSpriteWorldZ(worldZ), scale, alpha, shadow, tintColor, options)
 }
 
 func actorSpriteWorldZ(terrainZ float64) float64 {
