@@ -726,6 +726,8 @@ type worldEffect struct {
 	effectID                             int
 	actorID                              uint32
 	targetID                             uint32
+	actorDirection                       int
+	hasActorDirection                    bool
 	x                                    int
 	y                                    int
 	starts                               time.Time
@@ -1658,6 +1660,16 @@ func skillCastGroundSampleRotationRadiansPerSecond(skillID uint16) float64 {
 	return speed
 }
 
+func effectActorDirection(ctx client.Context, actorID uint32, at time.Time) int {
+	if ctx.World == nil {
+		return 0
+	}
+	if actorID == 0 || isLocalActor(ctx, actorID) {
+		return actorRenderDirection(ctx.World.Player, at)
+	}
+	return actorRenderDirection(ctx.World.Actors[actorID], at)
+}
+
 func effectAnchor(ctx client.Context, actorID uint32) (int, int, bool) {
 	if ctx.World == nil {
 		return 0, 0, false
@@ -2428,6 +2440,8 @@ func effectFuncAdapterForName(name string) effectFuncAdapter {
 		return effectFuncBodyColor
 	case "MapPillar":
 		return effectFuncMapPillar
+	case "HitRing":
+		return effectFuncHitRing
 	default:
 		return effectFuncUnknown
 	}
@@ -2450,10 +2464,15 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		if !ok {
 			continue
 		}
-		active = append(active, effect)
 		if now.Before(effect.starts) {
+			active = append(active, effect)
 			continue
 		}
+		if !effect.hasActorDirection {
+			effect.actorDirection = effectActorDirection(ctx, effect.actorID, effect.starts)
+			effect.hasActorDirection = true
+		}
+		active = append(active, effect)
 		x, y := float64(effect.x), float64(effect.y)
 		if actor, ok := ctx.World.Actors[effect.actorID]; ok {
 			x, y = actorRenderPosition(actor, now)

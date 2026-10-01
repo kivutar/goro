@@ -26,6 +26,7 @@ const (
 	effectFuncGroundTexture
 	effectFuncBodyColor
 	effectFuncMapPillar
+	effectFuncHitRing
 )
 
 const (
@@ -59,6 +60,8 @@ func (m *WorldMode) drawFuncEffect(screen *render.Frame, ctx client.Context, pro
 		m.drawGroundTextureEffect(screen, ctx, component, effect, componentIndex, worldX, worldY, worldZ, progress, now)
 	case effectFuncMapPillar:
 		m.drawMapPillarEffect(screen, ctx, component, worldX, worldY, worldZ, progress)
+	case effectFuncHitRing:
+		m.drawHitRingEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	default:
 	}
 }

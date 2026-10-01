@@ -805,10 +805,10 @@ func TestBashHitEffectSpecMatchesRobrowserLensCircle(t *testing.T) {
 	}
 }
 
-func TestRegularHitEffectSpecMatchesRobrowserParticleBurst(t *testing.T) {
+func TestRegularHitEffectKeepsRobrowserParticleBurst(t *testing.T) {
 	spec, ok := worldEffectSpecForID(effectHit1)
-	if !ok || len(spec.components) != 1 {
-		t.Fatalf("regular hit spec = %+v ok=%t, want one component", spec, ok)
+	if !ok || len(spec.components) != 2 {
+		t.Fatalf("regular hit spec = %+v ok=%t, want sparks and a ring", spec, ok)
 	}
 	if spec.duration != 300*time.Millisecond {
 		t.Fatalf("duration = %s, want 300ms", spec.duration)

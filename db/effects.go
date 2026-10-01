@@ -3764,9 +3764,9 @@ func einbrochWeatherCloudEffectSpec() EffectSpec {
 	}
 }
 
-// EffectSpecs is adapted from robr's DB/Effects/EffectTable.js. Do not add
-// guessed local visual behavior here; either import it from robr or leave the
-// effect unsupported until the reference behavior is understood.
+// EffectSpecs is adapted from robr's DB/Effects/EffectTable.js and verified
+// original-client behavior. Leave effects unsupported until their reference
+// behavior is understood rather than guessing local visuals.
 var EffectSpecs = map[int]EffectSpec{
 	effectRain:        weatherRainEffectSpec(),
 	effectSnow:        weatherSnowEffectSpec(),
@@ -3966,6 +3966,22 @@ var EffectSpecs = map[int]EffectSpec{
 			SizeEnd:     effectTableSize(10),
 			SizeRand:    effectTableSize(20),
 			SizeSmooth:  true,
+		}, {
+			// Sakexe/HighPriest CRagEffect::Hit1: native units / 5;
+			// flip the X rotation because our vertical axis points up.
+			Kind:           EffectComponentFUNC,
+			FuncName:       "HitRing",
+			TextureName:    "ring_blue",
+			Duration:       10 * time.Second / 60,
+			FrameDelay:     time.Second / 60,
+			AlphaMax:       254.0 / 255,
+			BottomSize:     1,
+			TopSize:        2,
+			Height:         0.7,
+			PosZ:           2,
+			AngleX:         90,
+			CircleSides:    10,
+			AttachedEntity: true,
 		}},
 	},
 	effectBashHit: {

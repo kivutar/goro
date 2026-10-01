@@ -183,6 +183,10 @@ func rotateModelPointZ(v modelPoint3, angle float64) modelPoint3 {
 }
 
 func drawWorldCylinderBandWithBasis(screen *render.Frame, white, texture *render.Image, x, y, z, bottomRadius, topRadius, height float64, c color.RGBA, segments int, right, depth, up modelPoint3) {
+	drawWorldCylinderBandWithOptions(screen, white, texture, x, y, z, bottomRadius, topRadius, height, c, segments, right, depth, up, 1, render.BlendLighter)
+}
+
+func drawWorldCylinderBandWithOptions(screen *render.Frame, white, texture *render.Image, x, y, z, bottomRadius, topRadius, height float64, c color.RGBA, segments int, right, depth, up modelPoint3, textureRepeats float64, blend render.Blend) {
 	if segments < 3 || bottomRadius <= 0.01 || topRadius <= 0.01 || math.Abs(height) <= 0.01 || c.A == 0 {
 		return
 	}
@@ -198,7 +202,7 @@ func drawWorldCylinderBandWithBasis(screen *render.Frame, white, texture *render
 		srcH = float32(bounds.Dy())
 	}
 	for i := 0; i <= segments; i++ {
-		u := float32(i) / float32(segments)
+		u := float32(float64(i) / float64(segments) * textureRepeats)
 		angle := float64(i) * 2 * math.Pi / float64(segments)
 		cosine := math.Cos(angle)
 		sine := math.Sin(angle)
@@ -216,6 +220,6 @@ func drawWorldCylinderBandWithBasis(screen *render.Frame, white, texture *render
 		indices = append(indices, base, base+1, base+3, base, base+3, base+2)
 	}
 	options := triangleDrawOptions(render.FilterLinear, render.AddressRepeat)
-	options.Blend = render.BlendLighter
-	screen.DrawTriangles3D(vertices, indices, source, options)
+	options.Blend = blend
+	screen.DrawTriangles3DOwned(vertices, indices, source, options)
 }
