@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.hardware.input.InputManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -27,6 +29,7 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.io.File;
 
@@ -51,8 +54,10 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
     private GameView game;
     private File dataDir;
     private String dataSource;
+    private LinearLayout folderSetup;
     private TextView instructions;
     private Button folder;
+    private Button keyboard;
     private boolean choosingFolder;
     private boolean startupFailed;
     private boolean running;
@@ -97,23 +102,49 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
         FrameLayout root = new FrameLayout(this);
         game = new GameView();
         root.addView(game, new FrameLayout.LayoutParams(-1, -1));
+        int spacing = Math.round(24 * getResources().getDisplayMetrics().density);
+        folderSetup = new LinearLayout(this);
+        folderSetup.setOrientation(LinearLayout.VERTICAL);
+        folderSetup.setGravity(Gravity.CENTER);
+        folderSetup.setPadding(spacing, spacing, spacing, spacing);
+        folderSetup.setBackgroundColor(Color.rgb(24, 28, 34));
+        TextView title = new TextView(this);
+        title.setText("Choose your Ragnarok Online folder");
+        title.setTextSize(24);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(Color.WHITE);
+        title.setGravity(Gravity.CENTER);
+        folderSetup.addView(title, new LinearLayout.LayoutParams(-2, -2));
         instructions = new TextView(this);
-        instructions.setText("Choose your extracted Ragnarok Online folder\nusing the RO folder button.");
-        instructions.setTextSize(20);
+        instructions.setTextSize(18);
+        instructions.setTextColor(Color.LTGRAY);
         instructions.setGravity(Gravity.CENTER);
-        root.addView(instructions, new FrameLayout.LayoutParams(-1, -1));
-        updateFolderPrompt();
+        LinearLayout.LayoutParams descriptionLayout = new LinearLayout.LayoutParams(-2, -2);
+        descriptionLayout.topMargin = spacing / 2;
+        folderSetup.addView(instructions, descriptionLayout);
+        Button choose = new Button(this);
+        choose.setText("Choose folder");
+        choose.setAllCaps(false);
+        choose.setTextSize(18);
+        choose.setMinWidth(spacing * 10);
+        choose.setMinHeight(spacing * 2);
+        choose.setOnClickListener(v -> chooseFolder());
+        LinearLayout.LayoutParams chooseLayout = new LinearLayout.LayoutParams(-2, -2);
+        chooseLayout.topMargin = spacing;
+        folderSetup.addView(choose, chooseLayout);
+        root.addView(folderSetup, new FrameLayout.LayoutParams(-1, -1));
         folder = new Button(this);
         folder.setText("RO folder");
         folder.setAlpha(0.65f);
         folder.setOnClickListener(v -> chooseFolder());
         root.addView(folder, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT));
-        Button keyboard = new Button(this);
+        keyboard = new Button(this);
         keyboard.setText("Keyboard");
         keyboard.setAlpha(0.65f);
         keyboard.setOnClickListener(v -> showKeyboard());
         FrameLayout.LayoutParams buttonLayout = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.RIGHT);
         root.addView(keyboard, buttonLayout);
+        updateFolderPrompt();
         setContentView(root);
         immersive();
     }
@@ -138,7 +169,14 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
     }
 
     private void updateFolderPrompt() {
-        instructions.setVisibility(startupFailed || !hasClientData() ? View.VISIBLE : View.GONE);
+        boolean needsFolder = startupFailed || !hasClientData();
+        instructions.setText(startupFailed
+            ? "Goro couldn't open the selected game files.\nSelect the folder where you extracted your RO client."
+            : "Game files aren't included with Goro.\nSelect the folder where you extracted your RO client.");
+        folderSetup.setVisibility(needsFolder ? View.VISIBLE : View.GONE);
+        folder.setVisibility(!needsFolder && (!running || nativeCanChooseFolder()) ? View.VISIBLE : View.GONE);
+        keyboard.setVisibility(needsFolder ? View.GONE : View.VISIBLE);
+        if (needsFolder) folderSetup.requestFocus();
     }
 
     private void chooseFolder() {

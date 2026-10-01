@@ -68,14 +68,15 @@ installed with `adb install -r dist/android/goro-android-arm64.apk`.
 ## Client data and servers
 
 The original client assets are separate from the APK. Extract your RO folder
-on the device, open Goro, and tap **RO folder** to select it with Android's
-folder picker. Select the extracted folder itself, for example
+on the device and open Goro. If no client data is configured, a setup screen
+explains that game files are required and offers a **Choose folder** button.
+Select the extracted folder itself with Android's picker, for example
 `Download/OldRO`. Goro remembers the selection and reads GRF archives and loose
 files directly, without importing or copying them. `DATA.INI` archive priority
 and loose-file overrides work the same way as on desktop.
 
-Use **RO folder** again to switch folders. The button is available before startup
-and on the login and character-selection screens; it is hidden during gameplay.
+Use the smaller **RO folder** button to switch folders on the login and
+character-selection screens; it is hidden during setup and gameplay.
 Opening the picker stops the current session; returning starts at login. If the
 folder is moved or its access is revoked, the startup error offers
 **Choose RO folder** and **Retry**.
