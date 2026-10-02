@@ -139,7 +139,7 @@ end
 	}
 	mode := NewWorldMode()
 	var err error
-	mode.bot, err = newLuaBot(ctx, mode, path)
+	mode.bot, err = newLuaScript(ctx, mode, path)
 	if err != nil {
 		t.Fatal(err)
 	}

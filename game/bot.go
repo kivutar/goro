@@ -9,187 +9,108 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/glog"
-	"github.com/kivutar/goro/input"
-	"github.com/kivutar/goro/scripts"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
 	lua "github.com/yuin/gopher-lua"
 )
 
-const botTickInterval = 150 * time.Millisecond
-
-type luaBot struct {
-	path              string
-	state             *lua.LState
-	mode              *WorldMode
-	nextTick          time.Time
-	disabled          bool
-	keyboardAvailable bool
-	gamepadInput      bool
-	gamepadCapture    input.GamepadCapture
-}
-
+// Bot callbacks remain in the world update phases so modal and death handling
+// keep their existing priority. The mode manager owns the Lua state.
 func (m *WorldMode) updateBot(ctx client.Context, now time.Time) {
-	path := ctx.ScriptPath()
-	if path == "" || path == "none" {
-		if m.bot != nil {
-			m.bot.close()
-			m.bot = nil
-		}
+	b := m.bot
+	if b == nil || b.disabled || b.path != ctx.ScriptPath() || now.Before(b.nextTick) {
 		return
 	}
-	if m.bot == nil || m.bot.path != path {
-		if m.bot != nil {
-			m.bot.close()
-		}
-		bot, err := newLuaBot(ctx, m, path)
-		if err != nil {
-			glog.Warnf("lua script load failed path=%q: %v", path, err)
-			m.bot = &luaBot{path: path, disabled: true}
-			return
-		}
-		m.bot = bot
-		glog.Debugf("lua script loaded path=%q", path)
-	}
-	if m.bot.disabled || now.Before(m.bot.nextTick) {
-		return
-	}
-	m.bot.nextTick = now.Add(botTickInterval)
-	if err := m.bot.tick(); err != nil {
-		glog.Warnf("lua script tick failed path=%q: %v", m.bot.path, err)
-		m.bot.close()
-		m.bot.disabled = true
+	b.ctx = ctx
+	b.nextTick = now.Add(botTickInterval)
+	if err := b.tick(); err != nil {
+		b.fail("tick", err)
 	}
 }
 
 func (m *WorldMode) updateBotInput(ctx client.Context, keyboardAvailable bool) {
-	path := ctx.ScriptPath()
-	if path == "" || m.bot == nil || m.bot.path != path || m.bot.disabled {
+	b := m.bot
+	if b == nil || b.path != ctx.ScriptPath() {
 		return
 	}
-	if err := m.bot.inputFrame(keyboardAvailable); err != nil {
-		glog.Warnf("lua script input failed path=%q: %v", m.bot.path, err)
-		m.bot.close()
-		m.bot.disabled = true
+	b.ctx = ctx
+	if err := b.inputFrame(keyboardAvailable); err != nil {
+		b.fail("input", err)
 	}
 }
 
-func newLuaBot(ctx client.Context, mode *WorldMode, path string) (*luaBot, error) {
-	bot := &luaBot{
-		path:     path,
-		state:    lua.NewState(),
-		mode:     mode,
-		nextTick: time.Now().Add(botTickInterval),
-	}
-	bot.registerAPI(ctx, mode)
-	var err error
-	if name, builtin := strings.CutPrefix(path, "builtin:"); builtin {
-		var source []byte
-		source, err = scripts.Builtin.ReadFile(name + ".lua")
-		if err == nil {
-			err = bot.state.DoString(string(source))
-		}
-	} else {
-		err = bot.state.DoFile(path)
-	}
-	if err != nil {
-		bot.close()
-		return nil, err
-	}
-	return bot, nil
-}
-
-func (b *luaBot) close() {
-	if b == nil {
-		return
-	}
-	if b.mode != nil {
-		b.mode.clearScriptHighlight()
-	}
-	if b.state != nil {
-		b.state.Close()
-		b.state = nil
-	}
-}
-
-func (b *luaBot) tick() error {
-	if b == nil || b.state == nil {
-		return nil
-	}
-	fn := b.state.GetGlobal("tick")
-	if fn == lua.LNil {
-		return nil
-	}
-	return b.state.CallByParam(lua.P{Fn: fn, NRet: 0, Protect: true})
-}
-
-func (b *luaBot) inputFrame(keyboardAvailable bool) error {
-	if b == nil || b.state == nil {
-		return nil
-	}
-	b.keyboardAvailable = keyboardAvailable
-	fn := b.state.GetGlobal("input")
-	if fn == lua.LNil {
-		return nil
-	}
-	return b.state.CallByParam(lua.P{Fn: fn, NRet: 0, Protect: true})
-}
-
-func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
+func (b *luaScript) registerAPI(mode *WorldMode) {
 	api := b.state.NewTable()
 	b.state.SetFuncs(api, map[string]lua.LGFunction{
 		"enemies": func(L *lua.LState) int {
-			L.Push(luaEnemyList(L, ctx, mode.actorDeaths))
+			ctx := b.worldContext()
+			var deaths map[uint32]time.Time
+			if mode != nil {
+				deaths = mode.actorDeaths
+			}
+			L.Push(luaEnemyList(L, ctx, deaths))
 			return 1
 		},
 		"players": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			L.Push(luaPlayerList(L, ctx, mode))
 			return 1
 		},
 		"companions": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			L.Push(luaCompanionList(L, ctx, mode))
 			return 1
 		},
 		"items": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			L.Push(luaItemList(L, ctx))
 			return 1
 		},
 		"inventory": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			L.Push(luaInventoryList(L, ctx))
 			return 1
 		},
 		"use_item": func(L *lua.LState) int {
-			L.Push(lua.LBool(scriptUseItem(ctx, L.CheckInt(1))))
+			ctx := b.worldContext()
+			L.Push(lua.LBool(mode != nil && scriptUseItem(ctx, L.CheckInt(1))))
 			return 1
 		},
 		"revive": func(L *lua.LState) int {
-			L.Push(lua.LBool(scriptAutoRevive(ctx)))
+			ctx := b.worldContext()
+			L.Push(lua.LBool(mode != nil && scriptAutoRevive(ctx)))
 			return 1
 		},
 		"message": func(L *lua.LState) int {
-			L.Push(lua.LBool(scriptMessage(ctx, L.CheckString(1))))
+			ctx := b.worldContext()
+			L.Push(lua.LBool(mode != nil && scriptMessage(ctx, L.CheckString(1))))
 			return 1
 		},
 		"walk": func(L *lua.LState) int {
-			L.Push(lua.LBool(mode.scriptWalk(ctx, L.CheckInt(1), L.CheckInt(2))))
+			ctx := b.worldContext()
+			L.Push(lua.LBool(mode != nil && mode.scriptWalk(ctx, L.CheckInt(1), L.CheckInt(2))))
 			return 1
 		},
 		"stop": func(L *lua.LState) int {
-			L.Push(lua.LBool(mode.scriptStop(ctx)))
+			ctx := b.worldContext()
+			L.Push(lua.LBool(mode != nil && mode.scriptStop(ctx)))
 			return 1
 		},
 		"attack": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			id := uint32(L.CheckInt(1))
-			L.Push(lua.LBool(mode.scriptAttack(ctx, id)))
+			L.Push(lua.LBool(mode != nil && mode.scriptAttack(ctx, id)))
 			return 1
 		},
 		"target": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			id := uint32(L.CheckInt(1))
-			L.Push(lua.LBool(mode.scriptAttack(ctx, id)))
+			L.Push(lua.LBool(mode != nil && mode.scriptAttack(ctx, id)))
 			return 1
 		},
 		"skill": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			id := uint32(L.CheckInt(1))
 			skillArg := L.Get(2)
 			if skillArg == lua.LNil {
@@ -200,45 +121,53 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 			if L.GetTop() >= 3 && L.Get(3) != lua.LNil {
 				level = L.CheckInt(3)
 			}
-			L.Push(lua.LBool(mode.scriptSkill(ctx, id, skillArg, level)))
+			L.Push(lua.LBool(mode != nil && mode.scriptSkill(ctx, id, skillArg, level)))
 			return 1
 		},
 		"pending_skill": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			L.Push(luaPendingSkill(L, ctx, mode))
 			return 1
 		},
 		"skill_targets": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			L.Push(luaSkillTargets(L, ctx, mode, L.OptBool(1, false)))
 			return 1
 		},
 		"use_pending_skill": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			id := luaOptionalActorID(L, 1)
-			L.Push(lua.LBool(mode.scriptUsePendingSkill(ctx, id)))
+			L.Push(lua.LBool(mode != nil && mode.scriptUsePendingSkill(ctx, id)))
 			return 1
 		},
 		"highlight_actor": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			id := luaOptionalActorID(L, 1)
-			L.Push(lua.LBool(mode.scriptHighlightActor(ctx, id)))
+			L.Push(lua.LBool(mode != nil && mode.scriptHighlightActor(ctx, id)))
 			return 1
 		},
 		"loot": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			id := uint32(L.CheckInt(1))
-			L.Push(lua.LBool(mode.scriptLoot(ctx, id)))
+			L.Push(lua.LBool(mode != nil && mode.scriptLoot(ctx, id)))
 			return 1
 		},
 		"hp": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			hp, maxHP := scriptHP(ctx)
 			L.Push(lua.LNumber(hp))
 			L.Push(lua.LNumber(maxHP))
 			return 2
 		},
 		"sp": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			sp, maxSP := scriptSP(ctx)
 			L.Push(lua.LNumber(sp))
 			L.Push(lua.LNumber(maxSP))
 			return 2
 		},
 		"player": func(L *lua.LState) int {
+			ctx := b.worldContext()
 			player := luaPlayerTable(L, ctx)
 			if mode != nil {
 				player.RawSetString("walk_sequence", lua.LNumber(mode.walkSequence))
@@ -247,9 +176,10 @@ func (b *luaBot) registerAPI(ctx client.Context, mode *WorldMode) {
 			return 1
 		},
 	})
-	registerLuaKeyboardAPI(b.state, api, ctx, b)
-	registerLuaGamepadAPI(b.state, api, ctx, b)
-	registerLuaControlsAPI(b.state, api, ctx, b)
+	registerLuaKeyboardAPI(b.state, api, b)
+	registerLuaGamepadAPI(b.state, api, b)
+	registerLuaControlsAPI(b.state, api, b)
+	registerLuaUIAPI(b.state, api, b)
 	b.state.SetGlobal("goro", api)
 }
 

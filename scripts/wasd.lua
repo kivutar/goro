@@ -8,6 +8,7 @@ local skill_buttons = { "south", "east", "west", "north", "dpad_up", "dpad_right
 local skill_buttons_held = {}
 local selected_enemy_id = nil
 local pad_attack_down = false
+local ui_pointer = false
 local horizon = 8
 local refill_distance = 3
 local action_radius = 8
@@ -250,6 +251,7 @@ function tick()
 end
 
 function keypress(code)
+	if not goro.in_game() then return end
 	if shortcut_modifier_down() then
 		return
 	end
@@ -287,17 +289,30 @@ function gamepad(dt)
 		if skill_buttons_held[button] then goro.gamepad.consume(button) end
 	end
 	if not goro.gamepad.connected() then return end
-	if goro.npc_dialog() then
+	local ui_active = goro.ui.active()
+	if not ui_active then ui_pointer = false end
+	if ui_active then
+		-- Moving the pointer restores clicks; using the D-pad resumes menu
+		-- navigation. Forms remain usable with either style of control.
+		if not goro.in_game() and (math.abs(goro.gamepad.axis("right_x")) > 0.2 or math.abs(goro.gamepad.axis("right_y")) > 0.2) then
+			ui_pointer = true
+		end
+		for _, button in ipairs({ "dpad_up", "dpad_down", "dpad_left", "dpad_right" }) do
+			if goro.gamepad.was_pressed(button) then ui_pointer = false end
+		end
+		if ui_pointer then return end
 		goro.gamepad.consume("south")
 		goro.gamepad.consume("east")
-		if goro.gamepad.was_pressed("dpad_up") then goro.npc_dialog("up") end
-		if goro.gamepad.was_pressed("dpad_down") then goro.npc_dialog("down") end
+		if goro.gamepad.was_pressed("dpad_up") then goro.ui.control("up") end
+		if goro.gamepad.was_pressed("dpad_down") then goro.ui.control("down") end
+		if goro.gamepad.was_pressed("dpad_left") then goro.ui.control("left") end
+		if goro.gamepad.was_pressed("dpad_right") then goro.ui.control("right") end
 		if goro.gamepad.was_pressed("south") then
 			skill_buttons_held.south = true
-			goro.npc_dialog("confirm")
+			goro.ui.control("confirm")
 		elseif goro.gamepad.was_pressed("east") then
 			skill_buttons_held.east = true
-			goro.npc_dialog("cancel")
+			goro.ui.control("cancel")
 		end
 		return
 	end
@@ -358,6 +373,7 @@ function gamepad(dt)
 end
 
 function input()
+	if not goro.in_game() then return end
 	local pending = sync_skill_target()
 	if goro.gamepad.was_pressed("left_stick") then confirm_skill() end
 	if skill_input_handled then

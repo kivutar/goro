@@ -1,11 +1,46 @@
 package ui
 
 import (
+	uiapp "github.com/gogpu/ui/app"
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/uitest"
 	"testing"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/input"
 )
+
+func TestServiceWindowKeyboardAndControllerNavigation(t *testing.T) {
+	app := uiapp.New()
+	bridge := loginWindowTestApp{basicMenuTestApp{app: app}}
+	manager := NewManager()
+	manager.SetUIApp(bridge)
+	ctx := client.Context{ScreenW: 800, ScreenH: 600, UIApp: bridge, UIManager: manager}
+	selected := -1
+	w := NewServiceWindow(ctx, []string{"1", "2", "3", "4", "5", "6", "7", "8"}, ServiceWindowOptions{}, ServiceWindowCallbacks{
+		OnSelect: func(index int) { selected = index },
+	})
+	w.Publish(ctx)
+	app.Frame()
+	app.Window().DrawTo(&uitest.MockCanvas{})
+	if app.Window().Context().FocusedWidget() != w.list {
+		t.Fatal("server list lacks initial keyboard focus")
+	}
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeyDown, 0, event.ModNone))
+	if w.SelectedIndex() != 1 {
+		t.Fatal("keyboard did not navigate server list")
+	}
+	for range 10 {
+		w.Control("down")
+	}
+	if w.SelectedIndex() != 7 || w.scrollY.Get() <= 0 {
+		t.Fatal("controller selection did not clamp and scroll into view")
+	}
+	w.Control("confirm")
+	if selected != 7 {
+		t.Fatalf("confirmed %d, want 7", selected)
+	}
+}
 
 func TestServiceWindowClampsInitialSelection(t *testing.T) {
 	window := NewServiceWindow(client.Context{ScreenW: 1280, ScreenH: 720}, []string{"Local", "Internet"}, ServiceWindowOptions{Selected: 8}, ServiceWindowCallbacks{})

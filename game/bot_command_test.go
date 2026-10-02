@@ -3,7 +3,6 @@ package game
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/gogpu/gpucontext"
 	lua "github.com/yuin/gopher-lua"
@@ -14,9 +13,11 @@ func TestChatScriptSwitchSurvivesMapChangeAndStops(t *testing.T) {
 	ctx.Config.Script.Path = filepath.Join("..", "scripts", "wasd.lua")
 	mode := NewWorldMode()
 	loadKeyboardTestBot(t, ctx, mode)
+	manager := &Manager{ctx: ctx, mode: mode, script: mode.bot}
+	t.Cleanup(manager.Close)
 	original := mode.bot
 	mode.ui.console.SendText(ctx, "/script wasd")
-	mode.updateBot(ctx, time.Now())
+	manager.syncScript(ctx)
 	if mode.bot == nil || mode.bot.disabled || mode.bot.path != "builtin:wasd" || original.state != nil {
 		t.Fatal("chat command did not replace the configured script and close its Lua state")
 	}
@@ -30,7 +31,9 @@ func TestChatScriptSwitchSurvivesMapChangeAndStops(t *testing.T) {
 	}
 
 	next := mode.nextWorldMode()
-	next.updateBot(ctx, time.Now())
+	manager.closeScript()
+	manager.mode = next
+	manager.syncScript(ctx)
 	if next.bot == nil || next.bot.disabled || next.bot.path != "builtin:wasd" {
 		t.Fatal("map change lost the selected script")
 	}
@@ -48,7 +51,7 @@ func TestChatScriptSwitchSurvivesMapChangeAndStops(t *testing.T) {
 	if ctx.Input.KeyCodeConsumed(gpucontext.KeyW) {
 		t.Fatal("stopped script still intercepted the keyboard")
 	}
-	next.updateBot(ctx, time.Now())
+	manager.syncScript(ctx)
 	if next.bot != nil || selected.state != nil {
 		t.Fatal("stop command did not close the Lua state")
 	}

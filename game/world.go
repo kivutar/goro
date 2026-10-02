@@ -144,7 +144,7 @@ type WorldMode struct {
 	pendingTradeName  string
 	mapFade           mapFadeState
 	hoveredWalk       hoveredWalkCellCache
-	bot               *luaBot
+	bot               *luaScript
 	companionAI       companionAISystem
 }
 

@@ -187,6 +187,9 @@ func (g *Game) RequestQuit() {
 // start another game in the same process after a surface is recreated.
 func (g *Game) Close() {
 	g.RequestQuit()
+	if g.modes != nil {
+		g.modes.Close()
+	}
 	if g.resource != nil {
 		for _, archive := range g.resource.Archives {
 			_ = archive.Close()

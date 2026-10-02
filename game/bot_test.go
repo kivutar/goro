@@ -88,7 +88,7 @@ end
 	world.Items[400] = worldstate.FloorItem{ID: 400, ItemID: 501, X: 11, Y: 20, Amount: 2, Identified: true}
 
 	mode := &WorldMode{}
-	bot, err := newLuaBot(client.Context{Session: sess, World: world}, mode, path)
+	bot, err := newLuaScript(client.Context{Session: sess, World: world}, mode, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ end
 		Amount:     3,
 		Identified: true,
 	}}
-	bot, err := newLuaBot(client.Context{Session: sess, Network: networkClient}, &WorldMode{}, path)
+	bot, err := newLuaScript(client.Context{Session: sess, Network: networkClient}, &WorldMode{}, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ end
 		ItemID: client.TokenOfSiegfriedItemID,
 		Amount: 1,
 	}}
-	bot, err := newLuaBot(client.Context{
+	bot, err := newLuaScript(client.Context{
 		Session: sess,
 		World:   worldstate.New(),
 		Network: networkClient,
@@ -260,7 +260,7 @@ end
 	sess.Selected.Name = "Kivutar"
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: sess.AccountID, Moving: true}
-	bot, err := newLuaBot(client.Context{Session: sess, Network: networkClient, World: world}, &WorldMode{}, path)
+	bot, err := newLuaScript(client.Context{Session: sess, Network: networkClient, World: world}, &WorldMode{}, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestLuaBotCanStartLongWalkFromPhysicalKey(t *testing.T) {
 	world.GAT = flatWalkableGAT(64, 64)
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
 	mode := &WorldMode{}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState, Network: networkClient, World: world},
 		mode,
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -403,7 +403,7 @@ func TestLuaBotCanWalkDiagonally(t *testing.T) {
 	world := worldstate.New()
 	world.GAT = flatWalkableGAT(64, 64)
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState, Network: networkClient, World: world},
 		&WorldMode{},
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -438,7 +438,7 @@ func TestLuaBotHeldSpaceLootsNearbyItemsInDistanceOrder(t *testing.T) {
 	world.Items[400] = worldstate.FloorItem{ID: 400, ItemID: 501, X: 12, Y: 20}
 	world.Items[401] = worldstate.FloorItem{ID: 401, ItemID: 501, X: 11, Y: 20}
 	world.Items[402] = worldstate.FloorItem{ID: 402, ItemID: 501, X: 30, Y: 20}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState, Network: networkClient, World: world},
 		&WorldMode{},
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -495,7 +495,7 @@ func TestLuaBotHeldFightsNearbyEnemiesInDistanceOrder(t *testing.T) {
 	world.Actors[300] = worldstate.Actor{ID: 300, Name: "Poring", X: 12, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
 	world.Actors[301] = worldstate.Actor{ID: 301, Name: "Drops", X: 11, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
 	world.Actors[302] = worldstate.Actor{ID: 302, Name: "Lunatic", X: 30, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState, Network: networkClient, World: world},
 		&WorldMode{},
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -551,7 +551,7 @@ end
 	}
 	inputState.SetKeyCode(enter, true)
 	inputState.AddTextInput("hé")
-	bot, err := newLuaBot(client.Context{Input: inputState}, &WorldMode{}, path)
+	bot, err := newLuaScript(client.Context{Input: inputState}, &WorldMode{}, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -623,7 +623,7 @@ end
 		skill:    session.Skill{ID: db.SkillACDouble, Name: "Double Strafe", Type: skillTargetEnemy, Level: 3, Range: 9},
 		maxLevel: 10,
 	}}
-	bot, err := newLuaBot(client.Context{Session: sess, World: world}, mode, path)
+	bot, err := newLuaScript(client.Context{Session: sess, World: world}, mode, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -692,7 +692,7 @@ func TestWASDLuaCyclesAndUsesPendingSkillTargets(t *testing.T) {
 		pendingSkill: pendingSkillTarget{skill: skill, maxLevel: 10},
 		actorDeaths:  map[uint32]time.Time{302: time.Now().Add(time.Second)},
 	}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState, Network: networkClient, Session: sess, World: world},
 		mode,
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -790,7 +790,7 @@ func TestWASDLuaCyclesFriendlySkillTargets(t *testing.T) {
 	mode := &WorldMode{pendingSkill: pendingSkillTarget{
 		skill: session.Skill{ID: db.SkillALHeal, Type: skillTargetFriend, Level: 7, Range: 9},
 	}}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState, Session: sess, World: world},
 		mode,
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -885,7 +885,7 @@ func TestWASDLuaLeavesUnrelatedTargetingKeysAlone(t *testing.T) {
 	mode := &WorldMode{pendingSkill: pendingSkillTarget{
 		skill: session.Skill{ID: db.SkillACDouble, Type: skillTargetEnemy, Level: 3, Range: 9},
 	}}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Input: inputState},
 		mode,
 		filepath.Join("..", "scripts", "wasd.lua"),
@@ -934,7 +934,7 @@ func TestExampleLuaBotUsesPotionRestsAndResumes(t *testing.T) {
 	}}
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: sess.AccountID}
-	bot, err := newLuaBot(
+	bot, err := newLuaScript(
 		client.Context{Session: sess, Network: networkClient, World: world},
 		&WorldMode{},
 		filepath.Join("..", "scripts", "loot-and-attack.lua"),
@@ -1023,7 +1023,7 @@ end
 	world.Actors[300] = worldstate.Actor{ID: 300, Name: "Poring", X: 30, Y: 20, ObjectType: actorObjectTypeMob, HasObjectType: true}
 
 	mode := &WorldMode{}
-	bot, err := newLuaBot(client.Context{Session: sess, World: world}, mode, path)
+	bot, err := newLuaScript(client.Context{Session: sess, World: world}, mode, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1063,7 +1063,7 @@ end
 	world.Player = worldstate.Actor{ID: sess.AccountID, X: 10, Y: 20}
 	ctx := client.Context{Session: sess, Network: networkClient, World: world}
 	mode := &WorldMode{}
-	bot, err := newLuaBot(ctx, mode, path)
+	bot, err := newLuaScript(ctx, mode, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1115,7 +1115,7 @@ end
 		HasObjectType: true,
 	}
 
-	bot, err := newLuaBot(client.Context{Session: sess, Network: networkClient, World: world}, &WorldMode{}, path)
+	bot, err := newLuaScript(client.Context{Session: sess, Network: networkClient, World: world}, &WorldMode{}, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1159,7 +1159,7 @@ end
 	world.Actors[300] = worldstate.Actor{ID: 300, Name: "Lif", X: 11, Y: 20, ObjectType: actorObjectTypeHomunculus, HasObjectType: true}
 	world.Actors[301] = worldstate.Actor{ID: 301, Name: "David", X: 12, Y: 20, ObjectType: actorObjectTypeMercenary, HasObjectType: true}
 
-	bot, err := newLuaBot(client.Context{Session: sess, Network: networkClient, World: world}, &WorldMode{}, path)
+	bot, err := newLuaScript(client.Context{Session: sess, Network: networkClient, World: world}, &WorldMode{}, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1205,7 +1205,7 @@ end
 	world.Actors[301] = worldstate.Actor{ID: 301, Name: "Alice", X: 11, Y: 21, Job: db.JobAcolyte, ObjectType: actorObjectTypePC, HasObjectType: true}
 	world.Actors[302] = worldstate.Actor{ID: 302, Name: "Lif", X: 10, Y: 21, ObjectType: actorObjectTypeHomunculus, HasObjectType: true}
 
-	bot, err := newLuaBot(client.Context{Session: sess, World: world}, &WorldMode{}, path)
+	bot, err := newLuaScript(client.Context{Session: sess, World: world}, &WorldMode{}, path)
 	if err != nil {
 		t.Fatal(err)
 	}

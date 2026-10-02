@@ -1,6 +1,6 @@
 # Bot Scripting
 
-Goro can run a Lua script while the player is in-game. This is intended for
+Goro can run a Lua script during login and while the player is in-game. This is intended for
 local experimentation and simple automation.
 
 Run a script with:
@@ -23,8 +23,11 @@ to disable scripting, or `/script` to list bundled scripts. `wasd` is currently
 the only bundled script. The selection replaces any configured script for the
 current run, survives map changes, and does not modify `goro.ini`.
 
-The script must define a global `tick()` function. Goro calls it roughly every
-150 ms while the world mode is active.
+Callbacks are optional. Goro calls `tick()` roughly every 150 ms only while the
+world mode is active. `gamepad(dt)` and `input()` also run during login, with
+gameplay input unavailable there. The script is reloaded when changing modes
+(including map changes), clearing its local targets and other transient state.
+Held controller buttons are ignored until released when entering another mode.
 
 ```lua
 function tick()
@@ -127,6 +130,20 @@ to claim controls for this frame. A claimed mouse button remains suppressed unti
 release, so releasing a modifier cannot turn a held skill button into a click.
 The ordinary `input()` callback retains its gameplay focus filtering.
 
+UI navigation is available in login and world mode:
+
+- `goro.in_game()` reports whether the script is bound to the world. Gameplay
+  actions return false/no result during login; world lists are empty and vitals
+  are zero.
+- `goro.ui.active()` reports whether login or an available NPC dialog owns
+  directional navigation.
+- `goro.ui.control(action)` accepts `"up"`, `"down"`, `"left"`, `"right"`,
+  `"confirm"`, or `"cancel"`. Login routes these to the active screen or modal;
+  in game they operate the NPC dialog using its normal rules.
+
+Login confirmation never bypasses a modal or a screen transition. Scripts should
+consume their UI button bindings before returning to the pointer fallback.
+
 The following actions support scripted controller bindings:
 
 - `goro.use_shortcut(slot)` activates slot 1–9 of the active hotbar row and returns `used, skill_id`: a success flag and the activated skill ID (zero for items).
@@ -153,7 +170,12 @@ loot, L2 + right stick to rotate/tilt the camera, R2 + right stick up/down to zo
 and R2 + South/East/West/North for hotbar slots 1–4. R2 + D-pad Up/Right/Down/Left
 uses slots 5–8; those directions resume movement only after release. Shoulders
 cycle enemies or eligible skill targets; South attacks or confirms and East
-cancels. NPC dialogs use D-pad up/down and South/East.
+cancels. NPC dialogs use D-pad up/down and South/East. During login, D-pad up/down
+selects servers or credential fields, left/right selects character slots, South
+confirms, and East goes back. Moving the right stick switches to pointer clicks;
+using the D-pad resumes menu navigation. Character creation keeps pointer
+controls for its appearance and stats, with Start/Escape to go back. Text entry
+uses the normal keyboard (Select opens it on Android).
 Unclaimed right-stick movement, South/East mouse clicks and Start/Escape remain
 shared client menu controls and work even without a script.
 

@@ -61,7 +61,7 @@ func wasdControlPress(t *testing.T, ctx client.Context, mode *WorldMode, device,
 		}
 	}
 	ctx.Input.SetGamepad(pad)
-	mode.HandleGamepadInput(ctx, 1.0/60)
+	mode.bot.handleGamepad(ctx, 1.0/60)
 	mode.updateBotInput(ctx, true)
 	if mode.ui.shortcutBar.UpdateKeyboardInput(ctx, mode, false) {
 		t.Fatal("script action also reached the native hotbar")
@@ -72,7 +72,7 @@ func wasdControlPress(t *testing.T, ctx client.Context, mode *WorldMode, device,
 	ctx.Input.EndFrame()
 	ctx.Input.SetKeyCode(key, false)
 	ctx.Input.SetGamepad(input.GamepadFrame{ID: pad.ID})
-	mode.HandleGamepadInput(ctx, 1.0/60)
+	mode.bot.handleGamepad(ctx, 1.0/60)
 	mode.updateBotInput(ctx, true)
 	ctx.Input.EndFrame()
 	if mode.bot.disabled {
@@ -171,7 +171,7 @@ func TestWASDArmingSkillPreservesMovementRelease(t *testing.T) {
 				}
 				frame := func() {
 					ctx.Input.SetGamepad(pad)
-					mode.HandleGamepadInput(ctx, 1.0/60)
+					mode.bot.handleGamepad(ctx, 1.0/60)
 					mode.updateBotInput(ctx, true)
 					mode.ui.shortcutBar.UpdateKeyboardInput(ctx, mode, false)
 					ctx.Input.EndFrame()
@@ -249,7 +249,7 @@ func TestWASDInvalidSkillTargetReleasesConfirmation(t *testing.T) {
 					pad := input.GamepadFrame{ID: "test"}
 					pad.Buttons[input.GamepadSouth] = true
 					ctx.Input.SetGamepad(pad)
-					if capture := mode.HandleGamepadInput(ctx, 1.0/60); capture.Buttons[input.GamepadSouth] {
+					if capture := mode.bot.handleGamepad(ctx, 1.0/60); capture.Buttons[input.GamepadSouth] {
 						t.Fatal("South did not return to pointer targeting")
 					}
 				}
@@ -322,7 +322,7 @@ func wasdMovementFrame(t *testing.T, ctx client.Context, mode *WorldMode, device
 		}
 	}
 	ctx.Input.SetGamepad(pad)
-	mode.HandleGamepadInput(ctx, 1.0/60)
+	mode.bot.handleGamepad(ctx, 1.0/60)
 	mode.updateBotInput(ctx, true)
 	if mode.ui.shortcutBar.UpdateKeyboardInput(ctx, mode, false) {
 		t.Fatal("shortcut also reached the native hotbar")
@@ -415,7 +415,7 @@ func TestWASDGroundSkillChaseSurvivesMovementRelease(t *testing.T) {
 				pad.Axes[input.GamepadLeftY] = -1
 				pad.Buttons[input.GamepadSouth] = true
 				ctx.Input.SetGamepad(pad)
-				if capture := mode.HandleGamepadInput(ctx, 1.0/60); capture.Buttons[input.GamepadSouth] {
+				if capture := mode.bot.handleGamepad(ctx, 1.0/60); capture.Buttons[input.GamepadSouth] {
 					t.Fatal("ground targeting did not leave South to the pointer")
 				}
 			}

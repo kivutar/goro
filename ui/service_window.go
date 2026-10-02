@@ -40,6 +40,7 @@ type ServiceWindow struct {
 	callbacks    ServiceWindowCallbacks
 	lastClickAt  time.Time
 	lastClickRow int
+	list         *listview.Widget
 }
 
 func NewServiceWindow(ctx client.Context, services []string, options ServiceWindowOptions, callbacks ServiceWindowCallbacks) *ServiceWindow {
@@ -60,6 +61,9 @@ func NewServiceWindow(ctx client.Context, services []string, options ServiceWind
 	w.CloseOnEsc = false
 	x, y := serviceWindowPosition(ctx)
 	w.OpenAt(x, y, w.widgetTree())
+	if wc := windowWidgetContext(ctx); wc != nil {
+		wc.RequestFocus(w.list)
+	}
 	return w
 }
 
@@ -87,6 +91,30 @@ func (w *ServiceWindow) SelectedIndex() int {
 		return -1
 	}
 	return clampServiceIndex(w.selected.Get(), len(w.services))
+}
+
+func (w *ServiceWindow) Control(action string) bool {
+	if w == nil || !w.IsOpen() {
+		return false
+	}
+	switch action {
+	case "up", "down":
+		if len(w.services) == 0 {
+			return true
+		}
+		delta := 1
+		if action == "up" {
+			delta = -1
+		}
+		index := max(0, min(len(w.services)-1, w.SelectedIndex()+delta))
+		w.selected.Set(index)
+		w.list.ScrollToIndex(index)
+	case "confirm":
+		w.confirm()
+	case "cancel":
+		w.cancel()
+	}
+	return true
 }
 
 func (w *ServiceWindow) widgetTree() widget.Widget {
@@ -126,6 +154,7 @@ func (w *ServiceWindow) serviceList() widget.Widget {
 		}),
 	)
 	lv.SetFocused(true)
+	w.list = lv
 	return lv
 }
 

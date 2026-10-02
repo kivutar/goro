@@ -80,6 +80,34 @@ func (w *LoginWindow) Update(ctx client.Context) bool {
 	return w.Window.Update(ctx)
 }
 
+// Credential entry still uses the platform keyboard. Directional navigation
+// selects the field, and confirmation uses the same submission as Enter.
+func (w *LoginWindow) Control(ctx client.Context, action string) bool {
+	if w == nil || !w.IsOpen() {
+		return false
+	}
+	switch action {
+	case "up", "down":
+		field := w.user
+		if action == "down" {
+			field = w.password
+		}
+		if wc := windowWidgetContext(ctx); wc != nil {
+			wc.RequestFocus(field)
+		} else {
+			w.user.SetFocused(false)
+			w.password.SetFocused(false)
+			w.keep.SetFocused(false)
+			field.SetFocused(true)
+		}
+	case "confirm":
+		if w.callbacks.OnSubmit != nil {
+			w.callbacks.OnSubmit()
+		}
+	}
+	return true
+}
+
 func (w *LoginWindow) restoreFocus(ctx client.Context) {
 	if wc := windowWidgetContext(ctx); wc != nil {
 		// Register the initial/rebuilt field with the focus manager too, so

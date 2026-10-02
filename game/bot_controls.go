@@ -2,42 +2,37 @@ package game
 
 import (
 	"github.com/kivutar/goro/client"
-	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	lua "github.com/yuin/gopher-lua"
 )
 
-// HandleGamepadInput runs before the renderer turns unclaimed controls into
-// mouse input, so a skill chord cannot also click a window or walk on the map.
-func (m *WorldMode) HandleGamepadInput(ctx client.Context, dt float64) input.GamepadCapture {
-	b := m.bot
-	if b == nil || b.disabled || b.state == nil || b.path != ctx.ScriptPath() || m.uiInputSuspended() {
+// The script claims controls before the renderer's pointer fallback.
+func (b *luaScript) handleGamepad(ctx client.Context, dt float64) input.GamepadCapture {
+	if b == nil || b.disabled || b.state == nil || b.path != ctx.ScriptPath() {
 		return input.GamepadCapture{}
 	}
-	fn := b.state.GetGlobal("gamepad")
-	if fn == lua.LNil {
-		return input.GamepadCapture{}
+	if b.mode != nil && b.mode.uiInputSuspended() {
+		return input.GamepadCapture{Buttons: b.blockedButtons}
 	}
+	b.ctx = ctx
 	previous := b.keyboardAvailable
-	b.keyboardAvailable = !m.ui.KeyboardShortcutsBlocked(ctx)
+	b.keyboardAvailable = b.mode != nil && !b.mode.ui.KeyboardShortcutsBlocked(ctx)
 	b.gamepadInput = true
-	b.gamepadCapture = input.GamepadCapture{}
-	err := b.state.CallByParam(lua.P{Fn: fn, NRet: 0, Protect: true}, lua.LNumber(dt))
+	b.gamepadCapture = input.GamepadCapture{Buttons: b.blockedButtons}
+	if err := b.invoke("gamepad", lua.LNumber(dt)); err != nil {
+		b.fail("gamepad", err)
+	}
 	b.gamepadInput = false
 	b.keyboardAvailable = previous
-	if err != nil {
-		glog.Warnf("lua script gamepad failed path=%q: %v", b.path, err)
-		b.close()
-		b.disabled = true
-	}
 	return b.gamepadCapture
 }
 
-func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Context, bot *luaBot) {
+func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, bot *luaScript) {
 	m := bot.mode
-	allowed := func() bool { return m != nil && !m.uiInputSuspended() && !m.ui.KeyboardShortcutsBlocked(ctx) }
+	allowed := func() bool { return m != nil && !m.uiInputSuspended() && !m.ui.KeyboardShortcutsBlocked(bot.ctx) }
 	state.SetFuncs(api, map[string]lua.LGFunction{
 		"use_shortcut": func(L *lua.LState) int {
+			ctx := bot.ctx
 			slot := L.CheckInt(1)
 			var skillID uint16
 			var used bool
@@ -49,6 +44,7 @@ func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 			return 2
 		},
 		"rotate_camera": func(L *lua.LState) int {
+			ctx := bot.ctx
 			yaw, pitch := float64(L.CheckNumber(1)), float64(L.CheckNumber(2))
 			if allowed() && !cameraRotationLockedForMap(ctx) && isFinite(yaw) && isFinite(pitch) {
 				m.camera.Rotate(yaw)
@@ -57,6 +53,7 @@ func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 			return 0
 		},
 		"zoom_camera": func(L *lua.LState) int {
+			ctx := bot.ctx
 			delta := float64(L.CheckNumber(1))
 			if allowed() && !cameraZoomLockedForMap(ctx) && isFinite(delta) {
 				m.camera.ZoomByDelta(delta)
@@ -64,6 +61,11 @@ func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 			return 0
 		},
 		"camera_yaw": func(L *lua.LState) int {
+			ctx := bot.ctx
+			if m == nil {
+				L.Push(lua.LNumber(0))
+				return 1
+			}
 			yaw := cameraYawForMap(ctx)
 			if !cameraRotationLockedForMap(ctx) {
 				yaw += m.camera.yawOffset
@@ -78,7 +80,8 @@ func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 			return 0
 		},
 		"npc_dialog": func(L *lua.LState) int {
-			open := m.ui.npcDialog.IsOpen() && !m.uiInputSuspended() && m.ui.npcInputAvailable()
+			ctx := bot.ctx
+			open := m != nil && m.ui.npcDialog.IsOpen() && !m.uiInputSuspended() && m.ui.npcInputAvailable()
 			if open && L.GetTop() != 0 {
 				m.ui.npcDialog.Control(ctx, L.CheckString(1))
 			}
@@ -86,6 +89,7 @@ func registerLuaControlsAPI(state *lua.LState, api *lua.LTable, ctx client.Conte
 			return 1
 		},
 		"pointer_over_ui": func(L *lua.LState) int {
+			ctx := bot.ctx
 			blocked := false
 			if ui, ok := ctx.UIManager.(interface{ PointerBlocked(int, int) bool }); ok && ctx.Input != nil {
 				blocked = ui.PointerBlocked(ctx.Input.MouseX, ctx.Input.MouseY)

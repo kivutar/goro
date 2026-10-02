@@ -47,7 +47,7 @@ func TestWASDGamepadMovementAttackAndLoot(t *testing.T) {
 			}
 			mode := NewWorldMode()
 			loadKeyboardTestBot(t, ctx, mode)
-			mode.HandleGamepadInput(ctx, 1.0/60)
+			mode.bot.handleGamepad(ctx, 1.0/60)
 			mode.updateBotInput(ctx, true)
 			if err := mode.bot.tick(); err != nil {
 				t.Fatal(err)
@@ -88,7 +88,7 @@ func TestWASDGamepadSkillChordUsesSelectedEnemyWithoutAttackOrLoot(t *testing.T)
 	pad.Axes[input.GamepadRightTrigger] = 1 // Keep the skill modifier held while selecting.
 	ctx.Input.SetGamepad(pad)
 	assertNoBotTestPacket(t, server, func() error {
-		mode.HandleGamepadInput(ctx, 1.0/60)
+		mode.bot.handleGamepad(ctx, 1.0/60)
 		return nil
 	})
 	if mode.scriptHighlight.id != 300 {
@@ -99,7 +99,7 @@ func TestWASDGamepadSkillChordUsesSelectedEnemyWithoutAttackOrLoot(t *testing.T)
 	pad.Axes[input.GamepadRightTrigger] = 1
 	pad.Buttons[input.GamepadSouth] = true
 	ctx.Input.SetGamepad(pad)
-	capture := mode.HandleGamepadInput(ctx, 1.0/60)
+	capture := mode.bot.handleGamepad(ctx, 1.0/60)
 	for _, button := range []input.GamepadButton{input.GamepadSouth, input.GamepadEast, input.GamepadWest, input.GamepadNorth} {
 		if !capture.Buttons[button] {
 			t.Fatalf("skill modifier failed to capture button %d", button)
@@ -113,7 +113,7 @@ func TestWASDGamepadSkillChordUsesSelectedEnemyWithoutAttackOrLoot(t *testing.T)
 	pad.Axes[input.GamepadRightTrigger] = 0
 	ctx.Input.SetGamepad(pad)
 	assertNoBotTestPacket(t, server, func() error {
-		capture = mode.HandleGamepadInput(ctx, 1.0/60)
+		capture = mode.bot.handleGamepad(ctx, 1.0/60)
 		mode.updateBotInput(ctx, true)
 		return mode.bot.tick()
 	})
@@ -127,7 +127,7 @@ func TestWASDGamepadSkillChordUsesSelectedEnemyWithoutAttackOrLoot(t *testing.T)
 	ctx.Input.SetGamepad(pad)
 	mode.pendingSkill = pendingSkillTarget{skill: skill}
 	assertNoBotTestPacket(t, server, func() error {
-		mode.HandleGamepadInput(ctx, 1.0/60)
+		mode.bot.handleGamepad(ctx, 1.0/60)
 		return nil
 	})
 	if mode.pendingSkill.skill.ID != skill.ID {
@@ -137,7 +137,7 @@ func TestWASDGamepadSkillChordUsesSelectedEnemyWithoutAttackOrLoot(t *testing.T)
 	pad.Buttons[input.GamepadEast] = false
 	pad.Buttons[input.GamepadNorth] = true
 	ctx.Input.SetGamepad(pad)
-	mode.HandleGamepadInput(ctx, 1.0/60)
+	mode.bot.handleGamepad(ctx, 1.0/60)
 	readBotTestPackets(t, server, network.BuildUseSkillToIDPacketForClientDate(selfSkill.ID, 3, ctx.Session.AccountID, 20080910))
 	assertNoBotTestPacket(t, server, func() error { return nil })
 	if mode.pendingSkill.skill.ID != skill.ID {
@@ -172,7 +172,7 @@ func TestWASDGamepadDpadSkillChordsDoNotBecomeMovement(t *testing.T) {
 				pad := input.GamepadFrame{ID: "test"}
 				frame := func() {
 					ctx.Input.SetGamepad(pad)
-					mode.HandleGamepadInput(ctx, 1.0/60)
+					mode.bot.handleGamepad(ctx, 1.0/60)
 					mode.updateBotInput(ctx, true)
 					if err := mode.bot.tick(); err != nil {
 						t.Fatal(err)
@@ -216,7 +216,7 @@ func TestWASDKeyboardSkillTargetSurvivesWithoutGamepad(t *testing.T) {
 	loadKeyboardTestBot(t, ctx, mode)
 	ctx.Input.SetKeyCode(gpucontext.KeyTab, true)
 	botKeyPressForTest(t, mode.bot, gpucontext.KeyTab)
-	mode.HandleGamepadInput(ctx, 1.0/60)
+	mode.bot.handleGamepad(ctx, 1.0/60)
 	if mode.scriptHighlight.id != 300 {
 		t.Fatal("idle controller callback cleared keyboard skill selection")
 	}
@@ -249,7 +249,7 @@ func TestWASDGamepadHealTargetsRespectNoShift(t *testing.T) {
 			pad.Axes[input.GamepadRightTrigger] = 1
 			pad.Buttons[input.GamepadSouth] = true
 			ctx.Input.SetGamepad(pad)
-			mode.HandleGamepadInput(ctx, 1.0/60)
+			mode.bot.handleGamepad(ctx, 1.0/60)
 			if mode.scriptHighlight.id != ctx.Session.AccountID {
 				t.Fatalf("Heal initially selected %d, want self", mode.scriptHighlight.id)
 			}
@@ -262,7 +262,7 @@ func TestWASDGamepadHealTargetsRespectNoShift(t *testing.T) {
 			ctx.Session.NoShift = override == "noshift"
 			shift, _ := input.KeyCodeFromName("ShiftLeft")
 			ctx.Input.SetKeyCode(shift, override == "shift")
-			mode.HandleGamepadInput(ctx, 1.0/60)
+			mode.bot.handleGamepad(ctx, 1.0/60)
 			want := ctx.Session.AccountID
 			if override == "noshift" {
 				want = 300
@@ -274,7 +274,7 @@ func TestWASDGamepadHealTargetsRespectNoShift(t *testing.T) {
 			pad.Buttons[input.GamepadRightShoulder] = false
 			pad.Buttons[input.GamepadSouth] = true
 			ctx.Input.SetGamepad(pad)
-			mode.HandleGamepadInput(ctx, 1.0/60)
+			mode.bot.handleGamepad(ctx, 1.0/60)
 			readBotTestPackets(t, server, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 3, want, 20080910))
 		})
 	}
@@ -298,14 +298,14 @@ func TestWASDGamepadTargetCyclingKeepsEnemyAndSkillSelectionsSeparate(t *testing
 		t.Helper()
 		pad.Buttons[button] = true
 		ctx.Input.SetGamepad(pad)
-		mode.HandleGamepadInput(ctx, 1.0/60)
+		mode.bot.handleGamepad(ctx, 1.0/60)
 		if mode.bot.disabled || mode.scriptHighlight.id != want {
 			t.Fatalf("target = %d, want %d (script disabled: %v)", mode.scriptHighlight.id, want, mode.bot.disabled)
 		}
 		ctx.Input.EndFrame()
 		pad.Buttons[button] = false
 		ctx.Input.SetGamepad(pad)
-		mode.HandleGamepadInput(ctx, 1.0/60)
+		mode.bot.handleGamepad(ctx, 1.0/60)
 		ctx.Input.EndFrame()
 	}
 	// Nearest first, ID breaks distance ties; both directions wrap.
@@ -317,7 +317,7 @@ func TestWASDGamepadTargetCyclingKeepsEnemyAndSkillSelectionsSeparate(t *testing
 	mode.pendingSkill = pendingSkillTarget{skill: session.Skill{ID: db.SkillALHeal, Type: skillTargetFriend, Level: 1}}
 	press(input.GamepadRightShoulder, ctx.Session.AccountID)
 	mode.pendingSkill = pendingSkillTarget{}
-	mode.HandleGamepadInput(ctx, 1.0/60)
+	mode.bot.handleGamepad(ctx, 1.0/60)
 	if mode.scriptHighlight.id != 300 {
 		t.Fatal("ending skill targeting lost the selected enemy")
 	}
@@ -354,7 +354,7 @@ func TestWASDGamepadUIClickDoesNotBecomeAnAttackWhenPointerLeavesWindow(t *testi
 			pad.Buttons[input.GamepadRightShoulder] = name == "selected"
 			pad.Buttons[input.GamepadSouth] = true
 			ctx.Input.SetGamepad(pad)
-			capture := mode.HandleGamepadInput(ctx, 1.0/60)
+			capture := mode.bot.handleGamepad(ctx, 1.0/60)
 			if capture.Buttons[input.GamepadSouth] {
 				t.Fatal("press over UI was not left to the pointer")
 			}
@@ -369,7 +369,7 @@ func TestWASDGamepadUIClickDoesNotBecomeAnAttackWhenPointerLeavesWindow(t *testi
 				ctx.Input.EndFrame()
 				pad.Buttons[input.GamepadRightShoulder] = false
 				ctx.Input.SetGamepad(pad)
-				mode.HandleGamepadInput(ctx, 1.0/60)
+				mode.bot.handleGamepad(ctx, 1.0/60)
 			}
 		})
 	}
@@ -387,7 +387,7 @@ func TestWASDGamepadCameraMovementAndDialogFocus(t *testing.T) {
 	pad.Axes[input.GamepadRightY] = 1
 	initialZoom, initialPitch := mode.camera.targetZoom(), mode.camera.currentPitch()
 	ctx.Input.SetGamepad(pad)
-	capture := mode.HandleGamepadInput(ctx, 0.02)
+	capture := mode.bot.handleGamepad(ctx, 0.02)
 	if !capture.Pointer || mode.camera.yawOffset != 2 {
 		t.Fatalf("camera modifier did not claim stick and rotate: %+v yaw=%v", capture, mode.camera.yawOffset)
 	}
@@ -401,7 +401,7 @@ func TestWASDGamepadCameraMovementAndDialogFocus(t *testing.T) {
 		pad.Axes[input.GamepadLeftTrigger] = leftTrigger
 		ctx.Input.SetGamepad(pad)
 		previousZoom := mode.camera.targetZoom()
-		capture = mode.HandleGamepadInput(ctx, 0.02)
+		capture = mode.bot.handleGamepad(ctx, 0.02)
 		if !capture.Pointer || mode.camera.targetZoom() <= previousZoom || mode.camera.currentPitch() != pitch || mode.camera.yawOffset != 2 {
 			t.Fatal("R2 + stick down did not exclusively zoom out, including with both triggers held")
 		}
@@ -412,7 +412,7 @@ func TestWASDGamepadCameraMovementAndDialogFocus(t *testing.T) {
 	mode.ui.npcDialog.Apply(network.NPCDialog{Kind: network.NPCDialogClose, NPCID: 100})
 	pad.Buttons[input.GamepadSouth] = true
 	ctx.Input.SetGamepad(pad)
-	capture = mode.HandleGamepadInput(ctx, 0.02)
+	capture = mode.bot.handleGamepad(ctx, 0.02)
 	if mode.ui.npcDialog.IsOpen() || !capture.Buttons[input.GamepadSouth] || mode.camera.yawOffset != 2 || mode.camera.targetZoom() != zoom {
 		t.Fatal("NPC confirmation did not take priority over camera/gameplay")
 	}
@@ -420,7 +420,7 @@ func TestWASDGamepadCameraMovementAndDialogFocus(t *testing.T) {
 	pad.Buttons[input.GamepadSouth] = false
 	pad.Axes[input.GamepadRightY] = -1
 	ctx.Input.SetGamepad(pad)
-	mode.HandleGamepadInput(ctx, 0.02)
+	mode.bot.handleGamepad(ctx, 0.02)
 	if mode.camera.targetZoom() >= zoom {
 		t.Fatal("R2 + stick up did not zoom in")
 	}
@@ -444,7 +444,7 @@ func TestWASDGamepadNPCDialogYieldsToDisconnect(t *testing.T) {
 			pad := input.GamepadFrame{ID: "test"}
 			pad.Buttons[button] = true
 			ctx.Input.SetGamepad(pad)
-			capture := mode.HandleGamepadInput(ctx, 1.0/60)
+			capture := mode.bot.handleGamepad(ctx, 1.0/60)
 			if capture.Buttons[input.GamepadSouth] || capture.Buttons[input.GamepadEast] || capture.Pointer {
 				t.Fatal("NPC captured pointer controls belonging to the disconnect alert")
 			}
@@ -457,11 +457,11 @@ func TestWASDGamepadNPCDialogYieldsToDisconnect(t *testing.T) {
 			ctx.Input.EndFrame()
 			pad.Buttons[button] = false
 			ctx.Input.SetGamepad(pad)
-			mode.HandleGamepadInput(ctx, 1.0/60)
+			mode.bot.handleGamepad(ctx, 1.0/60)
 			ctx.Input.EndFrame()
 			pad.Buttons[button] = true
 			ctx.Input.SetGamepad(pad)
-			capture = mode.HandleGamepadInput(ctx, 1.0/60)
+			capture = mode.bot.handleGamepad(ctx, 1.0/60)
 			if !capture.Buttons[button] || mode.ui.npcDialog.IsOpen() {
 				t.Fatal("NPC controls did not resume after the alert closed")
 			}
@@ -494,7 +494,7 @@ func TestNPCDialogModalPriorityForKeyboardAndGamepad(t *testing.T) {
 			pad := input.GamepadFrame{ID: "test"}
 			pad.Buttons[input.GamepadSouth] = true
 			ctx.Input.SetGamepad(pad)
-			capture := mode.HandleGamepadInput(ctx, 1.0/60)
+			capture := mode.bot.handleGamepad(ctx, 1.0/60)
 			if capture.Buttons[input.GamepadSouth] || capture.Buttons[input.GamepadEast] || !mode.ui.npcDialog.IsOpen() {
 				t.Fatal("NPC stole controller input from the modal")
 			}
@@ -511,11 +511,11 @@ func TestNPCDialogModalPriorityForKeyboardAndGamepad(t *testing.T) {
 			ctx.Input.SetKeyCode(gpucontext.KeyEnter, false)
 			pad.Buttons[input.GamepadSouth] = false
 			ctx.Input.SetGamepad(pad)
-			mode.HandleGamepadInput(ctx, 1.0/60)
+			mode.bot.handleGamepad(ctx, 1.0/60)
 			ctx.Input.EndFrame()
 			pad.Buttons[input.GamepadSouth] = true
 			ctx.Input.SetGamepad(pad)
-			capture = mode.HandleGamepadInput(ctx, 1.0/60)
+			capture = mode.bot.handleGamepad(ctx, 1.0/60)
 			if !capture.Buttons[input.GamepadSouth] || mode.ui.npcDialog.IsOpen() || mode.bot.disabled {
 				t.Fatal("NPC controller input did not resume after confirming the modal")
 			}
@@ -600,7 +600,7 @@ func TestWASDGamepadDisconnectStopsWalking(t *testing.T) {
 	world.GAT = flatWalkableGAT(64, 64)
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
 	mode := &WorldMode{}
-	bot, err := newLuaBot(client.Context{Input: state, Network: conn, World: world}, mode, "builtin:wasd")
+	bot, err := newLuaScript(client.Context{Input: state, Network: conn, World: world}, mode, "builtin:wasd")
 	if err != nil {
 		t.Fatal(err)
 	}

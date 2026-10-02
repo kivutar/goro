@@ -173,7 +173,7 @@ Useful options:
 --char-server-slot 0 # select the first character server returned after login (default 0)
 --char-slot 0 # select character slot 0 after autologin
 --force-user-ai=true # start homunculus and mercenary in USER_AI custom mode
---script <path> # run an optional Lua character-control script in game
+--script <path> # run an optional Lua control script during login and in game
 ```
 
 ## Getting Started

@@ -16,6 +16,35 @@ type loginWindowTestApp struct{ basicMenuTestApp }
 
 func (a loginWindowTestApp) WidgetContext() widget.Context { return a.app.Window().Context() }
 
+func TestLoginControllerFieldFocusAndSubmit(t *testing.T) {
+	app := uiapp.New()
+	bridge := loginWindowTestApp{basicMenuTestApp{app: app}}
+	manager := NewManager()
+	manager.SetUIApp(bridge)
+	ctx := client.Context{ScreenW: 800, ScreenH: 600, UIApp: bridge, UIManager: manager}
+	submitted := 0
+	w := NewLoginWindow(ctx, "account", "", false, LoginWindowCallbacks{OnSubmit: func() { submitted++ }})
+	w.Publish(ctx)
+	app.Frame()
+	w.Control(ctx, "up")
+	if app.Window().Context().FocusedWidget() != w.user {
+		t.Fatal("Up did not focus account")
+	}
+	w.Control(ctx, "down")
+	w.Control(ctx, "down") // Re-selecting the same field must keep it focused.
+	if app.Window().Context().FocusedWidget() != w.password {
+		t.Fatal("Down did not focus password")
+	}
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeyUnknown, 'p', event.ModNone))
+	if w.Password != "p" {
+		t.Fatal("selected field did not accept keyboard input")
+	}
+	w.Control(ctx, "confirm")
+	if submitted != 1 {
+		t.Fatal("controller confirmation did not submit exactly once")
+	}
+}
+
 func TestLoginWindowInitialFocusAndTabNavigation(t *testing.T) {
 	app := uiapp.New()
 	bridge := loginWindowTestApp{basicMenuTestApp{app: app}}

@@ -30,9 +30,11 @@ type frameSubmittedMode interface {
 }
 
 type Manager struct {
-	ctx   client.Context
-	mode  Mode
-	login atomic.Bool
+	ctx           client.Context
+	mode          Mode
+	login         atomic.Bool
+	script        *luaScript
+	scriptBlocked [input.GamepadButtonCount]bool
 }
 
 func NewManager(ctx client.Context, mode Mode) *Manager {
@@ -43,6 +45,12 @@ func NewManager(ctx client.Context, mode Mode) *Manager {
 
 func (m *Manager) enter(mode Mode) {
 	for mode != nil {
+		m.closeScript()
+		if m.ctx.Input != nil {
+			for button := input.GamepadButton(0); button < input.GamepadButtonCount; button++ {
+				m.scriptBlocked[button] = m.ctx.Input.GamepadDown(button)
+			}
+		}
 		if leaving, ok := m.mode.(interface{ Leave() }); ok {
 			leaving.Leave()
 		}
@@ -63,15 +71,17 @@ func (m *Manager) UpdateContext(ctx client.Context) {
 }
 
 func (m *Manager) HandleGamepadInput(ctx client.Context, dt float64) input.GamepadCapture {
-	if handler, ok := m.mode.(interface {
-		HandleGamepadInput(client.Context, float64) input.GamepadCapture
-	}); ok {
-		return handler.HandleGamepadInput(ctx, dt)
+	for button := range m.scriptBlocked {
+		if ctx.Input == nil || !ctx.Input.GamepadDown(input.GamepadButton(button)) || ctx.Input.GamepadJustReleased(input.GamepadButton(button)) {
+			m.scriptBlocked[button] = false
+		}
 	}
-	return input.GamepadCapture{}
+	m.syncScript(ctx)
+	return m.script.handleGamepad(ctx, dt)
 }
 
 func (m *Manager) HandleKeyPress(ctx client.Context, code input.KeyCode) {
+	m.syncScript(ctx)
 	if handler, ok := m.mode.(interface {
 		HandleKeyPress(client.Context, input.KeyCode)
 	}); ok {
@@ -101,6 +111,13 @@ func (m *Manager) Update() error {
 		return nil
 	}
 
+	m.syncScript(m.ctx)
+	// Gameplay input and ticks retain WorldMode's modal/death ordering.
+	if m.script != nil && m.script.mode == nil {
+		if err := m.script.inputFrame(false); err != nil {
+			m.script.fail("input", err)
+		}
+	}
 	next, err := m.mode.Update(m.ctx)
 	if err != nil {
 		return err

@@ -648,6 +648,11 @@ func (m *LoginMode) updatePhaseEscape(ctx client.Context, now time.Time) bool {
 	if ctx.Input == nil || !ctx.Input.JustPressed(input.KeyEscape) {
 		return false
 	}
+	m.cancelLoginPhase(ctx, now)
+	return true
+}
+
+func (m *LoginMode) cancelLoginPhase(ctx client.Context, now time.Time) {
 	switch m.phase {
 	case loginPhaseCreate:
 		m.cancelCharacterCreate(now)
@@ -669,7 +674,6 @@ func (m *LoginMode) updatePhaseEscape(ctx client.Context, now time.Time) bool {
 			m.openQuitConfirm(ctx)
 		}
 	}
-	return true
 }
 
 func (m *LoginMode) updateQuitConfirm(ctx client.Context) bool {

@@ -15,7 +15,7 @@ import (
 
 func loadKeyboardTestBot(t *testing.T, ctx client.Context, mode *WorldMode) {
 	t.Helper()
-	bot, err := newLuaBot(ctx, mode, ctx.Config.Script.Path)
+	bot, err := newLuaScript(ctx, mode, ctx.Config.Script.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func loadKeyboardTestBot(t *testing.T, ctx client.Context, mode *WorldMode) {
 	t.Cleanup(bot.close)
 }
 
-func botKeyPressForTest(t *testing.T, bot *luaBot, code gpucontext.Key) {
+func botKeyPressForTest(t *testing.T, bot *luaScript, code gpucontext.Key) {
 	t.Helper()
 	if err := bot.keyPress(code); err != nil {
 		t.Fatal(err)

@@ -77,6 +77,19 @@ func (w *TextPromptWindow) PopAction() TextPromptAction {
 	return action
 }
 
+func (w *TextPromptWindow) Control(ctx Context, action string) {
+	if !w.IsOpen() {
+		return
+	}
+	switch action {
+	case "confirm":
+		w.submit(ctx)
+	case "cancel":
+		w.Close()
+		w.Publish(ctx)
+	}
+}
+
 func (w *TextPromptWindow) widgetTree(ctx Context) widget.Widget {
 	return Win(
 		Title(w.title),
