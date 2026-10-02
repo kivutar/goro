@@ -1,7 +1,6 @@
 package res
 
 import (
-	"os"
 	"path"
 	"strings"
 )
@@ -31,7 +30,7 @@ func (m *Manager) loadResourceAliases() {
 	names := []string{"data/resnametable.txt", "resnametable.txt"}
 	for _, name := range names {
 		if filename, ok := m.Find(name); ok {
-			if data, err := os.ReadFile(filename); err == nil {
+			if data, err := m.readLoose(filename); err == nil {
 				m.resourceAliases = parseResourceAliases(data)
 				return
 			}

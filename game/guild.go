@@ -2,14 +2,15 @@ package game
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
+	"path"
 	"sort"
 	"strings"
 
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 )
@@ -228,7 +229,7 @@ func (m *WorldMode) handleGuildInviteAck(ack network.GuildInviteAck) {
 }
 
 func (m *WorldMode) setGuildEmblemOptions(ctx client.Context) {
-	m.ui.guildWindow.SetEmblemOptions(ctx, localGuildEmblemOptions(ctx.Config.DataDir))
+	m.ui.guildWindow.SetEmblemOptions(ctx, localGuildEmblemOptions(ctx.Resources))
 }
 
 func (m *WorldMode) uploadGuildEmblem(ctx client.Context, path string) {
@@ -244,7 +245,11 @@ func (m *WorldMode) uploadGuildEmblem(ctx client.Context, path string) {
 		m.ui.console.AddErrorMessage("Guild emblem upload failed: not connected.")
 		return
 	}
-	data, err := os.ReadFile(path)
+	if ctx.Resources == nil {
+		m.ui.console.AddErrorMessage("Guild emblem upload failed: client folder unavailable.")
+		return
+	}
+	data, err := fs.ReadFile(ctx.Resources.LooseFiles(), path)
 	if err != nil {
 		m.ui.console.AddErrorMessage("Guild emblem upload failed: %s", err)
 		return
@@ -405,33 +410,30 @@ func (m *WorldMode) levelUpGuildSkills(ctx client.Context, skillIDs []uint16) {
 	}
 }
 
-func localGuildEmblemOptions(dataDir string) []gameui.GuildEmblemOption {
-	if strings.TrimSpace(dataDir) == "" {
+func localGuildEmblemOptions(resources *res.Manager) []gameui.GuildEmblemOption {
+	if resources == nil {
 		return nil
 	}
-	dirs := []string{
-		filepath.Join(dataDir, "Emblem"),
-		filepath.Join(dataDir, "emblem"),
-	}
+	dirs := []string{"Emblem", "emblem"}
 	seen := make(map[string]struct{})
 	var options []gameui.GuildEmblemOption
 	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
+		entries, err := fs.ReadDir(resources.LooseFiles(), dir)
 		if err != nil {
 			continue
 		}
 		for _, entry := range entries {
-			if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".bmp") {
+			if entry.IsDir() || !strings.EqualFold(path.Ext(entry.Name()), ".bmp") {
 				continue
 			}
-			path := filepath.Join(dir, entry.Name())
-			if _, ok := seen[path]; ok {
+			name := path.Join(dir, entry.Name())
+			if _, ok := seen[name]; ok {
 				continue
 			}
-			seen[path] = struct{}{}
+			seen[name] = struct{}{}
 			options = append(options, gameui.GuildEmblemOption{
-				Label: strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())),
-				Path:  path,
+				Label: strings.TrimSuffix(entry.Name(), path.Ext(entry.Name())),
+				Path:  name,
 			})
 		}
 	}

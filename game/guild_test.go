@@ -7,6 +7,8 @@ import (
 	"image/color"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,14 +17,63 @@ import (
 	"github.com/gogpu/ui/uitest"
 	"github.com/gogpu/ui/widget"
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/config"
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 	"github.com/kivutar/goro/ui/rotheme"
 	worldstate "github.com/kivutar/goro/world"
 )
+
+func TestGuildEmblemUploadUsesSelectedClientFolder(t *testing.T) {
+	for _, selected := range []bool{false, true} {
+		name := "native"
+		if selected {
+			name = "selected folder"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "Emblem", "directory.bmp"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			bmp := []byte("BMtest-emblem")
+			for name, content := range map[string][]byte{"Guild.BMP": bmp, "ignore.txt": []byte("ignored")} {
+				if err := os.WriteFile(filepath.Join(root, "Emblem", name), content, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var resources *res.Manager
+			var err error
+			if selected {
+				resources, err = res.NewManagerFS(os.DirFS(root))
+			} else {
+				resources, err = res.NewManager(root)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			options := localGuildEmblemOptions(resources)
+			if len(options) != 1 || options[0].Label != "Guild" {
+				t.Fatalf("emblem options = %+v", options)
+			}
+			netClient, conn := newBotTestConnection(t, 20080910)
+			ctx := client.Context{
+				Config:    config.Config{DataDir: t.TempDir()}, // App settings, not assets.
+				Resources: resources, Network: netClient,
+				Session: &session.Session{Guild: session.Guild{IsMaster: true}},
+			}
+			NewWorldMode().uploadGuildEmblem(ctx, options[0].Path)
+			packet, err := network.BuildRegisterGuildEmblemPacket(bmp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			readBotTestPackets(t, conn, packet)
+		})
+	}
+}
 
 func TestGuildNoticeEditorEnterDoesNotActivateConsole(t *testing.T) {
 	mode := NewWorldMode()

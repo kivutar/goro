@@ -1,6 +1,7 @@
 package res
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,15 @@ import (
 type looseDirectory struct {
 	modified time.Time
 	names    map[string]string
+}
+
+// LooseFiles exposes files in the client folder, excluding archive contents.
+// Names are relative to that folder on every platform.
+func (m *Manager) LooseFiles() fs.FS {
+	if m.files != nil {
+		return m.files
+	}
+	return os.DirFS(m.Root)
 }
 
 // Find tries the exact spelling first. On case-sensitive filesystems, walk
@@ -23,7 +33,7 @@ func (m *Manager) findCaseInsensitive(name string) (string, bool) {
 	current := m.Root
 	for _, part := range strings.Split(name, "/") {
 		next := filepath.Join(current, part)
-		if _, err := os.Stat(next); err != nil {
+		if _, err := m.statLoose(next); err != nil {
 			names := m.looseDirectoryNames(current)
 			actual, ok := names[strings.ToLower(part)]
 			if !ok {
@@ -33,14 +43,14 @@ func (m *Manager) findCaseInsensitive(name string) (string, bool) {
 		}
 		current = next
 	}
-	if info, err := os.Stat(current); err == nil && !info.IsDir() {
+	if info, err := m.statLoose(current); err == nil && !info.IsDir() {
 		return current, true
 	}
 	return "", false
 }
 
 func (m *Manager) looseDirectoryNames(directory string) map[string]string {
-	info, err := os.Stat(directory)
+	info, err := m.statLoose(directory)
 	if err != nil || !info.IsDir() {
 		return nil
 	}
@@ -50,7 +60,7 @@ func (m *Manager) looseDirectoryNames(directory string) map[string]string {
 			return entry.names
 		}
 	}
-	entries, err := os.ReadDir(directory)
+	entries, err := m.readLooseDir(directory)
 	if err != nil {
 		return nil
 	}
@@ -64,4 +74,25 @@ func (m *Manager) looseDirectoryNames(directory string) map[string]string {
 	}
 	m.looseDirectories.Store(directory, looseDirectory{modified: info.ModTime(), names: names})
 	return names
+}
+
+func (m *Manager) statLoose(name string) (fs.FileInfo, error) {
+	if m.files != nil {
+		return fs.Stat(m.files, filepath.ToSlash(name))
+	}
+	return os.Stat(name)
+}
+
+func (m *Manager) readLoose(name string) ([]byte, error) {
+	if m.files != nil {
+		return fs.ReadFile(m.files, filepath.ToSlash(name))
+	}
+	return os.ReadFile(name)
+}
+
+func (m *Manager) readLooseDir(name string) ([]fs.DirEntry, error) {
+	if m.files != nil {
+		return fs.ReadDir(m.files, filepath.ToSlash(name))
+	}
+	return os.ReadDir(name)
 }

@@ -50,6 +50,7 @@ type companionAI struct {
 	state    *lua.LState
 	source   string
 	mainDir  string
+	stateDir string
 	loaded   map[string]bool
 	nextTick time.Time
 	disabled bool
@@ -233,6 +234,7 @@ func newCompanionAI(ctx client.Context, mode *WorldMode, kind companionAIKind, n
 			state:    lua.NewState(),
 			source:   candidate.main,
 			mainDir:  candidate.dir,
+			stateDir: ctx.Config.AIStateDir,
 			loaded:   make(map[string]bool),
 			nextTick: now.Add(companionAITickInterval),
 			trace:    companionAITraceEnabled(),
@@ -479,6 +481,21 @@ func (ai *companionAI) registerFileIO(ctx client.Context) {
 			mode = L.CheckString(2)
 			nargs = 2
 		}
+		if ai.stateDir != "" {
+			var err error
+			path, err = ai.prepareIOFile(ctx.Resources, L.CheckString(1), mode)
+			if err != nil {
+				return companionAIIOError(L, err)
+			}
+			if path == "" {
+				data, err := ai.readAIFile(ctx.Resources, L.CheckString(1))
+				if err != nil {
+					return companionAIIOError(L, err)
+				}
+				pushAIReadFile(L, data)
+				return 1
+			}
+		}
 		if companionAIIOWriteMode(mode) {
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				L.Push(lua.LNil)
@@ -500,6 +517,9 @@ func (ai *companionAI) registerFileIO(ctx client.Context) {
 		}
 		return L.GetTop() - baseTop
 	}))
+	if ai.stateDir != "" {
+		registerAIReadFileIO(L, ioTable)
+	}
 }
 
 func companionAIIOPath(root, path string) string {
@@ -699,7 +719,7 @@ func (ai *companionAI) requireAIFile(manager *res.Manager, module string) error 
 
 func (ai *companionAI) doAIFile(manager *res.Manager, path string) error {
 	path = ai.normalizeAIPath(path)
-	data, err := manager.ReadFile(path)
+	data, err := ai.readAIFile(manager, path)
 	if err != nil {
 		return err
 	}
