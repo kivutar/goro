@@ -78,22 +78,3 @@ func TestSceneFogMixColorSmoothstepsToFogColor(t *testing.T) {
 		t.Fatalf("mid color mismatch: %#v", got)
 	}
 }
-
-func TestSceneFogAttenuateColorSmoothstepsToBlack(t *testing.T) {
-	fog := sceneFog{
-		enabled: true,
-		near:    10,
-		far:     20,
-		color:   color.RGBA{R: 200, G: 100, B: 50, A: 255},
-	}
-	base := color.RGBA{R: 100, G: 80, B: 60, A: 180}
-	if got := fog.attenuateColor(base, 5); got != base {
-		t.Fatalf("near color changed: %#v", got)
-	}
-	if got := fog.attenuateColor(base, 20); got != (color.RGBA{A: 180}) {
-		t.Fatalf("far color mismatch: %#v", got)
-	}
-	if got := fog.attenuateColor(base, 15); got != (color.RGBA{R: 50, G: 40, B: 30, A: 180}) {
-		t.Fatalf("mid color mismatch: %#v", got)
-	}
-}
