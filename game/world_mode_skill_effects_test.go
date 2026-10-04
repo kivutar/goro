@@ -3338,7 +3338,7 @@ func TestWorldEffectBillboardSparklingAlphaMatchesRobrowser(t *testing.T) {
 func TestWorldEffectBillboardAngleCanRotateWithCamera(t *testing.T) {
 	projection := newSceneProjectionForTargetYaw(800, 600, 0, 0, 0, 45)
 	component := worldEffectComponent{angleStart: 90, angleEnd: 180, rotateWithCamera: true}
-	got := worldEffectBillboardAngle(component, projection, 0.5)
+	got := worldEffectBillboardAngleForEffect(component, projection, worldEffect{}, 0, 0.5)
 	want := degreesToRadians(180)
 	if math.Abs(got-want) > 0.001 {
 		t.Fatalf("angle = %.3f, want %.3f", got, want)

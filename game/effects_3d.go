@@ -210,14 +210,6 @@ func effectPositionAxis(progress, start, end float64, smooth bool) float64 {
 	return start + (end-start)*progress
 }
 
-func worldEffectBillboardAngle(component worldEffectComponent, projection sceneProjection, progress float64) float64 {
-	angle := (component.angleStart + (component.angleEnd-component.angleStart)*progress) * math.Pi / 180
-	if component.rotateWithCamera {
-		angle += degreesToRadians(projection.cameraYaw)
-	}
-	return angle
-}
-
 func worldEffectBillboardAngleForEffect(component worldEffectComponent, projection sceneProjection, effect worldEffect, salt int, progress float64) float64 {
 	angle := effectComponentAngleDegrees(component, effect, salt)
 	if component.angleRandMax <= component.angleRandMin {
