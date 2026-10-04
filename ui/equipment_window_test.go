@@ -32,16 +32,6 @@ func TestEquippedItemForSlotUsesEquippedWearLocation(t *testing.T) {
 	}
 }
 
-func TestEquipmentSlotByLocationFindsFirstMatchingSlot(t *testing.T) {
-	slot, ok := equipmentSlotByLocation(db.EquipWeapon | db.EquipShield)
-	if !ok {
-		t.Fatal("expected slot")
-	}
-	if slot.location != db.EquipWeapon {
-		t.Fatalf("slot location = 0x%04X, want weapon first", slot.location)
-	}
-}
-
 func TestAccessoryWindowAndEquipSelectionUseOccupiedSlots(t *testing.T) {
 	for _, worn := range []uint16{db.EquipAccessory1, db.EquipAccessory2} {
 		free := (db.EquipAccessory1 | db.EquipAccessory2) &^ worn

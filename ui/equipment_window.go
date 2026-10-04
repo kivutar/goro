@@ -78,20 +78,6 @@ var (
 	equipmentSlotAccessory  = equipmentSlotDef{label: "Accessory", location: db.EquipAccessory1, side: equipmentSlotLeft, row: 4}
 	equipmentSlotAccessory2 = equipmentSlotDef{label: "Accessory", location: db.EquipAccessory2, side: equipmentSlotRight, row: 4}
 	equipmentSlotAmmo       = equipmentSlotDef{label: "Ammo", location: db.EquipAmmo, side: equipmentSlotCenter, row: 1}
-
-	equipmentSlots = []equipmentSlotDef{
-		equipmentSlotHeadTop,
-		equipmentSlotHeadMid,
-		equipmentSlotHeadLow,
-		equipmentSlotArmor,
-		equipmentSlotWeapon,
-		equipmentSlotShield,
-		equipmentSlotGarment,
-		equipmentSlotShoes,
-		equipmentSlotAccessory,
-		equipmentSlotAccessory2,
-		equipmentSlotAmmo,
-	}
 )
 
 func (w *EquipmentWindow) Toggle(ctx Context) {
@@ -655,13 +641,4 @@ func jobSupportsAmmo(job int) bool {
 	default:
 		return false
 	}
-}
-
-func equipmentSlotByLocation(location uint16) (equipmentSlotDef, bool) {
-	for _, slot := range equipmentSlots {
-		if location&slot.location != 0 {
-			return slot, true
-		}
-	}
-	return equipmentSlotDef{}, false
 }
