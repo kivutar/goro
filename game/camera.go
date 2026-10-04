@@ -12,7 +12,6 @@ import (
 
 const (
 	defaultCameraFollowLerpPerMS   = 0.006
-	defaultCameraWheelZoomStep     = 1.12
 	defaultCameraWheelZoomUnits    = 15
 	defaultCameraPinchZoomScale    = 240
 	defaultCameraMinZoom           = 65.0
@@ -306,13 +305,6 @@ func cameraDragPitchDelta(mouseDY int) float64 {
 	return float64(mouseDY) * defaultCameraPitchDragPerPixel
 }
 
-func cameraWheelZoomFactor(wheelY float64) float64 {
-	if wheelY == 0 || !isFinite(wheelY) {
-		return 1
-	}
-	return math.Pow(cameraZoomWheelStep(), -wheelY)
-}
-
 func cameraWheelZoomDelta(wheelY float64) float64 {
 	if wheelY == 0 || !isFinite(wheelY) {
 		return 0
@@ -325,10 +317,6 @@ func cameraPinchZoomFactor(delta float64) float64 {
 		return 1
 	}
 	return math.Exp(-delta / cameraPinchZoomScale())
-}
-
-func cameraZoomWheelStep() float64 {
-	return defaultCameraWheelZoomStep
 }
 
 func cameraZoomWheelUnits() float64 {

@@ -417,15 +417,6 @@ func TestCameraPitchIsClampedToReferenceClientOutdoorLimits(t *testing.T) {
 	}
 }
 
-func TestCameraWheelZoomFactorZoomsInOnWheelUp(t *testing.T) {
-	if got := cameraWheelZoomFactor(1); got >= 1 {
-		t.Fatalf("wheel up factor = %.3f, want zoom-in factor below 1", got)
-	}
-	if got := cameraWheelZoomFactor(-1); got <= 1 {
-		t.Fatalf("wheel down factor = %.3f, want zoom-out factor above 1", got)
-	}
-}
-
 func TestCameraWheelZoomDeltaMatchesRobrowserStep(t *testing.T) {
 	if got := cameraWheelZoomDelta(1); got != -15 {
 		t.Fatalf("wheel up delta = %.1f, want -15", got)
