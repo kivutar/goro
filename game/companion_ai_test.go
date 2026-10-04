@@ -445,15 +445,6 @@ func TestCompanionActorPositionTruncatesMovingCellsLikeRobrowser(t *testing.T) {
 	}
 }
 
-func TestCompanionAICellDistanceMatchesDefaultLua(t *testing.T) {
-	if got, want := companionAICellDistance(0, 0, 3, 4), 5; got != want {
-		t.Fatalf("distance = %d, want %d", got, want)
-	}
-	if got := companionAICellDistance(-1, 0, 3, 4); got != -1 {
-		t.Fatalf("missing distance = %d, want -1", got)
-	}
-}
-
 func TestCompanionSkillRangeFallsBackToRobrowserSkillInfo(t *testing.T) {
 	sess := session.New()
 	sess.Homunculus = session.Companion{ID: 300, Active: true, AttackRange: 1}

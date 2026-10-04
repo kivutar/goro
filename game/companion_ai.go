@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1090,15 +1089,6 @@ func companionActorRenderCell(actor worldstate.Actor, now time.Time) (int, int) 
 		return int(x), int(y)
 	}
 	return actor.X, actor.Y
-}
-
-func companionAICellDistance(x1, y1, x2, y2 int) int {
-	if x1 == -1 || x2 == -1 {
-		return -1
-	}
-	dx := float64(x1 - x2)
-	dy := float64(y1 - y2)
-	return int(math.Floor(math.Sqrt(dx*dx + dy*dy)))
 }
 
 func (m *WorldMode) companionActorMotion(ctx client.Context, id uint32, actorDeaths map[uint32]time.Time) int {
