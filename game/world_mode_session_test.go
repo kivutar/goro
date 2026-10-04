@@ -18,6 +18,22 @@ import (
 	worldstate "github.com/kivutar/goro/world"
 )
 
+func actorDisplayName(ctx client.Context, actor worldstate.Actor, isPlayer bool) string {
+	labels := actorDisplayLabels(ctx, actor, isPlayer)
+	if len(labels) == 0 {
+		return ""
+	}
+	return labels[0]
+}
+
+func (m *WorldMode) hoveredActorDisplayName(ctx client.Context, actor worldstate.Actor, now time.Time) string {
+	labels := m.hoveredActorDisplayLabels(ctx, actor, now)
+	if len(labels) == 0 {
+		return ""
+	}
+	return labels[0]
+}
+
 func TestApplyActorNameAckUpdatesWorldActor(t *testing.T) {
 	world := worldstate.New()
 	world.UpsertActor(worldstate.Actor{ID: 300, Job: 1002})

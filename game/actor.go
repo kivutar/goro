@@ -1101,14 +1101,6 @@ func actorBillboardSortDepth(projection sceneProjection, x, y, z float64) float6
 	return math.Min(footDepth, topDepth)
 }
 
-func actorDisplayName(ctx client.Context, actor worldstate.Actor, isPlayer bool) string {
-	labels := actorDisplayLabels(ctx, actor, isPlayer)
-	if len(labels) == 0 {
-		return ""
-	}
-	return labels[0]
-}
-
 func actorDisplayLabels(ctx client.Context, actor worldstate.Actor, isPlayer bool) []string {
 	name := actorDisplayPrimaryName(ctx, actor, isPlayer)
 	if name == "" {
@@ -1233,14 +1225,6 @@ func (m *WorldMode) drawHoveredActorNameLabel(screen *render.Frame, ctx client.C
 		labelY = actorNameBelowLifeBarY(float64(point.y), scale, life)
 	}
 	drawActorNameLabelsAtY(screen, labels, m.actorGuildEmblem(ctx, actor, isPlayer), float64(point.x), labelY, actorNameLabelColor(actor, isPlayer))
-}
-
-func (m *WorldMode) hoveredActorDisplayName(ctx client.Context, actor worldstate.Actor, now time.Time) string {
-	labels := m.hoveredActorDisplayLabels(ctx, actor, now)
-	if len(labels) == 0 {
-		return ""
-	}
-	return labels[0]
 }
 
 func (m *WorldMode) hoveredActorDisplayLabels(ctx client.Context, actor worldstate.Actor, now time.Time) []string {
