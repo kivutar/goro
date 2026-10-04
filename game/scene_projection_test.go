@@ -8,6 +8,18 @@ import (
 	worldstate "github.com/kivutar/goro/world"
 )
 
+func newSceneProjectionForTarget(width, height int, targetX, targetY, targetZ float64) sceneProjection {
+	return newSceneProjectionForTargetYaw(width, height, targetX, targetY, targetZ, sceneCameraYaw())
+}
+
+func newSceneProjectionForTargetYaw(width, height int, targetX, targetY, targetZ, yaw float64) sceneProjection {
+	return newSceneProjectionForTargetYawZoom(width, height, targetX, targetY, targetZ, yaw, sceneCameraZoom())
+}
+
+func newSceneProjectionForTargetYawZoom(width, height int, targetX, targetY, targetZ, yaw, zoom float64) sceneProjection {
+	return newSceneProjectionForTargetYawPitchZoom(width, height, targetX, targetY, targetZ, yaw, sceneCameraPitch(), zoom)
+}
+
 func TestBilinearHeight(t *testing.T) {
 	heights := [4]float32{0, 10, 20, 30}
 	if got := bilinearHeight(heights, 0.5, 0.5); got != 15 {
