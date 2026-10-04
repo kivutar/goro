@@ -255,6 +255,9 @@ func TestWorldPipelineHonorsIndependentDepthOptions(t *testing.T) {
 			t.Fatalf("pipeline for %+v = %p, want %p", options, got, pipeline)
 		}
 		desc := r.worldPipelineDescriptor(nil, gputypes.BlendStateAlpha(), key.depthTest, key.depthWrite, "test")
+		if desc.DepthStencil.Format != gputypes.TextureFormatDepth32Float {
+			t.Fatalf("GPU depth format = %v, want Depth32Float for AMD Vulkan occlusion", desc.DepthStencil.Format)
+		}
 		wantCompare := gputypes.CompareFunctionAlways
 		if key.depthTest {
 			wantCompare = gputypes.CompareFunctionLessEqual

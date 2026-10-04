@@ -26,6 +26,10 @@ const (
 	billboardInstanceStride     = billboardInstanceFloatCount * 4
 )
 
+// Depth24Plus produces incorrect model occlusion on affected AMD Vulkan
+// setups. Keep the explicit float format consistent across all attachments.
+const depthFormat = gputypes.TextureFormatDepth32Float
+
 type gpuRenderer struct {
 	dev                    *wgpu.Device
 	queue                  *wgpu.Queue
@@ -366,7 +370,7 @@ func (r *gpuRenderer) screenPipelineDescriptor(shader *wgpu.ShaderModule, blend 
 		// Screen draws share the world's render pass, so their attachment
 		// format must match even though they neither test nor write depth.
 		DepthStencil: &wgpu.DepthStencilState{
-			Format:            gputypes.TextureFormatDepth24Plus,
+			Format:            depthFormat,
 			DepthWriteEnabled: false,
 			DepthCompare:      gputypes.CompareFunctionAlways,
 		},
@@ -413,7 +417,7 @@ func (r *gpuRenderer) worldPipelineDescriptor(shader *wgpu.ShaderModule, blend g
 			CullMode:  gputypes.CullModeNone,
 		},
 		DepthStencil: &wgpu.DepthStencilState{
-			Format:            gputypes.TextureFormatDepth24Plus,
+			Format:            depthFormat,
 			DepthWriteEnabled: depthWrite,
 			DepthCompare:      worldDepthCompare(depthTest),
 		},
@@ -467,7 +471,7 @@ func (r *gpuRenderer) createWorldBillboardPipeline(shader *wgpu.ShaderModule, bl
 			CullMode:  gputypes.CullModeNone,
 		},
 		DepthStencil: &wgpu.DepthStencilState{
-			Format:            gputypes.TextureFormatDepth24Plus,
+			Format:            depthFormat,
 			DepthWriteEnabled: false,
 			DepthCompare:      worldDepthCompare(depthTest),
 		},
@@ -1295,7 +1299,7 @@ func (r *gpuRenderer) ensureDepth(width, height int) error {
 		MipLevelCount: 1,
 		SampleCount:   1,
 		Dimension:     gputypes.TextureDimension2D,
-		Format:        gputypes.TextureFormatDepth24Plus,
+		Format:        depthFormat,
 		Usage:         wgpu.TextureUsageRenderAttachment,
 	})
 	if err != nil {
