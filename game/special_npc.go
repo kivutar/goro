@@ -16,15 +16,7 @@ const (
 	specialNPCVisualTorch
 )
 
-func specialNPCVisualForActor(ctx client.Context, actor worldstate.Actor) specialNPCVisual {
-	resourceName := ""
-	if ctx.Resources != nil {
-		resourceName, _ = ctx.Resources.NonPCResourceName(int(actor.Job))
-	}
-	return specialNPCVisualForActorResource(actor, resourceName)
-}
-
-func specialNPCVisualForActorResource(actor worldstate.Actor, resourceName string) specialNPCVisual {
+func specialNPCVisualForActor(actor worldstate.Actor) specialNPCVisual {
 	if int(actor.Job) == actorJobClearNPC {
 		switch normalizeSpecialNPCActorName(actor.Name) {
 		case "BOBBING TORCH", "WET FIREWOOD":
@@ -32,15 +24,6 @@ func specialNPCVisualForActorResource(actor worldstate.Actor, resourceName strin
 		}
 	}
 	return specialNPCVisualNone
-}
-
-func normalizeSpecialNPCResourceName(name string) string {
-	name = strings.TrimSpace(strings.ReplaceAll(name, "/", "\\"))
-	name = strings.TrimPrefix(name, "data\\sprite\\")
-	if i := strings.LastIndex(name, "\\"); i >= 0 {
-		name = name[i+1:]
-	}
-	return strings.ToUpper(name)
 }
 
 func normalizeSpecialNPCActorName(name string) string {

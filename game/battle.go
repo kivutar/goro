@@ -2100,7 +2100,7 @@ func (m *WorldMode) actorLifeForDisplay(ctx client.Context, actor world.Actor) (
 	if actor.ID == 0 {
 		return actorLife{}, false
 	}
-	if specialNPCVisualForActor(ctx, actor) != specialNPCVisualNone {
+	if specialNPCVisualForActor(actor) != specialNPCVisualNone {
 		return actorLife{}, false
 	}
 	if isLocalActor(ctx, actor.ID) {

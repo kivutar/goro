@@ -929,7 +929,7 @@ func (m *WorldMode) drawSceneActorEntry(screen *render.Frame, ctx client.Context
 		}
 		return
 	}
-	if visual := specialNPCVisualForActor(ctx, entry.actor); visual != specialNPCVisualNone {
+	if visual := specialNPCVisualForActor(entry.actor); visual != specialNPCVisualNone {
 		if m.drawSpecialNPCVisual(screen, ctx, projection, entry, visual, time.Now()) {
 			return
 		}
