@@ -496,8 +496,10 @@ func TestTorchEffectSpecMatchesRoBrowserShape(t *testing.T) {
 	if component.posX != 0.1 || component.posZ != 0.8 || component.sizeStart != effectTableSize(100) || component.angleStart != 270 || !component.rotateToTarget {
 		t.Fatalf("torch placement = %+v", component)
 	}
-	if got := worldEffectSpriteAngle(component); got != 360 {
-		t.Fatalf("torch effective angle = %.1f, want 360.0", got)
+	ctx := client.Context{World: worldstate.New()}
+	angle, ok := effectSpriteRobrowserRotation(ctx, sceneProjection{}, component, worldEffect{effectID: effectTorch}, 0)
+	if !ok || math.Abs(angle+2*math.Pi) > 0.001 {
+		t.Fatalf("torch effective angle = %.3f, %v, want -2π radians, true", angle, ok)
 	}
 }
 

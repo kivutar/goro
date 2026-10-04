@@ -155,22 +155,6 @@ func effectTrajectoryEndpoints(ctx client.Context, component worldEffectComponen
 	return worldX + startX, worldY + startY, worldZ + startZ, worldX + endX, worldY + endY, worldZ + endZ, true
 }
 
-func worldEffectSpriteAngle(component worldEffectComponent) float64 {
-	angle := component.angleStart
-	if !component.rotateToTarget {
-		return angle
-	}
-	startX, startY := component.posX, component.posY
-	endX, endY := component.posXEnd, component.posYEnd
-	if component.posXEnd == 0 && component.posXEndRand == 0 {
-		endX = startX
-	}
-	if component.posYEnd == 0 && component.posYEndRand == 0 {
-		endY = startY
-	}
-	return angle + 90 - math.Atan2(endY-startY, endX-startX)*180/math.Pi
-}
-
 func (m *WorldMode) drawSPREffect(screen *render.Frame, ctx client.Context, projection sceneProjection, effect worldEffect, component worldEffectComponent, worldX, worldY, worldZ float64, now time.Time) {
 	view := m.effectSpriteView(ctx.Resources, component.spriteFile)
 	if view == nil || len(view.act.Actions) == 0 {
