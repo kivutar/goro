@@ -338,7 +338,11 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 }
 
 func (r *gpuRenderer) createPipeline(shader *wgpu.ShaderModule, blend gputypes.BlendState, label string) (*wgpu.RenderPipeline, error) {
-	return r.dev.CreateRenderPipeline(&wgpu.RenderPipelineDescriptor{
+	return r.dev.CreateRenderPipeline(r.screenPipelineDescriptor(shader, blend, label))
+}
+
+func (r *gpuRenderer) screenPipelineDescriptor(shader *wgpu.ShaderModule, blend gputypes.BlendState, label string) *wgpu.RenderPipelineDescriptor {
+	return &wgpu.RenderPipelineDescriptor{
 		Label:  label,
 		Layout: r.layout,
 		Vertex: wgpu.VertexState{
@@ -359,6 +363,13 @@ func (r *gpuRenderer) createPipeline(shader *wgpu.ShaderModule, blend gputypes.B
 			FrontFace: gputypes.FrontFaceCCW,
 			CullMode:  gputypes.CullModeNone,
 		},
+		// Screen draws share the world's render pass, so their attachment
+		// format must match even though they neither test nor write depth.
+		DepthStencil: &wgpu.DepthStencilState{
+			Format:            gputypes.TextureFormatDepth24Plus,
+			DepthWriteEnabled: false,
+			DepthCompare:      gputypes.CompareFunctionAlways,
+		},
 		Fragment: &wgpu.FragmentState{
 			Module:     shader,
 			EntryPoint: "fs_main",
@@ -368,7 +379,7 @@ func (r *gpuRenderer) createPipeline(shader *wgpu.ShaderModule, blend gputypes.B
 				WriteMask: gputypes.ColorWriteMaskAll,
 			}},
 		},
-	})
+	}
 }
 
 func (r *gpuRenderer) createWorldPipeline(shader *wgpu.ShaderModule, blend gputypes.BlendState, depthTest, depthWrite bool, label string) (*wgpu.RenderPipeline, error) {

@@ -265,6 +265,19 @@ func TestWorldPipelineHonorsIndependentDepthOptions(t *testing.T) {
 	}
 }
 
+func TestScreenPipelineSharesWorldDepthAttachment(t *testing.T) {
+	r := &gpuRenderer{format: gputypes.TextureFormatBGRA8Unorm}
+	world := r.worldPipelineDescriptor(nil, gputypes.BlendStateAlpha(), true, true, "world")
+	screen := r.screenPipelineDescriptor(nil, gputypes.BlendStateAlpha(), "screen")
+	depth := screen.DepthStencil
+	if depth == nil || depth.Format != world.DepthStencil.Format {
+		t.Fatalf("screen depth attachment = %+v, must match world attachment %+v", depth, world.DepthStencil)
+	}
+	if depth.DepthWriteEnabled || depth.DepthCompare != gputypes.CompareFunctionAlways {
+		t.Fatalf("screen draws must overlay the world without modifying depth: %+v", depth)
+	}
+}
+
 func TestWorldBillboardPipelineSelectionHonorsBlendAndDepthTest(t *testing.T) {
 	alphaRead := &wgpu.RenderPipeline{}
 	addRead := &wgpu.RenderPipeline{}
