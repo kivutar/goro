@@ -432,7 +432,6 @@ func tableViewColors() struct {
 	Header   widget.Color
 	Row      widget.Color
 	AltRow   widget.Color
-	Hover    widget.Color
 	Selected widget.Color
 } {
 	return struct {
@@ -440,14 +439,12 @@ func tableViewColors() struct {
 		Header   widget.Color
 		Row      widget.Color
 		AltRow   widget.Color
-		Hover    widget.Color
 		Selected widget.Color
 	}{
 		Body:     Default.Colors.WindowBody,
 		Header:   Default.Colors.WindowBody,
 		Row:      widget.RGBA8(246, 249, 253, 255),
 		AltRow:   Default.Colors.WindowBody,
-		Hover:    Default.Colors.ButtonHover,
 		Selected: Default.Colors.ButtonDown,
 	}
 }
@@ -944,9 +941,6 @@ func (w *TableViewWidget) rowBackground(row int) widget.Color {
 	colors := tableViewColors()
 	if w.selected(row) {
 		return colors.Selected
-	}
-	if row == w.hoveredRow {
-		return colors.Hover
 	}
 	if row%2 == 1 {
 		return colors.AltRow

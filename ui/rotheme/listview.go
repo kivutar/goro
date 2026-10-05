@@ -76,9 +76,6 @@ func (SelectListPainter) PaintItemBackground(canvas widget.Canvas, state listvie
 	if state.Index%2 == 1 {
 		fill = Default.Colors.PanelBody
 	}
-	if state.Hovered {
-		fill = Default.Colors.ButtonHover
-	}
 	canvas.DrawRect(state.Bounds, fill)
 }
 
