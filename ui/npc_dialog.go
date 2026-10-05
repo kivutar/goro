@@ -57,6 +57,7 @@ const (
 
 type NPCDialog struct {
 	open        bool
+	hasDialog   bool
 	npcID       uint32
 	lines       []string
 	options     []string
@@ -98,6 +99,7 @@ func (d *NPCDialog) Apply(packet network.NPCDialog) {
 			d.clearOnText = false
 		}
 		d.open = true
+		d.hasDialog = true
 		d.npcID = packet.NPCID
 		d.action = npcDialogActionNone
 		d.options = nil
@@ -114,13 +116,15 @@ func (d *NPCDialog) Apply(packet network.NPCDialog) {
 			return
 		}
 		d.open = true
+		d.hasDialog = true
 		d.npcID = packet.NPCID
 		d.action = npcDialogActionNext
 		d.options = nil
 		d.clearInput()
 		d.dirty = true
 	case network.NPCDialogClose:
-		if !d.open && len(d.lines) == 0 {
+		if !d.hasDialog {
+			d.Reset()
 			return
 		}
 		d.open = true
@@ -153,6 +157,7 @@ func (d *NPCDialog) Reset() {
 	wasOpen := d.open
 	d.closeWindows()
 	d.open = false
+	d.hasDialog = false
 	d.npcID = 0
 	d.lines = nil
 	d.options = nil
@@ -401,7 +406,7 @@ func (d *NPCDialog) ensureWindows(ctx Context) {
 	x, y, w, h := npcDialogBounds(width, height)
 	if d.dialogWindow.width == 0 {
 		d.dialogWindow = NewWindow(w, h)
-		d.dialogWindow.OpenAt(x, y, d.dialogTree(ctx, w, h))
+		d.dialogWindow.SetAutoPosition(x, y)
 	} else {
 		if d.dialogWindow.width != w || d.dialogWindow.height != h {
 			d.dirty = true
@@ -444,11 +449,17 @@ func (d *NPCDialog) ensureWindows(ctx Context) {
 func (d *NPCDialog) openWindows(ctx Context) bool {
 	d.ensureWindows(ctx)
 	changed := d.dirty
-	if !d.dialogWindow.IsOpen() {
-		d.dialogWindow.OpenAt(d.dialogWindow.x, d.dialogWindow.y, d.dialogTree(ctx, d.dialogWindow.width, d.dialogWindow.height))
+	// Menus and input prompts can be sent without a preceding text dialog.
+	if d.hasDialog || d.status != "" {
+		if !d.dialogWindow.IsOpen() {
+			d.dialogWindow.OpenAt(d.dialogWindow.x, d.dialogWindow.y, d.dialogTree(ctx, d.dialogWindow.width, d.dialogWindow.height))
+			changed = true
+		} else if d.dirty {
+			d.dialogWindow.SetContent(d.dialogTree(ctx, d.dialogWindow.width, d.dialogWindow.height))
+		}
+	} else if d.dialogWindow.IsOpen() {
+		d.dialogWindow.Close()
 		changed = true
-	} else if d.dirty {
-		d.dialogWindow.SetContent(d.dialogTree(ctx, d.dialogWindow.width, d.dialogWindow.height))
 	}
 	if d.action == npcDialogActionMenu {
 		if !d.menuWindow.IsOpen() {
@@ -493,7 +504,7 @@ func (d *NPCDialog) closeWindows() {
 }
 
 func (d *NPCDialog) refresh(ctx Context) {
-	if !d.open || !d.dialogWindow.IsOpen() {
+	if !d.open {
 		return
 	}
 	d.openWindows(ctx)
@@ -503,7 +514,7 @@ func (d *NPCDialog) publish(ctx Context) {
 	if ctx.UIManager == nil {
 		return
 	}
-	if !d.open || !d.dialogWindow.IsOpen() {
+	if !d.open {
 		d.dialogWindow.Unpublish(ctx)
 		d.menuWindow.Unpublish(ctx)
 		d.inputWindow.Unpublish(ctx)
