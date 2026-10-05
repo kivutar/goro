@@ -1531,6 +1531,10 @@ func (r *runner) drawUIDragLayer(screen *Frame) {
 	opts.GeoM.Scale(float64(drawRect.Width())/float64(bounds.Dx()), float64(drawRect.Height())/float64(bounds.Dy()))
 	opts.GeoM.Translate(float64(drawRect.Min.X), float64(drawRect.Min.Y))
 	opts.Filter = FilterNearest
+	// Restore opacity on release, even while the async UI is catching up.
+	if !r.uiDrag.releasePending {
+		opts.ColorScale.ScaleAlpha(0.7)
+	}
 	screen.DrawImage(r.uiDrag.image, &opts)
 }
 
