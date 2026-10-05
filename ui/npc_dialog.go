@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gogpu/ui/core/listview"
@@ -660,7 +661,7 @@ func (d *NPCDialog) menuTree(ctx Context, width, height int) widget.Widget {
 		CloseButton(false),
 		Size(float32(width), float32(height)),
 		Content(
-			primitives.Box(d.menuList()).
+			primitives.Box(d.menuList(ctx)).
 				Padding(npcMenuPad),
 		),
 		Footer(
@@ -677,7 +678,9 @@ func (d *NPCDialog) menuTree(ctx Context, width, height int) widget.Widget {
 	)
 }
 
-func (d *NPCDialog) menuList() widget.Widget {
+func (d *NPCDialog) menuList(ctx Context) widget.Widget {
+	lastClickRow := -1
+	var lastClickAt time.Time
 	lv := listview.New(
 		listview.ItemCount(len(d.options)),
 		listview.FixedItemHeight(npcMenuRowH),
@@ -686,6 +689,18 @@ func (d *NPCDialog) menuList() widget.Widget {
 		listview.SelectedIndex(d.menuRow),
 		listview.OnSelectionChange(func(index int) {
 			d.menuRow = index
+		}),
+		listview.OnItemClick(func(index int) {
+			// Item clicks arrive before the list updates its selection.
+			d.menuRow = index
+			now := time.Now()
+			if lastClickRow == index && now.Sub(lastClickAt) <= 360*time.Millisecond {
+				lastClickRow = -1
+				lastClickAt = time.Time{}
+				d.chooseSelected(ctx)
+				return
+			}
+			lastClickRow, lastClickAt = index, now
 		}),
 		listview.PainterOpt(rotheme.SelectListPainter{EmptyText: "No options."}),
 		listview.BuildItem(func(item listview.ItemContext) widget.Widget {

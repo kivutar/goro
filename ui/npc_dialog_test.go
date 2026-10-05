@@ -4,9 +4,66 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/gogpu/ui/event"
+	"github.com/gogpu/ui/uitest"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
 )
+
+func TestNPCDialogMenuDoubleClickConfirmsClickedEntry(t *testing.T) {
+	ctx, _, app := newWindowInstanceTest()
+	client, server := newIdentifyTestConnection(t)
+	ctx.Network = client
+	var dialog NPCDialog
+	openMenu := func() {
+		dialog.Apply(network.NPCDialog{Kind: network.NPCDialogMenu, NPCID: 100,
+			Options: []string{"Prontera", "Geffen"}})
+		dialog.Update(ctx)
+		app.Frame()
+		app.Window().DrawTo(&uitest.MockCanvas{})
+	}
+	clickRow := func(row int) {
+		x := float32(dialog.menuWindow.x + npcMenuPad + 10)
+		y := float32(dialog.menuWindow.y + ROWindowTitleHeight + npcMenuPad + row*npcMenuRowH + npcMenuRowH/2)
+		app.HandleEvent(uitest.Click(x, y))
+		app.HandleEvent(uitest.Release(x, y))
+	}
+
+	openMenu()
+	clickRow(0)
+	assertNoIdentifyTestPackets(t, client, server)
+
+	// Replacing the menu must discard the previous menu's first click.
+	openMenu()
+	clickRow(0)
+	assertNoIdentifyTestPackets(t, client, server)
+	clickRow(1)
+	if dialog.menuRow != 1 {
+		t.Fatalf("clicked row = %d, want 1", dialog.menuRow)
+	}
+	assertNoIdentifyTestPackets(t, client, server)
+
+	// The mouse's second click confirms its row, even if keyboard navigation
+	// changed selection in between the two clicks.
+	app.HandleEvent(event.NewKeyEvent(event.KeyPress, event.KeyUp, 0, event.ModNone))
+	if dialog.menuRow != 0 {
+		t.Fatalf("keyboard selection = %d, want 0", dialog.menuRow)
+	}
+	clickRow(1)
+	readIdentifyTestPacket(t, server, network.BuildNPCMenuChoicePacket(100, 2))
+	if dialog.action != npcDialogActionNone || dialog.menuWindow.IsOpen() {
+		t.Fatal("confirmed NPC menu stayed active")
+	}
+	assertNoIdentifyTestPackets(t, client, server)
+
+	// A following menu requires its own double click.
+	openMenu()
+	clickRow(1)
+	assertNoIdentifyTestPackets(t, client, server)
+	clickRow(1)
+	readIdentifyTestPacket(t, server, network.BuildNPCMenuChoicePacket(100, 2))
+	assertNoIdentifyTestPackets(t, client, server)
+}
 
 func TestNPCDialogControllerSelectionScrollsAndClamps(t *testing.T) {
 	dialog := NPCDialog{}
