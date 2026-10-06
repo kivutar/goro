@@ -14,7 +14,7 @@ import (
 
 const (
 	mercenaryInfoWindowW = homunculusInfoWindowW
-	mercenaryInfoWindowH = 300
+	mercenaryInfoWindowH = 272
 )
 
 var (
@@ -140,8 +140,8 @@ func (w *MercenaryInfoWindow) detailsColumn(ctx Context) widget.Widget {
 	return primitives.Box(
 		w.infoRow("Name", displayMercenaryName(w.companion)),
 		w.infoRow("Level", fmt.Sprintf("%d", w.companion.Level)),
-		w.barRow("HP", w.companion.HP, w.companion.MaxHP, Color(homunculusInfoHPColor), true),
-		w.barRow("SP", w.companion.SP, w.companion.MaxSP, Color(homunculusInfoSPColor), true),
+		vitalsRow("HP", w.companion.HP, w.companion.MaxHP, homunculusInfoRightW),
+		vitalsRow("SP", w.companion.SP, w.companion.MaxSP, homunculusInfoRightW),
 		w.barRow("Time", mercenaryRemainingSeconds(w.companion.ExpireTick), mercenaryLifetimeSeconds, timeFill, false),
 		w.infoRow("Left", formatMercenaryExpireDate(w.companion.ExpireTick)),
 		w.barRow("Kills", int(w.companion.Kills%50), 50, Color(mercenaryInfoKillsColor), true),

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogpu/ui/core/progressbar"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
@@ -31,9 +30,6 @@ const (
 	characterEXPLabelBarGap      float32 = 6
 	characterEXPBarHeight        float32 = 6
 	characterTextLineHeight      float32 = 1.2
-	characterVitalsLabelWidth    float32 = 22
-	characterVitalsPercentWidth  float32 = 34
-	characterVitalsGap           float32 = 6
 )
 
 var (
@@ -160,8 +156,8 @@ func (w *CharacterWindow) bodyTree(ctx Context) *primitives.BoxWidget {
 	}
 	return primitives.Box(
 		primitives.Box(
-			characterRatioRow("HP", vitals.HP, vitals.MaxHP, characterWindowWidth-24),
-			characterRatioRow("SP", vitals.SP, vitals.MaxSP, characterWindowWidth-24),
+			vitalsRow("HP", vitals.HP, vitals.MaxHP, characterWindowWidth-24),
+			vitalsRow("SP", vitals.SP, vitals.MaxSP, characterWindowWidth-24),
 		).Gap(4),
 		characterEXPPanel(progress, characterWindowWidth-24),
 		primitives.HBox(
@@ -275,27 +271,6 @@ func characterWindowSnapshot(s *session.Session) string {
 		inventory.Weight,
 		inventory.MaxWeight,
 	)
-}
-
-func characterRatioRow(label string, current, maxValue int, width float32) widget.Widget {
-	ratio := ratioInt(current, maxValue)
-	values := fmt.Sprintf("%d / %d", current, maxValue)
-	return primitives.HBox(
-		characterVitalsText(label, characterVitalsLabelWidth, primitives.TextAlignStart),
-		primitives.Expanded(rotheme.ProgressBar(
-			progressbar.Value(ratio),
-			progressbar.ShowLabel(true),
-			progressbar.FormatLabelFn(func(float64) string { return values }),
-		)),
-		characterVitalsText(fmt.Sprintf("%.0f%%", ratio*100), characterVitalsPercentWidth, primitives.TextAlignEnd),
-	).Width(width).Gap(characterVitalsGap).CrossAlign(primitives.CrossAxisCenter)
-}
-
-func characterVitalsText(text string, width float32, align primitives.TextAlign) widget.Widget {
-	return primitives.Box(
-		rotheme.Text(text).Align(align).
-			LineHeight(rotheme.ProgressBarHeight / rotheme.Default.Typography.TextSize),
-	).Width(width).CrossAlign(primitives.CrossAxisStretch)
 }
 
 func characterLevelProgressRow(label string, level int, current, next int64, fill widget.Color, width float32) widget.Widget {

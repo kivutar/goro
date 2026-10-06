@@ -18,7 +18,7 @@ import (
 
 const (
 	homunculusInfoWindowW     = 300
-	homunculusInfoWindowH     = 320
+	homunculusInfoWindowH     = 292
 	homunculusInfoContentPad  = 10
 	homunculusInfoContentW    = homunculusInfoWindowW - homunculusInfoContentPad*2
 	homunculusInfoColumnGap   = 10
@@ -43,8 +43,6 @@ const (
 
 var (
 	homunculusInfoBarBack  = color.RGBA{R: 66, G: 66, B: 66, A: 255}
-	homunculusInfoHPColor  = PlayerHPBarColor
-	homunculusInfoSPColor  = PlayerSPBarColor
 	homunculusInfoExpColor = WindowBorderColor
 )
 
@@ -178,8 +176,8 @@ func (w *HomunculusInfoWindow) detailsColumn(ctx Context) widget.Widget {
 	return primitives.Box(
 		w.nameRow(ctx),
 		w.infoRow("Level", fmt.Sprintf("%d", w.companion.Level)),
-		w.barRow("HP", w.companion.HP, w.companion.MaxHP, Color(homunculusInfoHPColor), true),
-		w.barRow("SP", w.companion.SP, w.companion.MaxSP, Color(homunculusInfoSPColor), true),
+		vitalsRow("HP", w.companion.HP, w.companion.MaxHP, homunculusInfoRightW),
+		vitalsRow("SP", w.companion.SP, w.companion.MaxSP, homunculusInfoRightW),
 		w.expBarRow("EXP", w.companion.Exp, w.companion.MaxExp, Color(homunculusInfoExpColor)),
 		w.barRow("Hunger", w.companion.Hunger, 100, Color(HungerBarFillColor(w.companion.Hunger, 100)), true),
 		w.infoRow("Intimacy", HomunculusIntimacyText(w.companion.Intimacy)),
@@ -229,8 +227,9 @@ func (w *HomunculusInfoWindow) nameInput(ctx Context) *textfield.Widget {
 func (w *HomunculusInfoWindow) infoRow(label, value string) widget.Widget {
 	return primitives.HBox(
 		w.rowLabel(label, homunculusInfoInfoLabelW),
-		primitives.Box(rotheme.Text(value)).
-			Width(homunculusInfoInfoValueW),
+		primitives.Box(rotheme.Text(value).Align(widget.TextAlignRight)).
+			Width(homunculusInfoInfoValueW).
+			CrossAlign(primitives.CrossAxisStretch),
 	).
 		Gap(homunculusInfoInfoGap).
 		CrossAlign(primitives.CrossAxisCenter).
@@ -243,7 +242,8 @@ func (w *HomunculusInfoWindow) barRow(label string, current, maxValue int, fill 
 		primitives.HBox(
 			w.rowLabel(label, homunculusInfoInfoLabelW),
 			primitives.Box(rotheme.Text(text).Align(widget.TextAlignRight)).
-				Width(homunculusInfoInfoValueW),
+				Width(homunculusInfoInfoValueW).
+				CrossAlign(primitives.CrossAxisStretch),
 		).
 			Gap(homunculusInfoInfoGap).
 			CrossAlign(primitives.CrossAxisCenter).
@@ -261,7 +261,8 @@ func (w *HomunculusInfoWindow) expBarRow(label string, current, maxValue uint64,
 		primitives.HBox(
 			w.rowLabel(label, homunculusInfoInfoLabelW),
 			primitives.Box(rotheme.Text(formatHomunculusEXPBarText(current, maxValue)).Align(widget.TextAlignRight)).
-				Width(homunculusInfoInfoValueW),
+				Width(homunculusInfoInfoValueW).
+				CrossAlign(primitives.CrossAxisStretch),
 		).
 			Gap(homunculusInfoInfoGap).
 			CrossAlign(primitives.CrossAxisCenter).

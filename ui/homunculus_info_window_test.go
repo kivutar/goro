@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kivutar/goro/session"
+	"github.com/kivutar/goro/ui/rotheme"
 )
 
 func TestHomunculusIntimacyTextMatchesRobrowserThresholds(t *testing.T) {
@@ -48,7 +49,7 @@ func TestHomunculusRenameUsesModifiedFlagThreshold(t *testing.T) {
 
 func TestHomunculusInfoWindowHeightFitsDetails(t *testing.T) {
 	const barBlockH = homunculusInfoRowH + homunculusInfoBarH + homunculusInfoBarGap
-	requiredDetailsH := homunculusInfoNameH + homunculusInfoRowH + 4*barBlockH + 2*homunculusInfoRowH + 7*homunculusInfoRowGap
+	requiredDetailsH := homunculusInfoNameH + 3*homunculusInfoRowH + 2*barBlockH + 2*int(rotheme.ProgressBarHeight) + 7*homunculusInfoRowGap
 	requiredBodyH := homunculusInfoContentPad*2 + requiredDetailsH
 	availableBodyH := homunculusInfoWindowH - ROWindowTitleHeight - ROWindowFooterHeight
 	if availableBodyH < requiredBodyH {
