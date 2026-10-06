@@ -286,6 +286,10 @@ func TestCharacterWindowToggleSurvivesUpdatesWhilePressed(t *testing.T) {
 			root, published := character.content, character.published
 			header := root.Children()[0]
 			wasCompact := character.compact
+			wantHP := "65 / 100"
+			if wasCompact {
+				wantHP = "HP " + wantHP
+			}
 			x := character.x + character.width - windowTitleButtonPadR - windowTitleButtonSize/2
 			y := character.y + ROWindowTitleHeight/2
 			ctx.Input.SetMousePosition(x, y)
@@ -317,7 +321,7 @@ func TestCharacterWindowToggleSurvivesUpdatesWhilePressed(t *testing.T) {
 				app.Window().DrawTo(canvas)
 				foundHP := false
 				for _, text := range canvas.StyledTexts {
-					if text.Text == "HP 65 / 100" {
+					if text.Text == wantHP {
 						foundHP = true
 					}
 				}

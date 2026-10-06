@@ -2,11 +2,11 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"math"
 	"strconv"
 	"strings"
 
+	"github.com/gogpu/ui/core/progressbar"
 	"github.com/gogpu/ui/event"
 	"github.com/gogpu/ui/geometry"
 	"github.com/gogpu/ui/primitives"
@@ -21,7 +21,7 @@ const (
 	characterWindowX                     = windowScreenMargin
 	characterWindowY                     = windowScreenMargin
 	characterWindowWidth                 = 324
-	characterWindowHeight                = 134
+	characterWindowHeight                = 140
 	characterWindowCompactHeight         = 80
 	characterEXPPanelPaddingX    float32 = 6
 	characterEXPPanelPaddingY    float32 = 4
@@ -31,12 +31,12 @@ const (
 	characterEXPLabelBarGap      float32 = 6
 	characterEXPBarHeight        float32 = 6
 	characterTextLineHeight      float32 = 1.2
+	characterVitalsLabelWidth    float32 = 22
+	characterVitalsPercentWidth  float32 = 34
+	characterVitalsGap           float32 = 6
 )
 
 var (
-	characterWindowBarBack     = color.RGBA{R: 224, G: 232, B: 242, A: 255}
-	characterWindowHPColor     = PlayerHPBarColor
-	characterWindowSPColor     = PlayerSPBarColor
 	characterWindowEXPColor    = WindowBorderColor
 	characterWindowJobEXPColor = WindowBorderColor
 )
@@ -159,10 +159,10 @@ func (w *CharacterWindow) bodyTree(ctx Context) *primitives.BoxWidget {
 		weightColor = Color(ErrorTextColor)
 	}
 	return primitives.Box(
-		primitives.HBox(
-			characterRatioRow("HP", vitals.HP, vitals.MaxHP, Color(characterWindowHPColor), 146),
-			characterRatioRow("SP", vitals.SP, vitals.MaxSP, Color(characterWindowSPColor), 146),
-		).Gap(8),
+		primitives.Box(
+			characterRatioRow("HP", vitals.HP, vitals.MaxHP, characterWindowWidth-24),
+			characterRatioRow("SP", vitals.SP, vitals.MaxSP, characterWindowWidth-24),
+		).Gap(4),
 		characterEXPPanel(progress, characterWindowWidth-24),
 		primitives.HBox(
 			characterAlignedTextCell(fmt.Sprintf("Weight : %d / %d", displayWeight(inventory.Weight), displayWeight(inventory.MaxWeight)), 146, weightColor, primitives.TextAlignStart),
@@ -277,12 +277,25 @@ func characterWindowSnapshot(s *session.Session) string {
 	)
 }
 
-func characterRatioRow(label string, current, maxValue int, fill widget.Color, width float32) widget.Widget {
+func characterRatioRow(label string, current, maxValue int, width float32) widget.Widget {
+	ratio := ratioInt(current, maxValue)
+	values := fmt.Sprintf("%d / %d", current, maxValue)
+	return primitives.HBox(
+		characterVitalsText(label, characterVitalsLabelWidth, primitives.TextAlignStart),
+		primitives.Expanded(rotheme.ProgressBar(
+			progressbar.Value(ratio),
+			progressbar.ShowLabel(true),
+			progressbar.FormatLabelFn(func(float64) string { return values }),
+		)),
+		characterVitalsText(fmt.Sprintf("%.0f%%", ratio*100), characterVitalsPercentWidth, primitives.TextAlignEnd),
+	).Width(width).Gap(characterVitalsGap).CrossAlign(primitives.CrossAxisCenter)
+}
+
+func characterVitalsText(text string, width float32, align primitives.TextAlign) widget.Widget {
 	return primitives.Box(
-		rotheme.Text(fmt.Sprintf("%s %d / %d", label, current, maxValue)).
-			Color(rotheme.Default.Colors.MutedText),
-		newCharacterBarWidget(ratioInt(current, maxValue), fill, width, 7),
-	).Width(width).Gap(2)
+		rotheme.Text(text).Align(align).
+			LineHeight(rotheme.ProgressBarHeight / rotheme.Default.Typography.TextSize),
+	).Width(width).CrossAlign(primitives.CrossAxisStretch)
 }
 
 func characterLevelProgressRow(label string, level int, current, next int64, fill widget.Color, width float32) widget.Widget {
@@ -319,10 +332,6 @@ type characterBarWidget struct {
 	background widget.Color
 	width      float32
 	height     float32
-}
-
-func newCharacterBarWidget(ratio float64, fill widget.Color, width, height float32) *characterBarWidget {
-	return newCharacterBarWidgetWithBackground(ratio, fill, Color(characterWindowBarBack), width, height)
 }
 
 func newCharacterBarWidgetWithBackground(ratio float64, fill, background widget.Color, width, height float32) *characterBarWidget {
