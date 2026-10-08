@@ -18,6 +18,19 @@ type LogConfig struct {
 	File  string
 }
 
+type fileLogWriter struct {
+	file   io.Writer
+	stderr io.Writer
+}
+
+func (w fileLogWriter) Write(p []byte) (int, error) {
+	n, err := w.file.Write(p)
+	// A console-free Windows launch may have no valid stderr handle. Its
+	// failure must not make the logger retry bytes already written to the file.
+	_, _ = w.stderr.Write(p)
+	return n, err
+}
+
 func Configure(cfg LogConfig) (func() error, error) {
 	level, err := parseLevel(cfg.Level)
 	if err != nil {
@@ -36,7 +49,7 @@ func Configure(cfg LogConfig) (func() error, error) {
 		if err != nil {
 			return nil, err
 		}
-		output = io.MultiWriter(os.Stderr, file)
+		output = fileLogWriter{file: file, stderr: os.Stderr}
 	}
 
 	logger = charm.NewWithOptions(output, charm.Options{

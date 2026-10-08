@@ -22,7 +22,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: go vet ./...
-      - run: go test ./input ./render
+      - run: go test ./glog ./input ./render
       - run: go install honnef.co/go/tools/cmd/staticcheck@latest
       - run: staticcheck ./...
 
