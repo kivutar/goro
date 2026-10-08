@@ -186,6 +186,31 @@ func whisperAckMessage(manager *res.Manager, ack network.WhisperAck) string {
 	return message
 }
 
+func pickupFailureMessage(manager *res.Manager, result uint8) string {
+	// Match the original client's Zc_Item_Pickup_Ack message IDs. Unknown
+	// results remain log-only in applyItemPickupAck.
+	var messageID int
+	var fallback string
+	switch result {
+	case 1, 6:
+		messageID, fallback = 53, "You can't get this item."
+	case 2:
+		messageID, fallback = 52, "You can't carry any more weight."
+	case 4:
+		messageID, fallback = 220, "You can't carry any more items."
+	case 5:
+		messageID, fallback = 279, "You can't carry any more of this item."
+	default:
+		return ""
+	}
+	if manager != nil {
+		if message, ok := manager.MsgString(messageID); ok {
+			return message
+		}
+	}
+	return fallback
+}
+
 func formatPickupConsoleMessage(manager *res.Manager, pickup network.ItemPickupAck) string {
 	itemName := fmt.Sprintf("item %d", pickup.ItemID)
 	if manager != nil {

@@ -360,8 +360,8 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 			glog.Debugf("console pickup message item_id=%d amount=%d text=%q", pickup.ItemID, pickup.Amount, message)
 			m.ui.console.AddBlueMessage("%s", message)
 			m.ui.itemPickup.Show(ctx, item, gained, time.Now())
-		} else {
-			m.ui.console.AddErrorMessage("Pickup failed item %d result=%d", pickup.ItemID, pickup.Result)
+		} else if message := pickupFailureMessage(ctx.Resources, pickup.Result); message != "" {
+			m.ui.console.AddErrorMessage("%s", message)
 		}
 		return nil, false
 	}
