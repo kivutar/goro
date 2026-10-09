@@ -13,6 +13,7 @@ type runtimeSettings struct {
 	anisotropy    atomic.Int32
 	smoothSprites atomic.Bool
 	msaa          atomic.Bool
+	bloom         atomic.Bool
 }
 
 func newRuntimeSettings(cfg config.Config) *runtimeSettings {
@@ -23,6 +24,7 @@ func newRuntimeSettings(cfg config.Config) *runtimeSettings {
 	settings.SetAnisotropy(cfg.Render.Anisotropy)
 	settings.SetSmoothSprites(cfg.Render.SmoothSprites)
 	settings.SetMSAA(cfg.Render.MSAA)
+	settings.SetBloom(cfg.Render.Bloom)
 	return settings
 }
 
@@ -95,5 +97,15 @@ func (s *runtimeSettings) MSAA() bool {
 func (s *runtimeSettings) SetMSAA(value bool) {
 	if s != nil {
 		s.msaa.Store(value)
+	}
+}
+
+func (s *runtimeSettings) Bloom() bool {
+	return s != nil && s.bloom.Load()
+}
+
+func (s *runtimeSettings) SetBloom(value bool) {
+	if s != nil {
+		s.bloom.Store(value)
 	}
 }

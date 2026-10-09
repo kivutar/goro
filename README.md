@@ -146,6 +146,7 @@ vsync = true
 anisotropy = 8
 smooth_sprites = true
 msaa = false
+bloom = false
 
 [network]
 trace = false
@@ -166,6 +167,12 @@ and the cached sprite composition keep their existing filtering.
 including terrain and model edges. UI and text stay at native resolution.
 It defaults off to avoid the extra GPU memory and rendering cost, and is saved
 as `msaa`. Restart after changing it, or launch with `--msaa` to try it.
+
+"Bloom" in Settings adds a subtle glow around bright world pixels. It defaults
+off, applies immediately, and is saved as `bloom`; `--bloom` enables it at launch.
+It works with or without MSAA. The blur runs at quarter resolution and is
+composited before the UI, keeping text and windows sharp. This is a brightness
+filter on the existing scene, so bright scenery and sprites can glow too.
 
 Command-line options override the ini file:
 

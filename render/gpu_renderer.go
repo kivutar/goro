@@ -62,6 +62,8 @@ type gpuRenderer struct {
 	sampleCount            uint32
 	depthTarget            gpuRenderTarget
 	msaaTarget             gpuRenderTarget
+	bloomEnabled           bool
+	bloom                  *gpuBloom
 	worldVertexBuf         dynamicGPUBuffer
 	worldIndexBuf          dynamicGPUBuffer
 	screenVertexBuf        dynamicGPUBuffer
@@ -197,6 +199,7 @@ func newGPURenderer(ctx *gogpu.Context, app *gogpu.App, cfg config.RenderConfig)
 	}
 	r.anisotropy = cfg.Anisotropy
 	r.smoothSprites = cfg.SmoothSprites
+	r.bloomEnabled = cfg.Bloom
 	r.sampleCount = 1
 	if cfg.MSAA {
 		r.sampleCount = 4
@@ -540,14 +543,31 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 		}
 	}
 	if screen.camera.Enabled {
-		if err := r.depthTarget.ensure(r.dev, width, height, depthFormat, r.sampleCount); err != nil {
+		if err := r.depthTarget.ensure(r.dev, width, height, depthFormat, r.sampleCount, wgpu.TextureUsageRenderAttachment); err != nil {
 			return false, fmt.Errorf("create world depth: %w", err)
 		}
 		if r.sampleCount > 1 {
-			if err := r.msaaTarget.ensure(r.dev, width, height, r.format, r.sampleCount); err != nil {
+			if err := r.msaaTarget.ensure(r.dev, width, height, r.format, r.sampleCount, wgpu.TextureUsageRenderAttachment); err != nil {
 				return false, fmt.Errorf("create MSAA color: %w", err)
 			}
 		}
+	}
+	worldTarget := surface
+	bloomActive := r.bloomEnabled && screen.camera.Enabled
+	if bloomActive {
+		if r.bloom == nil {
+			var err error
+			r.bloom, err = newGPUBloom(r.dev, r.format)
+			if err != nil {
+				return false, fmt.Errorf("create bloom: %w", err)
+			}
+		}
+		if err := r.bloom.ensure(r.dev, r.format, width, height); err != nil {
+			return false, fmt.Errorf("prepare bloom: %w", err)
+		}
+		worldTarget = r.bloom.targets[0].view
+	} else if r.bloom != nil && !r.bloomEnabled {
+		r.bloom.releaseTargets()
 	}
 	world := r.buildWorldFrame(screen)
 	frame := r.buildFrame(screen)
@@ -587,9 +607,10 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer enc.DiscardEncoding()
 	clear := clearValue(screen.clear)
 	if screen.camera.Enabled {
-		pass, err := enc.BeginRenderPass(r.worldPassDescriptor(surface, clear))
+		pass, err := enc.BeginRenderPass(r.worldPassDescriptor(worldTarget, clear))
 		if err != nil {
 			return false, err
 		}
@@ -652,6 +673,11 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 		}
 		if err := pass.End(); err != nil {
 			return false, err
+		}
+	}
+	if bloomActive {
+		if err := r.bloom.draw(enc, surface); err != nil {
+			return false, fmt.Errorf("draw bloom: %w", err)
 		}
 	}
 	// Resolve the world before drawing the UI at native resolution. The UI
@@ -1440,6 +1466,9 @@ func (r *gpuRenderer) release() {
 	}
 	if r.worldUniform != nil {
 		r.worldUniform.Release()
+	}
+	if r.bloom != nil {
+		r.bloom.release()
 	}
 	r.depthTarget.release()
 	r.msaaTarget.release()

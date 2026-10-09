@@ -5,8 +5,8 @@ import (
 	"github.com/gogpu/wgpu"
 )
 
-// gpuRenderTarget owns an attachment whose format and sample count are fixed
-// for the renderer's lifetime. Its storage follows the framebuffer size.
+// gpuRenderTarget owns an attachment whose format, sample count, and usage are
+// fixed for the renderer's lifetime. Its storage follows the framebuffer size.
 type gpuRenderTarget struct {
 	texture *wgpu.Texture
 	view    *wgpu.TextureView
@@ -14,7 +14,7 @@ type gpuRenderTarget struct {
 	height  int
 }
 
-func (t *gpuRenderTarget) ensure(dev *wgpu.Device, width, height int, format gputypes.TextureFormat, samples uint32) error {
+func (t *gpuRenderTarget) ensure(dev *wgpu.Device, width, height int, format gputypes.TextureFormat, samples uint32, usage gputypes.TextureUsage) error {
 	if t.view != nil && t.width == width && t.height == height {
 		return nil
 	}
@@ -27,7 +27,7 @@ func (t *gpuRenderTarget) ensure(dev *wgpu.Device, width, height int, format gpu
 		SampleCount:   samples,
 		Dimension:     gputypes.TextureDimension2D,
 		Format:        format,
-		Usage:         wgpu.TextureUsageRenderAttachment,
+		Usage:         usage,
 	})
 	if err != nil {
 		return err

@@ -18,6 +18,7 @@ func TestRendererShadersParse(t *testing.T) {
 		"screen":          screenShaderWGSL,
 		"world":           worldShaderWGSL,
 		"world-billboard": worldBillboardShaderWGSL,
+		"bloom":           bloomShaderWGSL,
 	} {
 		ast, err := naga.Parse(source)
 		if err != nil {
@@ -34,6 +35,7 @@ func TestRendererShadersGenerateSPIRV(t *testing.T) {
 		"screen":          screenShaderWGSL,
 		"world":           worldShaderWGSL,
 		"world-billboard": worldBillboardShaderWGSL,
+		"bloom":           bloomShaderWGSL,
 	} {
 		ast, err := naga.Parse(source)
 		if err != nil {

@@ -64,6 +64,8 @@ type RuntimeSettings interface {
 	SetSmoothSprites(bool)
 	MSAA() bool
 	SetMSAA(bool)
+	Bloom() bool
+	SetBloom(bool)
 }
 
 func (c Context) ScriptPath() string {

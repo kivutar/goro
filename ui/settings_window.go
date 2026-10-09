@@ -15,7 +15,7 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 528
+	settingsWindowH = 560
 )
 
 type SettingsWindow struct {
@@ -132,6 +132,18 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 			checkbox.OnToggle(func(enabled bool) {
 				if ctx.Runtime != nil {
 					ctx.Runtime.SetMSAA(enabled)
+				}
+				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}),
+		),
+
+		rotheme.Checkbox(
+			checkbox.Checked(settingsBloom(ctx)),
+			checkbox.LabelOpt("Bloom"),
+			checkbox.OnToggle(func(enabled bool) {
+				if ctx.Runtime != nil {
+					ctx.Runtime.SetBloom(enabled)
 				}
 				w.saveSettings(ctx)
 				w.refresh(ctx)
@@ -264,6 +276,7 @@ func (w *SettingsWindow) saveSettings(ctx client.Context) {
 		Anisotropy:    settingsAnisotropy(ctx),
 		SmoothSprites: settingsSmoothSprites(ctx),
 		MSAA:          settingsMSAA(ctx),
+		Bloom:         settingsBloom(ctx),
 		BGMVolume:     settingsVolumeBGM(ctx),
 		SFXVolume:     settingsVolumeSFX(ctx),
 		NoShift:       settingsNoShift(ctx),
@@ -376,4 +389,11 @@ func settingsMSAA(ctx client.Context) bool {
 		return ctx.Runtime.MSAA()
 	}
 	return ctx.Config.Render.MSAA
+}
+
+func settingsBloom(ctx client.Context) bool {
+	if ctx.Runtime != nil {
+		return ctx.Runtime.Bloom()
+	}
+	return ctx.Config.Render.Bloom
 }
