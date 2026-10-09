@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/gogpu/ui/core/checkbox"
 	"github.com/gogpu/ui/core/slider"
 	"github.com/gogpu/ui/primitives"
@@ -13,7 +15,7 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 430
+	settingsWindowH = 464
 )
 
 type SettingsWindow struct {
@@ -94,6 +96,23 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 				w.refresh(ctx)
 			}),
 		),
+
+		primitives.HBox(
+			primitives.Expanded(rotheme.Text("Anisotropic filtering")),
+			rotheme.Button(anisotropyLabel(settingsAnisotropy(ctx)), func() {
+				level := settingsAnisotropy(ctx) * 2
+				if level == 0 {
+					level = 2
+				} else if level > 16 {
+					level = 0
+				}
+				if ctx.Runtime != nil {
+					ctx.Runtime.SetAnisotropy(level)
+				}
+				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}).Width(48),
+		).Gap(8),
 
 		rotheme.Label("Sound"),
 
@@ -218,6 +237,7 @@ func (w *SettingsWindow) saveSettings(ctx client.Context) {
 		Fullscreen:  settingsRuntimeFullscreen(ctx),
 		VSync:       settingsRuntimeVSync(ctx),
 		FPS:         settingsRuntimeFPS(ctx),
+		Anisotropy:  settingsAnisotropy(ctx),
 		BGMVolume:   settingsVolumeBGM(ctx),
 		SFXVolume:   settingsVolumeSFX(ctx),
 		NoShift:     settingsNoShift(ctx),
@@ -267,6 +287,20 @@ func settingsRuntimeFPS(ctx client.Context) bool {
 		return ctx.Runtime.FPS()
 	}
 	return ctx.Config.Render.FPS
+}
+
+func settingsAnisotropy(ctx client.Context) int {
+	if ctx.Runtime != nil {
+		return ctx.Runtime.Anisotropy()
+	}
+	return ctx.Config.Render.Anisotropy
+}
+
+func anisotropyLabel(level int) string {
+	if level == 0 {
+		return "Off"
+	}
+	return fmt.Sprintf("%dx", level)
 }
 
 func settingsNoShift(ctx client.Context) bool {

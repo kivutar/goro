@@ -58,6 +58,8 @@ type RuntimeSettings interface {
 	SetVSync(bool)
 	FPS() bool
 	SetFPS(bool)
+	Anisotropy() int
+	SetAnisotropy(int)
 }
 
 func (c Context) ScriptPath() string {

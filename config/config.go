@@ -67,6 +67,7 @@ type AudioConfig struct {
 
 type RenderConfig struct {
 	GraphicsAPI        string
+	Anisotropy         int
 	VSync              bool
 	FPS                bool
 	NoUI               bool
@@ -142,6 +143,7 @@ type UserSettings struct {
 	Fullscreen  bool
 	VSync       bool
 	FPS         bool
+	Anisotropy  int
 	BGMVolume   float64
 	SFXVolume   float64
 	NoShift     bool
@@ -182,6 +184,9 @@ func NextScreenshotPath(now time.Time) (string, error) {
 }
 
 func (cfg Config) SaveUserSettings(settings UserSettings) (string, error) {
+	if err := validateAnisotropy(settings.Anisotropy); err != nil {
+		return "", err
+	}
 	if settings.BGMVolume < 0 || settings.BGMVolume > 1 {
 		return "", fmt.Errorf("bgm volume must be between 0 and 1")
 	}
@@ -193,8 +198,9 @@ func (cfg Config) SaveUserSettings(settings UserSettings) (string, error) {
 			"fullscreen": formatINIValueBool(settings.Fullscreen),
 		},
 		"render": {
-			"vsync": formatINIValueBool(settings.VSync),
-			"fps":   formatINIValueBool(settings.FPS),
+			"anisotropy": strconv.Itoa(settings.Anisotropy),
+			"vsync":      formatINIValueBool(settings.VSync),
+			"fps":        formatINIValueBool(settings.FPS),
 		},
 		"audio": {
 			"bgm_volume": formatINIValueFloat(settings.BGMVolume),
@@ -279,6 +285,7 @@ func defaultConfig() Config {
 		},
 		Render: RenderConfig{
 			GraphicsAPI:        "vulkan",
+			Anisotropy:         8,
 			AsyncUI:            true,
 			VSync:              true,
 			BenchWarmupSeconds: 0,
@@ -337,6 +344,7 @@ func parseCLI(cfg *Config, args []string) error {
 	fs.Float64Var(&cfg.Audio.BGMVolume, "bgm-volume", cfg.Audio.BGMVolume, "BGM volume from 0 to 1")
 	fs.Float64Var(&cfg.Audio.SFXVolume, "sfx-volume", cfg.Audio.SFXVolume, "SFX volume from 0 to 1")
 	fs.StringVar(&cfg.Render.GraphicsAPI, "graphics-api", cfg.Render.GraphicsAPI, "graphics API: auto, vulkan, dx12, metal, gles, software")
+	fs.IntVar(&cfg.Render.Anisotropy, "anisotropy", cfg.Render.Anisotropy, "anisotropic texture filtering: 0 (off), 2, 4, 8, 16")
 	fs.BoolVar(&cfg.Render.VSync, "vsync", cfg.Render.VSync, "enable vsync")
 	fs.BoolVar(&cfg.Render.FPS, "fps", cfg.Render.FPS, "show measured FPS counter")
 	fs.BoolVar(&cfg.Render.NoUI, "no-ui", cfg.Render.NoUI, "disable UI rendering for benchmarking")
@@ -477,6 +485,8 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		return setFloat(value, &cfg.Audio.SFXVolume)
 	case "render.graphicsapi":
 		cfg.Render.GraphicsAPI = value
+	case "render.anisotropy":
+		return setInt(value, &cfg.Render.Anisotropy)
 	case "render.vsync":
 		return setBool(value, &cfg.Render.VSync)
 	case "render.fps":
@@ -526,6 +536,9 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 }
 
 func validateConfig(cfg *Config) error {
+	if err := validateAnisotropy(cfg.Render.Anisotropy); err != nil {
+		return err
+	}
 	if cfg.Window.Width <= 0 {
 		return fmt.Errorf("window width must be positive")
 	}
@@ -559,6 +572,15 @@ func validateConfig(cfg *Config) error {
 		return fmt.Errorf("invalid log level %q", cfg.Log.Level)
 	}
 	return nil
+}
+
+func validateAnisotropy(level int) error {
+	switch level {
+	case 0, 2, 4, 8, 16:
+		return nil
+	default:
+		return fmt.Errorf("anisotropy must be 0 (off), 2, 4, 8, or 16")
+	}
 }
 
 func upsertINIValues(src string, values map[string]map[string]string) string {

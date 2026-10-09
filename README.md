@@ -143,10 +143,16 @@ bgm_volume = 0.55
 [render]
 graphics_api = vulkan
 vsync = true
+anisotropy = 8
 
 [network]
 trace = false
 ```
+
+Anisotropic filtering sharpens terrain and model textures viewed at an angle.
+It defaults to 8x and can be changed live in Settings, or with `--anisotropy`:
+`0` (off), `2`, `4`, `8`, or `16`. It falls back to trilinear filtering on
+unsupported adapters. The current DX12 backend also uses trilinear filtering.
 
 Command-line options override the ini file:
 

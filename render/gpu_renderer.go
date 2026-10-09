@@ -51,6 +51,9 @@ type gpuRenderer struct {
 	uniform                *wgpu.Buffer
 	worldUniform           *wgpu.Buffer
 	samplers               map[samplerKey]*wgpu.Sampler
+	lightmapSampler        *wgpu.Sampler
+	anisotropy             int
+	anisotropySupported    bool
 	textures               map[*Image]*gpuImageTexture
 	imageGroups            map[*ImageGroup]struct{}
 	bindGroups             map[bindGroupKey]*wgpu.BindGroup
@@ -163,8 +166,9 @@ func (s *renderPassState) setIndexBuffer(pass *wgpu.RenderPassEncoder, buf *wgpu
 }
 
 type samplerKey struct {
-	filter  Filter
-	address Address
+	filter     Filter
+	address    Address
+	anisotropy uint16
 }
 
 type bindGroupKey struct {
@@ -191,6 +195,8 @@ func newGPURenderer(ctx *gogpu.Context, app *gogpu.App, cfg config.RenderConfig)
 		worldDebug:   cfg.WorldDebugStats,
 		damageSource: ctx.RegisterDamageSource("goro"),
 	}
+	r.anisotropy = cfg.Anisotropy
+	r.anisotropySupported = app.GPUContextProvider().DownlevelCapabilities().Flags.Contains(gputypes.DownlevelFlagsAnisotropicFiltering)
 	if r.queue == nil {
 		r.queue = r.dev.Queue()
 	}
@@ -203,6 +209,12 @@ func newGPURenderer(ctx *gogpu.Context, app *gogpu.App, cfg config.RenderConfig)
 
 func (r *gpuRenderer) init(_ *gogpu.Context) error {
 	var err error
+	// A separate bilinear sampler keeps the lightmap atlas from sampling into
+	// neighboring tiles when the surface texture uses anisotropic filtering.
+	r.lightmapSampler, err = r.sampler(DrawTrianglesOptions{Filter: FilterLinear, Address: AddressClampToEdge}, nil)
+	if err != nil {
+		return err
+	}
 	r.uniform, err = r.dev.CreateBuffer(&wgpu.BufferDescriptor{
 		Label: "goro-screen-uniform",
 		Size:  16,
@@ -262,6 +274,7 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 			{Binding: 1, Visibility: wgpu.ShaderStageFragment, Sampler: &gputypes.SamplerBindingLayout{Type: gputypes.SamplerBindingTypeFiltering}},
 			{Binding: 2, Visibility: wgpu.ShaderStageFragment, Texture: &gputypes.TextureBindingLayout{SampleType: gputypes.TextureSampleTypeFloat, ViewDimension: gputypes.TextureViewDimension2D}},
 			{Binding: 3, Visibility: wgpu.ShaderStageFragment, Texture: &gputypes.TextureBindingLayout{SampleType: gputypes.TextureSampleTypeFloat, ViewDimension: gputypes.TextureViewDimension2D}},
+			{Binding: 4, Visibility: wgpu.ShaderStageFragment, Sampler: &gputypes.SamplerBindingLayout{Type: gputypes.SamplerBindingTypeFiltering}},
 		},
 	})
 	if err != nil {
@@ -606,7 +619,7 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 				_ = pass.End()
 				return false, err
 			}
-			sampler, err := r.sampler(batch.key.options)
+			sampler, err := r.sampler(batch.key.options, batch.key.texture)
 			if err != nil {
 				_ = pass.End()
 				return false, err
@@ -659,7 +672,7 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 			_ = pass.End()
 			return false, err
 		}
-		sampler, err := r.sampler(batch.key.options)
+		sampler, err := r.sampler(batch.key.options, batch.key.texture)
 		if err != nil {
 			_ = pass.End()
 			return false, err
@@ -891,8 +904,20 @@ func (r *gpuRenderer) releaseImageTexture(img *Image) {
 	delete(r.textures, img)
 }
 
-func (r *gpuRenderer) sampler(opts DrawTrianglesOptions) (*wgpu.Sampler, error) {
-	key := samplerKey{filter: opts.Filter, address: opts.Address}
+func imageSamplerKey(opts DrawTrianglesOptions, texture *Image, anisotropy int) samplerKey {
+	key := samplerKey{filter: opts.Filter, address: opts.Address, anisotropy: 1}
+	if opts.Filter == FilterLinear && texture != nil && len(texture.mipmaps) > 0 {
+		key.anisotropy = uint16(max(1, min(16, anisotropy)))
+	}
+	return key
+}
+
+func (r *gpuRenderer) sampler(opts DrawTrianglesOptions, texture *Image) (*wgpu.Sampler, error) {
+	anisotropy := 1
+	if r.anisotropySupported {
+		anisotropy = r.anisotropy
+	}
+	key := imageSamplerKey(opts, texture, anisotropy)
 	if sampler := r.samplers[key]; sampler != nil {
 		return sampler, nil
 	}
@@ -905,6 +930,7 @@ func (r *gpuRenderer) sampler(opts DrawTrianglesOptions) (*wgpu.Sampler, error) 
 		MinFilter:    gpuFilter(opts.Filter),
 		MipmapFilter: gpuFilter(opts.Filter),
 		LodMaxClamp:  32,
+		Anisotropy:   key.anisotropy,
 	})
 	if err != nil {
 		return nil, err
@@ -947,6 +973,7 @@ func (r *gpuRenderer) bindWorldGroup(uniform *wgpu.Buffer, uniformSize uint64, t
 			{Binding: 1, Sampler: sampler},
 			{Binding: 2, TextureView: tex.view},
 			{Binding: 3, TextureView: lightTex.view},
+			{Binding: 4, Sampler: r.lightmapSampler},
 		},
 	})
 	if err != nil {
@@ -975,7 +1002,7 @@ func (r *gpuRenderer) drawWorldMesh(pass *wgpu.RenderPassEncoder, mesh *WorldMes
 	if err != nil {
 		return err
 	}
-	sampler, err := r.sampler(mesh.options)
+	sampler, err := r.sampler(mesh.options, mesh.texture)
 	if err != nil {
 		return err
 	}
@@ -1060,7 +1087,7 @@ func (r *gpuRenderer) drawWorldMeshBatch(pass *wgpu.RenderPassEncoder, batch wor
 	if err != nil {
 		return err
 	}
-	sampler, err := r.sampler(batch.key.options)
+	sampler, err := r.sampler(batch.key.options, batch.key.texture)
 	if err != nil {
 		return err
 	}
@@ -1109,7 +1136,7 @@ func (r *gpuRenderer) drawWorldBillboards(pass *wgpu.RenderPassEncoder, commands
 		if err != nil {
 			return err
 		}
-		sampler, err := r.sampler(batch.key.options)
+		sampler, err := r.sampler(batch.key.options, batch.key.texture)
 		if err != nil {
 			return err
 		}

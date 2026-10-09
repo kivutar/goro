@@ -6,14 +6,29 @@ type runtimeSettings struct {
 	fullscreen atomic.Bool
 	vsync      atomic.Bool
 	fps        atomic.Bool
+	anisotropy atomic.Int32
 }
 
-func newRuntimeSettings(fullscreen, vsync, fps bool) *runtimeSettings {
+func newRuntimeSettings(fullscreen, vsync, fps bool, anisotropy int) *runtimeSettings {
 	settings := &runtimeSettings{}
 	settings.fullscreen.Store(fullscreen)
 	settings.vsync.Store(vsync)
 	settings.fps.Store(fps)
+	settings.SetAnisotropy(anisotropy)
 	return settings
+}
+
+func (s *runtimeSettings) Anisotropy() int {
+	if s == nil {
+		return 0
+	}
+	return int(s.anisotropy.Load())
+}
+
+func (s *runtimeSettings) SetAnisotropy(value int) {
+	if s != nil {
+		s.anisotropy.Store(int32(value))
+	}
 }
 
 func (s *runtimeSettings) Fullscreen() bool {
