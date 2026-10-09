@@ -145,6 +145,7 @@ graphics_api = vulkan
 vsync = true
 anisotropy = 8
 smooth_sprites = true
+msaa = false
 
 [network]
 trace = false
@@ -160,6 +161,11 @@ dropped items between smooth (default) and crisp nearest-neighbor sampling.
 It applies immediately and is saved as `smooth_sprites`. Use
 `--smooth-sprites=false` to start with crisp sprites. UI, shadows, effects,
 and the cached sprite composition keep their existing filtering.
+
+"Anti-aliasing 4x (Restart)" in Settings enables 4x MSAA for the world,
+including terrain and model edges. UI and text stay at native resolution.
+It defaults off to avoid the extra GPU memory and rendering cost, and is saved
+as `msaa`. Restart after changing it, or launch with `--msaa` to try it.
 
 Command-line options override the ini file:
 

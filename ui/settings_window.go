@@ -15,7 +15,7 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 496
+	settingsWindowH = 528
 )
 
 type SettingsWindow struct {
@@ -120,6 +120,18 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 			checkbox.OnToggle(func(enabled bool) {
 				if ctx.Runtime != nil {
 					ctx.Runtime.SetSmoothSprites(enabled)
+				}
+				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}),
+		),
+
+		rotheme.Checkbox(
+			checkbox.Checked(settingsMSAA(ctx)),
+			checkbox.LabelOpt("Anti-aliasing 4x (Restart)"),
+			checkbox.OnToggle(func(enabled bool) {
+				if ctx.Runtime != nil {
+					ctx.Runtime.SetMSAA(enabled)
 				}
 				w.saveSettings(ctx)
 				w.refresh(ctx)
@@ -251,6 +263,7 @@ func (w *SettingsWindow) saveSettings(ctx client.Context) {
 		FPS:           settingsRuntimeFPS(ctx),
 		Anisotropy:    settingsAnisotropy(ctx),
 		SmoothSprites: settingsSmoothSprites(ctx),
+		MSAA:          settingsMSAA(ctx),
 		BGMVolume:     settingsVolumeBGM(ctx),
 		SFXVolume:     settingsVolumeSFX(ctx),
 		NoShift:       settingsNoShift(ctx),
@@ -356,4 +369,11 @@ func settingsSnapItems(ctx client.Context) bool {
 		return ctx.Session.SnapItems
 	}
 	return ctx.Config.Gameplay.SnapItems
+}
+
+func settingsMSAA(ctx client.Context) bool {
+	if ctx.Runtime != nil {
+		return ctx.Runtime.MSAA()
+	}
+	return ctx.Config.Render.MSAA
 }

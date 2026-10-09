@@ -12,6 +12,7 @@ type runtimeSettings struct {
 	fps           atomic.Bool
 	anisotropy    atomic.Int32
 	smoothSprites atomic.Bool
+	msaa          atomic.Bool
 }
 
 func newRuntimeSettings(cfg config.Config) *runtimeSettings {
@@ -21,6 +22,7 @@ func newRuntimeSettings(cfg config.Config) *runtimeSettings {
 	settings.fps.Store(cfg.Render.FPS)
 	settings.SetAnisotropy(cfg.Render.Anisotropy)
 	settings.SetSmoothSprites(cfg.Render.SmoothSprites)
+	settings.SetMSAA(cfg.Render.MSAA)
 	return settings
 }
 
@@ -83,5 +85,15 @@ func (s *runtimeSettings) FPS() bool {
 func (s *runtimeSettings) SetFPS(value bool) {
 	if s != nil {
 		s.fps.Store(value)
+	}
+}
+
+func (s *runtimeSettings) MSAA() bool {
+	return s != nil && s.msaa.Load()
+}
+
+func (s *runtimeSettings) SetMSAA(value bool) {
+	if s != nil {
+		s.msaa.Store(value)
 	}
 }

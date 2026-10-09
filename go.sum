@@ -52,8 +52,8 @@ github.com/kivutar/gg v0.52.4-0.20261005130553-221e1f996c41 h1:twFQuvTAJ/ypuNngQ
 github.com/kivutar/gg v0.52.4-0.20261005130553-221e1f996c41/go.mod h1:76qRbhwszTfk1McnBiCPtnx1ewpR7C6+mfZoxmD5RUU=
 github.com/kivutar/ui v0.1.55-0.20261005130553-0d602144928c h1:1MeHC+r6buTJ0cLG0K0mye3nCk6tR/1VVPe0hVUmO3g=
 github.com/kivutar/ui v0.1.55-0.20261005130553-0d602144928c/go.mod h1:FUJbZho6XeDp0xTuDuXFqcJgZ0nmyb4W5oCyF+24qBs=
-github.com/kivutar/wgpu v0.34.4-0.20261007195845-4d45acd387f2 h1:LUCh7k/AwYr8oGUbJ6OpVrJsl9bIdtGBF8EBnEs7eQg=
-github.com/kivutar/wgpu v0.34.4-0.20261007195845-4d45acd387f2/go.mod h1:erhaIjD9psJKjHqAhn5MWdJETcACR1NGoqLhkTAHkFM=
+github.com/kivutar/wgpu v0.34.4-0.20261009212330-691ba35e2db0 h1:FWTiQrlKsJYc0Vc+gPCy7prMqH5hByS3l3iZLCAF7xY=
+github.com/kivutar/wgpu v0.34.4-0.20261009212330-691ba35e2db0/go.mod h1:erhaIjD9psJKjHqAhn5MWdJETcACR1NGoqLhkTAHkFM=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
