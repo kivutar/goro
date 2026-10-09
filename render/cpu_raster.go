@@ -49,7 +49,7 @@ func (i *Image) sample(x, y float32, filter Filter, address Address) color.RGBA 
 	if !ok {
 		return color.RGBA{}
 	}
-	if filter != FilterLinear {
+	if filter.resolveSprite(true) != FilterLinear {
 		return i.rgbaAt(int(math.Floor(float64(x))), int(math.Floor(float64(y))))
 	}
 	x0, y0 := int(math.Floor(float64(x))), int(math.Floor(float64(y)))

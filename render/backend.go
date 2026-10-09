@@ -167,6 +167,7 @@ type runtimeSettingsProvider interface {
 	RuntimeVSync() bool
 	RuntimeFPS() bool
 	RuntimeAnisotropy() int
+	RuntimeSmoothSprites() bool
 }
 
 type screenshotRequester interface {
@@ -796,6 +797,7 @@ func (r *runner) applyRuntimeSettings() {
 		return
 	}
 	r.renderCfg.Anisotropy = provider.RuntimeAnisotropy()
+	r.renderCfg.SmoothSprites = provider.RuntimeSmoothSprites()
 	if fullscreen := provider.RuntimeFullscreen(); fullscreen != r.fullscreen {
 		r.app.SetFullscreen(fullscreen)
 		r.fullscreen = fullscreen
@@ -849,6 +851,7 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 		glog.Infof("render backend=%s surface_format=%s", ctx.Backend(), r.gpu.format)
 	}
 	r.gpu.anisotropy = r.renderCfg.Anisotropy
+	r.gpu.smoothSprites = r.renderCfg.SmoothSprites
 	r.screen.BeginFrame()
 	r.screen.SetScreenScale(scaleX, scaleY)
 	r.resetUIDrawMeasurement()

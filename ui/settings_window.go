@@ -15,7 +15,7 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 464
+	settingsWindowH = 496
 )
 
 type SettingsWindow struct {
@@ -113,6 +113,18 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 				w.refresh(ctx)
 			}).Width(48),
 		).Gap(8),
+
+		rotheme.Checkbox(
+			checkbox.Checked(settingsSmoothSprites(ctx)),
+			checkbox.LabelOpt("Smooth world sprites"),
+			checkbox.OnToggle(func(enabled bool) {
+				if ctx.Runtime != nil {
+					ctx.Runtime.SetSmoothSprites(enabled)
+				}
+				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}),
+		),
 
 		rotheme.Label("Sound"),
 
@@ -234,17 +246,18 @@ func (w *SettingsWindow) refresh(ctx client.Context) {
 
 func (w *SettingsWindow) saveSettings(ctx client.Context) {
 	settings := config.UserSettings{
-		Fullscreen:  settingsRuntimeFullscreen(ctx),
-		VSync:       settingsRuntimeVSync(ctx),
-		FPS:         settingsRuntimeFPS(ctx),
-		Anisotropy:  settingsAnisotropy(ctx),
-		BGMVolume:   settingsVolumeBGM(ctx),
-		SFXVolume:   settingsVolumeSFX(ctx),
-		NoShift:     settingsNoShift(ctx),
-		NoCtrl:      settingsNoCtrl(ctx),
-		LessEffects: settingsLessEffects(ctx),
-		SnapTargets: settingsSnapTargets(ctx),
-		SnapItems:   settingsSnapItems(ctx),
+		Fullscreen:    settingsRuntimeFullscreen(ctx),
+		VSync:         settingsRuntimeVSync(ctx),
+		FPS:           settingsRuntimeFPS(ctx),
+		Anisotropy:    settingsAnisotropy(ctx),
+		SmoothSprites: settingsSmoothSprites(ctx),
+		BGMVolume:     settingsVolumeBGM(ctx),
+		SFXVolume:     settingsVolumeSFX(ctx),
+		NoShift:       settingsNoShift(ctx),
+		NoCtrl:        settingsNoCtrl(ctx),
+		LessEffects:   settingsLessEffects(ctx),
+		SnapTargets:   settingsSnapTargets(ctx),
+		SnapItems:     settingsSnapItems(ctx),
 	}
 	path, err := ctx.Config.SaveUserSettings(settings)
 	if err != nil {
@@ -294,6 +307,13 @@ func settingsAnisotropy(ctx client.Context) int {
 		return ctx.Runtime.Anisotropy()
 	}
 	return ctx.Config.Render.Anisotropy
+}
+
+func settingsSmoothSprites(ctx client.Context) bool {
+	if ctx.Runtime != nil {
+		return ctx.Runtime.SmoothSprites()
+	}
+	return ctx.Config.Render.SmoothSprites
 }
 
 func anisotropyLabel(level int) string {

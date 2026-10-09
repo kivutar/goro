@@ -68,6 +68,7 @@ type AudioConfig struct {
 type RenderConfig struct {
 	GraphicsAPI        string
 	Anisotropy         int
+	SmoothSprites      bool
 	VSync              bool
 	FPS                bool
 	NoUI               bool
@@ -140,17 +141,18 @@ func LoadConfig(args []string) (Config, error) {
 }
 
 type UserSettings struct {
-	Fullscreen  bool
-	VSync       bool
-	FPS         bool
-	Anisotropy  int
-	BGMVolume   float64
-	SFXVolume   float64
-	NoShift     bool
-	NoCtrl      bool
-	LessEffects bool
-	SnapTargets bool
-	SnapItems   bool
+	Fullscreen    bool
+	VSync         bool
+	FPS           bool
+	Anisotropy    int
+	SmoothSprites bool
+	BGMVolume     float64
+	SFXVolume     float64
+	NoShift       bool
+	NoCtrl        bool
+	LessEffects   bool
+	SnapTargets   bool
+	SnapItems     bool
 }
 
 func UserDataDir() (string, error) {
@@ -198,9 +200,10 @@ func (cfg Config) SaveUserSettings(settings UserSettings) (string, error) {
 			"fullscreen": formatINIValueBool(settings.Fullscreen),
 		},
 		"render": {
-			"anisotropy": strconv.Itoa(settings.Anisotropy),
-			"vsync":      formatINIValueBool(settings.VSync),
-			"fps":        formatINIValueBool(settings.FPS),
+			"anisotropy":     strconv.Itoa(settings.Anisotropy),
+			"smooth_sprites": formatINIValueBool(settings.SmoothSprites),
+			"vsync":          formatINIValueBool(settings.VSync),
+			"fps":            formatINIValueBool(settings.FPS),
 		},
 		"audio": {
 			"bgm_volume": formatINIValueFloat(settings.BGMVolume),
@@ -286,6 +289,7 @@ func defaultConfig() Config {
 		Render: RenderConfig{
 			GraphicsAPI:        "vulkan",
 			Anisotropy:         8,
+			SmoothSprites:      true,
 			AsyncUI:            true,
 			VSync:              true,
 			BenchWarmupSeconds: 0,
@@ -345,6 +349,7 @@ func parseCLI(cfg *Config, args []string) error {
 	fs.Float64Var(&cfg.Audio.SFXVolume, "sfx-volume", cfg.Audio.SFXVolume, "SFX volume from 0 to 1")
 	fs.StringVar(&cfg.Render.GraphicsAPI, "graphics-api", cfg.Render.GraphicsAPI, "graphics API: auto, vulkan, dx12, metal, gles, software")
 	fs.IntVar(&cfg.Render.Anisotropy, "anisotropy", cfg.Render.Anisotropy, "anisotropic texture filtering: 0 (off), 2, 4, 8, 16")
+	fs.BoolVar(&cfg.Render.SmoothSprites, "smooth-sprites", cfg.Render.SmoothSprites, "smooth world sprites (false uses nearest-neighbor filtering)")
 	fs.BoolVar(&cfg.Render.VSync, "vsync", cfg.Render.VSync, "enable vsync")
 	fs.BoolVar(&cfg.Render.FPS, "fps", cfg.Render.FPS, "show measured FPS counter")
 	fs.BoolVar(&cfg.Render.NoUI, "no-ui", cfg.Render.NoUI, "disable UI rendering for benchmarking")
@@ -487,6 +492,8 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		cfg.Render.GraphicsAPI = value
 	case "render.anisotropy":
 		return setInt(value, &cfg.Render.Anisotropy)
+	case "render.smoothsprites":
+		return setBool(value, &cfg.Render.SmoothSprites)
 	case "render.vsync":
 		return setBool(value, &cfg.Render.VSync)
 	case "render.fps":

@@ -54,6 +54,7 @@ type gpuRenderer struct {
 	lightmapSampler        *wgpu.Sampler
 	anisotropy             int
 	anisotropySupported    bool
+	smoothSprites          bool
 	textures               map[*Image]*gpuImageTexture
 	imageGroups            map[*ImageGroup]struct{}
 	bindGroups             map[bindGroupKey]*wgpu.BindGroup
@@ -196,6 +197,7 @@ func newGPURenderer(ctx *gogpu.Context, app *gogpu.App, cfg config.RenderConfig)
 		damageSource: ctx.RegisterDamageSource("goro"),
 	}
 	r.anisotropy = cfg.Anisotropy
+	r.smoothSprites = cfg.SmoothSprites
 	r.anisotropySupported = app.GPUContextProvider().DownlevelCapabilities().Flags.Contains(gputypes.DownlevelFlagsAnisotropicFiltering)
 	if r.queue == nil {
 		r.queue = r.dev.Queue()
@@ -913,6 +915,7 @@ func imageSamplerKey(opts DrawTrianglesOptions, texture *Image, anisotropy int) 
 }
 
 func (r *gpuRenderer) sampler(opts DrawTrianglesOptions, texture *Image) (*wgpu.Sampler, error) {
+	opts.Filter = opts.Filter.resolveSprite(r.smoothSprites)
 	anisotropy := 1
 	if r.anisotropySupported {
 		anisotropy = r.anisotropy

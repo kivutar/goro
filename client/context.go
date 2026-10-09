@@ -60,6 +60,8 @@ type RuntimeSettings interface {
 	SetFPS(bool)
 	Anisotropy() int
 	SetAnisotropy(int)
+	SmoothSprites() bool
+	SetSmoothSprites(bool)
 }
 
 func (c Context) ScriptPath() string {

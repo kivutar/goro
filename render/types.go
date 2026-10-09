@@ -7,7 +7,20 @@ type Filter int
 const (
 	FilterNearest Filter = iota
 	FilterLinear
+	// FilterSprite follows the world sprite smoothing setting on the GPU.
+	// CPU image composition uses linear sampling, independent of this setting.
+	FilterSprite
 )
+
+func (f Filter) resolveSprite(smooth bool) Filter {
+	if f != FilterSprite {
+		return f
+	}
+	if smooth {
+		return FilterLinear
+	}
+	return FilterNearest
+}
 
 type Address int
 

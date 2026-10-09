@@ -1,21 +1,37 @@
 package app
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+
+	"github.com/kivutar/goro/config"
+)
 
 type runtimeSettings struct {
-	fullscreen atomic.Bool
-	vsync      atomic.Bool
-	fps        atomic.Bool
-	anisotropy atomic.Int32
+	fullscreen    atomic.Bool
+	vsync         atomic.Bool
+	fps           atomic.Bool
+	anisotropy    atomic.Int32
+	smoothSprites atomic.Bool
 }
 
-func newRuntimeSettings(fullscreen, vsync, fps bool, anisotropy int) *runtimeSettings {
+func newRuntimeSettings(cfg config.Config) *runtimeSettings {
 	settings := &runtimeSettings{}
-	settings.fullscreen.Store(fullscreen)
-	settings.vsync.Store(vsync)
-	settings.fps.Store(fps)
-	settings.SetAnisotropy(anisotropy)
+	settings.fullscreen.Store(cfg.Window.Fullscreen)
+	settings.vsync.Store(cfg.Render.VSync)
+	settings.fps.Store(cfg.Render.FPS)
+	settings.SetAnisotropy(cfg.Render.Anisotropy)
+	settings.SetSmoothSprites(cfg.Render.SmoothSprites)
 	return settings
+}
+
+func (s *runtimeSettings) SmoothSprites() bool {
+	return s == nil || s.smoothSprites.Load()
+}
+
+func (s *runtimeSettings) SetSmoothSprites(value bool) {
+	if s != nil {
+		s.smoothSprites.Store(value)
+	}
 }
 
 func (s *runtimeSettings) Anisotropy() int {

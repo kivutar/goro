@@ -62,7 +62,7 @@ func NewWithResources(cfg config.Config, resource *res.Manager) *Game {
 		world:    world.New(),
 		network:  network.NewClient(cfg.Packet.ClientDate, cfg.Network.Trace),
 		audio:    gameaudio.NewBGM(resource, cfg.Audio.BGM, cfg.Audio.BGMVolume, cfg.Audio.SFXVolume, cfg.Audio.Disabled),
-		runtime:  newRuntimeSettings(cfg.Window.Fullscreen, cfg.Render.VSync, cfg.Render.FPS, cfg.Render.Anisotropy),
+		runtime:  newRuntimeSettings(cfg),
 		ui:       gameui.NewManager(),
 		started:  time.Now(),
 		screenW:  cfg.Window.Width,
@@ -238,6 +238,10 @@ func (g *Game) RuntimeFPS() bool {
 
 func (g *Game) RuntimeAnisotropy() int {
 	return g.runtime.Anisotropy()
+}
+
+func (g *Game) RuntimeSmoothSprites() bool {
+	return g.runtime.SmoothSprites()
 }
 
 func loadClientUIFont(resource *res.Manager) {
