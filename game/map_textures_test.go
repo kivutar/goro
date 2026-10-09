@@ -50,6 +50,11 @@ func TestMapTexturesPreloadAllSourcesAndReuseDrawCaches(t *testing.T) {
 	if len(m.mapTextureUploads) != 35 || len(m.textures) != 34 || len(m.textureMiss) != 1 {
 		t.Fatalf("uploads=%d textures=%d missing=%d; want 2 shared/model + 32 water + lightmap", len(m.mapTextureUploads), len(m.textures), len(m.textureMiss))
 	}
+	for _, name := range []string{"ground.png", "model.png"} {
+		if img := m.textures[name]; img.ByteSize() != 12 {
+			t.Fatalf("%s: missing 1x1 mip below the 2x1 base", name)
+		}
+	}
 	// Even if the file becomes unreadable, normal rendering uses preparation.
 	if err := os.WriteFile(filepath.Join(ctx.Resources.Root, "ground.png"), nil, 0o600); err != nil {
 		t.Fatal(err)
@@ -59,11 +64,11 @@ func TestMapTexturesPreloadAllSourcesAndReuseDrawCaches(t *testing.T) {
 		t.Fatal("normal loader did not reuse preloaded pixels or transparency changed")
 	}
 	for frame := 0; frame < 32; frame++ {
-		if img := m.waterTexture(ctx.Resources, 700, frame); img == nil {
-			t.Fatalf("water frame %d missing", frame)
+		if img := m.waterTexture(ctx.Resources, 700, frame); img == nil || img.ByteSize() != 8 {
+			t.Fatalf("water frame %d missing or mipmapped", frame)
 		}
 	}
-	if atlas := m.gndMeshCache.lightmapAtlas.image; atlas == nil || atlas != m.mapTextureUploads[1] {
+	if atlas := m.gndMeshCache.lightmapAtlas.image; atlas == nil || atlas != m.mapTextureUploads[1] || atlas.ByteSize() != len(atlas.RGBA().Pix) {
 		t.Fatal("lightmap preparation was not retained")
 	}
 }
@@ -138,6 +143,15 @@ func TestMapTextureUploadsRespectBytesAndAllowOneOversizedImage(t *testing.T) {
 	m.prepareMapTextureUploads(f)
 	if m.mapUploadBatch != 1 {
 		t.Fatal("single large texture cannot make progress")
+	}
+}
+
+func TestMapTextureUploadBudgetIncludesMipmaps(t *testing.T) {
+	texture := render.NewImageWithMipmaps(image.NewRGBA(image.Rect(0, 0, 1024, 1024)))
+	m := &WorldMode{mapTextureUploads: []*render.Image{texture, texture}}
+	m.prepareMapTextureUploads(render.NewFrame(100, 100))
+	if m.mapUploadBatch != 1 {
+		t.Fatal("two 4 MiB base levels fit the budget, but their mip chains do not")
 	}
 }
 

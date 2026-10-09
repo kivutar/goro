@@ -86,11 +86,11 @@ func (m *WorldMode) prepareMapTextureUploads(screen *render.Frame) bool {
 	m.mapUploadBatch = 0
 	bytes := 0
 	for _, img := range m.mapTextureUploads {
-		size := len(img.RGBA().Pix)
+		size := img.ByteSize()
 		if m.mapUploadBatch > 0 && (bytes+size > mapTextureUploadBytes || m.mapUploadBatch >= mapTextureUploadCount) {
 			break
 		}
-		screen.PrepareImage(img, groundTextureDrawOptions())
+		screen.PrepareImage(img)
 		m.mapUploadBatch++
 		bytes += size
 	}

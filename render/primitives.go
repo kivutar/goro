@@ -151,6 +151,7 @@ func DrawImageBitmapTextAtColor(dst *Image, text string, x, y int, c color.RGBA)
 		Dot:  fixed.P(x, y+baseline),
 	}
 	d.DrawString(text)
+	dst.modified()
 }
 
 func cachedBitmapTextColor(text string, c color.RGBA) *Image {
@@ -390,6 +391,7 @@ func drawTextWithFace(dst *Image, text string, x, y int, face font.Face, c color
 		Dot:  fixed.P(x, y),
 	}
 	d.DrawString(text)
+	dst.modified()
 }
 
 func drawSolidQuad(dst *Frame, x, y, w, h float64, c color.RGBA) {

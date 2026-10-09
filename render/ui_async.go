@@ -456,7 +456,7 @@ func updateRGBAImage(src *image.RGBA, dstImage *Image) *Image {
 			copy(dst.Pix[y*dst.Stride:y*dst.Stride+width*4], src.Pix[y*src.Stride:y*src.Stride+width*4])
 		}
 	}
-	dstImage.version++
+	dstImage.modified()
 	return dstImage
 }
 

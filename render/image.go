@@ -8,6 +8,7 @@ import (
 
 type Image struct {
 	pix     *image.RGBA
+	mipmaps []*image.RGBA // Levels below pix; prepared only for static world textures.
 	version uint64
 	group   *ImageGroup
 }
@@ -74,5 +75,10 @@ func (i *Image) Fill(c color.Color) {
 		return
 	}
 	draw.Draw(i.pix, i.pix.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
+	i.modified()
+}
+
+func (i *Image) modified() {
+	i.mipmaps = nil
 	i.version++
 }

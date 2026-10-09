@@ -40,6 +40,7 @@ func (i *Image) DrawImage(src *Image, opts *DrawImageOptions) {
 			i.blendPixel(x, y, sc, o.Blend)
 		}
 	}
+	i.modified()
 }
 
 func (i *Image) DrawTriangles(vertices []Vertex, indices []uint16, texture *Image, opts *DrawTrianglesOptions) {
@@ -53,7 +54,7 @@ func (i *Image) DrawTriangles(vertices []Vertex, indices []uint16, texture *Imag
 	for n := 0; n+2 < len(indices); n += 3 {
 		i.drawTriangle(vertices[indices[n]], vertices[indices[n+1]], vertices[indices[n+2]], texture, o)
 	}
-	i.version++
+	i.modified()
 }
 
 func (i *Image) DrawTrianglesOwned(vertices []Vertex, indices []uint16, texture *Image, opts *DrawTrianglesOptions) {

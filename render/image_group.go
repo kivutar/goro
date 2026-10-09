@@ -30,6 +30,7 @@ func (g *ImageGroup) Release() {
 	g.released = true
 	for _, img := range g.images {
 		img.pix = nil
+		img.mipmaps = nil
 	}
 }
 
