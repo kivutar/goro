@@ -15,7 +15,7 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 328
+	settingsWindowH = 359
 )
 
 type settingsTab int
@@ -163,7 +163,18 @@ func (w *SettingsWindow) displayTree(ctx client.Context) widget.Widget {
 				w.saveSettings(ctx)
 				w.refresh(ctx)
 			}).Width(48),
-		).Gap(8).Height(rotheme.Default.Typography.TextSize + rotheme.ButtonPaddingY*2),
+		).Gap(8).Height(rotheme.Default.Typography.TextSize+rotheme.ButtonPaddingY*2),
+
+		primitives.HBox(
+			primitives.Expanded(rotheme.Text("Upscaling (Next map)")),
+			rotheme.Button(textureUpscalingLabel(settingsTextureUpscaling(ctx)), func() {
+				if ctx.Runtime != nil {
+					ctx.Runtime.SetTextureUpscaling(!ctx.Runtime.TextureUpscaling())
+				}
+				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}).Width(48),
+		).Gap(8).Height(rotheme.Default.Typography.TextSize+rotheme.ButtonPaddingY*2),
 
 		rotheme.Checkbox(
 			checkbox.Checked(settingsSmoothSprites(ctx)),
@@ -337,21 +348,22 @@ func (w *SettingsWindow) refresh(ctx client.Context) {
 
 func (w *SettingsWindow) saveSettings(ctx client.Context) {
 	settings := config.UserSettings{
-		Fullscreen:    settingsRuntimeFullscreen(ctx),
-		VSync:         settingsRuntimeVSync(ctx),
-		FPS:           settingsRuntimeFPS(ctx),
-		Anisotropy:    settingsAnisotropy(ctx),
-		SmoothSprites: settingsSmoothSprites(ctx),
-		MSAA:          settingsMSAA(ctx),
-		Bloom:         settingsBloom(ctx),
-		SSAO:          settingsSSAO(ctx),
-		BGMVolume:     settingsVolumeBGM(ctx),
-		SFXVolume:     settingsVolumeSFX(ctx),
-		NoShift:       settingsNoShift(ctx),
-		NoCtrl:        settingsNoCtrl(ctx),
-		LessEffects:   settingsLessEffects(ctx),
-		SnapTargets:   settingsSnapTargets(ctx),
-		SnapItems:     settingsSnapItems(ctx),
+		Fullscreen:       settingsRuntimeFullscreen(ctx),
+		VSync:            settingsRuntimeVSync(ctx),
+		FPS:              settingsRuntimeFPS(ctx),
+		Anisotropy:       settingsAnisotropy(ctx),
+		TextureUpscaling: settingsTextureUpscaling(ctx),
+		SmoothSprites:    settingsSmoothSprites(ctx),
+		MSAA:             settingsMSAA(ctx),
+		Bloom:            settingsBloom(ctx),
+		SSAO:             settingsSSAO(ctx),
+		BGMVolume:        settingsVolumeBGM(ctx),
+		SFXVolume:        settingsVolumeSFX(ctx),
+		NoShift:          settingsNoShift(ctx),
+		NoCtrl:           settingsNoCtrl(ctx),
+		LessEffects:      settingsLessEffects(ctx),
+		SnapTargets:      settingsSnapTargets(ctx),
+		SnapItems:        settingsSnapItems(ctx),
 	}
 	path, err := ctx.Config.SaveUserSettings(settings)
 	if err != nil {
@@ -408,6 +420,20 @@ func settingsSmoothSprites(ctx client.Context) bool {
 		return ctx.Runtime.SmoothSprites()
 	}
 	return ctx.Config.Render.SmoothSprites
+}
+
+func settingsTextureUpscaling(ctx client.Context) bool {
+	if ctx.Runtime != nil {
+		return ctx.Runtime.TextureUpscaling()
+	}
+	return ctx.Config.Render.TextureUpscaling
+}
+
+func textureUpscalingLabel(enabled bool) string {
+	if enabled {
+		return "2x"
+	}
+	return "Off"
 }
 
 func anisotropyLabel(level int) string {

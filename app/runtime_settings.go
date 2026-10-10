@@ -7,14 +7,15 @@ import (
 )
 
 type runtimeSettings struct {
-	fullscreen    atomic.Bool
-	vsync         atomic.Bool
-	fps           atomic.Bool
-	anisotropy    atomic.Int32
-	smoothSprites atomic.Bool
-	msaa          atomic.Bool
-	bloom         atomic.Bool
-	ssao          atomic.Bool
+	fullscreen       atomic.Bool
+	vsync            atomic.Bool
+	fps              atomic.Bool
+	anisotropy       atomic.Int32
+	textureUpscaling atomic.Bool
+	smoothSprites    atomic.Bool
+	msaa             atomic.Bool
+	bloom            atomic.Bool
+	ssao             atomic.Bool
 }
 
 func newRuntimeSettings(cfg config.Config) *runtimeSettings {
@@ -23,11 +24,22 @@ func newRuntimeSettings(cfg config.Config) *runtimeSettings {
 	settings.vsync.Store(cfg.Render.VSync)
 	settings.fps.Store(cfg.Render.FPS)
 	settings.SetAnisotropy(cfg.Render.Anisotropy)
+	settings.SetTextureUpscaling(cfg.Render.TextureUpscaling)
 	settings.SetSmoothSprites(cfg.Render.SmoothSprites)
 	settings.SetMSAA(cfg.Render.MSAA)
 	settings.SetBloom(cfg.Render.Bloom)
 	settings.SetSSAO(cfg.Render.SSAO)
 	return settings
+}
+
+func (s *runtimeSettings) TextureUpscaling() bool {
+	return s != nil && s.textureUpscaling.Load()
+}
+
+func (s *runtimeSettings) SetTextureUpscaling(value bool) {
+	if s != nil {
+		s.textureUpscaling.Store(value)
+	}
 }
 
 func (s *runtimeSettings) SmoothSprites() bool {

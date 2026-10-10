@@ -60,6 +60,8 @@ type RuntimeSettings interface {
 	SetFPS(bool)
 	Anisotropy() int
 	SetAnisotropy(int)
+	TextureUpscaling() bool
+	SetTextureUpscaling(bool)
 	SmoothSprites() bool
 	SetSmoothSprites(bool)
 	MSAA() bool

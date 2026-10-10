@@ -22,7 +22,7 @@ func TestSettingsTabsFitSmallWindowAndKeepSelectionAfterToggle(t *testing.T) {
 	ctx := client.Context{
 		Input: input.NewState(), Session: session.New(), UIManager: manager, UIApp: basicMenuTestApp{app: app},
 		ScreenW: 640, ScreenH: 480,
-		Config: config.Config{ConfigPath: filepath.Join(t.TempDir(), "goro.ini")},
+		Config: config.Config{ConfigPath: filepath.Join(t.TempDir(), "goro.ini"), Render: config.RenderConfig{Anisotropy: 8}},
 	}
 	var window SettingsWindow
 	window.OpenWindow(ctx)
@@ -40,6 +40,11 @@ func TestSettingsTabsFitSmallWindowAndKeepSelectionAfterToggle(t *testing.T) {
 	}
 	if anisotropic.Center().Y != button.Center().Y {
 		t.Fatalf("anisotropic vertical centers differ: label=%g button=%g", anisotropic.Center().Y, button.Center().Y)
+	}
+	upscaling, hasUpscaling := labels["Upscaling (Next map)"]
+	upscaleButton, hasUpscaleButton := labels["Off"]
+	if !hasUpscaling || !hasUpscaleButton || upscaling.Center().Y != upscaleButton.Center().Y {
+		t.Fatal("texture upscaling control is missing or misaligned")
 	}
 	click := func(label string) {
 		t.Helper()

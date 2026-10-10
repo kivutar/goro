@@ -415,6 +415,9 @@ func (m *WorldMode) groundTexture(manager *res.Manager, name string) *render.Ima
 		m.textureMiss[name] = struct{}{}
 		return nil
 	}
+	if m.textureUpscaling {
+		img = render.UpscaleTexture2x(img)
+	}
 	texture := m.ownMapImage(render.NewImageWithMipmaps(img))
 	m.textures[name] = texture
 	return texture

@@ -39,6 +39,10 @@ func (m *WorldMode) preloadMapTextures(ctx client.Context) {
 	if ctx.Config.Headless || ctx.Resources == nil || ctx.World == nil {
 		return
 	}
+	m.textureUpscaling = ctx.Config.Render.TextureUpscaling
+	if ctx.Runtime != nil {
+		m.textureUpscaling = ctx.Runtime.TextureUpscaling()
+	}
 	seen := make(map[*render.Image]bool)
 	add := func(img *render.Image) {
 		if img != nil && !seen[img] {

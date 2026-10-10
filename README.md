@@ -144,6 +144,7 @@ bgm_volume = 0.55
 graphics_api = vulkan
 vsync = true
 anisotropy = 8
+texture_upscaling = false
 smooth_sprites = true
 msaa = false
 bloom = false
@@ -157,6 +158,15 @@ Anisotropic filtering sharpens terrain and model textures viewed at an angle.
 It defaults to 8x and can be changed live in Settings, or with `--anisotropy`:
 `0` (off), `2`, `4`, `8`, or `16`. It falls back to trilinear filtering on
 unsupported adapters. The current DX12 backend also uses trilinear filtering.
+
+"Upscaling (Next map)" in Settings enlarges terrain and model textures with
+xBR 2x. It defaults off; `--texture-upscaling` enables it at launch. Changes
+apply when the next map loads, including reconnecting to the current map.
+Textures are processed on the CPU once per map load, before generating mipmaps,
+and reused during rendering on every backend. Upscaled textures use roughly
+four times the pixel memory and take longer to load. Textures larger than 1024
+pixels on either axis keep their original size. Sprites, UI, effects, water,
+and lightmaps are unchanged.
 
 "Smooth world sprites" in Settings switches characters, monsters, NPCs, and
 dropped items between smooth (default) and crisp nearest-neighbor sampling.

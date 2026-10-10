@@ -92,6 +92,48 @@ func TestMapTexturesSkipDryMapsAndHeadless(t *testing.T) {
 	}
 }
 
+type mapTextureRuntime struct {
+	client.RuntimeSettings
+	upscale bool
+}
+
+func (r *mapTextureRuntime) TextureUpscaling() bool { return r.upscale }
+
+func TestMapTextureUpscalingIsCachedAndAppliesOnNextMap(t *testing.T) {
+	m, ctx := mapTextureFixture(t)
+	runtime := &mapTextureRuntime{upscale: true}
+	ctx.Runtime = runtime
+	m.preloadMapTextures(ctx)
+	for _, name := range []string{"ground.png", "model.png"} {
+		img := m.textures[name]
+		if img.Bounds() != image.Rect(0, 0, 4, 2) || img.ByteSize() != 44 {
+			t.Fatalf("%s was not upscaled with mipmaps", name)
+		}
+		if m.groundTexture(ctx.Resources, name) != img {
+			t.Fatal("draw-time access did not reuse the upscaled texture")
+		}
+	}
+	if m.waterTexture(ctx.Resources, 700, 0).ByteSize() != 8 {
+		t.Fatal("upscaling changed a water texture")
+	}
+	if atlas := m.gndMeshCache.lightmapAtlas.image; atlas.ByteSize() != len(atlas.RGBA().Pix) {
+		t.Fatal("upscaling changed the lightmap")
+	}
+	runtime.upscale = false
+	delete(m.textures, "model.png")
+	if m.groundTexture(ctx.Resources, "model.png").Bounds().Dx() != 4 {
+		t.Fatal("late model load ignored the current map's captured upscale setting")
+	}
+	m.Leave()
+	m.textures = make(map[string]*render.Image)
+	ctx.Config.Render.TextureUpscaling = true // The runtime setting must take precedence.
+	m.preloadMapTextures(ctx)
+	if m.textures["ground.png"].Bounds().Dx() != 2 {
+		t.Fatal("next map did not pick up the disabled runtime setting")
+	}
+	m.Leave()
+}
+
 func TestMapTextureUploadsWaitForSubmissionBeforeFade(t *testing.T) {
 	m, ctx := mapTextureFixture(t)
 	m.preloadMapTextures(ctx)

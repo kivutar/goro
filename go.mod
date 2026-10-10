@@ -12,6 +12,7 @@ require (
 	github.com/gogpu/naga v0.19.0
 	github.com/gogpu/ui v0.1.54
 	github.com/gogpu/wgpu v0.34.3
+	github.com/virtualparadox/xbrscaler v0.1.1-0.20231219225627-fd926d8697ff
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/image v0.45.0
 	golang.org/x/sys v0.47.0
