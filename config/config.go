@@ -71,6 +71,7 @@ type RenderConfig struct {
 	SmoothSprites      bool
 	MSAA               bool
 	Bloom              bool
+	SSAO               bool
 	VSync              bool
 	FPS                bool
 	NoUI               bool
@@ -150,6 +151,7 @@ type UserSettings struct {
 	SmoothSprites bool
 	MSAA          bool
 	Bloom         bool
+	SSAO          bool
 	BGMVolume     float64
 	SFXVolume     float64
 	NoShift       bool
@@ -208,6 +210,7 @@ func (cfg Config) SaveUserSettings(settings UserSettings) (string, error) {
 			"smooth_sprites": formatINIValueBool(settings.SmoothSprites),
 			"msaa":           formatINIValueBool(settings.MSAA),
 			"bloom":          formatINIValueBool(settings.Bloom),
+			"ssao":           formatINIValueBool(settings.SSAO),
 			"vsync":          formatINIValueBool(settings.VSync),
 			"fps":            formatINIValueBool(settings.FPS),
 		},
@@ -355,6 +358,7 @@ func parseCLI(cfg *Config, args []string) error {
 	fs.Float64Var(&cfg.Audio.SFXVolume, "sfx-volume", cfg.Audio.SFXVolume, "SFX volume from 0 to 1")
 	fs.StringVar(&cfg.Render.GraphicsAPI, "graphics-api", cfg.Render.GraphicsAPI, "graphics API: auto, vulkan, dx12, metal, gles, software")
 	fs.IntVar(&cfg.Render.Anisotropy, "anisotropy", cfg.Render.Anisotropy, "anisotropic texture filtering: 0 (off), 2, 4, 8, 16")
+	fs.BoolVar(&cfg.Render.SSAO, "ssao", cfg.Render.SSAO, "enable subtle ambient occlusion for terrain and models")
 	fs.BoolVar(&cfg.Render.Bloom, "bloom", cfg.Render.Bloom, "enable subtle bloom for bright world pixels")
 	fs.BoolVar(&cfg.Render.MSAA, "msaa", cfg.Render.MSAA, "enable 4x multisample anti-aliasing for the world")
 	fs.BoolVar(&cfg.Render.SmoothSprites, "smooth-sprites", cfg.Render.SmoothSprites, "smooth world sprites (false uses nearest-neighbor filtering)")
@@ -500,6 +504,8 @@ func applyConfigValue(cfg *Config, section, key, value string) error {
 		cfg.Render.GraphicsAPI = value
 	case "render.anisotropy":
 		return setInt(value, &cfg.Render.Anisotropy)
+	case "render.ssao":
+		return setBool(value, &cfg.Render.SSAO)
 	case "render.bloom":
 		return setBool(value, &cfg.Render.Bloom)
 	case "render.msaa":

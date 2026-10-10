@@ -240,6 +240,10 @@ func (g *Game) RuntimeAnisotropy() int {
 	return g.runtime.Anisotropy()
 }
 
+func (g *Game) RuntimeSSAO() bool {
+	return g.runtime.SSAO()
+}
+
 func (g *Game) RuntimeBloom() bool {
 	return g.runtime.Bloom()
 }

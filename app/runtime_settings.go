@@ -14,6 +14,7 @@ type runtimeSettings struct {
 	smoothSprites atomic.Bool
 	msaa          atomic.Bool
 	bloom         atomic.Bool
+	ssao          atomic.Bool
 }
 
 func newRuntimeSettings(cfg config.Config) *runtimeSettings {
@@ -25,6 +26,7 @@ func newRuntimeSettings(cfg config.Config) *runtimeSettings {
 	settings.SetSmoothSprites(cfg.Render.SmoothSprites)
 	settings.SetMSAA(cfg.Render.MSAA)
 	settings.SetBloom(cfg.Render.Bloom)
+	settings.SetSSAO(cfg.Render.SSAO)
 	return settings
 }
 
@@ -107,5 +109,15 @@ func (s *runtimeSettings) Bloom() bool {
 func (s *runtimeSettings) SetBloom(value bool) {
 	if s != nil {
 		s.bloom.Store(value)
+	}
+}
+
+func (s *runtimeSettings) SSAO() bool {
+	return s != nil && s.ssao.Load()
+}
+
+func (s *runtimeSettings) SetSSAO(value bool) {
+	if s != nil {
+		s.ssao.Store(value)
 	}
 }

@@ -169,6 +169,7 @@ type runtimeSettingsProvider interface {
 	RuntimeAnisotropy() int
 	RuntimeSmoothSprites() bool
 	RuntimeBloom() bool
+	RuntimeSSAO() bool
 }
 
 type screenshotRequester interface {
@@ -800,6 +801,7 @@ func (r *runner) applyRuntimeSettings() {
 	r.renderCfg.Anisotropy = provider.RuntimeAnisotropy()
 	r.renderCfg.SmoothSprites = provider.RuntimeSmoothSprites()
 	r.renderCfg.Bloom = provider.RuntimeBloom()
+	r.renderCfg.SSAO = provider.RuntimeSSAO()
 	if fullscreen := provider.RuntimeFullscreen(); fullscreen != r.fullscreen {
 		r.app.SetFullscreen(fullscreen)
 		r.fullscreen = fullscreen
@@ -855,6 +857,7 @@ func (r *runner) draw(ctx *gogpu.Context) error {
 	r.gpu.anisotropy = r.renderCfg.Anisotropy
 	r.gpu.smoothSprites = r.renderCfg.SmoothSprites
 	r.gpu.bloomEnabled = r.renderCfg.Bloom
+	r.gpu.ssaoEnabled = r.renderCfg.SSAO
 	r.screen.BeginFrame()
 	r.screen.SetScreenScale(scaleX, scaleY)
 	r.resetUIDrawMeasurement()

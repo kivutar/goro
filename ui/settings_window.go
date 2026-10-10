@@ -15,7 +15,7 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 560
+	settingsWindowH = 592
 )
 
 type SettingsWindow struct {
@@ -150,6 +150,18 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 			}),
 		),
 
+		rotheme.Checkbox(
+			checkbox.Checked(settingsSSAO(ctx)),
+			checkbox.LabelOpt("Ambient occlusion"),
+			checkbox.OnToggle(func(enabled bool) {
+				if ctx.Runtime != nil {
+					ctx.Runtime.SetSSAO(enabled)
+				}
+				w.saveSettings(ctx)
+				w.refresh(ctx)
+			}),
+		),
+
 		rotheme.Label("Sound"),
 
 		primitives.HBox(
@@ -277,6 +289,7 @@ func (w *SettingsWindow) saveSettings(ctx client.Context) {
 		SmoothSprites: settingsSmoothSprites(ctx),
 		MSAA:          settingsMSAA(ctx),
 		Bloom:         settingsBloom(ctx),
+		SSAO:          settingsSSAO(ctx),
 		BGMVolume:     settingsVolumeBGM(ctx),
 		SFXVolume:     settingsVolumeSFX(ctx),
 		NoShift:       settingsNoShift(ctx),
@@ -396,4 +409,11 @@ func settingsBloom(ctx client.Context) bool {
 		return ctx.Runtime.Bloom()
 	}
 	return ctx.Config.Render.Bloom
+}
+
+func settingsSSAO(ctx client.Context) bool {
+	if ctx.Runtime != nil {
+		return ctx.Runtime.SSAO()
+	}
+	return ctx.Config.Render.SSAO
 }

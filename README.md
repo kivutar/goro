@@ -147,6 +147,7 @@ anisotropy = 8
 smooth_sprites = true
 msaa = false
 bloom = false
+ssao = false
 
 [network]
 trace = false
@@ -173,6 +174,13 @@ off, applies immediately, and is saved as `bloom`; `--bloom` enables it at launc
 It works with or without MSAA. The blur runs at quarter resolution and is
 composited before the UI, keeping text and windows sharp. This is a brightness
 filter on the existing scene, so bright scenery and sprites can glow too.
+
+"Ambient occlusion" in Settings adds subtle contact shading to terrain and
+models. It defaults off and applies immediately; `--ssao` enables it at launch.
+It uses a separate geometry depth pass and half-resolution occlusion, works
+with MSAA and bloom, and is applied before water, effects, sprites, and UI.
+This is an optional visual enhancement, not an original-client effect; it adds
+GPU work and can darken areas already shaded by the map's baked lighting.
 
 Command-line options override the ini file:
 

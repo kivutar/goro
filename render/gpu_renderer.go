@@ -64,6 +64,8 @@ type gpuRenderer struct {
 	msaaTarget             gpuRenderTarget
 	bloomEnabled           bool
 	bloom                  *gpuBloom
+	ssaoEnabled            bool
+	ssao                   *gpuSSAO
 	worldVertexBuf         dynamicGPUBuffer
 	worldIndexBuf          dynamicGPUBuffer
 	screenVertexBuf        dynamicGPUBuffer
@@ -200,6 +202,7 @@ func newGPURenderer(ctx *gogpu.Context, app *gogpu.App, cfg config.RenderConfig)
 	r.anisotropy = cfg.Anisotropy
 	r.smoothSprites = cfg.SmoothSprites
 	r.bloomEnabled = cfg.Bloom
+	r.ssaoEnabled = cfg.SSAO
 	r.sampleCount = 1
 	if cfg.MSAA {
 		r.sampleCount = 4
@@ -570,6 +573,24 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 		r.bloom.releaseTargets()
 	}
 	world := r.buildWorldFrame(screen)
+	ssaoActive := r.ssaoEnabled && screen.camera.Enabled
+	if ssaoActive {
+		if r.ssao == nil {
+			var err error
+			r.ssao, err = r.newSSAO()
+			if err != nil {
+				return false, fmt.Errorf("create SSAO: %w", err)
+			}
+		}
+		if err := r.ssao.ensure(r.dev, width, height); err != nil {
+			return false, fmt.Errorf("prepare SSAO: %w", err)
+		}
+		if err := r.ssao.uploadCamera(r.queue, screen.camera); err != nil {
+			return false, err
+		}
+	} else if r.ssao != nil && !r.ssaoEnabled {
+		r.ssao.releaseTargets()
+	}
 	frame := r.buildFrame(screen)
 	meshBatches := r.depthWriteWorldMeshBatches(screen)
 	if r.statsEnabled && time.Since(r.statsLast) >= time.Second {
@@ -608,53 +629,38 @@ func (r *gpuRenderer) Draw(ctx *gogpu.Context, screen *Frame) (bool, error) {
 		return false, err
 	}
 	defer enc.DiscardEncoding()
+	if ssaoActive {
+		if err := r.drawSSAO(enc, meshBatches, world, worldVertexBuf, worldIndexBuf); err != nil {
+			return false, fmt.Errorf("draw SSAO: %w", err)
+		}
+	}
 	clear := clearValue(screen.clear)
 	if screen.camera.Enabled {
 		pass, err := enc.BeginRenderPass(r.worldPassDescriptor(worldTarget, clear))
 		if err != nil {
 			return false, err
 		}
-		worldState := renderPassState{}
-		for _, batch := range meshBatches {
-			if err := r.drawWorldMeshBatch(pass, batch, &worldState); err != nil {
-				_ = pass.End()
-				return false, err
-			}
+		if err := r.drawWorldOpaque(pass, meshBatches, world, worldVertexBuf, worldIndexBuf, nil); err != nil {
+			_ = pass.End()
+			return false, err
 		}
+		if ssaoActive {
+			pass.SetPipeline(r.ssao.composite)
+			pass.SetBindGroup(0, r.ssao.groups[1], nil)
+			pass.Draw(gputypes.DrawArgs{VertexCount: 3, InstanceCount: 1})
+		}
+		worldState := renderPassState{}
 		if worldVertexBuf != nil && worldIndexBuf != nil {
 			worldState.setVertexBuffer(pass, worldVertexBuf)
 			worldState.setIndexBuffer(pass, worldIndexBuf)
 			for _, batch := range world.batches {
-				if batch.indexCount == 0 {
+				if batch.indexCount == 0 || batch.key.options.DepthWrite {
 					continue
 				}
-				tex, err := r.ensureTexture(batch.key.texture)
-				if err != nil {
+				if err := r.drawWorldBatch(pass, batch, &worldState, nil); err != nil {
 					_ = pass.End()
 					return false, err
 				}
-				sampler, err := r.sampler(batch.key.options, batch.key.texture)
-				if err != nil {
-					_ = pass.End()
-					return false, err
-				}
-				lightTex, err := r.ensureBatchLightTexture(batch.key)
-				if err != nil {
-					_ = pass.End()
-					return false, err
-				}
-				bg, err := r.bindWorldGroup(r.worldUniform, 96, tex, lightTex, sampler)
-				if err != nil {
-					_ = pass.End()
-					return false, err
-				}
-				worldState.setPipeline(pass, r.worldPipelineFor(batch.key.options))
-				worldState.setBindGroup(pass, bg)
-				pass.DrawIndexed(gputypes.DrawIndexedArgs{
-					IndexCount:    batch.indexCount,
-					InstanceCount: 1,
-					FirstIndex:    batch.firstIndex,
-				})
 			}
 		}
 		for _, meshCommand := range screen.worldMeshes {
@@ -1108,7 +1114,7 @@ func (r *gpuRenderer) depthWriteWorldMeshBatches(screen *Frame) []worldMeshBatch
 	return r.worldMeshBatches
 }
 
-func (r *gpuRenderer) drawWorldMeshBatch(pass *wgpu.RenderPassEncoder, batch worldMeshBatch, state *renderPassState) error {
+func (r *gpuRenderer) drawWorldMeshBatch(pass *wgpu.RenderPassEncoder, batch worldMeshBatch, state *renderPassState, pipeline *wgpu.RenderPipeline) error {
 	if len(batch.meshes) == 0 || batch.key.texture == nil || batch.key.texture.pix == nil {
 		return nil
 	}
@@ -1131,7 +1137,10 @@ func (r *gpuRenderer) drawWorldMeshBatch(pass *wgpu.RenderPassEncoder, batch wor
 	if err != nil {
 		return err
 	}
-	state.setPipeline(pass, r.worldPipelineFor(batch.key.options))
+	if pipeline == nil {
+		pipeline = r.worldPipelineFor(batch.key.options)
+	}
+	state.setPipeline(pass, pipeline)
 	state.setBindGroup(pass, bg)
 	gpuBatch, err := r.ensureWorldMeshBatch(batch)
 	if err != nil {
@@ -1469,6 +1478,9 @@ func (r *gpuRenderer) release() {
 	}
 	if r.bloom != nil {
 		r.bloom.release()
+	}
+	if r.ssao != nil {
+		r.ssao.release()
 	}
 	r.depthTarget.release()
 	r.msaaTarget.release()

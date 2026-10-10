@@ -66,6 +66,8 @@ type RuntimeSettings interface {
 	SetMSAA(bool)
 	Bloom() bool
 	SetBloom(bool)
+	SSAO() bool
+	SetSSAO(bool)
 }
 
 func (c Context) ScriptPath() string {
