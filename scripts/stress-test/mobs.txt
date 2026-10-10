@@ -1,0 +1,12 @@
+// Temporary extra spawns, loaded only by /tmp/goro-stress/map.conf.
+// Watch from prt_fild08 216 255. Normal map spawns remain available.
+// 108 additional monsters: twelve of each of nine classic species.
+prt_fild08,216,255,6,6	monster	Spore	1014,12,3000,2000
+prt_fild08,216,255,6,6	monster	Wolf	1013,12,3000,2000
+prt_fild08,216,255,6,6	monster	Poporing	1031,12,3000,2000
+prt_fild08,216,255,6,6	monster	Peco Peco	1019,12,3000,2000
+prt_fild08,216,255,6,6	monster	Smokie	1056,12,3000,2000
+prt_fild08,216,255,6,6	monster	Bigfoot	1060,12,3000,2000
+prt_fild08,216,255,6,6	monster	Coco	1104,12,3000,2000
+prt_fild08,216,255,6,6	monster	Horn	1128,12,3000,2000
+prt_fild08,216,255,6,6	monster	Elder Willow	1033,12,3000,2000
