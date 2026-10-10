@@ -15,11 +15,20 @@ import (
 
 const (
 	settingsWindowW = 300
-	settingsWindowH = 592
+	settingsWindowH = 328
+)
+
+type settingsTab int
+
+const (
+	settingsTabDisplay settingsTab = iota
+	settingsTabSound
+	settingsTabGameplay
 )
 
 type SettingsWindow struct {
 	Window
+	tab settingsTab
 }
 
 func (w *SettingsWindow) OpenWindow(ctx client.Context) {
@@ -59,8 +68,50 @@ func (w *SettingsWindow) widgetTree(ctx client.Context) widget.Widget {
 
 func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 	return primitives.Box(
-		rotheme.Label("Display"),
+		w.tabStrip(),
+		primitives.Box().Height(1).Background(rotheme.Default.Colors.WindowBorder),
+		primitives.Expanded(w.tabContent(ctx)),
+	).CrossAlign(primitives.CrossAxisStretch)
+}
 
+func (w *SettingsWindow) tabStrip() widget.Widget {
+	var tabs []widget.Widget
+	for _, def := range []struct {
+		tab   settingsTab
+		label string
+	}{
+		{settingsTabDisplay, "Display"},
+		{settingsTabSound, "Sound"},
+		{settingsTabGameplay, "Gameplay"},
+	} {
+		tabs = append(tabs, newTabWidget(tabWidgetConfig{
+			label:  def.label,
+			active: w.tab == def.tab,
+			width:  88,
+			height: 24,
+			onClick: func() {
+				w.tab = def.tab
+				w.refresh(w.ctx)
+			},
+		}))
+	}
+	tabs = append(tabs, primitives.Expanded(primitives.Box()))
+	return primitives.HBox(tabs...).Gap(-1)
+}
+
+func (w *SettingsWindow) tabContent(ctx client.Context) widget.Widget {
+	switch w.tab {
+	case settingsTabSound:
+		return w.soundTree(ctx)
+	case settingsTabGameplay:
+		return w.gameplayTree(ctx)
+	default:
+		return w.displayTree(ctx)
+	}
+}
+
+func (w *SettingsWindow) displayTree(ctx client.Context) widget.Widget {
+	return primitives.Box(
 		rotheme.Checkbox(
 			checkbox.Checked(settingsRuntimeFullscreen(ctx)),
 			checkbox.LabelOpt("Fullscreen"),
@@ -112,7 +163,7 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 				w.saveSettings(ctx)
 				w.refresh(ctx)
 			}).Width(48),
-		).Gap(8),
+		).Gap(8).Height(rotheme.Default.Typography.TextSize + rotheme.ButtonPaddingY*2),
 
 		rotheme.Checkbox(
 			checkbox.Checked(settingsSmoothSprites(ctx)),
@@ -161,9 +212,11 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 				w.refresh(ctx)
 			}),
 		),
+	).Padding(14).Gap(8)
+}
 
-		rotheme.Label("Sound"),
-
+func (w *SettingsWindow) soundTree(ctx client.Context) widget.Widget {
+	return primitives.Box(
 		primitives.HBox(
 			rotheme.Text("BGM Vol"),
 			primitives.Expanded(
@@ -199,9 +252,11 @@ func (w *SettingsWindow) contentTree(ctx client.Context) widget.Widget {
 				),
 			),
 		).Gap(8),
+	).Padding(14).Gap(8)
+}
 
-		rotheme.Label("Gameplay"),
-
+func (w *SettingsWindow) gameplayTree(ctx client.Context) widget.Widget {
+	return primitives.Box(
 		rotheme.Checkbox(
 			checkbox.Checked(settingsNoShift(ctx)),
 			checkbox.LabelOpt("No Shift"),
