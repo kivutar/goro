@@ -22,6 +22,10 @@ func (m *WorldMode) ownMapImage(img *render.Image) *render.Image {
 }
 
 func (m *WorldMode) releaseMapTextures() {
+	if m.spriteUpscaler != nil {
+		close(m.spriteUpscaler.stop)
+		m.spriteUpscaler = nil
+	}
 	m.mapImages.Release()
 	m.mapImages = nil
 	m.mapTextureUploads = nil

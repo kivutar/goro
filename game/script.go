@@ -66,9 +66,6 @@ func (m *Manager) closeScript() {
 	}
 }
 
-// Close is called after the render loop stops, outside any Lua callback.
-func (m *Manager) Close() { m.closeScript() }
-
 func newLuaScript(ctx client.Context, mode Mode, path string) (*luaScript, error) {
 	world, _ := mode.(*WorldMode)
 	ui, _ := mode.(scriptUI)

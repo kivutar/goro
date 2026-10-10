@@ -361,7 +361,7 @@ func parseCLI(cfg *Config, args []string) error {
 	fs.Float64Var(&cfg.Audio.SFXVolume, "sfx-volume", cfg.Audio.SFXVolume, "SFX volume from 0 to 1")
 	fs.StringVar(&cfg.Render.GraphicsAPI, "graphics-api", cfg.Render.GraphicsAPI, "graphics API: auto, vulkan, dx12, metal, gles, software")
 	fs.IntVar(&cfg.Render.Anisotropy, "anisotropy", cfg.Render.Anisotropy, "anisotropic texture filtering: 0 (off), 2, 4, 8, 16")
-	fs.BoolVar(&cfg.Render.TextureUpscaling, "texture-upscaling", cfg.Render.TextureUpscaling, "upscale terrain and model textures 2x with xBR when loading maps")
+	fs.BoolVar(&cfg.Render.TextureUpscaling, "texture-upscaling", cfg.Render.TextureUpscaling, "upscale terrain, model, and world sprite textures 2x with xBR")
 	fs.BoolVar(&cfg.Render.SSAO, "ssao", cfg.Render.SSAO, "enable subtle ambient occlusion for terrain and models")
 	fs.BoolVar(&cfg.Render.Bloom, "bloom", cfg.Render.Bloom, "enable subtle bloom for bright world pixels")
 	fs.BoolVar(&cfg.Render.MSAA, "msaa", cfg.Render.MSAA, "enable 4x multisample anti-aliasing for the world")

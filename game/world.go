@@ -37,6 +37,7 @@ type WorldMode struct {
 	mapTextureUploads []*render.Image
 	mapUploadBatch    int
 	textureUpscaling  bool // Captured when loading the map; cached meshes keep matching UVs.
+	spriteUpscaler    *spriteUpscaler
 	textureMiss       map[string]struct{}
 	imageCache        map[string]image.Image
 	imageMiss         map[string]struct{}

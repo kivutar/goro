@@ -402,7 +402,7 @@ func groundItemShadowBillboard(billboard *spriteBillboard) *spriteBillboard {
 
 func (m *WorldMode) drawGroundItemEntry3D(screen *render.Frame, projection sceneProjection, entry sceneItemDrawEntry) {
 	if entry.billboard != nil {
-		drawSpriteBillboardAlpha3D(screen, projection, entry.billboard, entry.worldX, entry.worldY, entry.worldZ, entry.scale, 1, 1)
+		m.drawSpriteBillboardAlpha3D(screen, projection, entry.billboard, entry.worldX, entry.worldY, entry.worldZ, entry.scale, 1, 1)
 		return
 	}
 	m.drawFallbackGroundItemMarker(screen, entry)

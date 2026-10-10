@@ -199,7 +199,7 @@ func (m *WorldMode) drawPlayerSprite3D(ctx client.Context, screen *render.Frame,
 	if !ok {
 		return false
 	}
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerRenderScale(ctx, actor, entry.scale, now), alpha, shadow, entry.stealth.tint(m.playerRenderTint(ctx, actor, now)), entry.stealth.blend(m.playerRenderBlend(ctx, actor, now)))
+	m.drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerRenderScale(ctx, actor, entry.scale, now), alpha, shadow, entry.stealth.tint(m.playerRenderTint(ctx, actor, now)), entry.stealth.blend(m.playerRenderBlend(ctx, actor, now)))
 	return true
 }
 
@@ -234,11 +234,11 @@ func actorAnimationOverridesWalk(anim actorAnimation, playerLike bool) bool {
 	return anim.actionFamily == spriteActionNonPCDeath
 }
 
-func drawActorSpriteBillboardTintAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, blend render.Blend) {
+func (m *WorldMode) drawActorSpriteBillboardTintAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, blend render.Blend) {
 	options := spriteBillboardTriangleDrawOptions()
 	options.Filter = render.FilterSprite
 	options.Blend = blend
-	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, worldX, worldY, actorSpriteWorldZ(worldZ), scale, alpha, shadow, tintColor, options)
+	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, m.spriteTexture(billboard.image), worldX, worldY, actorSpriteWorldZ(worldZ), scale, alpha, shadow, tintColor, options)
 }
 
 func actorSpriteWorldZ(terrainZ float64) float64 {
@@ -259,28 +259,28 @@ func drawSpriteShadowBillboard3D(screen *render.Frame, projection sceneProjectio
 	}
 	options := spriteBillboardTriangleDrawOptions()
 	options.DepthBias = actorShadowDepthBias
-	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, options)
+	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, billboard.image, worldX, worldY, worldZ, scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, options)
 	return true
 }
 
-func drawSpriteBillboardAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64) {
+func (m *WorldMode) drawSpriteBillboardAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64) {
 	options := spriteBillboardTriangleDrawOptions()
 	options.Filter = render.FilterSprite
-	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, options)
+	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, m.spriteTexture(billboard.image), worldX, worldY, worldZ, scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, options)
 }
 
 func drawSpriteBillboardTintAlpha3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA) {
-	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, spriteBillboardTriangleDrawOptions())
+	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, billboard.image, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, spriteBillboardTriangleDrawOptions())
 }
 
 func drawSpriteBillboardTintAlphaOverlay3D(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA) {
-	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, &render.DrawTrianglesOptions{
+	drawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, billboard.image, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, &render.DrawTrianglesOptions{
 		Filter:  spriteDrawFilter(),
 		Address: render.AddressClampToZero,
 	})
 }
 
-func drawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, options *render.DrawTrianglesOptions) {
+func drawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection sceneProjection, billboard *spriteBillboard, texture *render.Image, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, options *render.DrawTrianglesOptions) {
 	if scale <= 0 || math.IsNaN(scale) || math.IsInf(scale, 0) {
 		scale = 1
 	}
@@ -304,6 +304,7 @@ func drawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection 
 	if !ok {
 		return
 	}
+	// Keep geometry and depth in original pixels, independently of texture resolution.
 	bounds := billboard.image.Bounds()
 	w := float64(bounds.Dx())
 	h := float64(bounds.Dy())
@@ -311,7 +312,7 @@ func drawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection 
 	tint := colorRGBAFromFloats(tintR, tintG, tintB, tintA)
 	axisScale := scale * unitsPerPixel
 	screen.DrawWorldBillboard(render.WorldBillboardCommand{
-		Texture:     billboard.image,
+		Texture:     texture,
 		Options:     *options,
 		Center:      [3]float32{float32(center.x), float32(center.y), float32(center.z)},
 		RightAxis:   [3]float32{float32(right.x * axisScale), float32(right.y * axisScale), float32(right.z * axisScale)},

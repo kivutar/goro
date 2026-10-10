@@ -43,6 +43,16 @@ func NewManager(ctx client.Context, mode Mode) *Manager {
 	return m
 }
 
+// Close releases the active mode after the render loop stops, outside any Lua callback.
+func (m *Manager) Close() {
+	m.closeScript()
+	if leaving, ok := m.mode.(interface{ Leave() }); ok {
+		leaving.Leave()
+	}
+	m.mode = nil
+	m.login.Store(false)
+}
+
 func (m *Manager) enter(mode Mode) {
 	for mode != nil {
 		m.closeScript()

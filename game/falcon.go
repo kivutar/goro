@@ -319,7 +319,7 @@ func (m *WorldMode) drawActorFalcon3D(screen *render.Frame, ctx client.Context, 
 	worldZ := terrainZ + falconGlideHeight
 	scale := actorBillboardScreenScale(projection, worldX, worldY, worldZ)
 	shadow := actorShadowFactor(ctx.World, falcon.x, falcon.y)
-	drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, render.BlendSourceOver)
+	m.drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, color.RGBA{R: 255, G: 255, B: 255, A: 255}, render.BlendSourceOver)
 	return true
 }
 
