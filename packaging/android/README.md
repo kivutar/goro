@@ -1,9 +1,10 @@
 # Android development build
 
 The Android host runs the existing game and Vulkan renderer in a landscape
-SurfaceView at 1280×720. It targets arm64 devices with Android 10 (API 29) or
-newer and Vulkan support. The package ID is `org.goro`; local builds default
-to a debug APK.
+SurfaceView at 720 pixels high, with its width matching the view's aspect ratio
+(1280×720 on 16:9 screens, 1600×720 on 20:9 screens). It targets arm64 devices
+with Android 10 (API 29) or newer and Vulkan support. The package ID is
+`org.goro`; local builds default to a debug APK.
 
 ## Build and install
 

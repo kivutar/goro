@@ -338,8 +338,9 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
 
     private final class GameView extends SurfaceView implements SurfaceHolder.Callback {
         boolean surfaceReady;
-        int renderWidth = 1280, renderHeight = 720;
-        float pointerX = 640, pointerY = 360;
+        int renderWidth;
+        final int renderHeight = 720;
+        float pointerX, pointerY;
         boolean rightTouch;
         boolean touchReleased;
         float pinchDistance;
@@ -349,14 +350,23 @@ public final class GoroActivity extends Activity implements InputManager.InputDe
             setFocusable(true);
             setFocusableInTouchMode(true);
             getHolder().addCallback(this);
-            getHolder().setFixedSize(renderWidth, renderHeight);
             requestFocus();
+        }
+        @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+            super.onSizeChanged(width, height, oldWidth, oldHeight);
+            if (width <= 0 || height <= 0) return;
+            // Keep the 720-pixel render height, but preserve the view's aspect ratio.
+            int nextWidth = Math.max(1, Math.round((float)width * renderHeight / height));
+            if (nextWidth == renderWidth) return;
+            surfaceReady = false;
+            stopGame();
+            renderWidth = nextWidth;
+            getHolder().setFixedSize(renderWidth, renderHeight);
         }
         @Override public void surfaceCreated(SurfaceHolder holder) {}
         @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-            if (running && (width != renderWidth || height != renderHeight)) stopGame();
-            renderWidth = width;
-            renderHeight = height;
+            // setFixedSize requests a layout; wait for the requested buffer before starting.
+            if (width != renderWidth || height != renderHeight) return;
             surfaceReady = true;
             startGame();
         }
