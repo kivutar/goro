@@ -298,7 +298,6 @@ type runner struct {
 }
 
 func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) error {
-	configureGogpuVSync(renderCfg)
 	appConfig := gogpu.DefaultConfig()
 	api, err := graphicsAPI(renderCfg.GraphicsAPI)
 	if err != nil {
@@ -449,15 +448,6 @@ func (r *runner) close() {
 	if r.uiOverlayCanvas != nil {
 		_ = r.uiOverlayCanvas.Close()
 		r.uiOverlayCanvas = nil
-	}
-}
-
-func configureGogpuVSync(renderCfg config.RenderConfig) {
-	if renderCfg.VSync {
-		return
-	}
-	if os.Getenv("GOGPU_WAYLAND_FRAME_CALLBACK") == "" {
-		_ = os.Setenv("GOGPU_WAYLAND_FRAME_CALLBACK", "0")
 	}
 }
 

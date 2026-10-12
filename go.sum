@@ -50,6 +50,8 @@ github.com/jfreymuth/pulse v0.1.1 h1:9WLNBNCijmtZ14ZJpatgJPu/NjwAl3TIKItSFnTh+9A
 github.com/jfreymuth/pulse v0.1.1/go.mod h1:cpYspI6YljhkUf1WLXLLDmeaaPFc3CnGLjDZf9dZ4no=
 github.com/kivutar/gg v0.52.4-0.20261005130553-221e1f996c41 h1:twFQuvTAJ/ypuNngQBq6odRkoQ8W6GlXRQ5EdLsncIo=
 github.com/kivutar/gg v0.52.4-0.20261005130553-221e1f996c41/go.mod h1:76qRbhwszTfk1McnBiCPtnx1ewpR7C6+mfZoxmD5RUU=
+github.com/kivutar/gogpu v0.44.4-0.20261012205819-11c4c1579578 h1:6D+hfLHyPMjpTq3nOHzJIWiYn6MNfMPin/J24zJ/KR8=
+github.com/kivutar/gogpu v0.44.4-0.20261012205819-11c4c1579578/go.mod h1:V6+0B+iXxgiQkdlRJvUyjiYrGRDoooxYNgw9qTCZN8w=
 github.com/kivutar/ui v0.1.55-0.20261005130553-0d602144928c h1:1MeHC+r6buTJ0cLG0K0mye3nCk6tR/1VVPe0hVUmO3g=
 github.com/kivutar/ui v0.1.55-0.20261005130553-0d602144928c/go.mod h1:FUJbZho6XeDp0xTuDuXFqcJgZ0nmyb4W5oCyF+24qBs=
 github.com/kivutar/wgpu v0.34.4-0.20261009223552-9757f595a6f7 h1:OmKVq5CEwoEe2LWUgIyaCyzjgFr1sRUUQhAFc6l///A=
