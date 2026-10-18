@@ -282,23 +282,6 @@ func TestBuildNameRequestPacketForClientDate20101124(t *testing.T) {
 	}
 }
 
-func TestBuildWalkToXYPacket(t *testing.T) {
-	packet, ok := BuildWalkToXYPacketForClientDate(150, 200, 20080910)
-	if !ok {
-		t.Fatal("expected packet")
-	}
-	if len(packet) != 8 {
-		t.Fatalf("len = %d", len(packet))
-	}
-	if packet[0] != 0xA7 || packet[1] != 0x00 {
-		t.Fatalf("unexpected opcode: % x", packet[:2])
-	}
-	want0, want1, want2 := packPosition(150, 200, 0)
-	if packet[5] != want0 || packet[6] != want1 || packet[7] != want2 {
-		t.Fatalf("unexpected dest: got % x want %02x %02x %02x", packet[5:8], want0, want1, want2)
-	}
-}
-
 func TestBuildWalkToXYPacketFor2008ClientDate(t *testing.T) {
 	packet, ok := BuildWalkToXYPacketForClientDate(150, 200, 20080910)
 	if !ok {
