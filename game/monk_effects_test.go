@@ -220,7 +220,7 @@ func TestMonkStateEffectsDrawExactCountsAndKeepLooping(t *testing.T) {
 	for _, count := range []uint16{1, 3, 5, 0} {
 		m.handleNetworkPacket(ctx, spiritSpherePacket(network.PacketZCSpirits, 300, count), time.Now())
 		frame := render.NewFrame(800, 600)
-		m.drawWorldEffects(frame, ctx, projection, time.Now().Add(time.Hour))
+		m.drawWorldEffects(frame, ctx, projection, time.Now().Add(time.Hour), false)
 		if got := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len(); got != int(count)*2 {
 			t.Fatalf("count %d drew %d billboards, want %d", count, got, count*2)
 		}
@@ -228,7 +228,7 @@ func TestMonkStateEffectsDrawExactCountsAndKeepLooping(t *testing.T) {
 	m.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusExplosionspirits, ActorID: 300, Active: true})
 	for _, elapsed := range []time.Duration{0, time.Second, time.Hour} {
 		frame := render.NewFrame(800, 600)
-		m.drawWorldEffects(frame, ctx, projection, m.worldEffects[0].starts.Add(elapsed))
+		m.drawWorldEffects(frame, ctx, projection, m.worldEffects[0].starts.Add(elapsed), false)
 		commands := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if commands.Len() < 3 || commands.Len() > 4 {
 			t.Fatalf("Fury at %s drew %d flashes, want 3 or 4", elapsed, commands.Len())
@@ -248,7 +248,7 @@ func TestMonkEffectsRenderWithOldROAssets(t *testing.T) {
 	projection := newSceneProjectionForTarget(800, 600, 12.5, 20.5, 0)
 	for _, elapsed := range []time.Duration{time.Second, 20 * time.Second, time.Hour} {
 		frame := render.NewFrame(800, 600)
-		m.drawWorldEffects(frame, ctx, projection, m.worldEffects[0].starts.Add(elapsed))
+		m.drawWorldEffects(frame, ctx, projection, m.worldEffects[0].starts.Add(elapsed), false)
 		count := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len()
 		if count < 9 || len(m.textureMiss) != 0 {
 			t.Fatalf("Monk effects at %s: %d billboards, missing=%v", elapsed, count, m.textureMiss)
@@ -493,7 +493,7 @@ func TestInvestigateSpriteRendersWithOldROAssets(t *testing.T) {
 	projection := newSceneProjectionForTarget(800, 600, 12.5, 20.5, 0)
 	for _, elapsed := range []time.Duration{0, 100 * time.Millisecond, 200 * time.Millisecond} {
 		frame := render.NewFrame(800, 600)
-		m.drawWorldEffects(frame, ctx, projection, starts.Add(elapsed))
+		m.drawWorldEffects(frame, ctx, projection, starts.Add(elapsed), false)
 		if reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len() == 0 {
 			t.Fatalf("Investigate has no sprite at %s", elapsed)
 		}

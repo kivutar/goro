@@ -27,7 +27,6 @@ const (
 type PetInfoWindow struct {
 	Window
 	property  network.PetProperty
-	hasInfo   bool
 	name      string
 	nameField *textfield.Widget
 }
@@ -48,7 +47,6 @@ func (w *PetInfoWindow) OpenInfo(ctx Context, property network.PetProperty) {
 		}
 	}
 	w.property = property
-	w.hasInfo = true
 	w.Window.Open(ctx, w.widgetTree(ctx))
 	w.Publish(ctx)
 }

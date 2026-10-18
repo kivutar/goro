@@ -263,7 +263,7 @@ func TestOriginalEffectsRenderWithOldROAssets(t *testing.T) {
 			t.Fatalf("effect %d failed to spawn", id)
 		}
 		frame := render.NewFrame(800, 600)
-		mode.drawWorldEffects(frame, ctx, projection, starts.Add(2*db.EffectFrameDuration))
+		mode.drawWorldEffects(frame, ctx, projection, starts.Add(2*db.EffectFrameDuration), false)
 		if len(mode.textureMiss) > 0 || len(mode.effectViewMiss) > 0 {
 			t.Fatalf("effect %d missing resources: %v %v", id, mode.textureMiss, mode.effectViewMiss)
 		}
@@ -284,7 +284,7 @@ func TestOriginalEffectsRenderWithOldROAssets(t *testing.T) {
 		if id != effectBlessing {
 			world.Actors[42] = worldstate.Actor{ID: 42, X: 30, Y: 40, Dir: 4}
 			moved := render.NewFrame(800, 600)
-			mode.drawWorldEffects(moved, ctx, projection, starts.Add(2*db.EffectFrameDuration))
+			mode.drawWorldEffects(moved, ctx, projection, starts.Add(2*db.EffectFrameDuration), false)
 			if !reflect.DeepEqual(frame, moved) {
 				t.Fatalf("effect %d moved with the target instead of staying at impact", id)
 			}

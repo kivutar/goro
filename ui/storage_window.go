@@ -141,10 +141,6 @@ func (w *StorageWindow) UpdateDrag(ctx Context, inventory *InventoryBagWindow, c
 	return true
 }
 
-func (w *StorageWindow) Draw(screen *render.Frame, ctx Context, assets AssetProvider) {
-	w.Publish(ctx)
-}
-
 func (w *StorageWindow) DrawDragGhost(screen *render.Frame, ctx Context, assets AssetProvider) {
 	if w.dragActive && screen != nil && ctx.Input != nil && assets != nil && time.Since(w.dragFrom) > 80*time.Millisecond {
 		assets.DrawInventoryItemIcon(screen, ctx.Resources, w.dragItem, ctx.Input.MouseX-inventoryIconSize/2, ctx.Input.MouseY-inventoryIconSize/2)

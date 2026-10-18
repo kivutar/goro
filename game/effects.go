@@ -2476,7 +2476,7 @@ func effectFuncAdapterForName(name string) effectFuncAdapter {
 	}
 }
 
-func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time) {
+func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time, beforeEntities bool) {
 	if len(m.worldEffects) == 0 || screen == nil || ctx.World == nil {
 		return
 	}
@@ -2489,9 +2489,16 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		if effect.expired(now) {
 			continue
 		}
-		spec, ok := worldEffectSpecForID(effect.effectID)
+		spec, ok := m.effectSpecs[effect.effectID]
 		if !ok {
-			continue
+			spec, ok = worldEffectSpecForID(effect.effectID)
+			if !ok {
+				continue
+			}
+			if m.effectSpecs == nil {
+				m.effectSpecs = make(map[int]worldEffectSpec)
+			}
+			m.effectSpecs[effect.effectID] = spec
 		}
 		if now.Before(effect.starts) {
 			active = append(active, effect)
@@ -2505,6 +2512,9 @@ func (m *WorldMode) drawWorldEffects(screen *render.Frame, ctx client.Context, p
 		active = append(active, effect)
 		anchor := effectWorldAnchor(ctx, effect, now)
 		for index, component := range spec.components {
+			if component.renderBefore != beforeEntities {
+				continue
+			}
 			if effect.persistent {
 				component.repeat = true
 			}

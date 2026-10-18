@@ -37,7 +37,6 @@ type WhisperWindow struct {
 	inputField *textfield.Widget
 	lines      []whisperWindowLine
 	scrollY    state.Signal[float32]
-	messageH   int
 	action     WhisperWindowAction
 }
 
@@ -147,7 +146,6 @@ func (w *WhisperWindow) widgetTree(ctx Context) widget.Widget {
 func (w *WhisperWindow) contentTree() widget.Widget {
 	lines := w.visibleLines()
 	messageHeight := whisperWindowContentH - whisperMessagePadY*2
-	w.messageH = messageHeight
 	contentHeight := whisperMessageContentHeight(len(lines))
 	rows := make([]widget.Widget, 0, len(lines)+1)
 	if spacerH := messageHeight - contentHeight; spacerH > 0 {

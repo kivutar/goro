@@ -49,7 +49,7 @@ func (m *WorldMode) drawGNDWater(screen *render.Frame, manager *res.Manager, gnd
 			if !ok || cell.Top < 0 {
 				continue
 			}
-			if waterDraw, ok := newGNDWaterDraw(x, y, cell, water, waterFrame, waterTint, waterOffset); ok {
+			if waterDraw, ok := newGNDWaterDraw(x, y, cell, water, waterTint, waterOffset); ok {
 				if !textureLoaded {
 					texture = m.waterTexture(manager, int(water.Type), waterFrame)
 					textureLoaded = true
@@ -199,14 +199,10 @@ func cameraGroundFootprint(projection sceneProjection, screenWidth, screenHeight
 }
 
 type gndSurfaceDraw struct {
-	verts      [4]modelPoint3
-	uvs        [4]texturePoint
-	indices    []uint16
-	heights    [4]float32
-	water      bool
-	waterType  int
-	waterFrame int
-	tint       color.RGBA
+	verts   [4]modelPoint3
+	uvs     [4]texturePoint
+	indices []uint16
+	tint    color.RGBA
 }
 
 func (m *WorldMode) smoothGNDTopNormals(gnd *res.GND) [][4]modelPoint3 {
@@ -331,7 +327,7 @@ func uniformGNDNormals(normal modelPoint3) [4]modelPoint3 {
 	return [4]modelPoint3{normal, normal, normal, normal}
 }
 
-func newGNDWaterDraw(x, y int, cell res.GNDCell, water res.RSWWater, waterFrame int, tint color.RGBA, waterOffset float64) (gndSurfaceDraw, bool) {
+func newGNDWaterDraw(x, y int, cell res.GNDCell, water res.RSWWater, tint color.RGBA, waterOffset float64) (gndSurfaceDraw, bool) {
 	if !waterVisibleForCell(cell, water) {
 		return gndSurfaceDraw{}, false
 	}
@@ -343,14 +339,10 @@ func newGNDWaterDraw(x, y int, cell res.GNDCell, water res.RSWWater, waterFrame 
 		{x: float64(x) * 2, y: float64(heights[2]), z: float64(y+1) * 2},
 	}
 	return gndSurfaceDraw{
-		verts:      verts,
-		uvs:        waterUVs(x, y),
-		indices:    quadIndices012023,
-		heights:    heights,
-		water:      true,
-		waterType:  int(water.Type),
-		waterFrame: waterFrame,
-		tint:       tint,
+		verts:   verts,
+		uvs:     waterUVs(x, y),
+		indices: quadIndices012023,
+		tint:    tint,
 	}, true
 }
 

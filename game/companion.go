@@ -312,7 +312,6 @@ func (m *WorldMode) applyCompanionLife(ctx client.Context, id uint32, hp, maxHP,
 		life.maxSP = maxSP
 		life.hasSP = true
 	}
-	life.updatedAt = time.Now()
 	m.actorLife[id] = life
 }
 
@@ -343,7 +342,6 @@ func (m *WorldMode) applyCompanionHunger(ctx client.Context, id uint32, hunger, 
 	life.hunger = clampInt(hunger, 0, maxHunger)
 	life.maxHunger = maxHunger
 	life.hasHunger = true
-	life.updatedAt = time.Now()
 	m.actorLife[id] = life
 }
 

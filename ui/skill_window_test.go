@@ -1473,7 +1473,7 @@ func TestSkillWindowDoubleClickUsesSharedSkillController(t *testing.T) {
 	window := &SkillWindow{selectedLevels: map[uint16]int{db.SkillSMProvoke: 1}}
 	skill := session.Skill{ID: 6, Type: 1, Level: 2, Range: 9}
 
-	window.pressSkill(ctx, mode, skill, 20, 30)
+	window.pressSkill(ctx, mode, skill)
 	if mode.used.ID != 0 {
 		t.Fatalf("skill used after first click = %+v, want none", mode.used)
 	}
@@ -1481,7 +1481,7 @@ func TestSkillWindowDoubleClickUsesSharedSkillController(t *testing.T) {
 		t.Fatalf("dragged skill level = %d, want selected level 1", window.dragSkill.Level)
 	}
 
-	window.pressSkill(ctx, mode, skill, 20, 30)
+	window.pressSkill(ctx, mode, skill)
 	if mode.used.ID != 6 || mode.used.Level != 1 {
 		t.Fatalf("used skill = %+v, want provoke level 1", mode.used)
 	}
@@ -1856,7 +1856,7 @@ func TestSkillDragReleaseStoresLevelSelectedWithArrows(t *testing.T) {
 
 	skill := session.Skill{ID: db.SkillMGSoulstrike, Level: 10, Type: 1}
 	window := &SkillWindow{selectedLevels: map[uint16]int{skill.ID: 4}}
-	window.pressSkill(Context{}, nil, skill, 20, 30)
+	window.pressSkill(Context{}, nil, skill)
 	if !window.UpdateDrag(Context{Input: inputState, ScreenW: 800, ScreenH: 600}, bar) {
 		t.Fatal("selected-level skill drag release was not consumed")
 	}
@@ -1894,8 +1894,6 @@ func TestSkillWindowRejectsPassiveDrag(t *testing.T) {
 		Context{},
 		nil,
 		session.Skill{ID: db.SkillALDemonbane, Type: 0, Level: 10},
-		20,
-		30,
 	)
 	if window.dragActive {
 		t.Fatal("passive player skill started a drag")
@@ -1965,7 +1963,7 @@ func (r *skillWindowTestRenderer) DrawInventoryItemIcon(*render.Frame, *res.Mana
 func (r *skillWindowTestRenderer) DrawSkillIcon(*render.Frame, *res.Manager, session.Skill, int, int, int) {
 }
 
-func (r *skillWindowTestRenderer) SkillIconImage(*res.Manager, session.Skill, int) image.Image {
+func (r *skillWindowTestRenderer) SkillIconImage(*res.Manager, session.Skill) image.Image {
 	return nil
 }
 

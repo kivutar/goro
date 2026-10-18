@@ -510,7 +510,7 @@ func (w *shortcutSlotButton) drawContent(canvas widget.Canvas, bounds geometry.R
 			skill = session.Skill{ID: entry.skillID, Level: entry.skillLevel}
 		}
 		if w.bar.assets != nil {
-			if icon := w.bar.assets.SkillIconImage(w.bar.ctx.Resources, skill, 24); icon != nil {
+			if icon := w.bar.assets.SkillIconImage(w.bar.ctx.Resources, skill); icon != nil {
 				canvas.DrawImage(icon, geometry.Pt(bounds.Min.X+5, bounds.Min.Y+5))
 			}
 		}

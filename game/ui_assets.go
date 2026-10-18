@@ -32,7 +32,7 @@ func (m *WorldMode) DrawSkillIcon(screen *render.Frame, manager *res.Manager, sk
 	m.drawSkillIcon(screen, manager, skill, x, y, size)
 }
 
-func (m *WorldMode) SkillIconImage(manager *res.Manager, skill session.Skill, size int) image.Image {
+func (m *WorldMode) SkillIconImage(manager *res.Manager, skill session.Skill) image.Image {
 	if manager == nil || skill.ID == 0 {
 		return nil
 	}

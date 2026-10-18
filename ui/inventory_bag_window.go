@@ -219,10 +219,6 @@ func (w *InventoryBagWindow) KeyboardShortcutsBlocked() bool {
 	return w != nil && w.amountPrompt.IsOpen()
 }
 
-func (w *InventoryBagWindow) Draw(screen *render.Frame, ctx Context, assets AssetProvider) {
-	w.Publish(ctx)
-}
-
 func (w *InventoryBagWindow) DrawTooltip(ctx Context, screen *render.Frame) {
 	if w.dragActive {
 		return

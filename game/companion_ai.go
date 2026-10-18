@@ -61,7 +61,6 @@ type companionAI struct {
 	trace               bool
 	magicNumber2Checked bool
 	magicNumber2Limit   int
-	lastLoadErr         error
 }
 
 type companionAISnapshot struct {
@@ -166,7 +165,7 @@ func (m *WorldMode) updateCompanionAIKind(ctx client.Context, kind companionAIKi
 	if ai == nil {
 		loaded, err := newCompanionAI(ctx, m, kind, now)
 		if err != nil {
-			m.setCompanionAIForKind(kind, &companionAI{kind: kind, custom: useCustom, disabled: true, lastLoadErr: err})
+			m.setCompanionAIForKind(kind, &companionAI{kind: kind, custom: useCustom, disabled: true})
 			glog.Debugf("%s AI unavailable: %v", companionAIKindName(kind), err)
 			return
 		}

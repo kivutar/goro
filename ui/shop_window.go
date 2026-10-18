@@ -195,10 +195,7 @@ func (w *ShopWindow) KeyboardShortcutsBlocked() bool {
 	return w != nil && (w.amountPrompt.IsOpen() || w.dealWindow.IsOpen() || w.mode == shopModeBuy || w.mode == shopModeSell)
 }
 
-func (w *ShopWindow) Draw(screen *render.Frame, ctx Context, assets AssetProvider) {
-	if screen == nil {
-		return
-	}
+func (w *ShopWindow) Publish(ctx Context) {
 	if w.dealWindow.IsOpen() {
 		w.dealWindow.Publish(ctx)
 	}

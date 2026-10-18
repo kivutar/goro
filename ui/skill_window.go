@@ -88,8 +88,6 @@ type SkillWindow struct {
 	dragFrom       time.Time
 	hoveredSkill   session.Skill
 	hasHover       bool
-	hoverX         int
-	hoverY         int
 	tooltip        tooltipState
 	pending        map[uint16]int
 	pendingOrder   []uint16
@@ -181,16 +179,6 @@ func (w *SkillWindow) UpdateDrag(ctx Context, shortcuts *ShortcutBar) bool {
 		return true
 	}
 	return true
-}
-
-func (w *SkillWindow) Draw(screen *render.Frame, ctx Context, assets AssetProvider) {
-	w.EnsureWindow(skillWindowWidth, skillWindowHeight)
-	if !w.IsOpen() {
-		w.Unpublish(ctx)
-		w.hideTooltip()
-		return
-	}
-	w.Publish(ctx)
 }
 
 func (w *SkillWindow) DrawDragGhost(screen *render.Frame, ctx Context, assets AssetProvider) {
@@ -325,8 +313,8 @@ func (w *SkillWindow) skillGridWidget(ctx Context, assets AssetProvider, actions
 	grid := newSkillGridWidget(skillGridConfig{
 		entries: entries,
 		job:     selectedJob(ctx.Session),
-		onPress: func(skill session.Skill, mx, my int) {
-			w.pressSkill(ctx, actions, skill, mx, my)
+		onPress: func(skill session.Skill) {
+			w.pressSkill(ctx, actions, skill)
 		},
 		onStage: func(skill session.Skill) {
 			if !w.canStageSkill(ctx.Session, skill) {
@@ -343,8 +331,6 @@ func (w *SkillWindow) skillGridWidget(ctx Context, assets AssetProvider, actions
 		onHover: func(skill session.Skill, mx, my int) {
 			w.hoveredSkill = skill
 			w.hasHover = true
-			w.hoverX = mx
-			w.hoverY = my
 			w.showTooltip(ctx, skill, mx, my)
 		},
 		onLeave: func() {
@@ -481,8 +467,6 @@ func (w *SkillWindow) handleSkillTableRowEvent(widgetCtx widget.Context, ctx Con
 		}
 		w.hoveredSkill = skill
 		w.hasHover = true
-		w.hoverX = mx
-		w.hoverY = my
 		w.showTooltip(ctx, skill, mx, my)
 		return false
 	case event.MousePress:
@@ -508,7 +492,7 @@ func (w *SkillWindow) handleSkillTableRowEvent(widgetCtx widget.Context, ctx Con
 			w.dirty = true
 			return true
 		}
-		w.pressSkill(ctx, actions, skill, int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y))
+		w.pressSkill(ctx, actions, skill)
 		return true
 	}
 	return false
@@ -540,7 +524,7 @@ func (w *SkillWindow) toggleGridMode(ctx Context, assets AssetProvider, actions 
 	w.Publish(ctx)
 }
 
-func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session.Skill, mx, my int) {
+func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session.Skill) {
 	if skill.Level <= 0 {
 		glog.Debugf("skill use ignored id=%d: not learned", skill.ID)
 		return
@@ -569,8 +553,6 @@ func (w *SkillWindow) pressSkill(ctx Context, actions GameActions, skill session
 	w.dragActive = true
 	w.hideTooltip()
 	w.dragFrom = now
-	w.hoverX = mx
-	w.hoverY = my
 }
 
 func (w *SkillWindow) showTooltip(ctx Context, skill session.Skill, mx, my int) {
@@ -632,7 +614,7 @@ func (w *SkillWindow) skillIconImage(ctx Context, assets AssetProvider, skill se
 	}
 	icons := w.icons[skill.ID]
 	if icons.normal == nil {
-		img := assets.SkillIconImage(ctx.Resources, skill, skillIconSize)
+		img := assets.SkillIconImage(ctx.Resources, skill)
 		if img == nil {
 			if w.iconMiss == nil {
 				w.iconMiss = make(map[uint16]struct{})

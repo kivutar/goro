@@ -56,7 +56,7 @@ func TestHitRingGeometryAndCapturedFacing(t *testing.T) {
 		if !mode.addWorldEffectAt(ctx, effectHit1, 42, starts) {
 			t.Fatal("failed to add regular hit")
 		}
-		mode.drawWorldEffects(render.NewFrame(800, 600), ctx, sceneProjection{}, starts)
+		mode.drawWorldEffects(render.NewFrame(800, 600), ctx, sceneProjection{}, starts, false)
 		// Turning after the hit must not rotate the cylinder mid-flight.
 		world.Actors[42] = worldstate.Actor{ID: 42, Dir: (tt.dir + 2) % 8}
 		frame := render.NewFrame(800, 600)
@@ -107,7 +107,7 @@ func TestHitRingCapturesFacingAtImpact(t *testing.T) {
 	starts := time.Unix(100, 0)
 	mode.addWorldEffectAt(ctx, effectHit1, 42, starts)
 	draw := func(at time.Time) {
-		mode.drawWorldEffects(render.NewFrame(800, 600), ctx, sceneProjection{}, at)
+		mode.drawWorldEffects(render.NewFrame(800, 600), ctx, sceneProjection{}, at, false)
 	}
 	draw(starts.Add(-time.Millisecond))
 	if mode.worldEffects[0].hasActorTransform {
@@ -140,7 +140,7 @@ func TestHitRingDrawsWithOldROData(t *testing.T) {
 	projection := newSceneProjectionForTarget(800, 600, 10.5, 20.5, 0)
 	for _, elapsed := range []time.Duration{0, 100 * time.Millisecond, 200 * time.Millisecond} {
 		frame := render.NewFrame(800, 600)
-		mode.drawWorldEffects(frame, ctx, projection, starts.Add(elapsed))
+		mode.drawWorldEffects(frame, ctx, projection, starts.Add(elapsed), false)
 		commands := reflect.ValueOf(frame).Elem().FieldByName("worldCommands")
 		rings := 0
 		for i := 0; i < commands.Len(); i++ {

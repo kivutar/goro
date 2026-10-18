@@ -149,7 +149,7 @@ func ParseRSM(data []byte) (*RSM, error) {
 	}
 	rsm.Nodes = make([]RSMNode, int(nodeCount))
 	for i := range rsm.Nodes {
-		rsm.Nodes[i] = readRSMNode(&reader, rsm, len(rsm.Nodes) == 1)
+		rsm.Nodes[i] = readRSMNode(&reader, rsm)
 	}
 
 	if rsm.MainNodeName == "" && len(rsm.Nodes) > 0 {
@@ -234,7 +234,7 @@ func readRSMStringTable(reader *rsmReader, lengthPrefixed bool) []string {
 	return out
 }
 
-func readRSMNode(reader *rsmReader, rsm *RSM, only bool) RSMNode {
+func readRSMNode(reader *rsmReader, rsm *RSM) RSMNode {
 	node := RSMNode{
 		Position:     RSMVector3{},
 		RotationAxis: RSMVector3{},
@@ -342,7 +342,6 @@ func readRSMNode(reader *rsmReader, rsm *RSM, only bool) RSMNode {
 	if rsm.versionAtLeast(2, 3) {
 		node.TextureKeyframeGroups = readRSMTextureKeyframeGroups(reader)
 	}
-	_ = only
 	return node
 }
 

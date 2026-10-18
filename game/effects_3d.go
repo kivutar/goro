@@ -38,6 +38,9 @@ func (m *WorldMode) draw3DEffect(screen *render.Frame, ctx client.Context, proje
 		drawX := worldX + offsetX
 		drawY := worldY + offsetY
 		drawZ := worldZ + offsetZ
+		if component.shadowTexture {
+			drawZ = terrainHeightAtRenderPoint(ctx.World, drawX, drawY) + actorShadowTerrainLift
+		}
 		if component.textureFile != "" || len(component.textureFiles) > 0 {
 			texture := m.effectTextureFrame(ctx.Resources, component, progress)
 			if texture == nil {

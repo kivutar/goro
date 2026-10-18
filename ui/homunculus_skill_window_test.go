@@ -38,8 +38,6 @@ func TestHomunculusSkillWindowRejectsPassiveDrag(t *testing.T) {
 		Context{},
 		nil,
 		session.Skill{ID: db.SkillHvanInstruct, Type: 0, Level: 5},
-		20,
-		30,
 	)
 	if window.dragActive {
 		t.Fatal("passive homunculus skill started a drag")

@@ -55,13 +55,9 @@ const (
 )
 
 type FriendsWindowAction struct {
-	Kind         FriendsWindowActionKind
-	Friend       session.Friend
-	PartyMember  session.PartyMember
-	PartyName    string
-	InviteName   string
-	ItemPickup   uint8
-	ItemDivision uint8
+	Kind        FriendsWindowActionKind
+	Friend      session.Friend
+	PartyMember session.PartyMember
 }
 
 func (w *FriendsWindow) Toggle(ctx Context) {
@@ -182,7 +178,7 @@ func (w *FriendsWindow) widgetTree(ctx Context) widget.Widget {
 	footer := w.friendsFooter()
 	if w.tab == friendsWindowTabParty {
 		title = partyWindowTitle(party)
-		content = w.partyList(ctx, party)
+		content = w.partyList(party)
 		footer = w.partyFooter(party)
 	}
 	return Win(
@@ -410,14 +406,14 @@ func partyWindowTitle(party session.Party) string {
 	return name
 }
 
-func (w *FriendsWindow) partyList(ctx Context, party session.Party) widget.Widget {
+func (w *FriendsWindow) partyList(party session.Party) widget.Widget {
 	members := party.Members
 	rows := make([]widget.Widget, 0, maxInt(1, len(members)))
 	if len(members) == 0 {
 		rows = append(rows, emptyFriendsList("No party"))
 	} else {
 		for i, member := range members {
-			rows = append(rows, w.partyRow(ctx, member, i))
+			rows = append(rows, w.partyRow(member, i))
 		}
 	}
 	return primitives.Box(rows...).
@@ -425,7 +421,7 @@ func (w *FriendsWindow) partyList(ctx Context, party session.Party) widget.Widge
 		CrossAlign(primitives.CrossAxisStretch)
 }
 
-func (w *FriendsWindow) partyRow(ctx Context, member session.PartyMember, index int) widget.Widget {
+func (w *FriendsWindow) partyRow(member session.PartyMember, index int) widget.Widget {
 	bg := rotheme.Default.Colors.WindowBody
 	if index%2 == 0 {
 		bg = Color(PanelAltColor)
@@ -454,8 +450,6 @@ func (w *FriendsWindow) partyRow(ctx Context, member session.PartyMember, index 
 		bg:         bg,
 		hp:         member.HP,
 		maxHP:      member.MaxHP,
-		canManage:  partyCanManageSession(ctx.Session),
-		isSelf:     ctx.Session != nil && member.AccountID == ctx.Session.AccountID,
 		onMenu: func(member session.PartyMember) {
 			x, y := w.x+friendsWindowWidth/2, w.y+ROWindowTitleHeight+friendsTabHeight+friendsRowHeight
 			if w.ctx.Input != nil {
@@ -478,8 +472,6 @@ type partyRowWidget struct {
 	bg         widget.Color
 	hp         int
 	maxHP      int
-	canManage  bool
-	isSelf     bool
 	hovered    bool
 	onMenu     func(session.PartyMember)
 }

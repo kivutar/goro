@@ -119,6 +119,7 @@ type WorldMode struct {
 	actorAnims        map[uint32]actorAnimation
 	damageFloaters    []damageFloater
 	worldEffects      []worldEffect
+	effectSpecs       map[int]worldEffectSpec
 	actorCastBars     map[uint32]actorCastBar
 	serverProgress    serverProgressState
 	showDigit         showDigitState
@@ -1592,15 +1593,19 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 			m.drawTileCursor(screen, ctx, projection)
 		}
 		if ctx.World.RSW != nil && len(ctx.World.RSM) > 0 {
-			actorOverlays = m.drawSceneModelsAndActors(screen, ctx, projection, vertexFog, now)
+			actorOverlays = m.drawSceneModelsAndActors(screen, ctx, projection, now)
 		} else {
 			m.drawSkillUnitRSMModels(screen, ctx, projection, now)
+			m.drawWorldEffects(screen, ctx, projection, now, true)
 			m.drawGroundItems(screen, ctx, projection, now)
 			actorOverlays = m.drawSceneActors(screen, ctx, projection)
 		}
 	} else if ctx.World.GAT != nil {
+		m.drawWorldEffects(screen, ctx, projection, now, true)
 		m.drawGroundItems(screen, ctx, projection, now)
 		actorOverlays = m.drawSceneActors(screen, ctx, projection)
+	} else {
+		m.drawWorldEffects(screen, ctx, projection, now, true)
 	}
 
 	if !ctx.Config.Render.NoUI {
@@ -1608,19 +1613,19 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 	}
 	m.drawRSWEffects(screen, ctx, projection, now)
 	m.drawMapWeatherEffects(screen, ctx, projection, now)
-	m.drawWorldEffects(screen, ctx, projection, now)
+	m.drawWorldEffects(screen, ctx, projection, now, false)
 	m.drawDamageFloaters(screen, ctx, projection, now)
 
 	if !ctx.Config.Render.NoUI {
 		m.ui.npcCutin.Draw(screen)
-		m.ui.inventoryBag.Draw(screen, ctx, m)
-		m.ui.storageWindow.Draw(screen, ctx, m)
-		m.ui.cartWindow.Draw(screen, ctx, m)
-		m.ui.shopWindow.Draw(screen, ctx, m)
-		m.ui.vendingWindow.Draw(screen, ctx, m)
-		m.ui.skillWindow.Draw(screen, ctx, m)
-		m.ui.homunculusSkill.Draw(screen, ctx, m)
-		m.ui.mercenarySkill.Draw(screen, ctx, m)
+		m.ui.inventoryBag.Publish(ctx)
+		m.ui.storageWindow.Publish(ctx)
+		m.ui.cartWindow.Publish(ctx)
+		m.ui.shopWindow.Publish(ctx)
+		m.ui.vendingWindow.Publish(ctx)
+		m.ui.skillWindow.Publish(ctx)
+		m.ui.homunculusSkill.Publish(ctx)
+		m.ui.mercenarySkill.Publish(ctx)
 		m.drawHoveredGroundItemLabel(screen, ctx, projection, now)
 	}
 }
@@ -1833,9 +1838,10 @@ type sceneDrawEntry struct {
 	itemShadowIndex int
 }
 
-func (m *WorldMode) drawSceneModelsAndActors(screen *render.Frame, ctx client.Context, projection sceneProjection, fog sceneFog, now time.Time) []sceneActorDrawEntry {
-	m.drawRSMModels(screen, ctx.Resources, ctx.World.RSW, ctx.World.RSM, ctx.World.GND, projection, fog, now)
+func (m *WorldMode) drawSceneModelsAndActors(screen *render.Frame, ctx client.Context, projection sceneProjection, now time.Time) []sceneActorDrawEntry {
+	m.drawRSMModels(screen, ctx.Resources, ctx.World.RSW, ctx.World.RSM, ctx.World.GND, projection, now)
 	m.drawSkillUnitRSMModels(screen, ctx, projection, now)
+	m.drawWorldEffects(screen, ctx, projection, now, true)
 	actors := m.collectSceneActorEntries(screen, ctx, projection)
 	items := m.collectSceneItemEntries(screen, ctx, projection, now)
 	for _, entry := range sortedSceneDrawEntries(actors, items) {
@@ -1979,7 +1985,6 @@ type sceneLighting struct {
 	diffuse   modelPoint3
 	ambient   modelPoint3
 	env       modelPoint3
-	opacity   float64
 }
 
 func sceneLightingFromRSW(rsw *res.RSW) sceneLighting {
@@ -1987,13 +1992,11 @@ func sceneLightingFromRSW(rsw *res.RSW) sceneLighting {
 	latitude := 45.0
 	diffuse := modelPoint3{x: 1, y: 1, z: 1}
 	ambient := modelPoint3{}
-	opacity := 1.0
 	if rsw != nil {
 		longitude = float64(rsw.Light.Longitude)
 		latitude = float64(rsw.Light.Latitude)
 		diffuse = modelPoint3{x: float64(rsw.Light.Diffuse[0]), y: float64(rsw.Light.Diffuse[1]), z: float64(rsw.Light.Diffuse[2])}
 		ambient = modelPoint3{x: float64(rsw.Light.Ambient[0]), y: float64(rsw.Light.Ambient[1]), z: float64(rsw.Light.Ambient[2])}
-		opacity = float64(rsw.Light.Opacity)
 	}
 	longitude = degreesToRadians(longitude)
 	latitude = degreesToRadians(latitude)
@@ -2007,7 +2010,6 @@ func sceneLightingFromRSW(rsw *res.RSW) sceneLighting {
 	}
 	diffuse = clampUnitPoint(diffuse)
 	ambient = clampUnitPoint(ambient)
-	opacity = math.Max(0, math.Min(1, opacity))
 	env := modelPoint3{
 		x: 1 - (1-ambient.x)*(1-diffuse.x),
 		y: 1 - (1-ambient.y)*(1-diffuse.y),
@@ -2018,7 +2020,6 @@ func sceneLightingFromRSW(rsw *res.RSW) sceneLighting {
 		diffuse:   diffuse,
 		ambient:   ambient,
 		env:       clampUnitPoint(env),
-		opacity:   opacity,
 	}
 }
 

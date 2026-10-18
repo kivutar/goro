@@ -210,7 +210,6 @@ type actorLife struct {
 	hunger    int
 	maxHunger int
 	hasHunger bool
-	updatedAt time.Time
 }
 
 type actorCastBar struct {
@@ -1007,9 +1006,8 @@ func (m *WorldMode) applyActorHPUpdate(update network.ActorHPUpdate) {
 		m.actorLife = make(map[uint32]actorLife)
 	}
 	m.actorLife[update.ID] = actorLife{
-		hp:        hp,
-		maxHP:     update.MaxHP,
-		updatedAt: time.Now(),
+		hp:    hp,
+		maxHP: update.MaxHP,
 	}
 	glog.Debugf("actor hp id=%d hp=%d max_hp=%d tiny=%t", update.ID, hp, update.MaxHP, update.Tiny)
 }
@@ -1806,7 +1804,6 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 		if m.actorLife != nil {
 			if life, ok := m.actorLife[id]; ok {
 				life.hp = 0
-				life.updatedAt = now
 				m.actorLife[id] = life
 			}
 		}

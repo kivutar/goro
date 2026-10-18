@@ -59,7 +59,6 @@ type TableViewWidget struct {
 	body   *tableViewBody
 
 	width               float32
-	height              float32
 	bodyHeight          float32
 	colWidths           []float32
 	contentW            float32
@@ -188,7 +187,6 @@ func (w *TableViewWidget) Layout(ctx widget.Context, constraints geometry.Constr
 	}
 
 	w.width = size.Width
-	w.height = size.Height
 	w.bodyHeight = size.Height - w.headerHeight()
 	if w.bodyHeight < 0 {
 		w.bodyHeight = 0
@@ -760,7 +758,6 @@ func (b *tableViewBody) ensureSimpleRow(row int) *tableViewSimpleRowWidget {
 	}
 	child := &tableViewSimpleRowWidget{
 		table: b.table,
-		row:   row,
 	}
 	child.SetVisible(true)
 	child.SetEnabled(true)
@@ -840,7 +837,6 @@ func (b *tableViewBody) shouldDrawBackground(canvas widget.Canvas, bounds geomet
 type tableViewSimpleRowWidget struct {
 	widget.WidgetBase
 	table *TableViewWidget
-	row   int
 }
 
 func (r *tableViewSimpleRowWidget) Layout(_ widget.Context, constraints geometry.Constraints) geometry.Size {

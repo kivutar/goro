@@ -14,7 +14,7 @@ type Context = client.Context
 type AssetProvider interface {
 	DrawInventoryItemIcon(screen *render.Frame, manager *res.Manager, item session.InventoryItem, x, y int)
 	DrawSkillIcon(screen *render.Frame, manager *res.Manager, skill session.Skill, x, y, size int)
-	SkillIconImage(manager *res.Manager, skill session.Skill, size int) image.Image
+	SkillIconImage(manager *res.Manager, skill session.Skill) image.Image
 	ItemInfoIllustrationImage(manager *res.Manager, item session.InventoryItem, width, height int) image.Image
 	EquipmentPreviewImage(ctx client.Context, width, height int) image.Image
 	EquipmentPreviewImageForCharacter(ctx client.Context, character session.Character, sex byte, width, height int) image.Image

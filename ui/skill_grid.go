@@ -28,7 +28,7 @@ type skillGridEntry struct {
 type skillGridConfig struct {
 	entries       []skillGridEntry
 	job           int
-	onPress       func(session.Skill, int, int)
+	onPress       func(session.Skill)
 	onStage       func(session.Skill)
 	selectedLevel func(session.Skill) int
 	onAdjustLevel func(session.Skill, int) int
@@ -216,7 +216,7 @@ func (w *skillGridWidget) Event(ctx widget.Context, e event.Event) bool {
 			if entry.canStage && w.cfg.onStage != nil {
 				w.cfg.onStage(entry.skill)
 			} else if w.cfg.onPress != nil {
-				w.cfg.onPress(entry.skill, int(mouse.GlobalPosition.X), int(mouse.GlobalPosition.Y))
+				w.cfg.onPress(entry.skill)
 			}
 		}
 		return true

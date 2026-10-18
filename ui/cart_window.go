@@ -133,10 +133,6 @@ func (w *CartWindow) UpdateDrag(ctx Context, inventory *InventoryBagWindow, stor
 	return true
 }
 
-func (w *CartWindow) Draw(screen *render.Frame, ctx Context, assets AssetProvider) {
-	w.Publish(ctx)
-}
-
 func (w *CartWindow) DrawTooltip(ctx Context, screen *render.Frame) {
 	if w.dragActive {
 		return

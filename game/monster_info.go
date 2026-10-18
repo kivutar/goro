@@ -44,7 +44,6 @@ func (m *WorldMode) applyMonsterInfo(ctx client.Context, info network.MonsterInf
 		if life, ok := m.monsterLifeForSense(actor.ID); ok && life.maxHP >= int(info.HP) {
 			maximumHP = uint32(life.maxHP)
 			life.hp = int(info.HP)
-			life.updatedAt = now
 			m.actorLife[actor.ID] = life
 		}
 	}

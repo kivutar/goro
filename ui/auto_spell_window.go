@@ -48,7 +48,7 @@ func (w *AutoSpellWindow) OpenList(ctx Context, list network.AutoSpellList, asse
 			name:    skillDisplayName(ctx.Resources, skill),
 		}
 		if assets != nil {
-			choice.icon = assets.SkillIconImage(ctx.Resources, skill, 24)
+			choice.icon = assets.SkillIconImage(ctx.Resources, skill)
 		}
 		w.choices = append(w.choices, choice)
 	}

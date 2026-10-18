@@ -31,7 +31,6 @@ const (
 
 type TradeWindow struct {
 	Window
-	ctx Context
 
 	partnerName string
 	sendItems   []tradeWindowItem
@@ -53,7 +52,6 @@ type tradeWindowItem struct {
 
 func (w *TradeWindow) Open(ctx Context, partnerName string) {
 	w.EnsureWindow(tradeWindowW, tradeWindowH)
-	w.ctx = ctx
 	w.partnerName = strings.TrimSpace(partnerName)
 	if w.partnerName == "" {
 		w.partnerName = "Trade"
@@ -75,7 +73,6 @@ func (w *TradeWindow) Update(ctx Context, itemInfo *ItemWindows) bool {
 	if !w.IsOpen() || ctx.Input == nil {
 		return false
 	}
-	w.ctx = ctx
 	consumed := w.Window.Update(ctx)
 	w.Publish(ctx)
 	return consumed

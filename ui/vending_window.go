@@ -186,7 +186,7 @@ func (w *VendingWindow) KeyboardShortcutsBlocked() bool {
 	return w != nil && w.mode != vendingModeNone
 }
 
-func (w *VendingWindow) Draw(screen *render.Frame, ctx Context, assets AssetProvider) {
+func (w *VendingWindow) Publish(ctx Context) {
 	if w.mode == vendingModeNone {
 		return
 	}

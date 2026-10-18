@@ -50,7 +50,7 @@ type rsmBoundsCacheKey struct {
 
 type mat4 [16]float64
 
-func (m *WorldMode) drawRSMModels(screen *render.Frame, manager *res.Manager, rsw *res.RSW, models map[string]*res.RSM, gnd *res.GND, projection sceneProjection, fog sceneFog, now time.Time) {
+func (m *WorldMode) drawRSMModels(screen *render.Frame, manager *res.Manager, rsw *res.RSW, models map[string]*res.RSM, gnd *res.GND, projection sceneProjection, now time.Time) {
 	for _, placement := range m.visibleRSMPlacements(rsw, gnd, projection) {
 		rsm := m.rsmModelForPlacement(manager, models, placement.model)
 		if rsm == nil {
@@ -66,7 +66,6 @@ func (m *WorldMode) drawRSMModels(screen *render.Frame, manager *res.Manager, rs
 			screen.DrawWorldMesh(mesh.mesh)
 		}
 	}
-	_ = fog
 }
 
 type visibleRSMPlacement struct {
@@ -74,7 +73,6 @@ type visibleRSMPlacement struct {
 	model res.RSWModel
 	baseX float64
 	baseY float64
-	dist2 float64
 }
 
 type rsmPlacementGrid struct {
@@ -116,7 +114,6 @@ func (m *WorldMode) visibleRSMPlacements(rsw *res.RSW, gnd *res.GND, projection 
 				if math.Abs(dx) > queryRadius || math.Abs(dy) > queryRadius {
 					continue
 				}
-				placement.dist2 = dx*dx + dy*dy
 				visible = append(visible, placement)
 			}
 		}
@@ -278,11 +275,8 @@ func (m *WorldMode) rsmPlacementContext(rsm *res.RSM, rsw *res.RSW, visible visi
 	return rsmPlacementContext{
 		nodeIndices: nodeIndices,
 		instance: modelInstance{
-			placement: placement,
-			bounds:    bounds.model,
-			baseX:     visible.baseX,
-			baseY:     visible.baseY,
-			matrix:    buildRSMInstanceMatrix(rsm, placement, visible.baseX, visible.baseY, bounds.model),
+			bounds: bounds.model,
+			matrix: buildRSMInstanceMatrix(rsm, placement, visible.baseX, visible.baseY, bounds.model),
 		},
 		lighting: m.sceneLighting(rsw),
 	}, true
@@ -562,11 +556,8 @@ func allRSMNodeIndices(rsm *res.RSM) []int {
 }
 
 type modelInstance struct {
-	placement res.RSWModel
-	bounds    modelBounds
-	baseX     float64
-	baseY     float64
-	matrix    mat4
+	bounds modelBounds
+	matrix mat4
 }
 
 func (m *WorldMode) rsmFaceMetas(rsm *res.RSM, node *res.RSMNode) []rsmFaceMeta {

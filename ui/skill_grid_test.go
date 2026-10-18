@@ -195,7 +195,7 @@ func TestSkillGridUpgradableCellStagesInsteadOfPressingSkill(t *testing.T) {
 	grid := newSkillGridWidget(skillGridConfig{
 		entries: []skillGridEntry{{position: 0, skill: skill, display: skill, canStage: true}},
 		onStage: func(session.Skill) { staged++ },
-		onPress: func(session.Skill, int, int) { pressed++ },
+		onPress: func(session.Skill) { pressed++ },
 	})
 	grid.Layout(widget.NewContext(), geometry.Tight(geometry.Sz(skillGridViewW, skillGridViewH)))
 	slot := skillGridSlotBounds(grid.cellBounds(0))

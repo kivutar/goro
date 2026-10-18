@@ -23,7 +23,6 @@ const (
 
 type BookWindow struct {
 	Window
-	itemID     uint16
 	title      string
 	content    res.BookContent
 	lines      []itemInfoTextLine
@@ -39,7 +38,6 @@ func (w *BookWindow) Open(ctx Context, itemID uint16, title string) error {
 	if err != nil {
 		return fmt.Errorf("read book %d: %w", itemID, err)
 	}
-	w.itemID = itemID
 	w.title = strings.TrimSpace(title)
 	if w.title == "" {
 		w.title = fmt.Sprintf("Book #%d", itemID)

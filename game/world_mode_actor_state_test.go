@@ -800,7 +800,7 @@ func TestDrawSceneModelsAndActorsRunsFalconPass(t *testing.T) {
 	screen := render.NewFrame(800, 600)
 	projection := newSceneProjectionForTarget(800, 600, cellCenter(209), cellCenter(220), 0)
 
-	actors := mode.drawSceneModelsAndActors(screen, ctx, projection, sceneFog{}, time.Unix(100, 0))
+	actors := mode.drawSceneModelsAndActors(screen, ctx, projection, time.Unix(100, 0))
 	if len(actors) == 0 {
 		t.Fatal("no actor entries collected")
 	}

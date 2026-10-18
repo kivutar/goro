@@ -55,7 +55,6 @@ type equipmentSlotDef struct {
 	label    string
 	location uint16
 	side     equipmentSlotSide
-	row      int
 }
 
 type equipmentSlotSide int
@@ -67,17 +66,17 @@ const (
 )
 
 var (
-	equipmentSlotHeadTop    = equipmentSlotDef{label: "Head Top", location: db.EquipHeadTop, side: equipmentSlotLeft, row: 0}
-	equipmentSlotHeadMid    = equipmentSlotDef{label: "Head Mid", location: db.EquipHeadMid, side: equipmentSlotRight, row: 0}
-	equipmentSlotHeadLow    = equipmentSlotDef{label: "Head Low", location: db.EquipHeadBottom, side: equipmentSlotLeft, row: 1}
-	equipmentSlotArmor      = equipmentSlotDef{label: "Armor", location: db.EquipArmor, side: equipmentSlotRight, row: 1}
-	equipmentSlotWeapon     = equipmentSlotDef{label: "Weapon", location: db.EquipWeapon, side: equipmentSlotLeft, row: 2}
-	equipmentSlotShield     = equipmentSlotDef{label: "Shield", location: db.EquipShield, side: equipmentSlotRight, row: 2}
-	equipmentSlotGarment    = equipmentSlotDef{label: "Garment", location: db.EquipGarment, side: equipmentSlotLeft, row: 3}
-	equipmentSlotShoes      = equipmentSlotDef{label: "Shoes", location: db.EquipShoes, side: equipmentSlotRight, row: 3}
-	equipmentSlotAccessory  = equipmentSlotDef{label: "Accessory", location: db.EquipAccessory1, side: equipmentSlotLeft, row: 4}
-	equipmentSlotAccessory2 = equipmentSlotDef{label: "Accessory", location: db.EquipAccessory2, side: equipmentSlotRight, row: 4}
-	equipmentSlotAmmo       = equipmentSlotDef{label: "Ammo", location: db.EquipAmmo, side: equipmentSlotCenter, row: 1}
+	equipmentSlotHeadTop    = equipmentSlotDef{label: "Head Top", location: db.EquipHeadTop, side: equipmentSlotLeft}
+	equipmentSlotHeadMid    = equipmentSlotDef{label: "Head Mid", location: db.EquipHeadMid, side: equipmentSlotRight}
+	equipmentSlotHeadLow    = equipmentSlotDef{label: "Head Low", location: db.EquipHeadBottom, side: equipmentSlotLeft}
+	equipmentSlotArmor      = equipmentSlotDef{label: "Armor", location: db.EquipArmor, side: equipmentSlotRight}
+	equipmentSlotWeapon     = equipmentSlotDef{label: "Weapon", location: db.EquipWeapon, side: equipmentSlotLeft}
+	equipmentSlotShield     = equipmentSlotDef{label: "Shield", location: db.EquipShield, side: equipmentSlotRight}
+	equipmentSlotGarment    = equipmentSlotDef{label: "Garment", location: db.EquipGarment, side: equipmentSlotLeft}
+	equipmentSlotShoes      = equipmentSlotDef{label: "Shoes", location: db.EquipShoes, side: equipmentSlotRight}
+	equipmentSlotAccessory  = equipmentSlotDef{label: "Accessory", location: db.EquipAccessory1, side: equipmentSlotLeft}
+	equipmentSlotAccessory2 = equipmentSlotDef{label: "Accessory", location: db.EquipAccessory2, side: equipmentSlotRight}
+	equipmentSlotAmmo       = equipmentSlotDef{label: "Ammo", location: db.EquipAmmo, side: equipmentSlotCenter}
 )
 
 func (w *EquipmentWindow) Toggle(ctx Context) {
