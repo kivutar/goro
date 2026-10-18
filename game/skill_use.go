@@ -748,11 +748,6 @@ func targetSkillRange(skill session.Skill) int {
 	return maxInt(1, skill.Range+1)
 }
 
-func targetSkillWithinRangeFrom(sourceX, sourceY, skillRange int, actor worldstate.Actor) bool {
-	targetX, targetY := actorCurrentCell(actor, time.Now())
-	return targetSkillWithinRangeCells(sourceX, sourceY, targetX, targetY, skillRange)
-}
-
 func targetSkillWithinRangeCells(sourceX, sourceY, targetX, targetY, skillRange int) bool {
 	return normalAttackTargetWithinRange(sourceX, sourceY, targetX, targetY, skillRange)
 }

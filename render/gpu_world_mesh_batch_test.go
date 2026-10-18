@@ -40,7 +40,7 @@ func TestWorldMeshBatchPreservesVertexDataAndTriangleOrder(t *testing.T) {
 func TestWorldMeshBatchRebasesIndicesBeyondUint16(t *testing.T) {
 	texture := WhiteImage()
 	options := DrawTrianglesOptions{DepthWrite: true}
-	a := NewWorldMesh(make([]Vertex3D, 65535), []uint16{0, 65533, 65534}, texture, &options)
+	a := NewWorldMeshWithLightmap(make([]Vertex3D, 65535), []uint16{0, 65533, 65534}, texture, nil, &options)
 	b := testWorldMesh(texture, &options)
 	_, indices := worldMeshBatchGPUData(nil, nil, worldMeshBatch{meshes: []*WorldMesh{a, b, b}}, 1, 1, 1, 1)
 	want := []uint32{0, 65533, 65534, 65535, 65536, 65537, 65538, 65539, 65540}

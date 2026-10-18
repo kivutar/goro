@@ -82,11 +82,11 @@ func TestWorldShadersUseProjectedFogDepth(t *testing.T) {
 func TestWorldMeshSubmissionDoesNotCreateDynamicWorldCommand(t *testing.T) {
 	screen := NewFrame(320, 240)
 	texture := WhiteImage()
-	mesh := NewWorldMesh([]Vertex3D{
+	mesh := NewWorldMeshWithLightmap([]Vertex3D{
 		{X: 0, Y: 0, Z: 0, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{X: 1, Y: 0, Z: 0, SrcX: 1, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{X: 1, Y: 1, Z: 0, SrcX: 1, SrcY: 1, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
-	}, []uint16{0, 1, 2}, texture, &DrawTrianglesOptions{DepthWrite: true})
+	}, []uint16{0, 1, 2}, texture, nil, &DrawTrianglesOptions{DepthWrite: true})
 
 	screen.BeginFrame()
 	screen.DrawWorldMesh(mesh)
@@ -226,8 +226,8 @@ func TestWorldBillboardBatchesKeepContiguousOrder(t *testing.T) {
 
 func TestWorldBillboardInstanceDataCarriesFogToggle(t *testing.T) {
 	texture := WhiteImage()
-	fogged := billboardInstanceData(WorldBillboardCommand{Texture: texture})
-	unfogged := billboardInstanceData(WorldBillboardCommand{Texture: texture, Options: DrawTrianglesOptions{DisableFog: true}})
+	fogged := appendBillboardInstanceData(nil, WorldBillboardCommand{Texture: texture})
+	unfogged := appendBillboardInstanceData(nil, WorldBillboardCommand{Texture: texture, Options: DrawTrianglesOptions{DisableFog: true}})
 	if got := fogged[21]; got != 1 {
 		t.Fatalf("fogged billboard flag = %.1f, want 1", got)
 	}
@@ -430,8 +430,8 @@ func TestWorldVertexPackingCarriesFogToggle(t *testing.T) {
 		{X: 0, Y: 0, Z: 0, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 	}
 	indices := []uint16{0}
-	fogged := NewWorldMesh(vertices, indices, texture, &DrawTrianglesOptions{})
-	unfogged := NewWorldMesh(vertices, indices, texture, &DrawTrianglesOptions{DisableFog: true})
+	fogged := NewWorldMeshWithLightmap(vertices, indices, texture, nil, &DrawTrianglesOptions{})
+	unfogged := NewWorldMeshWithLightmap(vertices, indices, texture, nil, &DrawTrianglesOptions{DisableFog: true})
 
 	foggedData, _ := worldMeshGPUData(fogged, 1, 1)
 	unfoggedData, _ := worldMeshGPUData(unfogged, 1, 1)
@@ -445,11 +445,11 @@ func TestWorldVertexPackingCarriesFogToggle(t *testing.T) {
 }
 
 func testWorldMesh(texture *Image, options *DrawTrianglesOptions) *WorldMesh {
-	return NewWorldMesh([]Vertex3D{
+	return NewWorldMeshWithLightmap([]Vertex3D{
 		{X: 0, Y: 0, Z: 0, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{X: 1, Y: 0, Z: 0, SrcX: 1, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{X: 1, Y: 1, Z: 0, SrcX: 1, SrcY: 1, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
-	}, []uint16{0, 1, 2}, texture, options)
+	}, []uint16{0, 1, 2}, texture, nil, options)
 }
 
 func f32At(data []byte, offset int) float32 {

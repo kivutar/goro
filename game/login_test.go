@@ -629,7 +629,7 @@ func assertCreateStatsValid(t *testing.T, stats [createStatCount]uint8) {
 }
 
 func TestCharacterSelectPreviewFacesViewer(t *testing.T) {
-	if got := spriteDirectionFromWorldDir(charSelectPreviewDirection); got != 0 {
+	if got := spriteDirectionFromWorldDirForCamera(charSelectPreviewDirection, 0); got != 0 {
 		t.Fatalf("char select preview sprite direction = %d, want front-facing direction 0", got)
 	}
 	if charSelectPreviewScale <= 0.82 {

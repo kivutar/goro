@@ -80,7 +80,7 @@ func TestWarpClickWalksTowardWarpActor(t *testing.T) {
 	if _, err := io.ReadFull(serverConn, packet); err != nil {
 		t.Fatalf("reading warp walk request: %v", err)
 	}
-	want, ok := network.BuildWalkToXYPacket(13, 20)
+	want, ok := network.BuildWalkToXYPacketForClientDate(13, 20, 20080910)
 	if !ok {
 		t.Fatal("building expected walk request")
 	}

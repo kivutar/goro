@@ -90,13 +90,13 @@ func TestPlayerMageEquippedRodOverlayRealWhenConfigured(t *testing.T) {
 		t.Fatalf("mage weapon view id for item 1607 = %d, want reference client class num 10", weapon)
 	}
 
-	actSource, actData, ok := manager.ReadFirst(PlayerWeaponOverlayResourceCandidates(job, sex, weapon, false, "act"))
+	actSource, actData, ok := manager.ReadFirst(PlayerWeaponOverlayResourceCandidatesForItem(job, sex, 0, weapon, false, "act"))
 	if !ok {
-		t.Fatalf("mage rod act not found candidates=%q", PlayerWeaponOverlayResourceCandidates(job, sex, weapon, false, "act"))
+		t.Fatalf("mage rod act not found candidates=%q", PlayerWeaponOverlayResourceCandidatesForItem(job, sex, 0, weapon, false, "act"))
 	}
-	sprSource, sprData, ok := manager.ReadFirst(PlayerWeaponOverlayResourceCandidates(job, sex, weapon, false, "spr"))
+	sprSource, sprData, ok := manager.ReadFirst(PlayerWeaponOverlayResourceCandidatesForItem(job, sex, 0, weapon, false, "spr"))
 	if !ok {
-		t.Fatalf("mage rod spr not found candidates=%q", PlayerWeaponOverlayResourceCandidates(job, sex, weapon, false, "spr"))
+		t.Fatalf("mage rod spr not found candidates=%q", PlayerWeaponOverlayResourceCandidatesForItem(job, sex, 0, weapon, false, "spr"))
 	}
 	act, err := ParseACT(actData)
 	if err != nil {

@@ -2046,11 +2046,6 @@ func (l sceneLighting) groundScale(normal modelPoint3) modelPoint3 {
 	}
 }
 
-func (l sceneLighting) modelScale(normal modelPoint3) modelPoint3 {
-	weight := math.Max(dot3(normalize3(normal), l.direction), 0.5)
-	return l.modelScaleFromWeight(weight)
-}
-
 func (l sceneLighting) modelScaleNormalized(normal modelPoint3) modelPoint3 {
 	weight := math.Max(dot3(normal, l.direction), 0.5)
 	return l.modelScaleFromWeight(weight)

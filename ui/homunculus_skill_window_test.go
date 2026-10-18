@@ -125,11 +125,11 @@ func TestHomunculusSkillWindowChangingHomunculusClearsPending(t *testing.T) {
 		},
 	}
 	window := &HomunculusSkillWindow{}
-	window.syncHomunculusIdentity(Context{Session: s})
+	window.syncCompanionIdentity(Context{Session: s})
 	window.stageSkill(db.SkillHvanCaprice)
 
 	s.Homunculus.ID = 301
-	window.syncHomunculusIdentity(Context{Session: s})
+	window.syncCompanionIdentity(Context{Session: s})
 
 	if got := window.pendingCount(); got != 0 {
 		t.Fatalf("pending count after homunculus change = %d, want 0", got)

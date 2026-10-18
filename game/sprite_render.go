@@ -1328,10 +1328,6 @@ func normalizeDirectionIndex(direction int) int {
 	return direction
 }
 
-func spriteDirectionFromWorldDir(direction int) int {
-	return spriteDirectionFromWorldDirForCamera(direction, 0)
-}
-
 func spriteDirectionFromWorldDirForCamera(direction int, cameraYaw float64) int {
 	yawSteps := int(math.Round(cameraYaw / 45))
 	return (4 - normalizeDirectionIndex(direction) + yawSteps) & 7

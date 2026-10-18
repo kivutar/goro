@@ -82,11 +82,11 @@ func TestPartyFooterShowsInviteForLeader(t *testing.T) {
 }
 
 func TestEmptyFriendsListExpandsAndCentersText(t *testing.T) {
-	assertEmptyListExpandsAndCenters(t, friendsList(nil), "No friends")
+	assertEmptyListExpandsAndCenters(t, (&FriendsWindow{}).friendsList(nil), "No friends")
 }
 
 func TestEmptyPartyListExpandsAndCentersText(t *testing.T) {
-	assertEmptyListExpandsAndCenters(t, partyList(session.Party{}), "No party")
+	assertEmptyListExpandsAndCenters(t, (&FriendsWindow{}).partyList(Context{}, session.Party{}), "No party")
 }
 
 func TestFriendsWindowListStartsBelowTabs(t *testing.T) {

@@ -1675,12 +1675,12 @@ func TestSkillWindowCachesOrderedAndGroupedSkills(t *testing.T) {
 }
 
 func TestSkillDefaultPositionCentersOnScreen(t *testing.T) {
-	x, y := skillDefaultPosition(Context{ScreenW: 800, ScreenH: 600})
+	x, y := skillWindowDefaultPosition(Context{ScreenW: 800, ScreenH: 600}, skillWindowWidth, skillWindowHeight)
 	if x != 184 || y != 106 {
 		t.Fatalf("skill default position = %d,%d; want centered 184,106", x, y)
 	}
 
-	x, y = skillDefaultPosition(Context{ScreenW: 320, ScreenH: 240})
+	x, y = skillWindowDefaultPosition(Context{ScreenW: 320, ScreenH: 240}, skillWindowWidth, skillWindowHeight)
 	if x != windowScreenMargin || y != windowScreenMargin {
 		t.Fatalf("small screen skill default position = %d,%d; want margin %d,%d", x, y, windowScreenMargin, windowScreenMargin)
 	}
@@ -1690,7 +1690,7 @@ func TestSkillWindowTablePlusStagesSkill(t *testing.T) {
 	skill := session.Skill{ID: db.SkillSMBash, Level: 1, MaxLevel: 10, Upgradable: true}
 	s := &session.Session{Skills: session.Skills{Points: 1}}
 	window := &SkillWindow{}
-	bounds := skillTableLevelUpButtonBounds(0)
+	bounds := skillTableButtonBounds(0, "levelup")
 
 	consumed := window.handleSkillTableRowEvent(
 		nil,
@@ -1753,7 +1753,7 @@ func TestSkillWindowMonkListOnlyUpgradesAvailableSkills(t *testing.T) {
 				t.Fatal("locked skill without server type information should not be labeled passive")
 			}
 		}
-		point := skillTableLevelUpButtonBounds(row).Center()
+		point := skillTableButtonBounds(row, "levelup").Center()
 		window.handleSkillTableRowEvent(nil, ctx, nil, skills, row,
 			event.NewMouseEvent(event.MousePress, event.ButtonLeft, event.ButtonStateLeft, point, point, 0))
 		if got := window.pendingFor(db.SkillMOIronhand); (got == 1) != unlocked {
@@ -1920,6 +1920,11 @@ func TestSkillTooltipUsesSharedOverlayState(t *testing.T) {
 	if window.tooltip.Open() {
 		t.Fatal("tooltip should be closed")
 	}
+}
+
+func (w *SkillWindow) visibleSkills(ctx Context) []session.Skill {
+	w.ensureSkillView(ctx)
+	return w.allSkills
 }
 
 func TestSkillTooltipPreservesDescriptionColors(t *testing.T) {

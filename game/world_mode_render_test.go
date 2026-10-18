@@ -537,7 +537,7 @@ func TestSceneLightingModelScaleIgnoresOpacityLikeRobrowser(t *testing.T) {
 		Opacity:   0.5,
 	}})
 	normal := modelPoint3{x: 0, y: 1, z: 0}
-	if got, want := half.modelScale(normal), opaque.modelScale(normal); got != want {
+	if got, want := half.modelScaleNormalized(normal), opaque.modelScaleNormalized(normal); got != want {
 		t.Fatalf("model scale changed with opacity: got %+v want %+v", got, want)
 	}
 }
@@ -549,7 +549,7 @@ func TestSceneLightingModelScaleUsesReferenceMinimumLightWeight(t *testing.T) {
 		ambient:   modelPoint3{},
 		env:       modelPoint3{x: 1, y: 1, z: 1},
 	}
-	got := lighting.modelScale(modelPoint3{y: 1})
+	got := lighting.modelScaleNormalized(modelPoint3{y: 1})
 	want := modelPoint3{x: 0.5, y: 0.5, z: 0.5}
 	if got != want {
 		t.Fatalf("model scale = %+v, want %+v", got, want)

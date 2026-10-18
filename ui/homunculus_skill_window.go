@@ -519,11 +519,6 @@ func (w *HomunculusSkillWindow) syncCompanionIdentity(ctx Context) {
 	}
 }
 
-func (w *HomunculusSkillWindow) syncHomunculusIdentity(ctx Context) {
-	w.kind = companionSkillWindowHomunculus
-	w.syncCompanionIdentity(ctx)
-}
-
 func (w *HomunculusSkillWindow) showTooltip(ctx Context, skill session.Skill, mx, my int) {
 	if w.dragActive || skill.ID == 0 {
 		w.hideTooltip()

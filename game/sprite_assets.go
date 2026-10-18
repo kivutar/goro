@@ -71,16 +71,6 @@ func characterHeadPalette(character session.Character) int {
 	return int(character.HairColor)
 }
 
-func loadHumanoidSpriteView(manager *res.Manager, job int, head int, sex byte, bodyPalette int, headPalette int, label string) (*humanoidSpriteView, string) {
-	return loadHumanoidSpriteViewWithAppearance(manager, humanoidAppearance{
-		job:         job,
-		head:        head,
-		sex:         sex,
-		bodyPalette: bodyPalette,
-		headPalette: headPalette,
-	}, label)
-}
-
 func loadHumanoidSpriteViewWithAppearance(manager *res.Manager, appearance humanoidAppearance, label string) (*humanoidSpriteView, string) {
 	body, bodyStatus := loadBodySpriteView(manager, appearance.job, appearance.sex, appearance.bodyPalette, appearance.admin, label+" body")
 	if body == nil {

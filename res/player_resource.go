@@ -181,13 +181,6 @@ func PlayerIMFResourceCandidates(job int, sex byte) []string {
 	return out
 }
 
-func PlayerWeaponOverlayResourceCandidates(job int, sex byte, weaponValue int, secondLayer bool, extension string) []string {
-	if weaponValue <= 0 {
-		return nil
-	}
-	return playerWeaponOverlayResourceCandidates(job, sex, []int{weaponValue}, weaponValue, secondLayer, extension)
-}
-
 func PlayerWeaponOverlayResourceCandidatesForItem(job int, sex byte, weaponItemID int, weaponViewID int, secondLayer bool, extension string) []string {
 	if weaponItemID <= 0 && weaponViewID <= 0 {
 		return nil

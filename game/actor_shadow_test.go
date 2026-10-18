@@ -62,7 +62,7 @@ func TestActorShadowRemainsAfterMaceSwing(t *testing.T) {
 	player := worldstate.Actor{ID: 200, Job: db.JobAcolyte, Weapon: db.WeaponMace}
 	mode := &WorldMode{actorAnims: map[uint32]actorAnimation{
 		player.ID: {
-			actionFamily: attackActionFamilyForActor(player),
+			actionFamily: attackActionFamilyForActorWithResources(nil, player),
 			started:      now,
 			duration:     time.Second,
 			next:         readyFightAnimation(now.Add(time.Second)),

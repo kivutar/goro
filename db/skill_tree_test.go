@@ -5,6 +5,14 @@ import (
 	"testing"
 )
 
+func SkillTreeSkillIDs(job int) []uint16 {
+	var ids []uint16
+	for _, group := range SkillTreeSkillGroups(job) {
+		ids = append(ids, group.SkillIDs...)
+	}
+	return ids
+}
+
 func TestSkillTreeGroupsClassifyTranscendentSkillsAsSecondClass(t *testing.T) {
 	groups := SkillTreeSkillGroups(JobKnightH)
 	if len(groups) != 2 {

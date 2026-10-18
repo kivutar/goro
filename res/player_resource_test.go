@@ -84,7 +84,7 @@ func TestPlayerAdminBodyResourceCandidates(t *testing.T) {
 }
 
 func TestPlayerWeaponOverlayResourceCandidates(t *testing.T) {
-	got := PlayerWeaponOverlayResourceCandidates(0, 1, 1201, false, "act")
+	got := PlayerWeaponOverlayResourceCandidatesForItem(0, 1, 1201, 0, false, "act")
 	want := []string{
 		"data\\sprite\\인간족\\초보자\\초보자_남_1201.act",
 		"data\\sprite\\인간족\\초보자\\초보자_남_단검.act",
@@ -165,7 +165,7 @@ func TestPlayerWeaponIsBowUsesExpandedViewID(t *testing.T) {
 }
 
 func TestPlayerWeaponOverlayResourceCandidatesPreferExactViewID(t *testing.T) {
-	got := PlayerWeaponOverlayResourceCandidates(db.JobArcher, 1, 73, false, "spr")
+	got := PlayerWeaponOverlayResourceCandidatesForItem(db.JobArcher, 1, 0, 73, false, "spr")
 	want := []string{
 		"data\\sprite\\인간족\\궁수\\궁수_남_73.spr",
 		"data\\sprite\\인간족\\궁수\\궁수_남_활.spr",

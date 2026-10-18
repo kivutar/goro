@@ -2181,18 +2181,18 @@ func TestMVPEffectSpecMatchesRoBrowserSTR(t *testing.T) {
 
 func TestImportedSkillActionFallback(t *testing.T) {
 	archer := worldstate.Actor{Job: 3}
-	if action := skillAction(db.SkillACDouble).actionFamilyForActor(archer); action != spriteActionPCAttack3 {
+	if action := skillAction(db.SkillACDouble).actionFamilyForActorWithResources(nil, archer); action != spriteActionPCAttack3 {
 		t.Fatalf("AC_DOUBLE action = %d, want ATTACK3", action)
 	}
 	shower := skillAction(db.SkillACShower)
-	if action := shower.actionFamilyForActor(archer); action != attackActionFamilyForActor(archer) {
+	if action := shower.actionFamilyForActorWithResources(nil, archer); action != attackActionFamilyForActorWithResources(nil, archer) {
 		t.Fatalf("AC_SHOWER action = %d, want normal attack family", action)
 	}
 	if shower.speed != 50*time.Millisecond || shower.next == nil || shower.next.action != skillActorActionReadyFight {
 		t.Fatalf("AC_SHOWER timing = %+v, want robr speed 50ms then READYFIGHT", shower)
 	}
 	merchant := worldstate.Actor{Job: 5}
-	if action := skillAction(db.SkillMCCartrevolution).actionFamilyForActor(merchant); action != spriteActionPCAttack2 {
+	if action := skillAction(db.SkillMCCartrevolution).actionFamilyForActorWithResources(nil, merchant); action != spriteActionPCAttack2 {
 		t.Fatalf("MC_CARTREVOLUTION action = %d, want ATTACK2", action)
 	}
 	counter := skillAction(db.SkillKNAutocounter)
@@ -2531,14 +2531,14 @@ func TestArcherMercenaryNormalAttackAddsArrowProjectileEffect(t *testing.T) {
 
 func TestWarpEffectMappings(t *testing.T) {
 	expectEffectIDs(t, "AL_TELEPORT begin", skillBeginEffectIDs(26))
-	expectEffectIDs(t, "Butterfly Wing item", itemUseEffectIDs(602), effectTeleportation)
-	expectEffectIDs(t, "Fly Wing item", itemUseEffectIDs(601))
+	expectEffectIDs(t, "Butterfly Wing item", itemUseEffectSpec(602).effectIDs, effectTeleportation)
+	expectEffectIDs(t, "Fly Wing item", itemUseEffectSpec(601).effectIDs)
 }
 
 func TestSpeedPotionItemEffectMappingsMatchRobrowser(t *testing.T) {
-	expectEffectIDs(t, "Concentration Potion item", itemUseEffectIDs(645), effectItemFast)
-	expectEffectIDs(t, "Awakening Potion item", itemUseEffectIDs(656), effectItemFast2)
-	expectEffectIDs(t, "Berserk Potion item", itemUseEffectIDs(657), effectItemFast3)
+	expectEffectIDs(t, "Concentration Potion item", itemUseEffectSpec(645).effectIDs, effectItemFast)
+	expectEffectIDs(t, "Awakening Potion item", itemUseEffectSpec(656).effectIDs, effectItemFast2)
+	expectEffectIDs(t, "Berserk Potion item", itemUseEffectSpec(657).effectIDs, effectItemFast3)
 }
 
 func TestTeleportModalRules(t *testing.T) {

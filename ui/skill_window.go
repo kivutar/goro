@@ -821,11 +821,6 @@ func (w *SkillWindow) skillSnapshot(s *session.Session) string {
 	return fmt.Sprintf("job=%d;points=%d;pending=%v;skills=%v", s.Selected.Job, s.Skills.Points, w.pending, s.Skills.List)
 }
 
-func (w *SkillWindow) visibleSkills(ctx Context) []session.Skill {
-	w.ensureSkillView(ctx)
-	return w.allSkills
-}
-
 func (w *SkillWindow) ensureSkillView(ctx Context) {
 	w.ensureSkillViewForSnapshot(ctx, w.skillSnapshot(ctx.Session))
 }
@@ -949,10 +944,6 @@ func (w *SkillWindow) skillRequirementsMet(job int, levels map[uint16]int, skill
 	return true
 }
 
-func skillDefaultPosition(ctx Context) (int, int) {
-	return skillWindowDefaultPosition(ctx, skillWindowWidth, skillWindowHeight)
-}
-
 func skillWindowDefaultPosition(ctx Context, windowWidth, windowHeight int) (int, int) {
 	width, height := ctx.ScreenSize()
 	x := maxInt(windowScreenMargin, (width-windowWidth)/2)
@@ -1003,10 +994,6 @@ func skillTableButtonBoundsForColumns(columns []rotheme.TableViewColumn, row int
 		x += col.Width
 	}
 	return geometry.Rect{}
-}
-
-func skillTableLevelUpButtonBounds(row int) geometry.Rect {
-	return skillTableButtonBounds(row, "levelup")
 }
 
 func skillTypeLabel(skill session.Skill) string {

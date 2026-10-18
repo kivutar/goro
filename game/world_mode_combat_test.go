@@ -583,7 +583,7 @@ func TestCombatHitDelayUsesActionSoundMotion(t *testing.T) {
 		{Sound: 0},
 		{Sound: -1},
 	}}
-	if got := combatHitDelayFromAction(action, 800*time.Millisecond); got != 400*time.Millisecond {
+	if got := combatMotionDelayFromAction(action, 800*time.Millisecond, firstActionSoundMotion(action)); got != 400*time.Millisecond {
 		t.Fatalf("hit delay = %s, want 400ms", got)
 	}
 }
@@ -595,41 +595,41 @@ func TestCombatHitDelayFallsBackToMidpoint(t *testing.T) {
 		{Sound: -1},
 		{Sound: -1},
 	}}
-	if got := combatHitDelayFromAction(action, 800*time.Millisecond); got != 400*time.Millisecond {
+	if got := combatMotionDelayFromAction(action, 800*time.Millisecond, firstActionSoundMotion(action)); got != 400*time.Millisecond {
 		t.Fatalf("hit delay = %s, want midpoint", got)
 	}
 }
 
 func TestAttackActionFamilyUsesRobrowserWizardRodAction(t *testing.T) {
 	femaleWizard := worldstate.Actor{Job: db.JobWizard, Sex: 0, Weapon: 1601}
-	if got := attackActionFamilyForActor(femaleWizard); got != spriteActionPCAttack3 {
+	if got := attackActionFamilyForActorWithResources(nil, femaleWizard); got != spriteActionPCAttack3 {
 		t.Fatalf("female Wizard rod attack action = %d, want ATTACK3", got)
 	}
 	maleWizard := worldstate.Actor{Job: db.JobWizard, Sex: 1, Weapon: 1601}
-	if got := attackActionFamilyForActor(maleWizard); got != spriteActionPCAttack2 {
+	if got := attackActionFamilyForActorWithResources(nil, maleWizard); got != spriteActionPCAttack2 {
 		t.Fatalf("male Wizard rod attack action = %d, want ATTACK2", got)
 	}
 	unarmedWizard := worldstate.Actor{Job: db.JobWizard, Sex: 0}
-	if got := attackActionFamilyForActor(unarmedWizard); got != spriteActionPCAttack1 {
+	if got := attackActionFamilyForActorWithResources(nil, unarmedWizard); got != spriteActionPCAttack1 {
 		t.Fatalf("female Wizard unarmed attack action = %d, want ATTACK1", got)
 	}
 	leftHandRod := worldstate.Actor{Job: db.JobWizard, Sex: 0, Shield: 1601}
-	if got := attackActionFamilyForActor(leftHandRod); got != spriteActionPCAttack3 {
+	if got := attackActionFamilyForActorWithResources(nil, leftHandRod); got != spriteActionPCAttack3 {
 		t.Fatalf("female Wizard left-hand rod attack action = %d, want ATTACK3", got)
 	}
 }
 
 func TestAttackActionFamilyUsesExpandedWeaponViewIDs(t *testing.T) {
 	knightSword := worldstate.Actor{Job: db.JobKnight, Weapon: 48}
-	if got := attackActionFamilyForActor(knightSword); got != spriteActionPCAttack2 {
+	if got := attackActionFamilyForActorWithResources(nil, knightSword); got != spriteActionPCAttack2 {
 		t.Fatalf("Knight two-hand sword view attack action = %d, want ATTACK2", got)
 	}
 	archerBow := worldstate.Actor{Job: db.JobArcher, Weapon: 73}
-	if got := attackActionFamilyForActor(archerBow); got != spriteActionPCAttack2 {
+	if got := attackActionFamilyForActorWithResources(nil, archerBow); got != spriteActionPCAttack2 {
 		t.Fatalf("Archer CrossBow view attack action = %d, want ATTACK2", got)
 	}
 	hunterBow := worldstate.Actor{Job: db.JobHunter, Weapon: 74}
-	if got := attackActionFamilyForActor(hunterBow); got != spriteActionPCAttack3 {
+	if got := attackActionFamilyForActorWithResources(nil, hunterBow); got != spriteActionPCAttack3 {
 		t.Fatalf("Hunter Arbalest view attack action = %d, want ATTACK3", got)
 	}
 }
@@ -637,7 +637,7 @@ func TestAttackActionFamilyUsesExpandedWeaponViewIDs(t *testing.T) {
 func TestActorActionFrameDelayUsesPlayerWeaponActionFrames(t *testing.T) {
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20, Job: 1, Weapon: 3, Dir: 0}
-	actionFamily := attackActionFamilyForActor(world.Player)
+	actionFamily := attackActionFamilyForActorWithResources(nil, world.Player)
 	mode := &WorldMode{playerView: humanoidTimingView(actionFamily, 4)}
 	ctx := client.Context{Session: &session.Session{AccountID: 2000000, CharID: 150000}, World: world}
 
@@ -657,7 +657,7 @@ func TestActorActionNotifySetsPlayerWeaponAttackFrameDelay(t *testing.T) {
 		ObjectType:    actorObjectTypeMob,
 		HasObjectType: true,
 	})
-	actionFamily := attackActionFamilyForActor(world.Player)
+	actionFamily := attackActionFamilyForActorWithResources(nil, world.Player)
 	mode := &WorldMode{playerView: humanoidTimingView(actionFamily, 4)}
 	ctx := client.Context{
 		Session: &session.Session{AccountID: 2000000, CharID: 150000, Selected: session.Character{ID: 150000, Job: 1, Weapon: 3}},
@@ -827,7 +827,7 @@ func TestMercenaryAttackSchedulesWeaponSwingAndHitSounds(t *testing.T) {
 		ObjectType:    actorObjectTypeMob,
 		HasObjectType: true,
 	})
-	actionFamily := attackActionFamilyForActor(mercenary)
+	actionFamily := attackActionFamilyForActorWithResources(nil, mercenary)
 	mode := &WorldMode{
 		mercenaryViews: map[actorSpriteKey]*humanoidSpriteView{
 			mercenarySpriteKeyForActor(mercenary): humanoidSoundView(actionFamily, 2, 1, []string{"atk"}),
@@ -888,7 +888,7 @@ func TestPlayerBowNormalAttackUsesReferenceReleaseAndImpactTimeline(t *testing.T
 				ObjectType:    actorObjectTypeMob,
 				HasObjectType: true,
 			})
-			actionFamily := attackActionFamilyForActor(player)
+			actionFamily := attackActionFamilyForActorWithResources(nil, player)
 			mode := &WorldMode{playerView: humanoidSoundView(actionFamily, 4, 2, []string{"atk"})}
 			ctx := client.Context{
 				Session: &session.Session{
@@ -999,7 +999,7 @@ func TestDoubleStrafeUsesReferenceBowReleaseAndMultiHitTimeline(t *testing.T) {
 				ObjectType:    actorObjectTypeMob,
 				HasObjectType: true,
 			})
-			actionFamily := skillAction(db.SkillACDouble).actionFamilyForActor(player)
+			actionFamily := skillAction(db.SkillACDouble).actionFamilyForActorWithResources(nil, player)
 			mode := &WorldMode{playerView: humanoidSoundView(actionFamily, 4, 2, []string{"atk"})}
 			ctx := client.Context{
 				Session: &session.Session{

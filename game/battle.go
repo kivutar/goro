@@ -68,10 +68,6 @@ func actionAnimationDuration(action res.ACTAction, fallback time.Duration) time.
 	return duration
 }
 
-func combatHitDelayFromAction(action res.ACTAction, duration time.Duration) time.Duration {
-	return combatMotionDelayFromAction(action, duration, firstActionSoundMotion(action))
-}
-
 func combatMotionDelayFromAction(action res.ACTAction, duration time.Duration, motion int) time.Duration {
 	if duration <= 0 {
 		return 0
@@ -1328,10 +1324,6 @@ func (m *WorldMode) actorAnimation(id uint32, now time.Time) (actorAnimation, bo
 	return anim, true
 }
 
-func attackActionFamilyForActor(actor world.Actor) int {
-	return attackActionFamilyForActorWithResources(nil, actor)
-}
-
 func attackActionFamilyForActorWithResources(manager *res.Manager, actor world.Actor) int {
 	if actorIsMercenary(actor) {
 		return mercenaryAttackActionFamily(int(actor.Job), actor.Sex, int(actor.Weapon))
@@ -1550,16 +1542,6 @@ func normalAttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRan
 	dx := absInt(playerX - targetX)
 	dy := absInt(playerY - targetY)
 	return dx*dx+dy*dy <= attackRange*attackRange
-}
-
-func attackApproachCell(ctx client.Context, actor world.Actor, attackRange int) (int, int, bool) {
-	playerX, playerY := currentPlayerCell(ctx, time.Now())
-	return attackApproachCellFrom(ctx, playerX, playerY, actor, attackRange)
-}
-
-func attackApproachCellFrom(ctx client.Context, sourceX, sourceY int, actor world.Actor, attackRange int) (int, int, bool) {
-	targetX, targetY := actorCurrentCell(actor, time.Now())
-	return normalAttackApproachCellFromTarget(ctx, sourceX, sourceY, targetX, targetY, attackRange)
 }
 
 func normalAttackApproachCellFromTarget(ctx client.Context, sourceX, sourceY, targetX, targetY int, attackRange int) (int, int, bool) {

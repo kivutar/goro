@@ -65,11 +65,11 @@ func TestSharedSpriteResourcesKeepViewStateAndPalettesIndependent(t *testing.T) 
 
 func TestHumanoidViewsShareResourcesRealData(t *testing.T) {
 	manager := realDataManager(t)
-	first, status := loadHumanoidSpriteView(manager, 4, 1, 1, 0, 0, "first")
+	first, status := loadHumanoidSpriteViewWithAppearance(manager, humanoidAppearance{job: 4, head: 1, sex: 1}, "first")
 	if first == nil {
 		t.Fatal(status)
 	}
-	second, status := loadHumanoidSpriteView(manager, 4, 2, 1, 0, 0, "second")
+	second, status := loadHumanoidSpriteViewWithAppearance(manager, humanoidAppearance{job: 4, head: 2, sex: 1}, "second")
 	if second == nil {
 		t.Fatal(status)
 	}

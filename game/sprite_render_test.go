@@ -93,8 +93,8 @@ func TestSpriteDirectionFromWorldDirShowsBackForNorth(t *testing.T) {
 		-1: 5,
 	}
 	for input, want := range cases {
-		if got := spriteDirectionFromWorldDir(input); got != want {
-			t.Fatalf("spriteDirectionFromWorldDir(%d) = %d, want %d", input, got, want)
+		if got := spriteDirectionFromWorldDirForCamera(input, 0); got != want {
+			t.Fatalf("spriteDirectionFromWorldDirForCamera(%d, 0) = %d, want %d", input, got, want)
 		}
 	}
 }
@@ -513,7 +513,7 @@ func TestDebugPlayerSpriteBillboard(t *testing.T) {
 	}
 	manager := realDataManager(t)
 	for _, sex := range []byte{0, 1} {
-		view, status := loadHumanoidSpriteView(manager, 0, 1, sex, 0, 0, "debug player")
+		view, status := loadHumanoidSpriteViewWithAppearance(manager, humanoidAppearance{head: 1, sex: sex}, "debug player")
 		if view == nil {
 			t.Logf("sex=%d load failed: %s", sex, status)
 			continue
@@ -634,7 +634,7 @@ func TestMercenaryAttackBillboardDoesNotClipRealWhenConfigured(t *testing.T) {
 				t.Skipf("mercenary sprite unavailable: %s", status)
 			}
 			actionFamily := mercenaryAttackActionFamily(tc.job, tc.sex, 0)
-			renderDirection := spriteDirectionFromWorldDir(0)
+			renderDirection := spriteDirectionFromWorldDirForCamera(0, 0)
 			_, action, ok := resolveSpriteAction(view.body.act, actionFamily, renderDirection)
 			if !ok {
 				t.Fatalf("mercenary attack action missing: %s", status)
@@ -682,7 +682,7 @@ func TestMercenaryAttackBillboardIncludesDefaultWeaponRealWhenConfigured(t *test
 				t.Fatalf("mercenary default weapon unavailable: %s", status)
 			}
 			actionFamily := mercenaryAttackActionFamily(tc.job, tc.sex, 0)
-			renderDirection := spriteDirectionFromWorldDir(0)
+			renderDirection := spriteDirectionFromWorldDirForCamera(0, 0)
 			bodyActionIndex, action, ok := resolveSpriteAction(view.body.act, actionFamily, renderDirection)
 			if !ok {
 				t.Fatalf("mercenary attack action missing: %s", status)

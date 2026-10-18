@@ -361,11 +361,6 @@ const (
 )
 
 const (
-	effectBottomDissonance = 277
-	effectBottomUglyDance  = 290
-)
-
-const (
 	effectSoulBreaker       = 361
 	effectLevel99Aura1      = 362
 	effectPressure          = 365
@@ -1808,10 +1803,6 @@ func buildItemEffects() map[uint16]itemEffectSpec {
 	return effects
 }
 
-func itemUseEffectIDs(itemID uint16) []int {
-	return itemUseEffectSpec(itemID).effectIDs
-}
-
 func itemUseEffectSpec(itemID uint16) itemEffectSpec {
 	return itemEffectSpecs[itemID]
 }
@@ -1911,10 +1902,6 @@ func cloneSkillActionSpec(spec *skillActionSpec) *skillActionSpec {
 	clone := *spec
 	clone.next = cloneSkillActionSpec(spec.next)
 	return &clone
-}
-
-func (s skillActionSpec) actionFamilyForActor(actor worldstate.Actor) int {
-	return s.actionFamilyForActorWithResources(nil, actor)
 }
 
 func (s skillActionSpec) actionFamilyForActorWithResources(manager *res.Manager, actor worldstate.Actor) int {

@@ -15,16 +15,6 @@ type SkillUnitModelSpec struct {
 	HasFixedFrame      bool
 }
 
-func (s SkillUnitModelSpec) ModelPaths() []string {
-	if len(s.FallbackModelPaths) == 0 {
-		return []string{s.ModelPath}
-	}
-	paths := make([]string, 0, len(s.FallbackModelPaths)+1)
-	paths = append(paths, s.ModelPath)
-	paths = append(paths, s.FallbackModelPaths...)
-	return paths
-}
-
 func rsmTrapModelSpec(robrPath string, fallbackPaths []string, triggerEffectID int) SkillUnitModelSpec {
 	return SkillUnitModelSpec{
 		ModelPath:          robrPath,

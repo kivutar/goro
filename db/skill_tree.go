@@ -1693,19 +1693,6 @@ func SkillTreeSkillGroups(job int) []SkillTreeGroup {
 	return groups
 }
 
-func SkillTreeSkillIDs(job int) []uint16 {
-	groups := SkillTreeSkillGroups(job)
-	total := 0
-	for _, group := range groups {
-		total += len(group.SkillIDs)
-	}
-	out := make([]uint16, 0, total)
-	for _, group := range groups {
-		out = append(out, group.SkillIDs...)
-	}
-	return out
-}
-
 // SkillTreeLayoutJobs returns the client skill-tree tables which contribute
 // positions to a class-level tab. Base and transcendent second classes share
 // one tab, matching the classic expanded skill window.

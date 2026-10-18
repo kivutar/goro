@@ -24,7 +24,7 @@ func BenchmarkRepeatedHumanoidAppearances(b *testing.B) {
 		}
 	})
 	load := func(head int) {
-		if view, status := loadHumanoidSpriteView(manager, 4, head, 1, 0, 0, "acolyte"); view == nil {
+		if view, status := loadHumanoidSpriteViewWithAppearance(manager, humanoidAppearance{job: 4, head: head, sex: 1}, "acolyte"); view == nil {
 			b.Fatal(status)
 		}
 	}

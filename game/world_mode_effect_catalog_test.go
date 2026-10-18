@@ -923,6 +923,10 @@ func TestRobrowserSpecialEffectsTwoHundredToTwoFiftyMatchTableRows(t *testing.T)
 }
 
 func TestRobrowserActiveEffectsTwoFiftyToThreeHundredHaveSpecs(t *testing.T) {
+	const (
+		effectBottomDissonance = 277
+		effectBottomUglyDance  = 290
+	)
 	active := map[int]string{
 		effectSpearQuicken:   "EF_SPEARQUICKEN",
 		effectDevotion:       "EF_DEVOTION",

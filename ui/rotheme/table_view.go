@@ -47,7 +47,6 @@ type tableViewConfig struct {
 	onRowEvent      func(int, event.Event) bool
 	onRowEventCtx   func(widget.Context, int, event.Event) bool
 
-	invalidateHover      bool
 	dispatchHoverToCells bool
 }
 
@@ -77,7 +76,6 @@ func TableView(opts ...TableViewOption) *TableViewWidget {
 		headerHeight:         Default.Typography.TextSize + TableHeaderPadY*2,
 		showHeader:           true,
 		emptyText:            "No rows",
-		invalidateHover:      true,
 		dispatchHoverToCells: true,
 	}
 	for _, opt := range opts {
@@ -168,10 +166,6 @@ func TableViewOnRowEvent(onEvent func(int, event.Event) bool) TableViewOption {
 
 func TableViewOnRowEventWithContext(onEvent func(widget.Context, int, event.Event) bool) TableViewOption {
 	return func(c *tableViewConfig) { c.onRowEventCtx = onEvent }
-}
-
-func TableViewInvalidateHover(invalidate bool) TableViewOption {
-	return func(c *tableViewConfig) { c.invalidateHover = invalidate }
 }
 
 func TableViewDispatchHoverToCells(dispatch bool) TableViewOption {
@@ -1091,9 +1085,6 @@ func (w *TableViewWidget) setHoveredRow(ctx widget.Context, row int) {
 	}
 	previous := w.hoveredRow
 	w.hoveredRow = row
-	if !w.cfg.invalidateHover {
-		return
-	}
 	w.invalidateRow(ctx, previous)
 	w.invalidateRow(ctx, row)
 }

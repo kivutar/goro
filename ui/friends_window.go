@@ -297,11 +297,6 @@ func emptyFriendsList(label string) widget.Widget {
 	)
 }
 
-func friendsList(friends []session.Friend) widget.Widget {
-	var window FriendsWindow
-	return window.friendsList(friends)
-}
-
 func (w *FriendsWindow) friendRow(friend session.Friend, index int) widget.Widget {
 	state := "Offline"
 	stateColor := rotheme.Default.Colors.MutedText
@@ -413,11 +408,6 @@ func partyWindowTitle(party session.Party) string {
 		name = "Party"
 	}
 	return name
-}
-
-func partyList(party session.Party) widget.Widget {
-	var window FriendsWindow
-	return window.partyList(Context{}, party)
 }
 
 func (w *FriendsWindow) partyList(ctx Context, party session.Party) widget.Widget {

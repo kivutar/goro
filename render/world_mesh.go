@@ -13,10 +13,6 @@ type WorldMeshCommand struct {
 	Mesh *WorldMesh
 }
 
-func NewWorldMesh(vertices []Vertex3D, indices []uint16, texture *Image, opts *DrawTrianglesOptions) *WorldMesh {
-	return NewWorldMeshWithLightmap(vertices, indices, texture, nil, opts)
-}
-
 func NewWorldMeshWithLightmap(vertices []Vertex3D, indices []uint16, texture, lightTexture *Image, opts *DrawTrianglesOptions) *WorldMesh {
 	var o DrawTrianglesOptions
 	if opts != nil {

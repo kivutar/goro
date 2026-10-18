@@ -339,37 +339,6 @@ func TestTableViewMouseMoveBetweenRowsInvalidatesHoverRows(t *testing.T) {
 	}
 }
 
-func TestTableViewCanDisableHoverInvalidation(t *testing.T) {
-	table := TableView(
-		TableViewColumns([]TableViewColumn{{Key: "name", Width: 60}}),
-		TableViewRowCount(1),
-		TableViewRowHeight(20),
-		TableViewHeaderHeight(10),
-		TableViewInvalidateHover(false),
-	)
-	ctx := widget.NewContext()
-	invalidations := 0
-	ctx.SetOnInvalidateRect(func(geometry.Rect) {
-		invalidations++
-	})
-	table.Layout(ctx, geometry.Tight(geometry.Sz(100, 70)))
-	table.SetBounds(geometry.NewRect(0, 0, 100, 70))
-	table.body.layoutRow(ctx, 0)
-	widget.ClearRedrawInTree(table)
-
-	table.setHoveredRow(ctx, 0)
-
-	if table.hoveredRow != 0 {
-		t.Fatalf("hovered row = %d, want 0", table.hoveredRow)
-	}
-	if invalidations != 0 {
-		t.Fatalf("hover invalidations = %d, want 0", invalidations)
-	}
-	if table.body.rows[0].NeedsRedraw() {
-		t.Fatal("row should stay clean when hover invalidation is disabled")
-	}
-}
-
 func TestTableViewCanSkipCellHoverDispatch(t *testing.T) {
 	probe := &tableViewHoverProbe{}
 	var rowEvents []event.MouseEventType
@@ -378,7 +347,6 @@ func TestTableViewCanSkipCellHoverDispatch(t *testing.T) {
 		TableViewRowCount(1),
 		TableViewRowHeight(20),
 		TableViewHeaderHeight(10),
-		TableViewInvalidateHover(false),
 		TableViewDispatchHoverToCells(false),
 		TableViewBuildCell(func(TableViewCellContext) widget.Widget {
 			return probe

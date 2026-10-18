@@ -17,7 +17,8 @@ func TestLegacySkillUnitTrapRSMModelsLoadFromRealDataWhenConfigured(t *testing.T
 		checked++
 		var rsm *res.RSM
 		var loadedPath string
-		for _, modelPath := range spec.ModelPaths() {
+		paths := append([]string{spec.ModelPath}, spec.FallbackModelPaths...)
+		for _, modelPath := range paths {
 			loaded, err := loadRSMModel(manager, modelPath)
 			if err != nil {
 				continue
@@ -27,7 +28,7 @@ func TestLegacySkillUnitTrapRSMModelsLoadFromRealDataWhenConfigured(t *testing.T
 			break
 		}
 		if rsm == nil {
-			t.Fatalf("load trap model unit=%d paths=%v", unitID, spec.ModelPaths())
+			t.Fatalf("load trap model unit=%d paths=%v", unitID, paths)
 		}
 		if len(rsm.Nodes) == 0 {
 			t.Fatalf("trap model unit=%d model=%s has no nodes", unitID, loadedPath)

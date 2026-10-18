@@ -344,3 +344,27 @@ func TestCharacterWindowToggleSurvivesUpdatesWhilePressed(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatHUDNumberGroupsThousands(t *testing.T) {
+	if got := formatHUDNumber(123456789); got != "123,456,789" {
+		t.Fatalf("formatted number = %q", got)
+	}
+}
+
+func TestFormatEXPPercent(t *testing.T) {
+	if got := formatEXPPercent(123, 1000); got != "12.3%" {
+		t.Fatalf("formatted exp percent = %q", got)
+	}
+	if got := formatEXPPercent(12, 0); got != "--" {
+		t.Fatalf("formatted exp percent without next = %q", got)
+	}
+	if got := formatEXPPercent(1001, 1000); got != "100.0%" {
+		t.Fatalf("formatted capped exp percent = %q", got)
+	}
+}
+
+func TestDisplayWeightUsesROVisibleUnits(t *testing.T) {
+	if got := displayWeight(240); got != 24 {
+		t.Fatalf("display weight = %d, want 24", got)
+	}
+}

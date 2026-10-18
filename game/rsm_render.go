@@ -889,14 +889,6 @@ func slerpRSMQuaternion(a, b [4]float32, t float64) [4]float32 {
 	}
 }
 
-func calculateRSMBounds(rsm *res.RSM) rsmBounds {
-	indices := make([]int, len(rsm.Nodes))
-	for i := range indices {
-		indices[i] = i
-	}
-	return calculateRSMBoundsForNodes(rsm, indices)
-}
-
 func calculateRSMBoundsForNodes(rsm *res.RSM, nodeIndices []int) rsmBounds {
 	bounds := rsmBounds{
 		model: emptyModelBounds(),

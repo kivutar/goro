@@ -37,7 +37,7 @@ func TestCalculateRSMBoundsSeparatesMainNodeFromModel(t *testing.T) {
 		},
 	}
 
-	bounds := calculateRSMBounds(rsm)
+	bounds := calculateRSMBoundsForNodes(rsm, []int{0, 1})
 	if bounds.main.min.x != -1 || bounds.main.max.x != 1 {
 		t.Fatalf("main bounds x = %.1f..%.1f, want -1..1", bounds.main.min.x, bounds.main.max.x)
 	}

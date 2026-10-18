@@ -1263,10 +1263,6 @@ func (r *gpuRenderer) createBillboardQuadBuffer() (*wgpu.Buffer, error) {
 	return buf, nil
 }
 
-func billboardInstanceData(cmd WorldBillboardCommand) []float32 {
-	return appendBillboardInstanceData(nil, cmd)
-}
-
 func appendBillboardInstanceData(dst []float32, cmd WorldBillboardCommand) []float32 {
 	fogEnabled := float32(1)
 	if cmd.Options.DisableFog {

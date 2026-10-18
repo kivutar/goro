@@ -12,7 +12,6 @@ import (
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/res"
 	"github.com/kivutar/goro/session"
-	gameui "github.com/kivutar/goro/ui"
 	worldstate "github.com/kivutar/goro/world"
 )
 
@@ -220,7 +219,7 @@ func TestAttackApproachCellChoosesClosestWalkableNeighbor(t *testing.T) {
 	ctx := client.Context{World: world}
 	actor := worldstate.Actor{ID: 300, X: 116, Y: 303}
 
-	x, y, ok := attackApproachCell(ctx, actor, 1)
+	x, y, ok := normalAttackApproachCellFromTarget(ctx, ctx.World.Player.X, ctx.World.Player.Y, actor.X, actor.Y, 1)
 	if !ok {
 		t.Fatal("expected approach cell")
 	}
@@ -229,7 +228,7 @@ func TestAttackApproachCellChoosesClosestWalkableNeighbor(t *testing.T) {
 	}
 
 	world.GAT.Cells[302*world.GAT.Width+115] = res.GATCell{}
-	x, y, ok = attackApproachCell(ctx, actor, 1)
+	x, y, ok = normalAttackApproachCellFromTarget(ctx, ctx.World.Player.X, ctx.World.Player.Y, actor.X, actor.Y, 1)
 	if !ok {
 		t.Fatal("expected fallback approach cell")
 	}
@@ -252,7 +251,7 @@ func TestAttackApproachCellUsesRangedAttackRange(t *testing.T) {
 	ctx := client.Context{World: world}
 	actor := worldstate.Actor{ID: 300, X: 120, Y: 302}
 
-	x, y, ok := attackApproachCell(ctx, actor, 5)
+	x, y, ok := normalAttackApproachCellFromTarget(ctx, ctx.World.Player.X, ctx.World.Player.Y, actor.X, actor.Y, 5)
 	if !ok {
 		t.Fatal("expected ranged approach cell")
 	}
@@ -1054,34 +1053,10 @@ func TestSelectCharacterSeedsInventoryZeny(t *testing.T) {
 	}
 }
 
-func TestFormatHUDNumberGroupsThousands(t *testing.T) {
-	if got := gameui.FormatHUDNumber(123456789); got != "123,456,789" {
-		t.Fatalf("formatted number = %q", got)
-	}
-}
-
 func TestSessionProgressFromCharacterUsesBaseLevel(t *testing.T) {
 	progress := session.ProgressFromCharacter(session.Character{Level: 12, JobLevel: 7})
 	if progress.BaseLevel != 12 || progress.JobLevel != 7 {
 		t.Fatalf("progress = %+v", progress)
-	}
-}
-
-func TestFormatEXPPercent(t *testing.T) {
-	if got := gameui.FormatEXPPercent(123, 1000); got != "12.3%" {
-		t.Fatalf("formatted exp percent = %q", got)
-	}
-	if got := gameui.FormatEXPPercent(12, 0); got != "--" {
-		t.Fatalf("formatted exp percent without next = %q", got)
-	}
-	if got := gameui.FormatEXPPercent(1001, 1000); got != "100.0%" {
-		t.Fatalf("formatted capped exp percent = %q", got)
-	}
-}
-
-func TestDisplayWeightUsesROVisibleUnits(t *testing.T) {
-	if got := gameui.DisplayWeight(240); got != 24 {
-		t.Fatalf("display weight = %d, want 24", got)
 	}
 }
 

@@ -185,13 +185,13 @@ func TestMercenaryActionFamiliesUseGuildWeaponActions(t *testing.T) {
 	sword := worldstate.Actor{Job: 6037, HasObjectType: true, ObjectType: actorObjectTypeMercenary}
 	mob := worldstate.Actor{Job: 1002, HasObjectType: true, ObjectType: actorObjectTypeMob}
 
-	if got := attackActionFamilyForActor(archer); got != spriteActionPCAttack2 {
+	if got := attackActionFamilyForActorWithResources(nil, archer); got != spriteActionPCAttack2 {
 		t.Fatalf("archer mercenary attack action = %d, want %d", got, spriteActionPCAttack2)
 	}
-	if got := attackActionFamilyForActor(lancer); got != spriteActionPCAttack3 {
+	if got := attackActionFamilyForActorWithResources(nil, lancer); got != spriteActionPCAttack3 {
 		t.Fatalf("lancer mercenary attack action = %d, want %d", got, spriteActionPCAttack3)
 	}
-	if got := attackActionFamilyForActor(sword); got != spriteActionPCAttack2 {
+	if got := attackActionFamilyForActorWithResources(nil, sword); got != spriteActionPCAttack2 {
 		t.Fatalf("sword mercenary attack action = %d, want %d", got, spriteActionPCAttack2)
 	}
 	if got := hurtActionFamilyForActor(archer); got != spriteActionPCHurt {
@@ -206,10 +206,10 @@ func TestMercenaryActionFamiliesUseGuildWeaponActions(t *testing.T) {
 	if got := skillCastActionFamilyForActor(sword, 0); got != spriteActionPCSkill {
 		t.Fatalf("sword mercenary cast action = %d, want %d", got, spriteActionPCSkill)
 	}
-	if got := readyFightSkillActionSpec.actionFamilyForActor(sword); got != spriteActionPCSkill {
+	if got := readyFightSkillActionSpec.actionFamilyForActorWithResources(nil, sword); got != spriteActionPCSkill {
 		t.Fatalf("sword mercenary readyfight skill action = %d, want %d", got, spriteActionPCSkill)
 	}
-	if got := attackActionFamilyForActor(mob); got != spriteActionNonPCAttack {
+	if got := attackActionFamilyForActorWithResources(nil, mob); got != spriteActionNonPCAttack {
 		t.Fatalf("mob attack action = %d, want %d", got, spriteActionNonPCAttack)
 	}
 }
