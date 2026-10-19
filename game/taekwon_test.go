@@ -108,7 +108,7 @@ func TestTaekwonStatusEffectsAndStancePosesMatchRobrowser(t *testing.T) {
 	}
 }
 
-func TestStarWarmAndSoulLinkStatusTintsMatchRobrowser(t *testing.T) {
+func TestStarWarmAndSoulLinkStatusTints(t *testing.T) {
 	swoo := actorStateTint(worldstate.Actor{Opt3State: db.Opt3Overthrust})
 	if swoo.R != 255 || swoo.G != 191 || swoo.B != 191 || swoo.A != 255 {
 		t.Fatalf("Eswoo tint = %+v", swoo)
@@ -118,8 +118,8 @@ func TestStarWarmAndSoulLinkStatusTintsMatchRobrowser(t *testing.T) {
 		t.Fatalf("warm tint = %+v", warm)
 	}
 	soulLink := actorStateTint(worldstate.Actor{Opt3State: db.Opt3Soullink})
-	if soulLink.R != 89 || soulLink.G != 89 || soulLink.B != 229 || soulLink.A != 229 {
-		t.Fatalf("soul link tint = %+v", soulLink)
+	if soulLink.R != 255 || soulLink.G != 255 || soulLink.B != 255 || soulLink.A != 255 {
+		t.Fatalf("Soul Link uses additive silhouettes, not a flat tint: %+v", soulLink)
 	}
 }
 

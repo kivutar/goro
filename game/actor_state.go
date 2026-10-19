@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"time"
 
 	"github.com/kivutar/goro/client"
@@ -211,7 +212,7 @@ func actorStateTint(actor worldstate.Actor) color.RGBA {
 	}
 	opt3 := actor.Opt3State
 	if isMonsterLikeHoverActor(actor) {
-		opt3 &^= db.Opt3Energycoat // Eske uses expanding outlines, not Energy Coat's tint.
+		opt3 &^= db.Opt3Energycoat | db.Opt3Overthrust // Monsters use these bits for Eske and Eswoo.
 	}
 	vr, vg, vb, va := actorOpt3StateTint(opt3)
 	r *= vr
@@ -234,9 +235,6 @@ func actorOpt3StateTint(opt3State uint32) (float64, float64, float64, float64) {
 	}
 	if opt3State&db.Opt3Warm != 0 {
 		g, b = 0.4, 0.4
-	}
-	if opt3State&db.Opt3Soullink != 0 {
-		r, g, b, a = 0.35, 0.35, 0.9, 0.9
 	}
 	if opt3State&db.Opt3Bladestop != 0 {
 		r, g, b = 64.0/255, 64.0/255, 64.0/255
@@ -425,8 +423,20 @@ func (m *WorldMode) actorBodySizeMultiplierFrom(actorID uint32, now time.Time, b
 		if effect.actorID != actorID || now.Before(effect.starts) || effect.expired(now) {
 			continue
 		}
+		if effect.starts.Before(latest) {
+			continue
+		}
+		if effect.effectID == effectBabyBodyBack || (effect.effectID == effectBabyBody && effect.persistent) {
+			frame := float64(now.Sub(effect.starts) / db.EffectFrameDuration)
+			if effect.effectID == effectBabyBodyBack {
+				frame = 45 - frame*3
+			}
+			multiplier = baseMultiplier * (.75 + .25*math.Cos(degreesToRadians(clampFloat(frame, 0, 45)*4)))
+			latest = effect.starts
+			continue
+		}
 		targetSize, transition, ok := actorBodySizeTarget(effect.effectID)
-		if !ok || effect.starts.Before(latest) {
+		if !ok {
 			continue
 		}
 		targetMultiplier := targetSize / 5

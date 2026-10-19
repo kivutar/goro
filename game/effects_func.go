@@ -36,6 +36,9 @@ const (
 	effectFuncEsma
 	effectFuncKaizel
 	effectFuncEsmaHitTexture
+	effectFuncSoulLink
+	effectFuncKaupeDodge
+	effectFuncBlueCasting
 )
 
 const (
@@ -77,6 +80,12 @@ func (m *WorldMode) drawFuncEffect(screen *render.Frame, ctx client.Context, pro
 		m.drawHitParticlesEffect(screen, ctx, projection, component, effect, componentIndex, worldX, worldY, worldZ, now)
 	case effectFuncBlessingCircle:
 		m.drawBlessingCircleEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
+	case effectFuncSoulLink:
+		m.drawSoulLinkEffect(screen, ctx, projection, component, effect, now)
+	case effectFuncKaupeDodge:
+		m.drawSoulLights(screen, ctx, projection, component, effect, now)
+	case effectFuncBlueCasting:
+		m.drawBlueCastingEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncEstin:
 		m.drawEstinEffect(screen, ctx, component, effect, now)
 	case effectFuncSoulLinkerParticles:

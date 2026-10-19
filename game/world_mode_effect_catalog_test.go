@@ -41,14 +41,14 @@ func TestBashBeginEffectSpecUsesCylinderComponents(t *testing.T) {
 
 func TestWorldEffectSpecCatalogCoverage(t *testing.T) {
 	coverage := effectCoverageSnapshot()
-	if coverage.Implemented != 674 {
-		t.Fatalf("implemented effects = %d, want 674", coverage.Implemented)
+	if coverage.Implemented != 680 {
+		t.Fatalf("implemented effects = %d, want 680", coverage.Implemented)
 	}
 	if coverage.ReferenceActive != 607 || coverage.ReferenceAll != 1147 {
 		t.Fatalf("reference client totals = active %d all %d", coverage.ReferenceActive, coverage.ReferenceAll)
 	}
-	if coverage.ActivePercent < 111.0 || coverage.ActivePercent > 111.1 {
-		t.Fatalf("active coverage = %.3f, want about 111.0", coverage.ActivePercent)
+	if coverage.ActivePercent < 112.0 || coverage.ActivePercent > 112.1 {
+		t.Fatalf("active coverage = %.3f, want about 112.0", coverage.ActivePercent)
 	}
 }
 
@@ -1705,7 +1705,7 @@ func TestRobrowserSpecialEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.
 		top      float64
 		wav      string
 	}{
-		{"EF_GUMGANG2", effectGumgang2, 1500 * time.Millisecond, 0.5, 2, 5, "effect\\mon_폭기.wav"},
+		{"EF_GUMGANG2", effectGumgang2, 1500 * time.Millisecond, 0.5, 2, 5, ""},
 		{"EF_GUMGANG3", effectGumgang3, 1000 * time.Millisecond, 0.3, 3, 6, ""},
 	} {
 		spec, ok := worldEffectSpecForID(tc.id)
@@ -2868,7 +2868,7 @@ func TestRobrowserSimpleEffectsFiveFiftyToSixHundredMatchTableRows(t *testing.T)
 		{"EF_M04", effectM04, "m_ef04", "", false},
 		{"EF_M05", effectM05, "m_ef05", "dragon_breath.wav", false},
 		{"EF_M06", effectM06, "m_ef06", "", false},
-		{"EF_M07", effectM07, "m_ef07", "effect\\t_보조마법.wav", false},
+		{"EF_M07", effectM07, "m_ef07", "", false},
 	} {
 		spec, ok := worldEffectSpecForID(tc.id)
 		if !ok || len(spec.components) != 1 {

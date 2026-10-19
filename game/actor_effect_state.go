@@ -53,6 +53,9 @@ func (m *WorldMode) removeActorEffectStateEffects(actorID uint32) {
 	}
 	m.removeWorldEffect(effectGumgang, actorID)
 	m.removeWorldEffect(effectSteelBody, actorID)
+	m.removeWorldEffect(effectAsuraBody, actorID)
+	m.removeWorldEffect(effectBabyBody, actorID)
+	m.removeWorldEffect(effectBabyBodyBack, actorID)
 	m.removeWorldEffect(effectChookgi, actorID)
 	m.removeWorldEffect(effectChookgi2, actorID)
 	m.removeWorldEffect(effectChookgi3, actorID)
@@ -85,6 +88,24 @@ func (m *WorldMode) syncActorSpiritEffects(ctx client.Context, actorID uint32) {
 		return
 	}
 	visible := !actorHasStealth(actor)
+	m.setActorStateEffect(ctx, actorID, effectAsuraBody, visible && actor.Opt3State&db.Opt3Soullink != 0)
+	if actor.HasState && isMonsterLikeHoverActor(actor) {
+		shrinking := actor.Opt3State&db.Opt3Overthrust != 0
+		if shrinking && visible {
+			m.removeWorldEffect(effectBabyBodyBack, actorID)
+			m.setActorStateEffect(ctx, actorID, effectBabyBody, true)
+		} else {
+			for _, effect := range m.worldEffects {
+				if effect.effectID == effectBabyBody && effect.actorID == actorID && effect.persistent {
+					m.removeWorldEffect(effectBabyBody, actorID)
+					if visible && !shrinking {
+						m.addWorldEffect(ctx, effectBabyBodyBack, actorID)
+					}
+					break
+				}
+			}
+		}
+	}
 	if actor.HasState && isMonsterLikeHoverActor(actor) && actor.Opt3State&db.Opt3Energycoat == 0 {
 		m.removeWorldEffect(effectAsuraBodyMonster, actorID)
 	}

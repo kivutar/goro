@@ -26,7 +26,7 @@ func soulLinkerEffectContext() client.Context {
 
 func soulLinkerTestTextures(m *WorldMode) {
 	m.textures = make(map[string]*render.Image)
-	for _, id := range []int{effectStin, effectStin3, effectHitLine4, effectStin2, effectHitLine6, effectHitTexture, effectAsuraBodyMonster, effectHated, effectKaizel, effectBlueBody, effectReflectBody, effectSmaReady} {
+	for _, id := range []int{effectStin, effectStin3, effectHitLine4, effectStin2, effectHitLine6, effectHitTexture, effectAsuraBodyMonster, effectHated, effectKaizel, effectBlueBody, effectReflectBody, effectSmaReady, effectSoulLink, effectAsuraBody, effectBlueCasting, effectTaeReady, effectStormKick4, effectBabyBodyBack, effectM07} {
 		for _, c := range db.EffectSpecs[id].Components {
 			for _, file := range append([]string{c.TextureFile}, c.TextureFiles...) {
 				if file != "" {
@@ -244,9 +244,12 @@ func TestSoulLinkerRealEffectAssets(t *testing.T) {
 		t.Cleanup(func() { _ = archive.Close() })
 	}
 	m := &WorldMode{}
-	for _, id := range []int{effectStin, effectStin3, effectHitLine4, effectStin2, effectHitLine6, effectHitTexture, effectAsuraBodyMonster, effectHated, effectKaizel, effectBlueBody, effectReflectBody, effectSmaReady} {
+	for _, id := range []int{effectStin, effectStin3, effectHitLine4, effectStin2, effectHitLine6, effectHitTexture, effectAsuraBodyMonster, effectHated, effectKaizel, effectBlueBody, effectReflectBody, effectSmaReady, effectSoulLink, effectAsuraBody, effectBlueCasting, effectTaeReady, effectStormKick4, effectBabyBodyBack, effectM07} {
 		spec, _ := worldEffectSpecForID(id)
 		for _, c := range spec.components {
+			if c.spriteFile != "" && m.effectSpriteView(manager, c.spriteFile) == nil {
+				t.Errorf("effect %d missing sprite %s", id, c.spriteFile)
+			}
 			paths := append([]string{c.textureFile}, c.textureFiles...)
 			for _, p := range paths {
 				if p != "" && m.effectFileTexture(manager, p) == nil {
@@ -256,6 +259,13 @@ func TestSoulLinkerRealEffectAssets(t *testing.T) {
 		}
 		for _, s := range spec.sfx {
 			if _, err := manager.ReadFile("data/wav/" + s); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+	for _, skill := range []uint16{db.SkillSLSka, db.SkillSLSwoo, db.SkillMOExplosionspirits} {
+		for _, sound := range db.SkillEffects[skill].SFX {
+			if _, err := manager.ReadFile("data/wav/" + sound); err != nil {
 				t.Error(err)
 			}
 		}

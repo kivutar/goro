@@ -3606,6 +3606,8 @@ const (
 )
 
 type SkillEffectSpec struct {
+	// SFX plays when a non-damaging skill succeeds, independently of shared visuals.
+	SFX []string
 	// EffectTiming controls EffectIDs and EffectIDsOnCaster in attack notifications.
 	// HitEffectIDs and HitEffectIDsOnCaster always follow the damage timing.
 	EffectTiming           SkillEffectTiming
@@ -4007,7 +4009,7 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillMOFingeroffensive:          {EffectIDs: []int{effectTanji}, HitEffectIDs: []int{1}},
 	SkillMOSteelbody:                {EffectIDs: []int{effectSteelBody, SkillEffectSteelBodyRing, effectQuake}},
 	SkillMOBladestop:                {},
-	SkillMOExplosionspirits:         {EffectIDsOnCaster: []int{effectGumgang2, effectQuake}, HideCastAura: true},
+	SkillMOExplosionspirits:         {SFX: []string{"effect\\mon_폭기.wav"}, EffectIDsOnCaster: []int{effectGumgang2, effectQuake}, HideCastAura: true},
 	SkillMOExtremityfist:            {EffectIDs: []int{effectQuake}, HitEffectIDs: []int{effectTeiHit1X}},
 	SkillMOChaincombo:               {EffectIDs: []int{effectTeiHit1, effectChainCombo}, EffectIDsOnCaster: []int{effectGumgang3}, HitEffectIDs: []int{effectSonicBlowHit}},
 	SkillMOCombofinish:              {EffectIDs: []int{330, effectQuake}, EffectIDsOnCaster: []int{effectGumgang3}, HitEffectIDs: []int{1}},
@@ -4135,21 +4137,21 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillSGHate:                     {GroundEffectIDs: []int{487}},
 	SkillSGFusion:                   {EffectIDs: []int{433, SkillEffectQuake}},
 	SkillAMBerserkpitcher:           {EffectIDs: []int{effectItemFast3}, BeforeHitEffectIDs: []int{541}},
-	SkillSLAlchemist:                {EffectIDs: []int{424, 503}},
-	SkillSLMonk:                     {EffectIDs: []int{424, 503}},
-	SkillSLStar:                     {EffectIDs: []int{424, 503}},
-	SkillSLSage:                     {EffectIDs: []int{424, 503}},
-	SkillSLCrusader:                 {EffectIDs: []int{424, 503}},
-	SkillSLSupernovice:              {EffectIDs: []int{424, 503}},
-	SkillSLKnight:                   {EffectIDs: []int{424, 503}},
-	SkillSLWizard:                   {EffectIDs: []int{424, 503}},
-	SkillSLPriest:                   {EffectIDs: []int{424, 503}},
-	SkillSLBarddancer:               {EffectIDs: []int{424, 503}},
-	SkillSLRogue:                    {EffectIDs: []int{424, 503}},
-	SkillSLAssasin:                  {EffectIDs: []int{424, 503}},
-	SkillSLBlacksmith:               {EffectIDs: []int{424, 503}},
-	SkillSLHunter:                   {EffectIDs: []int{424, 503}},
-	SkillSLSoullinker:               {EffectIDs: []int{424, 503}},
+	SkillSLAlchemist:                {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLMonk:                     {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLStar:                     {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLSage:                     {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLCrusader:                 {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLSupernovice:              {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLKnight:                   {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLWizard:                   {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLPriest:                   {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLBarddancer:               {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLRogue:                    {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLAssasin:                  {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLBlacksmith:               {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLHunter:                   {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
+	SkillSLSoullinker:               {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
 	SkillSLKaizel:                   {EffectIDs: []int{effectKaizel}},
 	SkillSLKaahi:                    {EffectIDs: []int{effectHated}},
 	SkillSLKaupe:                    {EffectIDs: []int{effectBlueBody}},
@@ -4157,9 +4159,9 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillSLStin:                     {EffectTiming: SkillEffectAtActionStart, EffectIDs: []int{effectStin, effectQuakeBody3}, HitEffectIDs: []int{effectBlueHit}},
 	SkillSLStun:                     {EffectTiming: SkillEffectAtActionStart, EffectIDs: []int{effectStin3, effectHitLine4}, HitEffectIDs: []int{effectBlueHit}},
 	SkillSLSma:                      {EffectTiming: SkillEffectAtActionStart, EffectIDs: []int{effectFourWayBody, effectStin2, effectHitLine6, effectHitTexture}},
-	SkillSLSwoo:                     {EffectIDs: []int{effectM07}, SuccessEffectIDs: []int{420}},
+	SkillSLSwoo:                     {SFX: []string{"effect\\t_등록.wav"}, EffectIDs: []int{effectM07, effectBabyBody}},
 	SkillSLSke:                      {EffectIDs: []int{effectAsuraBodyMonster}},
-	SkillSLSka:                      {EffectIDs: []int{effectSteelBody, effectGumgang2, SkillEffectQuake}},
+	SkillSLSka:                      {SFX: []string{"effect\\t_방어형.wav"}, EffectIDs: []int{effectSteelBody, effectGumgang2, SkillEffectQuake}},
 	SkillSTPreserve:                 {EffectIDs: []int{effectPreserve}, BeginCastEffectIDs: []int{SkillEffectSharpShootingCast}},
 	SkillSTFullstrip:                {SuccessEffectIDs: []int{495}},
 	SkillCRAlchemy:                  {},
@@ -4177,7 +4179,7 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillCGHermode:                  {EffectIDs: []int{SkillEffectHermodeMusic}, GroundEffectIDs: []int{effectBottomHermode}},
 	SkillCGTarotcard:                {SuccessEffectIDs: []int{500}},
 	SkillCRAciddemonstration:        {EffectIDs: []int{effectAcidDemon}},
-	SkillSLHigh:                     {EffectIDs: []int{424, 503}},
+	SkillSLHigh:                     {EffectIDs: []int{effectAsuraBody, effectSoulLink}, EffectIDsOnCaster: []int{effectTaeReady}},
 	SkillAMTwilight1:                {EffectIDs: []int{497}},
 	SkillAMTwilight2:                {EffectIDs: []int{498}},
 	SkillAMTwilight3:                {EffectIDs: []int{499}},
@@ -4578,4 +4580,18 @@ var SkillActions = map[uint16]SkillActionKind{
 	SkillCGArrowvulcan:        SkillActionAttack,
 	SkillASSonicblow:          SkillActionAttack,
 	SkillGCCrossimpact:        SkillActionAttack,
+}
+
+// Soul Link skills all use the same target effect and caster pose.
+func IsSoulLinkSkill(skillID uint16) bool {
+	for _, id := range SkillEffects[skillID].EffectIDs {
+		if id == effectSoulLink {
+			return true
+		}
+	}
+	return false
+}
+
+func IsSoulLinkerActiveSkill(skillID uint16) bool {
+	return IsSoulLinkSkill(skillID) || (skillID >= SkillSLKaizel && skillID <= SkillSLSka && skillID != SkillSLKaina)
 }

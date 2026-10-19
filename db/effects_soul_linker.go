@@ -96,3 +96,32 @@ func esmaHitTextureEffectSpec() EffectSpec {
 		TextureFile: "effect/freeze_a.bmp", AttachedEntity: true,
 	}}}
 }
+
+func soulLinkEffectSpec() EffectSpec {
+	return EffectSpec{
+		Duration:  500 * EffectFrameDuration,
+		SFX:       []string{"effect\\t_캐스팅.wav", "effect\\t_영혼.wav"},
+		SFXDelays: []time.Duration{0, 145 * EffectFrameDuration},
+		Components: []EffectComponent{{
+			Kind: EffectComponentFUNC, FuncName: "SoulLink",
+			TextureFile:    "effect/whitelight.tga",
+			TextureFiles:   []string{"effect/soul_s.tga", "effect/soul_o.tga", "effect/soul_u.tga", "effect/soul_l.tga", "effect/soul_l.tga", "effect/soul_i.tga", "effect/soul_n.tga", "effect/soul_k.tga"},
+			AttachedEntity: true,
+		}},
+	}
+}
+
+func kaupeDodgeEffectSpec() EffectSpec {
+	return EffectSpec{
+		Duration: 200 * EffectFrameDuration,
+		SFX:      []string{"effect\\t_회피.wav"}, SFXDelays: []time.Duration{15 * EffectFrameDuration},
+		Components: []EffectComponent{{Kind: EffectComponentFUNC, FuncName: "KaupeDodge", TextureFile: "effect/whitelight.tga"}},
+	}
+}
+
+func blueCastingEffectSpec() EffectSpec {
+	return EffectSpec{
+		Duration: 60 * EffectFrameDuration, SFX: []string{"effect\\EF_BeginSpell.wav"},
+		Components: []EffectComponent{{Kind: EffectComponentFUNC, FuncName: "BlueCasting", TextureFile: "effect/ring_blue.tga", AttachedEntity: true}},
+	}
+}

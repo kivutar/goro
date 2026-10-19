@@ -401,17 +401,20 @@ const (
 	effectBabyBody2         = 421
 	effectGiantBody         = 422
 	effectGiantBody2        = 423
+	effectAsuraBody         = 424
 	effectFourWayBody       = 425
 	effectQuakeBody         = 426
 	effectAsuraBodyMonster  = 427
 	effectHitLine4          = 429
 	effectHitLine6          = 431
 	effectAssumptio2        = 440
+	effectBlueCasting       = 441
 	effectStopEffect        = 444
 	effectJumpBody          = 445
 )
 
 const (
+	effectTaeReady         = 449
 	effectDarkGrandCross   = 450
 	effectDarkSoulStrike   = 451
 	effectDarkJupitelHit   = 452
@@ -419,6 +422,7 @@ const (
 	effectDarkCasting      = 454
 	effectNPCPowerUp       = 456
 	effectJumpKick         = 457
+	effectStormKick4       = 462
 	effectBeginAsura1      = 467
 	effectBeginAsura2      = 468
 	effectBeginAsura3      = 469
@@ -431,6 +435,7 @@ const (
 	effectEDP              = 493
 	effectPreserve         = 496
 	effectCastSpin         = 501
+	effectSoulLink         = 503
 	effectChookgi2         = 504
 	effectMapae            = effectItemAccel
 	effectItemPokJuk       = effectFirecracker
@@ -454,6 +459,7 @@ const (
 	effectTarotCard13      = 535
 	effectTarotCard14      = 536
 	effectAcidDemon        = 537
+	effectBabyBodyBack     = 540
 	effectBlueBody         = 542
 	effectHated            = 543
 	effectSmaReady         = 546
@@ -5199,7 +5205,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectFrostWeapon:   strEffectSpecAttached("enc_ice", "_enemy_hit_wind1.wav", false),
 	effectLightningLoad: strEffectSpecAttached("enc_wind", "effect\\_enemy_hit_wind1.wav", false),
 	effectSeismicWeapon: strEffectSpecAttached("enc_earth", "_enemy_hit_wind1.wav", false),
-	effectGumgang2:      gumgangRingEffectSpec(1500*time.Millisecond, 0.5, 2, 5, "effect\\mon_폭기.wav"),
+	effectGumgang2:      gumgangRingEffectSpec(1500*time.Millisecond, 0.5, 2, 5, ""),
 	effectTeiHit1:       teiHitEffectSpec("effect/alpha_center.tga", "effect\\mon_폭기.wav", 12, 250*time.Millisecond, color.RGBA{}),
 	effectGumgang3:      gumgangRingEffectSpec(1000*time.Millisecond, 0.3, 3, 6, ""),
 	effectTanji:         tanjiEffectSpec(),
@@ -5338,6 +5344,12 @@ var EffectSpecs = map[int]EffectSpec{
 	effectSoulBreaker2:      soulBreaker2EffectSpec(),
 	effectReflectBody:       soulLinkerBodyEffectSpec("ReflectBody", "effect\\t_마법반사.wav", 200),
 	effectFourWayBody:       soulLinkerBodyEffectSpec("FourWayBody", "", 100),
+	effectAsuraBody:         soulLinkerBodyEffectSpec("AsuraBody", "", 500),
+	effectBlueCasting:       blueCastingEffectSpec(),
+	effectTaeReady:          soulLinkerBodyEffectSpec("TaeReady", "", 60),
+	effectStormKick4:        kaupeDodgeEffectSpec(),
+	effectSoulLink:          soulLinkEffectSpec(),
+	effectBabyBodyBack:      soulLinkerBodyEffectSpec("BabyBodyBack", "", 15),
 	effectAsuraBodyMonster:  soulLinkerBodyEffectSpec("AsuraBodyMonster", "effect\\t_공격력.wav", 150),
 	effectHitLine6:          soulLinkerHitLinesEffectSpec(),
 	effectBabyBody:          bodySizeEffectSpec("EffectSmallTransition", 300*time.Millisecond, 2.5),
@@ -5420,7 +5432,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectM04:               sprEffectSpec("m_ef04", "", true, false),
 	effectM05:               sprEffectSpec("m_ef05", "dragon_breath.wav", true, false),
 	effectM06:               sprEffectSpec("m_ef06", "", true, false),
-	effectM07:               sprEffectSpec("m_ef07", "effect\\t_보조마법.wav", true, false),
+	effectM07:               sprEffectSpec("m_ef07", "", true, false),
 	effectKaizel:            soulLinkerBuffEffectSpec(true),
 	effectStatFoodSTR:       strEffectSpecAttached("food_str", "_heal_effect.wav", false),
 	effectStatFoodINT:       strEffectSpecAttached("food_int", "_heal_effect.wav", false),

@@ -60,6 +60,7 @@ func blueBodyAlpha(bodyTime int) float64 {
 // They never mutate the cached image or the actor's authoritative position.
 func (m *WorldMode) drawActorSpriteWithEffects3D(ctx client.Context, screen *render.Frame, projection sceneProjection, entry sceneActorDrawEntry, billboard *spriteBillboard, scale, visibility, shadow float64, tint color.RGBA, blend render.Blend, now time.Time) {
 	blue, eskeAge, fourWayAge := 0.0, -1, -1
+	soulAlpha := 0.0
 	// Monsters use the Energy Coat option bit for Eske. The initial burst
 	// settles into a faint outline until the server clears this bit.
 	if isMonsterLikeHoverActor(entry.actor) && entry.actor.Opt3State&db.Opt3Energycoat != 0 {
@@ -74,6 +75,10 @@ func (m *WorldMode) drawActorSpriteWithEffects3D(ctx client.Context, screen *ren
 		}
 		frame := int(now.Sub(effect.starts) / db.EffectFrameDuration)
 		switch effect.effectID {
+		case effectAsuraBody:
+			soulAlpha = float64(min(frame, 200)) / 255
+		case effectTaeReady:
+			blue = max(blue, blueBodyAlpha(frame))
 		case effectBlueHit:
 			if frame <= 16 {
 				blue = max(blue, blueBodyAlpha(frame*3))
@@ -103,7 +108,7 @@ func (m *WorldMode) drawActorSpriteWithEffects3D(ctx client.Context, screen *ren
 		}
 	}
 	reflectBody := entry.actor.Opt3State&db.Opt3Kaite != 0
-	if blue == 0 && eskeAge < 0 && fourWayAge < 0 && shake == [4]float64{} && !reflectBody {
+	if blue == 0 && soulAlpha == 0 && eskeAge < 0 && fourWayAge < 0 && shake == [4]float64{} && !reflectBody {
 		m.drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, scale, visibility, shadow, tint, blend)
 		return
 	}
@@ -141,6 +146,21 @@ func (m *WorldMode) drawActorSpriteWithEffects3D(ctx client.Context, screen *ren
 		flash.ColorR, flash.ColorG, flash.ColorB, flash.ColorA = 5.0/255, 5.0/255, 1, float32(blue*alpha)
 		screen.DrawWorldBillboard(flash)
 		screen.DrawWorldBillboard(flash)
+	}
+	if soulAlpha > 0 {
+		// Pc::RenderBodyLayer scales two blue copies around the feet by 1% and 2%.
+		for i := 1; i <= 2; i++ {
+			copy := cmd
+			factor := float32(1 + float64(i)*.01)
+			for axis := range copy.RightAxis {
+				copy.RightAxis[axis] *= factor
+				copy.UpAxis[axis] *= factor
+				copy.DepthUpAxis[axis] *= factor
+			}
+			copy.Options.Blend = render.BlendLighter
+			copy.ColorR, copy.ColorG, copy.ColorB, copy.ColorA = 55.0/255, 55.0/255, 1, float32(soulAlpha*alpha)
+			screen.DrawWorldBillboard(copy)
+		}
 	}
 	if eskeAge >= 0 {
 		for i := 1; i <= 10; i++ {
