@@ -12,6 +12,27 @@ import (
 	"github.com/kivutar/goro/render"
 )
 
+func soulLinkerSkillPacket(skill uint16, result byte) network.Packet {
+	var w network.Writer
+	w.Uint16(0x011A)
+	w.Uint16(skill)
+	w.Uint16(1)
+	w.Uint32(300)
+	w.Uint32(2000000)
+	w.Uint8(result)
+	return network.Packet{ID: 0x011A, Data: w.Bytes()}
+}
+
+func npcEffectUpdatePacket(id, opt3 uint32) network.Packet {
+	var w network.Writer
+	w.Uint16(network.PacketZCNPCShowEFSTUpdate)
+	w.Uint32(id)
+	w.Uint32(0)
+	w.Uint32(75)
+	w.Uint32(opt3)
+	return network.Packet{ID: network.PacketZCNPCShowEFSTUpdate, Data: w.Bytes()}
+}
+
 func TestAllSoulLinkerSkillsHaveCastAndActivationEffects(t *testing.T) {
 	active, links := 0, 0
 	for skill := uint16(1); skill <= db.SkillSLHigh; skill++ {
@@ -101,17 +122,14 @@ func TestSoulLinkAuraFollowsStatusAndKeepsPlayerColors(t *testing.T) {
 }
 
 func TestEswooShrinksUntilServerClearsIt(t *testing.T) {
-	for _, statusFirst := range []bool{false, true} {
+	for _, snapshotFirst := range []bool{false, true} {
 		ctx := soulLinkerEffectContext()
 		m := &WorldMode{}
-		status := network.StatusEffectChange{StatusID: db.StatusSwoo, ActorID: 300, Active: true}
-		if statusFirst {
-			m.applyStatusEffectChange(ctx, status)
+		if snapshotFirst {
+			m.handleNetworkPacket(ctx, npcEffectUpdatePacket(300, db.Opt3Overthrust), time.Now())
 		}
-		m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{SkillID: db.SkillSLSwoo, SourceID: 2000000, TargetID: 300, Result: 1})
-		if !statusFirst {
-			m.applyStatusEffectChange(ctx, status)
-		}
+		// rAthena does not send the SWOO status icon to monsters.
+		m.handleNetworkPacket(ctx, soulLinkerSkillPacket(db.SkillSLSwoo, 1), time.Now())
 		count := 0
 		for _, e := range m.worldEffects {
 			if e.effectID == effectBabyBody {
@@ -127,13 +145,12 @@ func TestEswooShrinksUntilServerClearsIt(t *testing.T) {
 			}
 		}
 		if count != 1 {
-			t.Fatalf("statusFirst=%v: %d shrink effects", statusFirst, count)
+			t.Fatalf("snapshotFirst=%v: %d shrink effects", snapshotFirst, count)
 		}
 		if tint := actorStateTint(ctx.World.Actors[300]); tint != (color.RGBA{255, 255, 255, 255}) {
 			t.Fatalf("monster got Overthrust tint: %v", tint)
 		}
-		status.Active = false
-		m.applyStatusEffectChange(ctx, status)
+		m.handleNetworkPacket(ctx, npcEffectUpdatePacket(300, 0), time.Now())
 		for _, e := range m.worldEffects {
 			if e.effectID == effectBabyBodyBack {
 				if got := m.actorBodySizeMultiplier(300, e.starts); got != .5 {
@@ -151,6 +168,80 @@ func TestEswooShrinksUntilServerClearsIt(t *testing.T) {
 		if m.hasActiveWorldEffect(effectBabyBodyBack, 300, time.Now()) {
 			t.Fatal("size effect survived actor leaving")
 		}
+	}
+}
+
+func TestMonsterEffectUpdatesPreserveActorDuringLoginAndPlay(t *testing.T) {
+	for _, login := range []bool{false, true} {
+		ctx := soulLinkerEffectContext()
+		actor := ctx.World.Actors[300]
+		actor.BodyState, actor.HealthState = db.BodyStateStun, db.HealthStatePoison
+		actor.HasState = true
+		actor.Moving, actor.MoveStarted = true, time.Now().Add(-time.Second)
+		ctx.World.Actors[300] = actor
+		m := &WorldMode{}
+		packet := npcEffectUpdatePacket(300, db.Opt3Overthrust|db.Opt3Energycoat|db.Opt3Steelbody)
+		if login {
+			if !(&LoginMode{}).applyLoginActorBootstrapPacket(ctx, packet) {
+				t.Fatal("login dropped the monster effect snapshot")
+			}
+			m.syncCurrentActorEffectStateEffects(ctx)
+		} else {
+			m.handleNetworkPacket(ctx, packet, time.Now())
+		}
+		actor.Opt3State = db.Opt3Overthrust | db.Opt3Energycoat | db.Opt3Steelbody
+		actor.Level, actor.HasLevel = 75, true
+		if !reflect.DeepEqual(ctx.World.Actors[300], actor) {
+			t.Fatalf("partial snapshot changed other actor data: %+v", ctx.World.Actors[300])
+		}
+		for _, id := range []int{effectBabyBody, effectSteelBody} {
+			if !m.hasActiveWorldEffect(id, 300, time.Now().Add(time.Hour)) {
+				t.Fatalf("missing persistent effect %d", id)
+			}
+		}
+		m.handleNetworkPacket(ctx, npcEffectUpdatePacket(300, 0), time.Now())
+		if ctx.World.Actors[300].Opt3State != 0 || m.hasActiveWorldEffect(effectSteelBody, 300, time.Now()) || m.hasActiveWorldEffect(effectBabyBody, 300, time.Now()) {
+			t.Fatal("monster effects survived the authoritative clear")
+		}
+		m.handleNetworkPacket(ctx, npcEffectUpdatePacket(999, db.Opt3Overthrust), time.Now())
+		if _, ok := ctx.World.Actors[999]; ok {
+			t.Fatal("effect update created an unknown actor")
+		}
+	}
+}
+
+func TestSoulLinkerMonsterSkillSuccessOwnsActivation(t *testing.T) {
+	for _, skill := range []uint16{db.SkillSLSwoo, db.SkillSLSke, db.SkillSLSka} {
+		ctx := soulLinkerEffectContext()
+		m := &WorldMode{}
+		m.handleNetworkPacket(ctx, soulLinkerSkillPacket(skill, 0), time.Now())
+		if ctx.World.Actors[300].Opt3State != 0 || len(m.worldEffects) != 0 {
+			t.Fatalf("failed skill %d changed monster effects", skill)
+		}
+		m.handleNetworkPacket(ctx, soulLinkerSkillPacket(skill, 1), time.Now())
+		if ctx.World.Actors[300].Opt3State == 0 {
+			t.Fatalf("skill %d still requires a status-icon packet", skill)
+		}
+		m.upsertNetworkActor(ctx, network.ActorEntry{ID: 300, Job: 1002, X: 18, Y: 20, HasState: true, HasOpt3State: true})
+		if m.hasActiveWorldEffect(effectBabyBody, 300, time.Now()) || m.hasActiveWorldEffect(effectSteelBody, 300, time.Now()) || m.hasActiveWorldEffect(effectAsuraBodyMonster, 300, time.Now()) {
+			t.Fatalf("skill %d ignored a newer actor snapshot", skill)
+		}
+	}
+}
+
+func TestKaupeRendersEveryDodge(t *testing.T) {
+	ctx := soulLinkerEffectContext()
+	m := &WorldMode{}
+	var w network.Writer
+	w.Uint16(network.PacketZCNotifyEffect2)
+	w.Uint32(300)
+	w.Uint32(effectStormKick4)
+	packet := network.Packet{ID: network.PacketZCNotifyEffect2, Data: w.Bytes()}
+	m.handleNetworkPacket(ctx, packet, time.Now())
+	first := m.worldEffects[0]
+	m.handleNetworkPacket(ctx, packet, time.Now())
+	if len(m.worldEffects) != 2 || len(m.scheduledSounds) != 2 || m.worldEffects[0] != first || m.worldEffects[0].soulLights == m.worldEffects[1].soulLights {
+		t.Fatal("successive dodges must have independent effects and sounds")
 	}
 }
 

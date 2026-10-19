@@ -1148,6 +1148,15 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		m.applyActorStateChange(ctx, state)
 		return nil, false
 	}
+	if update, ok, err := network.ParseNPCShowEffectUpdate(pkt); err != nil {
+		glog.Errorf("parse NPC effect update 0x%04X: %v", pkt.ID, err)
+	} else if ok {
+		if applyNPCShowEffectUpdate(ctx, update) {
+			m.syncActorSpiritEffects(ctx, update.ActorID)
+			m.syncActorEntryLevel99Aura(ctx, update.ActorID)
+		}
+		return nil, false
+	}
 	if bladeStop, ok, err := network.ParseActorBladeStop(pkt); err != nil {
 		glog.Errorf("parse actor blade stop 0x%04X: %v", pkt.ID, err)
 	} else if ok {

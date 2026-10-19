@@ -54,6 +54,7 @@ func (m *WorldMode) removeActorEffectStateEffects(actorID uint32) {
 	m.removeWorldEffect(effectGumgang, actorID)
 	m.removeWorldEffect(effectSteelBody, actorID)
 	m.removeWorldEffect(effectAsuraBody, actorID)
+	m.removeWorldEffect(effectAsuraBodyMonster, actorID)
 	m.removeWorldEffect(effectBabyBody, actorID)
 	m.removeWorldEffect(effectBabyBodyBack, actorID)
 	m.removeWorldEffect(effectChookgi, actorID)
@@ -77,6 +78,47 @@ func applySpiritSphereCount(ctx client.Context, update network.SpiritSphereCount
 		ctx.World.Actors[actor.ID] = actor
 	}
 	return true
+}
+
+// Like GameModeShowEFST, this updates the displayed effects without replacing
+// the actor's movement, appearance, or body/health states.
+func applyNPCShowEffectUpdate(ctx client.Context, update network.NPCShowEffectUpdate) bool {
+	if ctx.World == nil {
+		return false
+	}
+	actor, ok := ctx.World.Actors[update.ActorID]
+	if !ok {
+		return false
+	}
+	actor.Opt3State = update.Opt3State
+	actor.HasState = true
+	actor.Level, actor.HasLevel = update.Level, true
+	ctx.World.Actors[actor.ID] = actor
+	return true
+}
+
+func (m *WorldMode) applySoulLinkerMonsterSkill(ctx client.Context, notify network.SkillNoDamageNotify) {
+	var bit uint32
+	switch notify.SkillID {
+	case db.SkillSLSwoo:
+		bit = db.Opt3Overthrust
+	case db.SkillSLSke:
+		bit = db.Opt3Energycoat
+	case db.SkillSLSka:
+		bit = db.Opt3Steelbody
+	default:
+		return
+	}
+	actor, ok, local := actorForCombatID(ctx, notify.TargetID)
+	if !ok || local || !isMonsterLikeHoverActor(actor) {
+		return
+	}
+	// Monsters need not receive status icons. The successful skill starts the
+	// effect; actor entries and ZC_NPC_SHOWEFST_UPDATE carry its later state.
+	actor.Opt3State |= bit
+	actor.HasState = true
+	ctx.World.Actors[actor.ID] = actor
+	m.syncActorSpiritEffects(ctx, actor.ID)
 }
 
 func (m *WorldMode) syncActorSpiritEffects(ctx client.Context, actorID uint32) {

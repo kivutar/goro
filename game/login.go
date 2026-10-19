@@ -505,6 +505,13 @@ func (m *LoginMode) applyLoginParameterChange(ctx client.Context, pkt network.Pa
 }
 
 func (m *LoginMode) applyLoginActorBootstrapPacket(ctx client.Context, pkt network.Packet) bool {
+	if update, ok, err := network.ParseNPCShowEffectUpdate(pkt); err != nil {
+		m.packets = append(m.packets, "parse NPC effect update: "+err.Error())
+		return true
+	} else if ok {
+		applyNPCShowEffectUpdate(ctx, update)
+		return true
+	}
 	if spheres, ok, err := network.ParseSpiritSphereCount(pkt); err != nil {
 		m.packets = append(m.packets, "parse spirit spheres: "+err.Error())
 		return true

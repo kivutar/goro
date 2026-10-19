@@ -476,7 +476,7 @@ func TestSoulLinkerBuffParticlesKeepEmissionPositions(t *testing.T) {
 func TestEskeFollowsMonsterOptionAndEndsOnClear(t *testing.T) {
 	ctx := soulLinkerEffectContext()
 	m := &WorldMode{}
-	m.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusSke, ActorID: 300, Active: true})
+	m.handleNetworkPacket(ctx, soulLinkerSkillPacket(db.SkillSLSke, 1), time.Now())
 	actor := ctx.World.Actors[300]
 	if actor.Opt3State&db.Opt3Energycoat == 0 {
 		t.Fatal("Eske did not set the monster's native option bit")
@@ -484,7 +484,6 @@ func TestEskeFollowsMonsterOptionAndEndsOnClear(t *testing.T) {
 	if tint := actorStateTint(actor); tint != (color.RGBA{255, 255, 255, 255}) {
 		t.Fatalf("Eske should not use the player's Energy Coat tint: %v", tint)
 	}
-	m.addWorldEffect(ctx, effectAsuraBodyMonster, 300)
 	starts := m.worldEffects[0].starts
 	projection := newSceneProjectionForTarget(800, 600, 18.5, 20.5, 0)
 	billboard := &spriteBillboard{image: render.NewImage(64, 64), anchorX: 32, anchorY: 60}
@@ -500,7 +499,7 @@ func TestEskeFollowsMonsterOptionAndEndsOnClear(t *testing.T) {
 	if draw(starts.Add(time.Minute)) != 5 {
 		t.Fatal("Eske must retain four faint outlines after the burst")
 	}
-	m.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusSke, ActorID: 300, Active: false})
+	m.handleNetworkPacket(ctx, npcEffectUpdatePacket(300, 0), time.Now())
 	if len(m.worldEffects) != 0 || draw(starts.Add(time.Second)) != 1 {
 		t.Fatal("Eske persisted after its server status ended")
 	}

@@ -2,8 +2,47 @@ package network
 
 import (
 	"encoding/binary"
+	"reflect"
 	"testing"
 )
+
+func TestParseNPCShowEffectUpdate(t *testing.T) {
+	data := make([]byte, 18)
+	binary.LittleEndian.PutUint16(data, PacketZCNPCShowEFSTUpdate)
+	binary.LittleEndian.PutUint32(data[2:], 0x00009500)
+	binary.LittleEndian.PutUint32(data[6:], 0x11223344)
+	binary.LittleEndian.PutUint32(data[10:], 75)
+	binary.LittleEndian.PutUint32(data[14:], 0x80000006)
+	packet := Packet{ID: PacketZCNPCShowEFSTUpdate, Data: data}
+	want := NPCShowEffectUpdate{ActorID: 0x00009500, Level: 75, Opt3State: 0x80000006}
+	if got, ok, err := ParseNPCShowEffectUpdate(packet); err != nil || !ok || got != want {
+		t.Fatalf("update=%+v ok=%t err=%v", got, ok, err)
+	}
+	for n := 0; n < len(data); n++ {
+		if _, ok, err := ParseNPCShowEffectUpdate(Packet{ID: packet.ID, Data: data[:n]}); err == nil || ok {
+			t.Fatalf("accepted truncated update of length %d", n)
+		}
+	}
+	if _, ok, err := ParseNPCShowEffectUpdate(Packet{ID: PacketZCSpirits}); ok || err != nil {
+		t.Fatal("consumed unrelated packet")
+	}
+	// A valid opcode in the actor ID must not cause stream resynchronization.
+	stream := append(append([]byte(nil), data...), 0x7f, 0, 1, 2, 3, 4)
+	for _, chunk := range []int{1, 7, len(stream)} {
+		framer := NewFramer(PacketLengths2008())
+		var got []Packet
+		for offset := 0; offset < len(stream); offset += chunk {
+			packets, err := framer.Push(stream[offset:min(offset+chunk, len(stream))])
+			if err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, packets...)
+		}
+		if !reflect.DeepEqual(got, []Packet{packet, {ID: 0x007f, Data: stream[18:]}}) {
+			t.Fatalf("chunk %d: corrupted stream: %+v", chunk, got)
+		}
+	}
+}
 
 func TestParseSpiritSphereCount(t *testing.T) {
 	for _, id := range []uint16{PacketZCSpirits, PacketZCSpirits2} {

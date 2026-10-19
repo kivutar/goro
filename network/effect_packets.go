@@ -7,13 +7,14 @@ import (
 )
 
 const (
-	PacketCZLessEffect    uint16 = 0x021D
-	PacketZCLessEffect    uint16 = 0x021E
-	PacketZCNotifyEffect  uint16 = 0x019B
-	PacketZCNotifyEffect2 uint16 = 0x01F3
-	PacketZCMVP           uint16 = 0x010C
-	PacketZCSpirits       uint16 = 0x01D0
-	PacketZCSpirits2      uint16 = 0x01E1
+	PacketCZLessEffect        uint16 = 0x021D
+	PacketZCLessEffect        uint16 = 0x021E
+	PacketZCNotifyEffect      uint16 = 0x019B
+	PacketZCNotifyEffect2     uint16 = 0x01F3
+	PacketZCMVP               uint16 = 0x010C
+	PacketZCSpirits           uint16 = 0x01D0
+	PacketZCSpirits2          uint16 = 0x01E1
+	PacketZCNPCShowEFSTUpdate uint16 = 0x028A
 
 	SpecialEffectBaseLevelUp            = 0
 	SpecialEffectJobLevelUp             = 1
@@ -39,6 +40,26 @@ type MVPNotify struct {
 type SpiritSphereCount struct {
 	ActorID uint32
 	Count   uint16
+}
+
+type NPCShowEffectUpdate struct {
+	ActorID   uint32
+	Level     int
+	Opt3State uint32
+}
+
+func ParseNPCShowEffectUpdate(packet Packet) (NPCShowEffectUpdate, bool, error) {
+	if packet.ID != PacketZCNPCShowEFSTUpdate {
+		return NPCShowEffectUpdate{}, false, nil
+	}
+	if len(packet.Data) < 18 {
+		return NPCShowEffectUpdate{}, false, fmt.Errorf("ZC_NPC_SHOWEFST_UPDATE too short: %d", len(packet.Data))
+	}
+	return NPCShowEffectUpdate{
+		ActorID:   binary.LittleEndian.Uint32(packet.Data[2:6]),
+		Level:     int(int32(binary.LittleEndian.Uint32(packet.Data[10:14]))),
+		Opt3State: binary.LittleEndian.Uint32(packet.Data[14:18]),
+	}, true, nil
 }
 
 func ParseSpiritSphereCount(packet Packet) (SpiritSphereCount, bool, error) {

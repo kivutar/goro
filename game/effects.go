@@ -1031,6 +1031,7 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 			glog.Debugf("skill success self effect skill=%d src=%d target=%d effect=%d amount=%d", notify.SkillID, notify.SourceID, notify.TargetID, effectID, notify.Amount)
 		}
 	}
+	m.applySoulLinkerMonsterSkill(ctx, notify)
 }
 
 func (m *WorldMode) applySkillCastNotify(ctx client.Context, notify network.SkillCastNotify) {
@@ -1278,7 +1279,11 @@ func (m *WorldMode) applySpecialEffectNotify(ctx client.Context, notify network.
 		m.replaceCraftingResultEffect(ctx, notify, effectID, spec)
 		return
 	}
-	if m.addWorldEffectIfMissing(ctx, effectID, notify.AID) {
+	// Each Kaupe dodge is a separate hit, even while an earlier dodge fades.
+	if effectID != effectStormKick4 && m.hasActiveWorldEffect(effectID, notify.AID, time.Now()) {
+		return
+	}
+	if m.addWorldEffect(ctx, effectID, notify.AID) {
 		glog.Debugf("special effect actor=%d special=%d effect=%d sfx=%v", notify.AID, notify.EffectID, effectID, spec.sfx)
 	}
 }
