@@ -1501,6 +1501,7 @@ var StatusOpt3State = map[uint16]uint32{
 	StatusOverthrustmax:     Opt3Overthrust,
 	StatusSwoo:              Opt3Overthrust,
 	StatusEnergycoat:        Opt3Energycoat,
+	StatusSke:               Opt3Energycoat,
 	StatusBerserk:           Opt3Berserk,
 	StatusMarionette:        Opt3Marionette,
 	StatusMarionetteMaster:  Opt3Marionette,

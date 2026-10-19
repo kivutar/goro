@@ -209,7 +209,11 @@ func actorStateTint(actor worldstate.Actor) color.RGBA {
 		g *= 0.2
 		b *= 0.2
 	}
-	vr, vg, vb, va := actorOpt3StateTint(actor.Opt3State)
+	opt3 := actor.Opt3State
+	if isMonsterLikeHoverActor(actor) {
+		opt3 &^= db.Opt3Energycoat // Eske uses expanding outlines, not Energy Coat's tint.
+	}
+	vr, vg, vb, va := actorOpt3StateTint(opt3)
 	r *= vr
 	g *= vg
 	b *= vb

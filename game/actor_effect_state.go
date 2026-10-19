@@ -85,6 +85,9 @@ func (m *WorldMode) syncActorSpiritEffects(ctx client.Context, actorID uint32) {
 		return
 	}
 	visible := !actorHasStealth(actor)
+	if actor.HasState && isMonsterLikeHoverActor(actor) && actor.Opt3State&db.Opt3Energycoat == 0 {
+		m.removeWorldEffect(effectAsuraBodyMonster, actorID)
+	}
 	m.setActorStateEffect(ctx, actorID, effectGumgang, visible && actor.Opt3State&db.Opt3Explosionspirits != 0)
 	m.setActorStateEffect(ctx, actorID, effectSteelBody, visible && actor.Opt3State&db.Opt3Steelbody != 0)
 	sphereEffect := effectChookgi

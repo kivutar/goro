@@ -23,6 +23,13 @@ func (m *WorldMode) applyStatusEffectChange(ctx client.Context, change network.S
 	}
 	m.applyTrickDeadStatus(ctx, change)
 	m.applyTaekwonStatus(ctx, change)
+	if change.StatusID == db.StatusSmaReady && change.Active {
+		id := change.ActorID
+		if id == 0 {
+			id = localSkillTarget(ctx)
+		}
+		m.addWorldEffect(ctx, effectSmaReady, id)
+	}
 	m.applyTaekwonNightStatus(ctx, change)
 	if !applyLocalStatusEffectChange(ctx.Session, change, time.Now()) {
 		return

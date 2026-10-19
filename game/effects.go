@@ -398,11 +398,16 @@ const (
 	effectSoulBurn          = 406
 	effectSoulChange        = 407
 	effectSoulBreaker2      = 409
+	effectReflectBody       = 419
 	effectBabyBody          = 420
 	effectBabyBody2         = 421
 	effectGiantBody         = 422
 	effectGiantBody2        = 423
+	effectFourWayBody       = 425
 	effectQuakeBody         = 426
+	effectAsuraBodyMonster  = 427
+	effectHitLine4          = 429
+	effectHitLine6          = 431
 	effectAssumptio2        = 440
 	effectStopEffect        = 444
 	effectJumpBody          = 445
@@ -451,9 +456,14 @@ const (
 	effectTarotCard13      = 535
 	effectTarotCard14      = 536
 	effectAcidDemon        = 537
+	effectBlueBody         = 542
 	effectHated            = 543
+	effectSmaReady         = 546
 	effectStin             = 547
+	effectBlueHit          = 549
+	effectQuakeBody3       = 550
 	effectStin2            = 553
+	effectHitTexture       = 554
 	effectStin3            = 555
 	effectScreenQuake      = 563
 	effectHfliMoon1        = 565
@@ -723,6 +733,9 @@ type worldEffect struct {
 	targetID                             uint32
 	actorDirection                       int
 	actorOrigin                          modelPoint3
+	projectileDirection                  modelPoint3
+	esma                                 *esmaProjectile
+	buffParticles                        *soulLinkerParticles
 	hasActorTransform                    bool
 	x                                    int
 	y                                    int
@@ -1450,6 +1463,12 @@ func (m *WorldMode) addWorldEffectBetweenAtDuration(ctx client.Context, effectID
 		starts:   starts,
 		expires:  starts.Add(duration),
 		duration: durationOverride,
+	}
+	if effectID == effectStin || effectID == effectStin3 || effectID == effectStin2 {
+		initSoulLinkerProjectile(ctx, &effect)
+	}
+	if effectID == effectHated || effectID == effectKaizel || effectID == effectSmaReady {
+		effect.buffParticles = &soulLinkerParticles{}
 	}
 	m.worldEffects = append(m.worldEffects, effect)
 	m.scheduleWorldEffectSound(starts, spec, effect)
@@ -2471,6 +2490,18 @@ func effectFuncAdapterForName(name string) effectFuncAdapter {
 		return effectFuncHitParticles
 	case "BlessingCircle":
 		return effectFuncBlessingCircle
+	case "Estin":
+		return effectFuncEstin
+	case "Estun", "SoulLinkerParticles":
+		return effectFuncSoulLinkerParticles
+	case "Esma":
+		return effectFuncEsma
+	case "Kaizel":
+		return effectFuncKaizel
+	case "EsmaHitTexture":
+		return effectFuncEsmaHitTexture
+	case "SoulLinkerHitLines":
+		return effectFuncSoulLinkerHitLines
 	default:
 		return effectFuncUnknown
 	}

@@ -1494,7 +1494,7 @@ func (m *WorldMode) drawActorSprite3D(screen *render.Frame, ctx client.Context, 
 	if !ok {
 		return false
 	}
-	m.drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.playerBodyRenderScale(actor.ID, actor.Job, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)), entry.stealth.blend(m.actorRenderBlend(actor.ID, now)))
+	m.drawActorSpriteWithEffects3D(ctx, screen, projection, entry, billboard, m.playerBodyRenderScale(actor.ID, actor.Job, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)), entry.stealth.blend(m.actorRenderBlend(actor.ID, now)), now)
 	return true
 }
 
@@ -1531,7 +1531,7 @@ func (m *WorldMode) drawMercenarySprite3D(screen *render.Frame, ctx client.Conte
 	if !ok {
 		return false
 	}
-	m.drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)), entry.stealth.blend(m.actorRenderBlend(actor.ID, now)))
+	m.drawActorSpriteWithEffects3D(ctx, screen, projection, entry, billboard, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)), entry.stealth.blend(m.actorRenderBlend(actor.ID, now)), now)
 	return true
 }
 
@@ -1579,7 +1579,7 @@ func (m *WorldMode) drawNonPCSprite3D(screen *render.Frame, ctx client.Context, 
 	if !ok {
 		return false
 	}
-	m.drawActorSpriteBillboardTintAlpha3D(screen, projection, billboard, entry.worldX, entry.worldY, entry.worldZ, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)), entry.stealth.blend(m.actorRenderBlend(actor.ID, now)))
+	m.drawActorSpriteWithEffects3D(ctx, screen, projection, entry, billboard, m.actorRenderScale(actor.ID, entry.scale, now), m.actorVisualAlpha(actor.ID, now), shadow, entry.stealth.tint(m.actorRenderTint(actor, now)), entry.stealth.blend(m.actorRenderBlend(actor.ID, now)), now)
 	return true
 }
 

@@ -41,14 +41,14 @@ func TestBashBeginEffectSpecUsesCylinderComponents(t *testing.T) {
 
 func TestWorldEffectSpecCatalogCoverage(t *testing.T) {
 	coverage := effectCoverageSnapshot()
-	if coverage.Implemented != 664 {
-		t.Fatalf("implemented effects = %d, want 664", coverage.Implemented)
+	if coverage.Implemented != 674 {
+		t.Fatalf("implemented effects = %d, want 674", coverage.Implemented)
 	}
 	if coverage.ReferenceActive != 607 || coverage.ReferenceAll != 1147 {
 		t.Fatalf("reference client totals = active %d all %d", coverage.ReferenceActive, coverage.ReferenceAll)
 	}
-	if coverage.ActivePercent < 109.3 || coverage.ActivePercent > 109.4 {
-		t.Fatalf("active coverage = %.3f, want about 109.4", coverage.ActivePercent)
+	if coverage.ActivePercent < 111.0 || coverage.ActivePercent > 111.1 {
+		t.Fatalf("active coverage = %.3f, want about 111.0", coverage.ActivePercent)
 	}
 }
 
@@ -2712,22 +2712,6 @@ func TestRobrowserSimpleEffectsFiveHundredToFiveFiftyMatchTableRows(t *testing.T
 		t.Fatalf("517_music spec = %+v ok=%t, want robr Hermode sound", hermodeMusic, ok)
 	}
 
-	for _, tc := range []struct {
-		name string
-		id   int
-		wav  string
-	}{
-		{"EF_HATED", effectHated, "effect\\t_보조마법.wav"},
-		{"EF_STIN", effectStin, "effect\\t_에너지방출.wav"},
-	} {
-		spec, ok := worldEffectSpecForID(tc.id)
-		if !ok || len(spec.components) != 0 || spec.duration != 500*time.Millisecond {
-			t.Fatalf("%s spec = %+v ok=%t, want sound-only 500ms", tc.name, spec, ok)
-		}
-		if len(spec.sfx) != 1 || spec.sfx[0] != tc.wav {
-			t.Fatalf("%s sfx = %#v, want %q", tc.name, spec.sfx, tc.wav)
-		}
-	}
 }
 
 func TestRobrowserFuncEffectsFiveHundredToFiveFiftyMatchTableRows(t *testing.T) {
@@ -2827,33 +2811,6 @@ func TestRobrowserTarotCardsFiveHundredToFiveFiftyMatchTableRows(t *testing.T) {
 }
 
 func TestRobrowserSimpleEffectsFiveFiftyToSixHundredMatchTableRows(t *testing.T) {
-	stin2, ok := worldEffectSpecForID(effectStin2)
-	if !ok || len(stin2.components) != 0 || len(stin2.sfx) != 5 || len(stin2.sfxDelays) != 5 {
-		t.Fatalf("EF_STIN2 spec = %+v ok=%t", stin2, ok)
-	}
-	for i := range stin2.sfx {
-		if stin2.sfx[i] != "effect\\t_날라차기.wav" || stin2.sfxDelays[i] != time.Duration(i)*200*time.Millisecond {
-			t.Fatalf("EF_STIN2 sound %d = %q delay %s", i, stin2.sfx[i], stin2.sfxDelays[i])
-		}
-	}
-
-	for _, tc := range []struct {
-		name string
-		id   int
-		wav  string
-	}{
-		{"EF_STIN3", effectStin3, "effect\\t_에너지방출.wav"},
-		{"EF_KAIZEL", effectKaizel, "effect\\priest_resurrection.wav"},
-	} {
-		spec, ok := worldEffectSpecForID(tc.id)
-		if !ok || len(spec.components) != 0 || spec.duration != 500*time.Millisecond {
-			t.Fatalf("%s spec = %+v ok=%t, want sound-only 500ms", tc.name, spec, ok)
-		}
-		if len(spec.sfx) != 1 || spec.sfx[0] != tc.wav {
-			t.Fatalf("%s sfx = %#v, want %q", tc.name, spec.sfx, tc.wav)
-		}
-	}
-
 	for _, tc := range []struct {
 		name string
 		id   int

@@ -396,11 +396,16 @@ const (
 	effectSoulBurn          = 406
 	effectSoulChange        = 407
 	effectSoulBreaker2      = 409
+	effectReflectBody       = 419
 	effectBabyBody          = 420
 	effectBabyBody2         = 421
 	effectGiantBody         = 422
 	effectGiantBody2        = 423
+	effectFourWayBody       = 425
 	effectQuakeBody         = 426
+	effectAsuraBodyMonster  = 427
+	effectHitLine4          = 429
+	effectHitLine6          = 431
 	effectAssumptio2        = 440
 	effectStopEffect        = 444
 	effectJumpBody          = 445
@@ -449,9 +454,14 @@ const (
 	effectTarotCard13      = 535
 	effectTarotCard14      = 536
 	effectAcidDemon        = 537
+	effectBlueBody         = 542
 	effectHated            = 543
+	effectSmaReady         = 546
 	effectStin             = 547
+	effectBlueHit          = 549
+	effectQuakeBody3       = 550
 	effectStin2            = 553
+	effectHitTexture       = 554
 	effectStin3            = 555
 	effectScreenQuake      = 563
 	effectHfliMoon1        = 565
@@ -2955,16 +2965,6 @@ func delayedSoundEffectSpecDuration(duration time.Duration, paths []string, dela
 	return spec
 }
 
-func repeatedSoundEffectSpec(path string, count int, interval time.Duration) EffectSpec {
-	paths := make([]string, 0, count)
-	delays := make([]time.Duration, 0, count)
-	for i := 0; i < count; i++ {
-		paths = append(paths, path)
-		delays = append(delays, time.Duration(i)*interval)
-	}
-	return delayedSoundEffectSpec(paths, delays)
-}
-
 func potionEffectSpec(file string, c color.RGBA) EffectSpec {
 	return EffectSpec{
 		Duration: 850 * time.Millisecond,
@@ -5336,11 +5336,16 @@ var EffectSpecs = map[int]EffectSpec{
 	effectSoulBurn:          strEffectSpecAttached("소울번", "", false),
 	effectSoulChange:        strEffectSpecAttached("사랑효과", "", false),
 	effectSoulBreaker2:      soulBreaker2EffectSpec(),
+	effectReflectBody:       soulLinkerBodyEffectSpec("ReflectBody", "effect\\t_마법반사.wav", 200),
+	effectFourWayBody:       soulLinkerBodyEffectSpec("FourWayBody", "", 100),
+	effectAsuraBodyMonster:  soulLinkerBodyEffectSpec("AsuraBodyMonster", "effect\\t_공격력.wav", 150),
+	effectHitLine6:          soulLinkerHitLinesEffectSpec(),
 	effectBabyBody:          bodySizeEffectSpec("EffectSmallTransition", 300*time.Millisecond, 2.5),
 	effectBabyBody2:         bodySizeEffectSpec("EffectSmall", 5*time.Minute, 2.5),
 	effectGiantBody:         bodySizeEffectSpec("EffectBigTransition", 300*time.Millisecond, 7.5),
 	effectGiantBody2:        bodySizeEffectSpec("EffectBig", 5*time.Minute, 7.5),
 	effectQuakeBody:         soundOnlyEffectSpec("effect\\복호격.wav"),
+	effectHitLine4:          soulLinkerHitLinesEffectSpec(),
 	effectAssumptio2:        strEffectSpecAttached("asum", "effect\\아숨프티오.wav", false),
 	effectStopEffect:        soundOnlyEffectSpec("effect\\t_효과음1.wav"),
 	effectJumpBody:          soundOnlyEffectSpec("effect\\t_회피2.wav"),
@@ -5387,10 +5392,15 @@ var EffectSpecs = map[int]EffectSpec{
 	effectTarotCard13:       tarotCardEffectSpec(13),
 	effectTarotCard14:       tarotCardEffectSpec(14),
 	effectAcidDemon:         acidDemonEffectSpec(),
-	effectHated:             soundOnlyEffectSpec("effect\\t_보조마법.wav"),
-	effectStin:              soundOnlyEffectSpec("effect\\t_에너지방출.wav"),
-	effectStin2:             repeatedSoundEffectSpec("effect\\t_날라차기.wav", 5, 200*time.Millisecond),
-	effectStin3:             soundOnlyEffectSpec("effect\\t_에너지방출.wav"),
+	effectHated:             soulLinkerBuffEffectSpec(false),
+	effectBlueBody:          soulLinkerBodyEffectSpec("BlueBody", "effect\\t_치잉.wav", 200),
+	effectSmaReady:          esmaReadyEffectSpec(),
+	effectStin:              estinEffectSpec(),
+	effectBlueHit:           funcEffectSpec("BlueHit", 60*EffectFrameDuration, true),
+	effectQuakeBody3:        funcEffectSpec("QuakeBody3", 60*EffectFrameDuration, true),
+	effectStin2:             esmaEffectSpec(),
+	effectHitTexture:        esmaHitTextureEffectSpec(),
+	effectStin3:             estunEffectSpec(),
 	effectScreenQuake:       screenQuakeEffectSpec(),
 	effectHfliMoon1:         strEffectSpecAttached("moonlight_1", "effect\\h_moonlight_1.wav", false),
 	effectHfliMoon2:         strEffectSpecAttached("moonlight_2", "effect\\h_moonlight_2.wav", false),
@@ -5411,7 +5421,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectM05:               sprEffectSpec("m_ef05", "dragon_breath.wav", true, false),
 	effectM06:               sprEffectSpec("m_ef06", "", true, false),
 	effectM07:               sprEffectSpec("m_ef07", "effect\\t_보조마법.wav", true, false),
-	effectKaizel:            soundOnlyEffectSpec("effect\\priest_resurrection.wav"),
+	effectKaizel:            soulLinkerBuffEffectSpec(true),
 	effectStatFoodSTR:       strEffectSpecAttached("food_str", "_heal_effect.wav", false),
 	effectStatFoodINT:       strEffectSpecAttached("food_int", "_heal_effect.wav", false),
 	effectStatFoodVIT:       strEffectSpecAttached("food_vit", "_heal_effect.wav", false),
