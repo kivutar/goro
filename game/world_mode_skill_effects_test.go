@@ -155,7 +155,7 @@ func TestRobrowserRepairWeaponAndShockwaveSpecs(t *testing.T) {
 	}
 }
 
-func TestRobrowserWaterBallAndSonicBlowSpecs(t *testing.T) {
+func TestWaterBallAndSonicBlowSpecs(t *testing.T) {
 	water, ok := worldEffectSpecForID(effectWaterBall)
 	if !ok || len(water.components) != 1 || water.duration != 500*time.Millisecond {
 		t.Fatalf("EF_WATERBALL spec = %+v ok=%t", water, ok)
@@ -181,11 +181,11 @@ func TestRobrowserWaterBallAndSonicBlowSpecs(t *testing.T) {
 	}
 
 	sonic, ok := worldEffectSpecForID(effectSonicBlow)
-	if !ok || len(sonic.components) != 1 || sonic.duration != 400*time.Millisecond {
+	if !ok || len(sonic.components) != 1 || sonic.duration != 40*db.EffectFrameDuration {
 		t.Fatalf("EF_SONICBLOW spec = %+v ok=%t", sonic, ok)
 	}
 	ring := sonic.components[0]
-	if ring.kind != effectComponent3D || ring.textureFile != "effect/ring2.bmp" || ring.duration != 400*time.Millisecond || ring.alphaMax != 1 || !ring.fadeOut || ring.sizeStart != effectTableSize(100) || ring.sizeEnd != effectTableSize(300) || !ring.blendAdditive || !ring.attachedEntity {
+	if ring.kind != effectComponentFUNC || ring.funcAdapter != effectFuncSonicBlow || ring.textureFile != "effect/alpha_center.tga" || !ring.attachedEntity {
 		t.Fatalf("EF_SONICBLOW ring = %+v", ring)
 	}
 	spin, ok := worldEffectSpecForID(effectSonicBlowHit)
@@ -217,18 +217,6 @@ func TestRobrowserCrashEarthFirePillarAndQuadHornOneHundredSpecs(t *testing.T) {
 	}
 	if fire.components[0].bottomSize != 1 || fire.components[0].topSize != 2 || fire.components[0].height != 3 || fire.components[2].bottomSize != 0.5 || fire.components[2].topSize != 1 || fire.components[2].height != 7 {
 		t.Fatalf("EF_FIREPILLARON cylinder sizes = %+v", fire.components)
-	}
-
-	grim, ok := worldEffectSpecForID(effectGrimtoothAtk)
-	if !ok || len(grim.components) != 3 || grim.duration != 15*time.Second {
-		t.Fatalf("EF_GRIMTOOTHATK spec = %+v ok=%t", grim, ok)
-	}
-	first := grim.components[0]
-	if first.kind != effectComponentQuadHorn || first.textureFile != "effect/stone.bmp" || first.duration != 15*time.Second || first.quadHornHeightMin != 2.5 || first.quadHornBottomMin != 0.15 || first.quadHornRotateXMin != -15 || first.quadHornOffsetYMin != 0.4 || first.quadHornOffsetZ != -0.2 || first.animation != 3 || first.quadHornAnimSpeed != 120*time.Millisecond || !first.quadHornAnimOut {
-		t.Fatalf("EF_GRIMTOOTHATK first = %+v", first)
-	}
-	if grim.components[1].quadHornRotateYMin != 45 || grim.components[1].quadHornRotateZMin != -15 || grim.components[2].quadHornRotateZMin != 15 {
-		t.Fatalf("EF_GRIMTOOTHATK rotations = %+v %+v", grim.components[1], grim.components[2])
 	}
 
 	heaven, ok := worldEffectSpecForID(effectHeavenDrive)
@@ -1729,16 +1717,16 @@ func TestImportedSkillEffectFallback(t *testing.T) {
 	expectEffectIDs(t, "HT_TALKIEBOX imported empty", skillEffectIDs(db.SkillHTTalkiebox))
 	expectEffectIDs(t, "HT_POWER imported empty", skillEffectIDs(db.SkillHTPower))
 	expectEffectIDs(t, "AS_CLOAKING imported", skillEffectIDs(db.SkillASCloaking), effectCloaking)
-	expectEffectIDs(t, "AS_SONICBLOW imported", skillEffectIDs(db.SkillASSonicblow), effectSonicBlow2)
-	expectEffectIDs(t, "AS_SONICBLOW imported caster", skillEffectOnCasterIDs(db.SkillASSonicblow), effectSonicBlow)
+	expectEffectIDs(t, "AS_SONICBLOW imported", skillEffectIDs(db.SkillASSonicblow))
+	expectEffectIDs(t, "AS_SONICBLOW imported caster", skillEffectOnCasterIDs(db.SkillASSonicblow), effectSonicBlow, effectSonicBlow2)
 	expectEffectIDs(t, "AS_SONICBLOW imported hit", skillHitEffectIDs(db.SkillASSonicblow), effectSonicBlowHit)
 	expectEffectIDs(t, "AS_GRIMTOOTH imported", skillEffectIDs(db.SkillASGrimtooth), effectGrimtooth)
 	expectEffectIDs(t, "AS_GRIMTOOTH imported hit", skillHitEffectIDs(db.SkillASGrimtooth), effectGrimtoothAtk)
-	expectEffectIDs(t, "AS_POISONREACT imported", skillEffectIDs(db.SkillASPoisonreact), effectPoisonReact)
-	expectEffectIDs(t, "AS_POISONREACT imported hit", skillHitEffectIDs(db.SkillASPoisonreact), effectPoisonReact2)
+	expectEffectIDs(t, "AS_POISONREACT imported", skillSuccessEffectIDs(db.SkillASPoisonreact), effectPoisonReact)
+	expectEffectIDs(t, "AS_POISONREACT imported hit", skillHitEffectIDs(db.SkillASPoisonreact))
 	expectEffectIDs(t, "AS_VENOMDUST imported", skillEffectIDs(db.SkillASVenomdust), effectVenomDust)
 	expectEffectIDs(t, "AS_VENOMDUST imported ground", skillGroundEffectIDs(db.SkillASVenomdust), effectVenomDust2)
-	expectEffectIDs(t, "AS_SPLASHER imported", skillEffectIDs(db.SkillASSplasher), effectVenomSplasher)
+	expectEffectIDs(t, "AS_SPLASHER imported", skillSuccessEffectIDs(db.SkillASSplasher), effectEnchantPoison)
 	expectEffectIDs(t, "NPC_DARKCROSS imported", skillEffectIDs(db.SkillNPCDarkcross), effectDarkGrandCross)
 	expectEffectIDs(t, "NPC_DARKSTRIKE imported", skillEffectIDs(db.SkillNPCDarkstrike), effectDarkSoulStrike)
 	expectEffectIDs(t, "NPC_STOP imported", skillEffectIDs(db.SkillNPCStop), effectNPCStop)
@@ -1754,18 +1742,18 @@ func TestImportedSkillEffectFallback(t *testing.T) {
 	expectEffectIDs(t, "NPC_EVILLAND imported ground", skillGroundEffectIDs(db.SkillNPCEvilland), effectBottomEvilLand)
 	expectEffectIDs(t, "NPC_CRITICALWOUND imported hit", skillHitEffectIDs(db.SkillNPCCriticalwound), effectCriticalWound)
 	expectEffectIDs(t, "RG_STEALCOIN imported success", skillSuccessEffectIDs(db.SkillRGStealcoin), effectStealCoin, effectRogueCoin)
-	expectEffectIDs(t, "RG_BACKSTAP imported hit", skillHitEffectIDs(db.SkillRGBackstap), effectBackStab)
-	expectEffectIDs(t, "RG_RAID imported caster", skillEffectOnCasterIDs(db.SkillRGRaid), effectTeiHit3)
+	expectEffectIDs(t, "RG_BACKSTAP action", skillEffectIDs(db.SkillRGBackstap), effectBackStab)
+	expectEffectIDs(t, "RG_RAID success", skillSuccessEffectSelfIDs(db.SkillRGRaid), effectTeiHit3)
 	expectEffectIDs(t, "RG_STRIPWEAPON imported success", skillSuccessEffectIDs(db.SkillRGStripweapon), effectStripWeapon)
 	expectEffectIDs(t, "RG_STRIPSHIELD imported success", skillSuccessEffectIDs(db.SkillRGStripshield), effectStripShield)
 	expectEffectIDs(t, "RG_STRIPARMOR imported success", skillSuccessEffectIDs(db.SkillRGStriparmor), effectStripArmor)
 	expectEffectIDs(t, "RG_STRIPHELM imported success", skillSuccessEffectIDs(db.SkillRGStriphelm), effectStripHelm)
-	expectEffectIDs(t, "RG_INTIMIDATE imported", skillEffectIDs(db.SkillRGIntimidate), effectIntimidate)
+	expectEffectIDs(t, "RG_INTIMIDATE caster", skillEffectOnCasterIDs(db.SkillRGIntimidate), effectIntimidate)
 	expectEffectIDs(t, "RG_GRAFFITI imported empty", skillEffectIDs(db.SkillRGGraffiti))
 	expectEffectIDs(t, "RG_FLAGGRAFFITI imported empty", skillEffectIDs(db.SkillRGFlaggraffiti))
 	expectEffectIDs(t, "RG_CLEANER imported empty", skillEffectIDs(db.SkillRGCleaner))
-	expectEffectIDs(t, "RG_CLOSECONFINE imported", skillEffectIDs(db.SkillRGCloseconfine), 602)
-	expectEffectIDs(t, "RG_CLOSECONFINE imported ground", skillGroundEffectIDs(db.SkillRGCloseconfine), effectNPCStop2)
+	expectEffectIDs(t, "RG_CLOSECONFINE success", skillSuccessEffectIDs(db.SkillRGCloseconfine), effectQuakeBody4)
+	expectEffectIDs(t, "RG_CLOSECONFINE imported ground", skillGroundEffectIDs(db.SkillRGCloseconfine))
 	expectEffectIDs(t, "AM_PHARMACY imported empty", skillEffectIDs(db.SkillAMPharmacy))
 	expectEffectIDs(t, "AM_DEMONSTRATION imported ground", skillGroundEffectIDs(db.SkillAMDemonstration), effectDemonstration)
 	expectEffectIDs(t, "AM_ACIDTERROR imported before hit", skillBeforeHitEffectIDs(db.SkillAMAcidterror), effectThrowItem)

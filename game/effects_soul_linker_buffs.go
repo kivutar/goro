@@ -99,8 +99,15 @@ func (m *WorldMode) drawActorSpriteWithEffects3D(ctx client.Context, screen *ren
 			if frame >= 30 && frame < 60 {
 				fourWayAge = frame - 30
 			}
-		case effectQuakeBody3:
-			if frame > 30 && frame <= 50 {
+		case effectQuakeBody3, effectQuakeBody4:
+			start, end := 30, 50
+			if effect.effectID == effectQuakeBody4 {
+				start, end = 20, 59
+				if frame > start && frame <= end && frame%2 == 0 {
+					tint = multiplyTint(tint, 250.0/255, 50.0/255, 50.0/255, 1)
+				}
+			}
+			if frame > start && frame <= end {
 				for i := range shake {
 					shake[i] = float64(hitEffectRandom(effect, frame*4+i, 21)-10) * zoomScale
 				}

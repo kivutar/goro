@@ -38,6 +38,17 @@ func (m *WorldMode) syncCurrentActorEffectStateEffects(ctx client.Context) {
 	if ctx.World.Player.HasState {
 		m.applyActorEffectStateEffects(ctx, ctx.World.Player.ID, 0, ctx.World.Player.EffectState)
 	}
+	if ctx.Session != nil {
+		for _, id := range []uint16{db.StatusRgCconfineM, db.StatusRgCconfineS} {
+			if status, ok := ctx.Session.Statuses.Active[id]; ok {
+				remaining := time.Until(status.ExpiresAt)
+				m.applyCloseConfineStatus(ctx, network.StatusEffectChange{
+					StatusID: id, Active: !status.HasDuration || remaining > 0,
+					HasDuration: status.HasDuration, Duration: remaining,
+				})
+			}
+		}
+	}
 	m.syncActorSpiritEffects(ctx, ctx.World.Player.ID)
 	for _, actor := range ctx.World.Actors {
 		if actor.HasState {
@@ -51,6 +62,7 @@ func (m *WorldMode) removeActorEffectStateEffects(actorID uint32) {
 	for _, stateEffect := range actorEffectStateEffects {
 		m.removeWorldEffect(stateEffect.effectID, actorID)
 	}
+	m.removeWorldEffect(effectNPCStop2, actorID)
 	m.removeWorldEffect(effectGumgang, actorID)
 	m.removeWorldEffect(effectSteelBody, actorID)
 	m.removeWorldEffect(effectAsuraBody, actorID)

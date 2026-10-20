@@ -136,6 +136,7 @@ const (
 	effectSonicBlowHit   = 122
 	effectGrimtooth      = 123
 	effectVenomDust      = 124
+	effectEnchantPoison  = 125
 	effectPoisonReact    = 126
 	effectPoisonReact2   = 127
 	effectOverthrust     = 128
@@ -492,7 +493,9 @@ const (
 	effectKaizel           = 590
 	effectThrowItem6       = 600
 	effectFireHit2         = 603
+	effectQuakeBody4       = 602
 	effectNPCStop2         = 604
+	effectNPCStop2Del      = 605
 	effectFVoice           = 606
 	effectWink             = 607
 	effectCookingOK        = 608
@@ -964,12 +967,6 @@ func sprDirectionEffectSpec(file, wav string) EffectSpec {
 	return spec
 }
 
-func sprStopAtEndEffectSpec(file, wav string, attached bool) EffectSpec {
-	spec := sprEffectSpec(file, wav, attached, false)
-	spec.Components[0].SpriteStopAtEnd = true
-	return spec
-}
-
 func sprRepeatEffectSpec(file, wav string, attached bool) EffectSpec {
 	spec := sprEffectSpec(file, wav, attached, false)
 	spec.Components[0].Repeat = true
@@ -1043,23 +1040,27 @@ func banjjakiiEffectSpec() EffectSpec {
 	}
 }
 
-func venomDust2EffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 100 * time.Millisecond,
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			SpriteFile:     "particle3",
-			SpriteRepeat:   true,
-			Repeat:         true,
-			Duration:       100 * time.Millisecond,
-			AlphaMax:       1,
-			AttachedEntity: true,
-			SizeStart:      effectTableSize(80),
-			SizeEnd:        effectTableSize(80),
-			PosZ:           0,
-			PosZEnd:        0.5,
-		}},
+func poisonParticlesEffectSpec(enchant bool) EffectSpec {
+	spec := funcEffectSpec("PoisonParticles", 10*EffectFrameDuration, false)
+	spec.Components[0].SpriteFile = "particle3"
+	if enchant {
+		spec.Duration = 250 * EffectFrameDuration
+		spec.Components[0].Duration = spec.Duration
+		spec.SFX = []string{"effect\\assasin_enchantpoison.wav", "effect\\ef_poisonattack.wav"}
 	}
+	return spec
+}
+
+func venomKnifeEffectSpec() EffectSpec {
+	spec := funcEffectSpec("VenomKnife", 200*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = "유저인터페이스/item/베넘나이프.bmp"
+	return spec
+}
+
+func venomSplasherEffectSpec() EffectSpec {
+	spec := strEffectSpecAttached("venomsplasher", "effect\\assasin_venomsplasher.wav", false)
+	spec.SFXDelays = []time.Duration{10 * EffectFrameDuration}
+	return spec
 }
 
 func suiExplosionEffectSpec() EffectSpec {
@@ -1337,28 +1338,54 @@ func tanjiEffectSpec() EffectSpec {
 	}
 }
 
-func rogueCoinEffectSpec() EffectSpec {
+func rogueBurstEffectSpec(effectID int) EffectSpec {
+	spec := funcEffectSpec("RogueBurst", 300*EffectFrameDuration, false)
+	switch effectID {
+	case effectRogueCoin:
+		spec.Components[0].TextureFile = "effect/coin_a.bmp"
+		spec.SFX = []string{"effect\\rog_steal coin.wav"}
+	case effectIntimidate:
+		spec.Duration = 999 * EffectFrameDuration
+		spec.Components[0].TextureFile = "effect/white01.bmp"
+		spec.SFX = []string{"effect\\EF_Bash.wav", "effect\\rog_intimidate.wav"}
+		spec.SFXDelays = []time.Duration{0, 35 * EffectFrameDuration}
+	case effectTeiHit3:
+		spec.Components[0].TextureFile = "effect/lens2.tga"
+	}
+	return spec
+}
+
+func backStabEffectSpec() EffectSpec {
+	spec := funcEffectSpec("BackStab", 300*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = "effect/thunder_center.bmp"
+	spec.SFX = []string{"effect\\rog_back stap.wav"}
+	spec.SFXDelays = []time.Duration{20 * EffectFrameDuration}
+	return spec
+}
+
+func divestEffectSpec(file string) EffectSpec {
+	// The 2008 executable plays this sound six ticks into the STR animation.
+	spec := strEffectSpecAttached(file, "effect\\복호격.wav", false)
+	spec.SFXDelays = []time.Duration{6 * EffectFrameDuration}
+	return spec
+}
+
+func closeConfineHitEffectSpec() EffectSpec {
+	spec := funcEffectSpec("QuakeBody4", 60*EffectFrameDuration, true)
+	spec.SFX = []string{"effect\\ef_hit6.wav"}
+	spec.SFXDelays = []time.Duration{20 * EffectFrameDuration}
+	return spec
+}
+
+func closeConfineRingEffectSpec() EffectSpec {
 	return EffectSpec{
-		Duration: 2950 * time.Millisecond,
-		SFX:      []string{"effect\\rog_steal coin.wav"},
+		Duration: 99999 * EffectFrameDuration,
 		Components: []EffectComponent{{
-			Kind:           EffectComponent2D,
-			TextureFile:    "effect/coin_a.bmp",
-			Duration:       1500 * time.Millisecond,
-			Duplicate:      30,
-			DuplicateDelay: 50 * time.Millisecond,
-			AlphaMax:       0.8,
-			FadeOut:        true,
-			PosXEndRand:    10,
-			PosYEndRand:    10,
-			PosZ:           2,
-			SizeStart:      effectTableSize(20),
-			SizeEnd:        effectTableSize(20),
-			BlendMode:      2,
-			BlendAdditive:  true,
-			Overlay:        true,
-			RotateToTarget: true,
-			AttachedEntity: true,
+			Kind: EffectComponent3D, SpriteFile: "cconfine",
+			Duration:    99999 * EffectFrameDuration,
+			SpriteDelay: 12 * EffectFrameDuration, SpriteStopAtEnd: true,
+			AlphaMax: 100.0 / 255, SizeStart: 100 * EffectPixelRatio, SizeEnd: 100 * EffectPixelRatio,
+			AttachedEntity: true, Overlay: true,
 		}},
 	}
 }
@@ -3329,22 +3356,10 @@ func waterBall2EffectSpec() EffectSpec {
 }
 
 func sonicBlowEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 400 * time.Millisecond,
-		SFX:      []string{"effect\\ef_stonecurse.wav"},
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			TextureFile:    "effect/ring2.bmp",
-			Duration:       400 * time.Millisecond,
-			AlphaMax:       1,
-			FadeOut:        true,
-			SizeStart:      effectTableSize(100),
-			SizeEnd:        effectTableSize(300),
-			BlendMode:      2,
-			BlendAdditive:  true,
-			AttachedEntity: true,
-		}},
-	}
+	spec := funcEffectSpec("SonicBlow", 40*EffectFrameDuration, true)
+	spec.Components[0].TextureFile = "effect/alpha_center.tga"
+	spec.SFX = []string{"effect\\ef_stonecurse.wav"}
+	return spec
 }
 
 func sonicBlowHitEffectSpec() EffectSpec {
@@ -3359,15 +3374,16 @@ func sonicBlowHitEffectSpec() EffectSpec {
 	}
 }
 
-func grimtoothAttackEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 15 * time.Second,
-		Components: []EffectComponent{
-			quadHornEffectComponentFull("effect/stone.bmp", 15*time.Second, [2]float64{2.5, 2.5}, [2]float64{0, 0}, [2]float64{0.4, 0.4}, -0.2, [2]float64{0.15, 0.15}, [2]float64{-15, -15}, [2]float64{0, 0}, [2]float64{0, 0}, 3, 120*time.Millisecond, true, 1),
-			quadHornEffectComponentFull("effect/stone.bmp", 15*time.Second, [2]float64{2.5, 2.5}, [2]float64{0, 0}, [2]float64{0.5, 0.5}, 0, [2]float64{0.15, 0.15}, [2]float64{5, 5}, [2]float64{45, 45}, [2]float64{-15, -15}, 3, 120*time.Millisecond, true, 1),
-			quadHornEffectComponentFull("effect/stone.bmp", 15*time.Second, [2]float64{2.5, 2.5}, [2]float64{0, 0}, [2]float64{0.5, 0.5}, 0, [2]float64{0.15, 0.15}, [2]float64{5, 5}, [2]float64{45, 45}, [2]float64{15, 15}, 3, 120*time.Millisecond, true, 1),
-		},
+func grimtoothEffectSpec(impact bool) EffectSpec {
+	spec := funcEffectSpec("Grimtooth", 250*EffectFrameDuration, false)
+	if impact {
+		spec.Duration = 1000 * EffectFrameDuration
+		spec.Components[0].Duration = spec.Duration
+	} else {
+		spec.SFX = []string{"effect\\ef_frostdiver.wav"}
 	}
+	spec.Components[0].TextureFile = "effect/stone.bmp"
+	return spec
 }
 
 func firePillarOnEffectSpec() EffectSpec {
@@ -4980,15 +4996,16 @@ var EffectSpecs = map[int]EffectSpec{
 	effectCloaking:       soundOnlyEffectSpec("effect\\assasin_cloaking.wav"),
 	effectSonicBlow:      sonicBlowEffectSpec(),
 	effectSonicBlowHit:   sonicBlowHitEffectSpec(),
-	effectGrimtooth:      soundOnlyEffectSpec("effect\\ef_frostdiver.wav"),
+	effectGrimtooth:      grimtoothEffectSpec(false),
+	effectEnchantPoison:  poisonParticlesEffectSpec(true),
 	effectVenomDust:      strEffectSpec("venomdust", "effect\\assasin_poisonreact.wav"),
-	effectPoisonReact:    strEffectSpecAttached("poisonreact_1st", "effect\\assasin_poisonreact.wav", false),
+	effectPoisonReact:    strEffectSpecAttached("poisonreact_1st", "", false),
 	effectPoisonReact2:   strEffectSpecAttached("poisonreact", "effect\\assasin_poisonreact.wav", false),
 	effectOverthrust:     soundOnlyEffectSpec("effect\\black_overthrust.wav"),
-	effectVenomSplasher:  strEffectSpecAttached("venomsplasher", "effect\\assasin_venomsplasher.wav", false),
+	effectVenomSplasher:  venomSplasherEffectSpec(),
 	effectTwoHandQuicken: strEffectSpecAttached("twohand", "effect\\knight_twohandquicken.wav", true),
 	effectAutoCounter:    strEffectSpecAttached("autocounter", "effect\\knight_autocounter.wav", false),
-	effectGrimtoothAtk:   grimtoothAttackEffectSpec(),
+	effectGrimtoothAtk:   grimtoothEffectSpec(true),
 	effectFreeze:         strEffectSpecAttached("freeze", "", false),
 	effectFreezed:        strEffectSpecAttached("freezed", "", false),
 	effectIceCrash:       strEffectSpecAttached("icecrash", "", false),
@@ -5023,7 +5040,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectRefineFail:       strEffectSpecAttached("bs_refinefailed", "effect\\bs_refinefailed.wav", false),
 	effectMakeBlur:         funcEffectSpec("MakeBlur", 2*time.Second, false),
 	effectEnergyCoat:       strEffectSpecAttached("energycoat", "", false),
-	effectVenomDust2:       venomDust2EffectSpec(),
+	effectVenomDust2:       poisonParticlesEffectSpec(false),
 	effectMentalBreak:      strEffectSpecAttached("mentalbreak", "", false),
 	effectMagicalAtkHit:    strEffectSpecAttached("magical", "", false),
 	effectSuiExplosion:     suiExplosionEffectSpec(),
@@ -5157,7 +5174,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectItemFast3:    berserkPotionEffectSpec(),
 	effectCrusaderDef:  defenderCylinderEffectSpec("ring_black"),
 	effectGrandCross:   grandCrossEffectSpec(),
-	effectIntimidate:   soundOnlyEffectSpec("effect\\rog_intimidate.wav"),
+	effectIntimidate:   rogueBurstEffectSpec(effectIntimidate),
 	effectChookgi:      spiritSphereEffectSpec(),
 	effectLineLink: {
 		Duration: 100 * time.Millisecond,
@@ -5212,14 +5229,14 @@ var EffectSpecs = map[int]EffectSpec{
 	effectTeiHit1X:      teiHitEffectSpec("effect/lens1.tga", "effect\\mon_아수라 패황권.wav", 24, 100*time.Millisecond, color.RGBA{}),
 	effectChimto:        chimtoEffectSpec(),
 	effectStealCoin:     strEffectSpecAttached("steal_coin", "", false),
-	effectStripWeapon:   strEffectSpecAttached("strip_weapon", "effect\\t_벗김.wav", false),
-	effectStripShield:   strEffectSpecAttached("strip_shield", "effect\\t_벗김.wav", false),
-	effectStripArmor:    strEffectSpecAttached("strip_armor", "effect\\t_벗김.wav", false),
-	effectStripHelm:     strEffectSpecAttached("strip_helm", "effect\\t_벗김.wav", false),
+	effectStripWeapon:   divestEffectSpec("strip_weapon"),
+	effectStripShield:   divestEffectSpec("strip_shield"),
+	effectStripArmor:    divestEffectSpec("strip_armor"),
+	effectStripHelm:     divestEffectSpec("strip_helm"),
 	effectChainCombo:    strEffectSpecAttached("연환", "effect\\mon_연환.wav", false),
-	effectRogueCoin:     rogueCoinEffectSpec(),
-	effectBackStab:      soundOnlyEffectSpec("effect\\rog_back stap.wav"),
-	effectTeiHit3:       teiHitEffectSpec("effect/lens1.tga", "", 20, 100*time.Millisecond, color.RGBA{R: 26, G: 26, B: 255, A: 255}),
+	effectRogueCoin:     rogueBurstEffectSpec(effectRogueCoin),
+	effectBackStab:      backStabEffectSpec(),
+	effectTeiHit3:       rogueBurstEffectSpec(effectTeiHit3),
 	effectBottomLullaby: soundOnlyEffectSpec("effect\\자장가.wav"),
 	effectBottomRichKim: soundOnlyEffectSpec("effect\\김서방돈.wav"),
 	effectBottomChaos:   soundOnlyEffectSpec("effect\\영원의 혼돈.wav"),
@@ -5440,9 +5457,11 @@ var EffectSpecs = map[int]EffectSpec{
 	effectStatFoodAGI:       strEffectSpecAttached("food_agi", "_heal_effect.wav", false),
 	effectStatFoodDEX:       strEffectSpecAttached("food_dex", "_heal_effect.wav", false),
 	effectStatFoodLUK:       strEffectSpecAttached("food_luk", "_heal_effect.wav", false),
-	effectThrowItem6:        throwItemEffectSpecFull("유저인터페이스/item/베넘나이프.bmp", 30, 200*time.Millisecond, 1),
+	effectThrowItem6:        venomKnifeEffectSpec(),
 	effectFireHit2:          strEffectSpecRandomAttached("firehit%d", "", 1, 3, true, false),
-	effectNPCStop2:          sprStopAtEndEffectSpec("cconfine", "effect\\ef_hit6.wav", true),
+	effectQuakeBody4:        closeConfineHitEffectSpec(),
+	effectNPCStop2:          closeConfineRingEffectSpec(),
+	effectNPCStop2Del:       funcEffectSpec("RemoveCloseConfine", 2*EffectFrameDuration, true),
 	effectFVoice:            sprEffectSpec("fvoice", "amon_ra_die01.wav", false, false),
 	effectWink:              sprEffectSpec("wink", "", false, false),
 	effectCookingOK:         strEffectSpecAttached("cook_suc", "_heal_effect.wav", false),

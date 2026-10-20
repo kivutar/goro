@@ -707,6 +707,28 @@ func (m *WorldMode) addSkillEffect(ctx client.Context, action network.ActorActio
 	if action.SkillID == 0 {
 		return
 	}
+	if action.SkillID == db.SkillASSplasher {
+		// ZC_NOTIFY_SKILL's level -1 marks the server's delayed explosion.
+		if action.SkillLevel == 0xffff {
+			m.addWorldEffectBetweenAt(ctx, effectVenomSplasher, action.TargetID, action.SourceID, actionAt)
+		}
+		return
+	}
+	if action.SkillID == db.SkillASGrimtooth {
+		if action.Action != network.ActorActionSkill {
+			return
+		}
+		if _, ok, _ := actorForCombatID(ctx, action.SourceID); !ok {
+			return
+		}
+		// The preamble and primary hit share a caster and server tick. Damage
+		// cannot identify the preamble: WoE and Hallucination can rewrite it.
+		for _, effect := range m.worldEffects {
+			if effect.effectID == effectGrimtooth && effect.actorID == action.SourceID && effect.serverTick == action.ServerTick {
+				return
+			}
+		}
+	}
 	spec := skillEffectSpecFor(action.SkillID)
 	starts := hitAt
 	if spec.effectTiming == db.SkillEffectAtActionStart {
@@ -714,6 +736,7 @@ func (m *WorldMode) addSkillEffect(ctx client.Context, action network.ActorActio
 	}
 	for _, effectID := range spec.effectIDs {
 		if m.addWorldEffectBetweenAt(ctx, effectID, action.TargetID, action.SourceID, starts) {
+			m.worldEffects[len(m.worldEffects)-1].serverTick = action.ServerTick
 			if effectID == effectTanji {
 				// TANJI uses a square of radius 2 + 0.4 * skill level.
 				level := minInt(5, maxInt(1, int(action.SkillLevel)))

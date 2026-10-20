@@ -142,6 +142,7 @@ const (
 	effectSonicBlowHit   = 122
 	effectGrimtooth      = 123
 	effectVenomDust      = 124
+	effectEnchantPoison  = 125
 	effectPoisonReact    = 126
 	effectPoisonReact2   = 127
 	effectOverthrust     = 128
@@ -494,7 +495,9 @@ const (
 	effectKaizel           = 590
 	effectThrowItem6       = 600
 	effectFireHit2         = 603
+	effectQuakeBody4       = 602
 	effectNPCStop2         = 604
+	effectNPCStop2Del      = 605
 	effectFVoice           = 606
 	effectWink             = 607
 	effectCookingOK        = 608
@@ -737,6 +740,7 @@ type worldEffect struct {
 	effectID                             int
 	actorID                              uint32
 	targetID                             uint32
+	serverTick                           uint32
 	actorDirection                       int
 	actorOrigin                          modelPoint3
 	projectileDirection                  modelPoint3
@@ -1174,6 +1178,11 @@ func (m *WorldMode) applyGroundSkillNotify(ctx client.Context, notify network.Gr
 }
 
 func (m *WorldMode) applySkillUnitEntry(ctx client.Context, entry network.SkillUnitEntry) {
+	if entry.HasMessage {
+		m.applyGraffitiEntry(ctx, entry)
+		return
+	}
+	m.removeGraffiti(entry.ID)
 	if m.applySkillUnitModelEntry(entry) {
 		return
 	}
@@ -1221,6 +1230,7 @@ func (m *WorldMode) applySkillUnitDisappear(disappear network.SkillUnitDisappear
 	if disappear.ID == 0 {
 		return
 	}
+	m.removeGraffiti(disappear.ID)
 	removedEffects := m.removeSkillUnitEffects(disappear.ID)
 	removedModel := m.removeSkillUnitModelOnly(disappear.ID)
 	if removedEffects || removedModel {
@@ -1273,6 +1283,10 @@ func (m *WorldMode) applySpecialEffectNotify(ctx client.Context, notify network.
 			network.SpecialEffectSuperNoviceJobLevelUp:
 			m.ui.levelUpNotifications.NotifyJob()
 		}
+	}
+	if effectID == effectNPCStop2Del {
+		m.removeWorldEffect(effectNPCStop2, notify.AID)
+		return
 	}
 	spec, _ := worldEffectSpecForID(effectID)
 	if craftingResultSpecialEffect(notify.EffectID) {
@@ -1483,6 +1497,16 @@ func (m *WorldMode) addWorldEffectBetweenAtDuration(ctx client.Context, effectID
 		starts:   starts,
 		expires:  starts.Add(duration),
 		duration: durationOverride,
+	}
+	if effectID == effectBackStab {
+		initBackStabEffect(ctx, &effect)
+	}
+	if effectID == effectRogueCoin || effectID == effectIntimidate || effectID == effectTeiHit3 {
+		effect.actorOrigin = effectWorldAnchor(ctx, effect, starts)
+		effect.hasActorTransform = true
+	}
+	if effectID == effectGrimtooth || effectID == effectThrowItem6 {
+		initAssassinProjectile(ctx, &effect)
 	}
 	if effectID == effectStin || effectID == effectStin3 || effectID == effectStin2 {
 		initSoulLinkerProjectile(ctx, &effect)
@@ -2528,6 +2552,18 @@ func effectFuncAdapterForName(name string) effectFuncAdapter {
 		return effectFuncSoulLink
 	case "KaupeDodge":
 		return effectFuncKaupeDodge
+	case "RogueBurst":
+		return effectFuncRogueBurst
+	case "BackStab":
+		return effectFuncBackStab
+	case "SonicBlow":
+		return effectFuncSonicBlow
+	case "VenomKnife":
+		return effectFuncVenomKnife
+	case "Grimtooth":
+		return effectFuncGrimtooth
+	case "PoisonParticles":
+		return effectFuncPoisonParticles
 	case "BlueCasting":
 		return effectFuncBlueCasting
 	case "Estin":

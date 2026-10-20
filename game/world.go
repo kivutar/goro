@@ -134,6 +134,7 @@ type WorldMode struct {
 	actorVanishes     map[uint32]actorVanishFade
 	actorSoundFrames  map[uint32]actorSoundFrame
 	actorLife         map[uint32]actorLife
+	graffiti          map[uint32]*groundGraffiti
 	skillUnitModels   map[uint32]skillUnitModel
 	hiddenSkillUnits  map[uint32]skillUnitModel
 	actorNameReqAt    map[uint32]time.Time
@@ -1589,6 +1590,7 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 	if ctx.World.GND != nil {
 		m.drawGNDMeshes(screen, ctx.Resources, ctx.World.GND, ctx.World.RSW, projection)
 		m.drawGNDWater(screen, ctx.Resources, ctx.World.GND, ctx.World.RSW, projection, now, vertexFog)
+		m.drawGraffiti(screen, ctx, projection)
 		if !ctx.Config.Render.NoUI {
 			m.drawTileCursor(screen, ctx, projection)
 		}

@@ -39,6 +39,12 @@ const (
 	effectFuncSoulLink
 	effectFuncKaupeDodge
 	effectFuncBlueCasting
+	effectFuncSonicBlow
+	effectFuncVenomKnife
+	effectFuncGrimtooth
+	effectFuncPoisonParticles
+	effectFuncRogueBurst
+	effectFuncBackStab
 )
 
 const (
@@ -48,6 +54,18 @@ const (
 
 func (m *WorldMode) drawFuncEffect(screen *render.Frame, ctx client.Context, projection sceneProjection, effect worldEffect, component worldEffectComponent, componentIndex int, worldX, worldY, worldZ, progress float64, now time.Time) {
 	switch component.funcAdapter {
+	case effectFuncRogueBurst:
+		m.drawRogueBurst(screen, ctx, component, effect, now)
+	case effectFuncBackStab:
+		m.drawBackStabEffect(screen, ctx, projection, component, effect, now)
+	case effectFuncVenomKnife:
+		m.drawVenomKnifeEffect(screen, ctx, projection, component, effect, now)
+	case effectFuncSonicBlow:
+		m.drawSonicBlowEffect(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
+	case effectFuncGrimtooth:
+		m.drawGrimtoothEffect(screen, ctx, component, effect, now)
+	case effectFuncPoisonParticles:
+		m.drawPoisonParticlesEffect(screen, ctx, projection, component, effect, now)
 	case effectFuncGroundSample:
 		m.drawGroundPlaneEffect(screen, ctx, component, effect, worldX, worldY, progress, now)
 	case effectFuncCastRing:

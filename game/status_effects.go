@@ -23,6 +23,7 @@ func (m *WorldMode) applyStatusEffectChange(ctx client.Context, change network.S
 	}
 	m.applyTrickDeadStatus(ctx, change)
 	m.applyTaekwonStatus(ctx, change)
+	m.applyCloseConfineStatus(ctx, change)
 	if change.StatusID == db.StatusSmaReady && change.Active {
 		id := change.ActorID
 		if id == 0 {

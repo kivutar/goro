@@ -373,6 +373,37 @@ func TestParseSkillUnitDisappear(t *testing.T) {
 	}
 }
 
+func TestParseGraffitiEntry(t *testing.T) {
+	data := make([]byte, 97)
+	binary.LittleEndian.PutUint32(data[2:6], 1234)
+	binary.LittleEndian.PutUint32(data[6:10], 2000000)
+	binary.LittleEndian.PutUint16(data[10:12], 120)
+	binary.LittleEndian.PutUint16(data[12:14], 80)
+	data[14], data[15], data[16] = 176, 1, 1
+	copy(data[17:], "Hello Midgard!\x00unused")
+	entry, ok, err := ParseSkillUnitEntry(Packet{ID: 0x01C9, Data: data})
+	if err != nil || !ok || entry.ID != 1234 || entry.CreatorID != 2000000 ||
+		entry.X != 120 || entry.Y != 80 || entry.UnitID != 176 || !entry.Visible || !entry.HasMessage || entry.Message != "Hello Midgard!" {
+		t.Fatalf("graffiti entry = %+v, ok=%t err=%v", entry, ok, err)
+	}
+	for size := 0; size < 97; size++ {
+		if _, _, err := ParseSkillUnitEntry(Packet{ID: 0x01C9, Data: data[:size]}); err == nil {
+			t.Fatalf("accepted truncated graffiti packet of length %d", size)
+		}
+	}
+	data[16] = 0
+	entry, ok, err = ParseSkillUnitEntry(Packet{ID: 0x01C9, Data: data})
+	if err != nil || !ok || entry.HasMessage || entry.ID != 1234 {
+		t.Fatalf("extended entry without message = %+v, %v", entry, err)
+	}
+	data[16] = 1
+	copy(data[17:], "  Hi  \x00")
+	entry, _, _ = ParseSkillUnitEntry(Packet{ID: 0x01C9, Data: data})
+	if entry.Message != "  Hi  " {
+		t.Fatal("graffiti layout must preserve spaces")
+	}
+}
+
 func TestParseSkillUnitUpdate(t *testing.T) {
 	data := make([]byte, 6)
 	binary.LittleEndian.PutUint16(data[0:2], 0x01AC)

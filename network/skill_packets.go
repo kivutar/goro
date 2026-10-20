@@ -98,12 +98,14 @@ type GroundSkillNotify struct {
 }
 
 type SkillUnitEntry struct {
-	ID        uint32
-	CreatorID uint32
-	X         uint16
-	Y         uint16
-	UnitID    uint16
-	Visible   bool
+	ID         uint32
+	CreatorID  uint32
+	X          uint16
+	Y          uint16
+	UnitID     uint16
+	Visible    bool
+	HasMessage bool
+	Message    string
 }
 
 type SkillUnitDisappear struct {
@@ -303,20 +305,30 @@ func ParseGroundSkillNotify(packet Packet) (GroundSkillNotify, bool, error) {
 }
 
 func ParseSkillUnitEntry(packet Packet) (SkillUnitEntry, bool, error) {
-	if packet.ID != 0x011F {
+	if packet.ID != 0x011F && packet.ID != 0x01C9 {
 		return SkillUnitEntry{}, false, nil
 	}
-	if len(packet.Data) < 16 {
-		return SkillUnitEntry{}, false, fmt.Errorf("ZC_SKILL_ENTRY too short: %d", len(packet.Data))
+	size := 16
+	if packet.ID == 0x01C9 {
+		size = 97
 	}
-	return SkillUnitEntry{
+	if len(packet.Data) < size {
+		return SkillUnitEntry{}, false, fmt.Errorf("ZC_SKILL_ENTRY %#04x too short: %d", packet.ID, len(packet.Data))
+	}
+	entry := SkillUnitEntry{
 		ID:        binary.LittleEndian.Uint32(packet.Data[2:6]),
 		CreatorID: binary.LittleEndian.Uint32(packet.Data[6:10]),
 		X:         binary.LittleEndian.Uint16(packet.Data[10:12]),
 		Y:         binary.LittleEndian.Uint16(packet.Data[12:14]),
 		UnitID:    uint16(packet.Data[14]),
 		Visible:   packet.Data[15] != 0,
-	}, true, nil
+	}
+	if packet.ID == 0x01C9 {
+		entry.HasMessage = packet.Data[16] != 0
+		message, _, _ := bytes.Cut(packet.Data[17:97], []byte{0})
+		entry.Message = string(message)
+	}
+	return entry, true, nil
 }
 
 func ParseSkillUnitDisappear(packet Packet) (SkillUnitDisappear, bool, error) {

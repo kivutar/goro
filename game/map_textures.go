@@ -22,6 +22,10 @@ func (m *WorldMode) ownMapImage(img *render.Image) *render.Image {
 }
 
 func (m *WorldMode) releaseMapTextures() {
+	for id := range m.graffiti {
+		m.removeGraffiti(id)
+	}
+	m.graffiti = nil
 	if m.spriteUpscaler != nil {
 		close(m.spriteUpscaler.stop)
 		m.spriteUpscaler = nil

@@ -41,14 +41,14 @@ func TestBashBeginEffectSpecUsesCylinderComponents(t *testing.T) {
 
 func TestWorldEffectSpecCatalogCoverage(t *testing.T) {
 	coverage := effectCoverageSnapshot()
-	if coverage.Implemented != 680 {
-		t.Fatalf("implemented effects = %d, want 680", coverage.Implemented)
+	if coverage.Implemented != 683 {
+		t.Fatalf("implemented effects = %d, want 683", coverage.Implemented)
 	}
 	if coverage.ReferenceActive != 607 || coverage.ReferenceAll != 1147 {
 		t.Fatalf("reference client totals = active %d all %d", coverage.ReferenceActive, coverage.ReferenceAll)
 	}
-	if coverage.ActivePercent < 112.0 || coverage.ActivePercent > 112.1 {
-		t.Fatalf("active coverage = %.3f, want about 112.0", coverage.ActivePercent)
+	if coverage.ActivePercent < 112.52 || coverage.ActivePercent > 112.53 {
+		t.Fatalf("active coverage = %.3f, want about 112.52", coverage.ActivePercent)
 	}
 }
 
@@ -444,7 +444,7 @@ func TestRobrowserSimpleEffectsOneHundredToOneFiftyMatchTableRows(t *testing.T) 
 		{"EF_SPRINGTRAP", effectSpringTrap, "spring", "effect\\hunter_springtrap.wav", false, false},
 		{"EF_MAGNUS", effectMagnus, "magnus", "effect\\priest_magnus.wav", false, false},
 		{"EF_VENOMDUST", effectVenomDust, "venomdust", "effect\\assasin_poisonreact.wav", false, false},
-		{"EF_POISONREACT", effectPoisonReact, "poisonreact_1st", "effect\\assasin_poisonreact.wav", true, false},
+		{"EF_POISONREACT", effectPoisonReact, "poisonreact_1st", "", true, false},
 		{"EF_POISONREACT2", effectPoisonReact2, "poisonreact", "effect\\assasin_poisonreact.wav", true, false},
 		{"EF_SPLASHER", effectVenomSplasher, "venomsplasher", "effect\\assasin_venomsplasher.wav", true, false},
 		{"EF_TWOHANDQUICKEN", effectTwoHandQuicken, "twohand", "effect\\knight_twohandquicken.wav", true, true},
@@ -490,7 +490,6 @@ func TestRobrowserSimpleEffectsOneHundredToOneFiftyMatchTableRows(t *testing.T) 
 		{"EF_BLITZBEAT", effectBlitzBeat, "effect\\hunter_blitzbeat.wav"},
 		{"EF_DETECTING", effectDetecting, "effect\\hunter_detecting.wav"},
 		{"EF_CLOAKING", effectCloaking, "effect\\assasin_cloaking.wav"},
-		{"EF_GRIMTOOTH", effectGrimtooth, "effect\\ef_frostdiver.wav"},
 		{"EF_OVERTHRUST", effectOverthrust, "effect\\black_overthrust.wav"},
 		{"EF_REVIVE", effectRevive, "effect\\priest_resurrection.wav"},
 	} {
@@ -612,18 +611,6 @@ func TestRobrowserSpecialEffectsOneFiftyToTwoHundredMatchTableRows(t *testing.T)
 	}
 	if component := makeBlur.components[0]; component.kind != effectComponentFUNC || component.funcName != "MakeBlur" || component.funcAdapter != effectFuncUnknown || component.attachedEntity {
 		t.Fatalf("EF_MAKEBLUR component = %+v", component)
-	}
-
-	venomDust, ok := worldEffectSpecForID(effectVenomDust2)
-	if !ok || venomDust.duration != 100*time.Millisecond || len(venomDust.components) != 1 {
-		t.Fatalf("EF_VENOMDUST2 spec = %+v ok=%t", venomDust, ok)
-	}
-	component := venomDust.components[0]
-	if component.kind != effectComponent3D || component.spriteFile != "particle3" || component.duration != 100*time.Millisecond || !component.repeat || !component.spriteRepeat || !component.attachedEntity {
-		t.Fatalf("EF_VENOMDUST2 component = %+v", component)
-	}
-	if component.alphaMax != 1 || component.sizeStart != effectTableSize(80) || component.sizeEnd != effectTableSize(80) || component.posZ != 0 || component.posZEnd != 0.5 {
-		t.Fatalf("EF_VENOMDUST2 scalar fields = %+v", component)
 	}
 
 	sui, ok := worldEffectSpecForID(effectSuiExplosion)
@@ -751,7 +738,6 @@ func TestRobrowserSimpleEffectsTwoHundredToTwoFiftyMatchTableRows(t *testing.T) 
 		id   int
 		wav  string
 	}{
-		{"EF_INTIMIDATE", effectIntimidate, "effect\\rog_intimidate.wav"},
 		{"EF_SHIELDBOOMERANG", effectShieldBoomer, "effect\\cru_shield boomerang.wav"},
 	} {
 		spec, ok := worldEffectSpecForID(tc.id)
@@ -1530,10 +1516,10 @@ func TestRobrowserSimpleEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.T
 		{"EF_LIGHTNINGLOADER", effectLightningLoad, "enc_wind", "effect\\_enemy_hit_wind1.wav", true, false},
 		{"EF_SEISMICWEAPON", effectSeismicWeapon, "enc_earth", "_enemy_hit_wind1.wav", true, false},
 		{"EF_STEALCOIN", effectStealCoin, "steal_coin", "", true, false},
-		{"EF_STRIPWEAPON", effectStripWeapon, "strip_weapon", "effect\\t_벗김.wav", true, false},
-		{"EF_STRIPSHIELD", effectStripShield, "strip_shield", "effect\\t_벗김.wav", true, false},
-		{"EF_STRIPARMOR", effectStripArmor, "strip_armor", "effect\\t_벗김.wav", true, false},
-		{"EF_STRIPHELM", effectStripHelm, "strip_helm", "effect\\t_벗김.wav", true, false},
+		{"EF_STRIPWEAPON", effectStripWeapon, "strip_weapon", "effect\\복호격.wav", true, false},
+		{"EF_STRIPSHIELD", effectStripShield, "strip_shield", "effect\\복호격.wav", true, false},
+		{"EF_STRIPARMOR", effectStripArmor, "strip_armor", "effect\\복호격.wav", true, false},
+		{"EF_STRIPHELM", effectStripHelm, "strip_helm", "effect\\복호격.wav", true, false},
 		{"EF_CHAINCOMBO", effectChainCombo, "연환", "effect\\mon_연환.wav", true, false},
 	} {
 		spec, ok := worldEffectSpecForID(tc.id)
@@ -1560,7 +1546,6 @@ func TestRobrowserSimpleEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.T
 		id   int
 		wav  string
 	}{
-		{"EF_BACKSTAP", effectBackStab, "effect\\rog_back stap.wav"},
 		{"EF_BOTTOM_LULLABY", effectBottomLullaby, "effect\\자장가.wav"},
 		{"EF_BOTTOM_RICHMANKIM", effectBottomRichKim, "effect\\김서방돈.wav"},
 		{"EF_BOTTOM_ETERNALCHAOS", effectBottomChaos, "effect\\영원의 혼돈.wav"},
@@ -1734,11 +1719,9 @@ func TestRobrowserSpecialEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.
 		wav       string
 		duplicate int
 		delay     time.Duration
-		blueRaid  bool
 	}{
-		{"EF_TEIHIT1", effectTeiHit1, "effect/alpha_center.tga", "effect\\mon_폭기.wav", 12, 250 * time.Millisecond, false},
-		{"EF_TEIHIT1X", effectTeiHit1X, "effect/lens1.tga", "effect\\mon_아수라 패황권.wav", 24, 100 * time.Millisecond, false},
-		{"EF_TEIHIT3", effectTeiHit3, "effect/lens1.tga", "", 20, 100 * time.Millisecond, true},
+		{"EF_TEIHIT1", effectTeiHit1, "effect/alpha_center.tga", "effect\\mon_폭기.wav", 12, 250 * time.Millisecond},
+		{"EF_TEIHIT1X", effectTeiHit1X, "effect/lens1.tga", "effect\\mon_아수라 패황권.wav", 24, 100 * time.Millisecond},
 	} {
 		spec, ok := worldEffectSpecForID(tc.id)
 		if !ok || len(spec.components) != 1 || spec.duration != 550*time.Millisecond+tc.delay {
@@ -1747,11 +1730,6 @@ func TestRobrowserSpecialEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.
 		component := spec.components[0]
 		if component.kind != effectComponent3D || component.textureFile != tc.texture || component.duration != 550*time.Millisecond || component.delay != tc.delay || component.duplicate != tc.duplicate || component.alphaMax != 0.8 || !component.fadeIn || !component.fadeOut || component.posXEndRand != 40 || component.posYEndRand != 40 || component.sizeStartX != effectTableSize(10) || component.sizeStartY != effectTableSize(150) || component.sizeEndX != effectTableSize(10) || component.sizeEndY != effectTableSize(150) || component.blendMode != 2 || !component.blendAdditive || !component.attachedEntity || !component.overlay || !component.rotateToTarget || !component.rotateWithCamera {
 			t.Fatalf("%s component = %+v", tc.name, component)
-		}
-		if tc.blueRaid {
-			if component.color.R != 26 || component.color.G != 26 || component.color.B != 255 {
-				t.Fatalf("%s color = %+v", tc.name, component.color)
-			}
 		}
 		if tc.wav == "" {
 			if len(spec.sfx) != 0 {
@@ -1773,17 +1751,6 @@ func TestRobrowserSpecialEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.
 	}
 	if component := tanji.components[0]; component.kind != effectComponent3D || component.textureFile != "effect/blue_ivy.bmp" || component.duration != 150*time.Millisecond || component.alphaMax != 1 || component.blendMode != 2 || !component.blendAdditive || !component.toSrc || !component.rotateToTarget || !component.rotateWithCamera || component.angleStart != 90 || component.angleEnd != 90 || component.posZ != 1 || component.sizeStart != effectTableSize(50) || !component.attachedEntity {
 		t.Fatalf("EF_TANJI component = %+v", component)
-	}
-
-	coin, ok := worldEffectSpecForID(effectRogueCoin)
-	if !ok || len(coin.components) != 1 || coin.duration != 2950*time.Millisecond {
-		t.Fatalf("EF_RG_COIN spec = %+v ok=%t", coin, ok)
-	}
-	if len(coin.sfx) != 1 || coin.sfx[0] != "effect\\rog_steal coin.wav" {
-		t.Fatalf("EF_RG_COIN sfx = %v", coin.sfx)
-	}
-	if component := coin.components[0]; component.kind != effectComponent2D || component.textureFile != "effect/coin_a.bmp" || component.duration != 1500*time.Millisecond || component.duplicate != 30 || component.duplicateDelay != 50*time.Millisecond || component.alphaMax != 0.8 || !component.fadeOut || component.posXEndRand != 10 || component.posYEndRand != 10 || component.posZ != 2 || component.sizeStart != effectTableSize(20) || component.blendMode != 2 || !component.blendAdditive || !component.overlay || !component.rotateToTarget || !component.attachedEntity {
-		t.Fatalf("EF_RG_COIN component = %+v", component)
 	}
 
 	for _, tc := range []struct {
@@ -2900,11 +2867,11 @@ func TestRobrowserFunctionAndProjectileEffectsFiveFiftyToSixHundredMatchTableRow
 	}
 
 	throw, ok := worldEffectSpecForID(effectThrowItem6)
-	if !ok || throw.duration != 200*time.Millisecond || len(throw.components) != 1 {
+	if !ok || throw.duration != 200*db.EffectFrameDuration || len(throw.components) != 1 {
 		t.Fatalf("EF_THROWITEM6 spec = %+v ok=%t", throw, ok)
 	}
 	component := throw.components[0]
-	if component.kind != effectComponent3D || component.textureFile != "유저인터페이스/item/베넘나이프.bmp" || component.duration != 200*time.Millisecond || component.alphaMax != 1 || !component.fadeIn || !component.fadeOut || !component.toSrc || !component.rotateToTarget || !component.rotateWithCamera || !component.rotate || component.angleStart != 180 || component.angleEnd != 540 || component.posZ != 1 || component.sizeStart != effectTableSize(30) || component.sizeEnd != effectTableSize(30) || !component.attachedEntity {
+	if component.kind != effectComponentFUNC || component.funcAdapter != effectFuncVenomKnife || component.textureFile != "유저인터페이스/item/베넘나이프.bmp" || component.attachedEntity {
 		t.Fatalf("EF_THROWITEM6 component = %+v", component)
 	}
 }
@@ -2966,7 +2933,6 @@ func TestRobrowserSimpleEffectsSixHundredToSixFiftyMatchTableRows(t *testing.T) 
 		repeat    bool
 		direction bool
 	}{
-		{"EF_NPC_STOP2", effectNPCStop2, "cconfine", "effect\\ef_hit6.wav", true, true, false, false},
 		{"EF_FVOICE", effectFVoice, "fvoice", "amon_ra_die01.wav", false, false, false, false},
 		{"EF_WINK", effectWink, "wink", "", false, false, false, false},
 		{"EF_KIRIKAGE", effectKirikage, "그림자베기", "effect\\그림자베기.wav", true, false, false, false},
