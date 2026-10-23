@@ -10,8 +10,20 @@ import (
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
+	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/session"
 )
+
+func ApplyHallucination(screen *render.Frame, s *session.Session, now time.Time) {
+	if s == nil || s.NoEffects {
+		return
+	}
+	effect, ok := s.Statuses.Active[db.StatusIllusion]
+	if !ok || effect.HasDuration && !effect.ExpiresAt.IsZero() && !now.Before(effect.ExpiresAt) {
+		return
+	}
+	screen.SetHallucination(now.Sub(effect.StartedAt))
+}
 
 func ApplyLocalStatusEffectChange(s *session.Session, change network.StatusEffectChange, now time.Time) bool {
 	if s == nil || change.StatusID == 0xFFFF || change.StatusID == db.StatusOnPushCart {

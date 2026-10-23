@@ -1254,6 +1254,7 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 	}
 	width, height := screen.Bounds().Dx(), screen.Bounds().Dy()
 	now := time.Now()
+	battle.ApplyHallucination(screen, ctx.Session, now)
 	projection := m.sceneProjection(ctx, width, height, now)
 	fogConfig := ctx.Config.Fog
 	if ctx.Session != nil {

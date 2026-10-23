@@ -19,6 +19,7 @@ func TestRendererShadersParse(t *testing.T) {
 		"world":           worldShaderWGSL,
 		"world-billboard": worldBillboardShaderWGSL,
 		"bloom":           bloomShaderWGSL,
+		"hallucination":   hallucinationShaderWGSL,
 		"ssao":            ssaoShaderWGSL,
 		"ssao-depth":      worldShaderWGSL + ssaoDepthShaderWGSL,
 	} {
@@ -38,6 +39,7 @@ func TestRendererShadersGenerateSPIRV(t *testing.T) {
 		"world":           worldShaderWGSL,
 		"world-billboard": worldBillboardShaderWGSL,
 		"bloom":           bloomShaderWGSL,
+		"hallucination":   hallucinationShaderWGSL,
 		"ssao":            ssaoShaderWGSL,
 		"ssao-depth":      worldShaderWGSL + ssaoDepthShaderWGSL,
 	} {

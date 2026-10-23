@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 )
 
 // Frame is the per-frame screen target. It owns draw command buffers and
@@ -24,8 +25,10 @@ type Frame struct {
 	uiActorLabels   []UIActorLabelCommand
 	imageUploads    []*Image
 
-	clear  color.RGBA
-	camera Camera3D
+	clear              color.RGBA
+	camera             Camera3D
+	hallucination      bool
+	hallucinationPhase float32
 }
 
 func NewFrame(width, height int) *Frame {
@@ -64,6 +67,17 @@ func (f *Frame) BeginFrame() {
 	clear(f.imageUploads)
 	f.imageUploads = f.imageUploads[:0]
 	f.camera = Camera3D{}
+	f.hallucination = false
+	f.hallucinationPhase = 0
+}
+
+func (f *Frame) SetHallucination(elapsed time.Duration) {
+	if f == nil {
+		return
+	}
+	f.hallucination = true
+	// Seven degrees per original 60 Hz tick, independent of rendering FPS.
+	f.hallucinationPhase = float32(math.Mod(max(0, elapsed.Seconds())*420, 360) * math.Pi / 180)
 }
 
 // PrepareImage uploads a texture with this frame without drawing it. Callers
