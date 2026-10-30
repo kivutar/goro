@@ -1178,33 +1178,54 @@ func TestMageSpriteSequencesAndSightLifetime(t *testing.T) {
 }
 
 func TestSpiritSpherePacketsUpdateCountsAndLifecycle(t *testing.T) {
-	for _, actorID := range []uint32{2000000, 300} {
-		ctx := testutil.MonkEffectContext()
-		m := &WorldMode{}
-		for _, count := range []uint16{1, 3, 3, 5, 2, 0, 1} {
-			m.handleNetworkPacket(ctx, testutil.SpiritSpherePacket(network.PacketZCSpirits, actorID, count), time.Now())
-			actor, _, _ := scene.ActorForCombatID(ctx, actorID)
-			if actor.SpiritSpheres != count || !actor.HasSpiritSpheres {
-				t.Fatalf("actor %d count=%d, want %d", actorID, actor.SpiritSpheres, count)
+	for _, tc := range []struct {
+		job    int16
+		effect int
+	}{
+		{db.JobMonk, effects.Chookgi}, {db.JobMonkH, effects.Chookgi}, {db.JobMonkB, effects.Chookgi2},
+	} {
+		for _, actorID := range []uint32{2000000, 300} {
+			ctx := testutil.MonkEffectContext()
+			ctx.World.Player.Job, ctx.Session.Selected.Job = tc.job, tc.job
+			actor := ctx.World.Actors[300]
+			actor.Job = tc.job
+			ctx.World.Actors[300] = actor
+			m := &WorldMode{}
+			for _, count := range []uint16{1, 3, 3, 5, 2, 0, 1} {
+				m.handleNetworkPacket(ctx, testutil.SpiritSpherePacket(network.PacketZCSpirits, actorID, count), time.Now())
+				actor, _, _ := scene.ActorForCombatID(ctx, actorID)
+				if actor.SpiritSpheres != count || !actor.HasSpiritSpheres {
+					t.Fatalf("actor %d count=%d, want %d", actorID, actor.SpiritSpheres, count)
+				}
+				if m.effects().HasActive(tc.effect, actorID, time.Now().Add(time.Hour)) != (count > 0) {
+					t.Fatalf("sphere effect does not follow count %d: %+v", count, m.effects().Active)
+				}
+				if count > 0 && len(m.effects().Active) != 1 {
+					t.Fatal("sphere updates duplicate the effect")
+				}
+				if count > 0 {
+					e := m.effects().Active[0]
+					if e.HitCount != int(count) || e.SpiritSpheres == nil {
+						t.Fatalf("sphere animation did not follow count %d: %+v", count, e)
+					}
+					m.actors().SyncActorSpiritEffects(ctx, actorID)
+					if m.effects().Active[0].SpiritSpheres != e.SpiritSpheres {
+						t.Fatal("ordinary actor refresh restarted sphere animation")
+					}
+				}
 			}
-			if m.effects().HasActive(effects.Chookgi, actorID, time.Now().Add(time.Hour)) != (count > 0) {
-				t.Fatalf("sphere effect does not follow count %d: %+v", count, m.effects().Active)
+			m.applyActorStateChange(ctx, network.ActorStateChange{ID: actorID, EffectState: db.EffectStateCloak})
+			if m.effects().HasActive(tc.effect, actorID, time.Now()) {
+				t.Fatal("spheres reveal a cloaked actor")
 			}
-			if count > 0 && len(m.effects().Active) != 1 {
-				t.Fatal("sphere updates duplicate the effect")
+			m.applyActorStateChange(ctx, network.ActorStateChange{ID: actorID})
+			if !m.effects().HasActive(tc.effect, actorID, time.Now()) {
+				t.Fatal("spheres did not return on reveal")
 			}
-		}
-		m.applyActorStateChange(ctx, network.ActorStateChange{ID: actorID, EffectState: db.EffectStateCloak})
-		if m.effects().HasActive(effects.Chookgi, actorID, time.Now()) {
-			t.Fatal("spheres reveal a cloaked actor")
-		}
-		m.applyActorStateChange(ctx, network.ActorStateChange{ID: actorID})
-		if !m.effects().HasActive(effects.Chookgi, actorID, time.Now()) {
-			t.Fatal("spheres did not return on reveal")
-		}
-		m.applyActorVanish(ctx, network.ActorVanish{ID: actorID})
-		if m.effects().HasActive(effects.Chookgi, actorID, time.Now()) {
-			t.Fatal("sphere effect survived actor removal")
+			m.applyActorVanish(ctx, network.ActorVanish{ID: actorID})
+			if m.effects().HasActive(tc.effect, actorID, time.Now()) {
+				t.Fatal("sphere effect survived actor removal")
+			}
 		}
 	}
 }

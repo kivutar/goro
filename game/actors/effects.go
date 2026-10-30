@@ -153,13 +153,13 @@ func (m *System) SyncActorSpiritEffects(ctx client.Context, actorID uint32) {
 	case db.JobGunslinger, db.JobGunslingerB:
 		sphereEffect = effects.Chookgi3
 	}
-	if sphereEffect == effects.Chookgi3 && visible && actor.SpiritSpheres > 0 {
+	if visible && actor.SpiritSpheres > 0 {
 		for i := range m.bindings.Effects.Active {
 			effect := &m.bindings.Effects.Active[i]
-			if effect.EffectID == effects.Chookgi3 && effect.ActorID == actorID && effect.HitCount != min(int(actor.SpiritSpheres), 10) {
+			if effect.EffectID == sphereEffect && effect.ActorID == actorID && effect.HitCount != min(int(actor.SpiritSpheres), 10) {
 				effect.HitCount = min(int(actor.SpiritSpheres), 10)
 				effect.Starts = time.Now()
-				effect.GunslingerCoins = effects.NewGunslingerCoins(*effect)
+				effect.SpiritSpheres = effects.NewSpiritSpheres(*effect)
 			}
 		}
 	}

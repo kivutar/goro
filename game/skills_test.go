@@ -4681,16 +4681,16 @@ func TestGunslingerGroundAndCoinLifetime(t *testing.T) {
 			}
 			continue
 		}
-		if len(m.effects().Active) != 1 || m.effects().Active[0].EffectID != effects.Chookgi3 || m.effects().Active[0].HitCount != int(count) || m.effects().Active[0].GunslingerCoins == nil {
+		if len(m.effects().Active) != 1 || m.effects().Active[0].EffectID != effects.Chookgi3 || m.effects().Active[0].HitCount != int(count) || m.effects().Active[0].SpiritSpheres == nil {
 			t.Fatalf("count %d: %+v", count, m.effects().Active)
 		}
 		e := m.effects().Active[0]
-		p := e.GunslingerCoins
+		p := e.SpiritSpheres
 		m.actors().SyncActorSpiritEffects(ctx, 2000000)
-		if m.effects().Active[0].GunslingerCoins != p {
+		if m.effects().Active[0].SpiritSpheres != p {
 			t.Fatal("unchanged count restarted coins")
 		}
-		stepped, jumped := effects.NewGunslingerCoins(e), effects.NewGunslingerCoins(e)
+		stepped, jumped := effects.NewSpiritSpheres(e), effects.NewSpiritSpheres(e)
 		for tick := 0; tick < 100; tick++ {
 			stepped.Advance(e, e.Starts.Add(time.Duration(tick)*db.EffectFrameDuration))
 		}

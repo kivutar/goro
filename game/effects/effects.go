@@ -809,7 +809,7 @@ type Instance struct {
 	ShieldChain                          *shieldChainFlight
 	PressureLanded                       bool
 	NinjaWind                            *NinjaWind
-	GunslingerCoins                      *gunslingerCoins
+	SpiritSpheres                        *spiritSpheres
 	NinjaPetals                          *NinjaPetals
 	Esma                                 *esmaProjectile
 	BuffParticles                        *risingBuffParticles
@@ -1145,12 +1145,12 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 		effect.ActorOrigin = EffectWorldAnchor(ctx, effect, starts)
 		effect.HasActorTransform = true
 	}
-	if effectID == Chookgi3 {
+	if effectID == Chookgi || effectID == Chookgi2 || effectID == Chookgi3 || effectID == ChookgiN {
 		effect.HitCount = 5
-		if actor, ok, _ := scene.ActorForCombatID(ctx, actorID); ok {
+		if actor, ok, _ := scene.ActorForCombatID(ctx, actorID); ok && actor.HasSpiritSpheres {
 			effect.HitCount = min(int(actor.SpiritSpheres), 10)
 		}
-		effect.GunslingerCoins = NewGunslingerCoins(effect)
+		effect.SpiritSpheres = NewSpiritSpheres(effect)
 	}
 	if effectID == FVoice || effectID == Wink {
 		m.initDirectedSpriteEffect(ctx, &effect)
