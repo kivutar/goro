@@ -34,7 +34,7 @@ export GOCACHE=${GOCACHE:-/tmp/goro-go-cache}
 go mod download github.com/gogpu/gogpu github.com/ebitengine/oto/v3
 GOGPU_DIR=$(go list -m -f '{{.Dir}}' github.com/gogpu/gogpu)
 GOGPU_VERSION=$(go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' github.com/gogpu/gogpu)
-EXPECTED_GOGPU_VERSION=v0.44.4-0.20261013062404-8f41e35a7382
+EXPECTED_GOGPU_VERSION=v0.44.4-0.20261030145522-48beb7654243
 if [[ "$GOGPU_VERSION" != "$EXPECTED_GOGPU_VERSION" ]]; then
     echo "The Android platform overlay needs review for GoGPU $GOGPU_VERSION (expected $EXPECTED_GOGPU_VERSION)." >&2; exit 1
 fi
