@@ -8,7 +8,6 @@ import (
 	"image/png"
 	"math"
 	"os"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -403,11 +402,6 @@ func Run(game Game, cfg config.WindowConfig, renderCfg config.RenderConfig) erro
 		// events are processed afterwards. X/Alt+F4 must drain UI redraws
 		// before GoGPU destroys that window, earlier than App.OnClose.
 		uiWindow.guardClose(gg.PrimaryWindow())
-		// GoGPU v0.54.0 ignores Config.Fullscreen when creating a Windows
-		// window. Apply it once the native window exists.
-		if runtime.GOOS == "windows" && cfg.Fullscreen {
-			gg.SetFullscreen(true)
-		}
 	})
 	gg.OnResize(func(width, height int) {
 		if width <= 0 || height <= 0 {
