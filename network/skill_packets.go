@@ -408,7 +408,7 @@ func ParseWarpPointList(packet Packet) (WarpPointList, bool, error) {
 	}
 	names := make([]string, 0, (packetLen-namesOffset)/16)
 	for offset := namesOffset; offset+16 <= packetLen; offset += 16 {
-		name := fixedString(packet.Data[offset : offset+16])
+		name := normalizeMapName(fixedString(packet.Data[offset : offset+16]))
 		if name == "" {
 			continue
 		}

@@ -221,21 +221,38 @@ func TestParseRememberWarpPointAck(t *testing.T) {
 }
 
 func TestParseWarpPointList(t *testing.T) {
-	data := make([]byte, 68)
-	binary.LittleEndian.PutUint16(data[0:2], 0x011C)
-	binary.LittleEndian.PutUint16(data[2:4], 26)
-	copy(data[4:20], []byte("Random"))
-	copy(data[20:36], []byte("prontera"))
+	for _, tc := range []struct {
+		name      string
+		packetID  uint16
+		extension string
+	}{
+		{"classic", 0x011C, ""},
+		{"classic with extensions", 0x011C, ".gat"},
+		{"variable", 0x0ABE, ""},
+		{"variable with extensions", 0x0ABE, ".gat"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := make([]byte, 68)
+			skillOffset := 2
+			if tc.packetID == 0x0ABE {
+				data = make([]byte, 38)
+				binary.LittleEndian.PutUint16(data[2:4], uint16(len(data)))
+				skillOffset = 4
+			}
+			binary.LittleEndian.PutUint16(data[0:2], tc.packetID)
+			binary.LittleEndian.PutUint16(data[skillOffset:skillOffset+2], 26)
+			namesOffset := skillOffset + 2
+			copy(data[namesOffset:namesOffset+16], "Random"+tc.extension)
+			copy(data[namesOffset+16:namesOffset+32], "prontera"+tc.extension)
 
-	list, ok, err := ParseWarpPointList(Packet{ID: 0x011C, Data: data})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Fatal("warp point list not parsed")
-	}
-	if list.SkillID != 26 || len(list.MapNames) != 2 || list.MapNames[0] != "Random" || list.MapNames[1] != "prontera" {
-		t.Fatalf("warp point list = %+v", list)
+			list, ok, err := ParseWarpPointList(Packet{ID: tc.packetID, Data: data})
+			if err != nil || !ok {
+				t.Fatalf("parse warp list: ok=%t err=%v", ok, err)
+			}
+			if list.SkillID != 26 || len(list.MapNames) != 2 || list.MapNames[0] != "Random" || list.MapNames[1] != "prontera" {
+				t.Fatalf("warp point list = %+v", list)
+			}
+		})
 	}
 }
 

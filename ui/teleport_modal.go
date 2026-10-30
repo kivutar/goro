@@ -36,7 +36,7 @@ const (
 
 type TeleportModal struct {
 	Window
-	skill    session.Skill
+	skillID  uint16
 	mapNames []string
 	status   string
 	scrollY  state.Signal[float32]
@@ -50,8 +50,8 @@ type teleportDestination struct {
 	enabled bool
 }
 
-func (m *TeleportModal) OpenWarpPointList(list network.WarpPointList, skill session.Skill) {
-	m.skill = skill
+func (m *TeleportModal) OpenWarpPointList(list network.WarpPointList) {
+	m.skillID = list.SkillID
 	m.mapNames = append(m.mapNames[:0], list.MapNames...)
 	m.status = ""
 	m.row = initialTeleportRow(m.destinations())
@@ -67,12 +67,9 @@ func (m *TeleportModal) Reset() {
 	*m = TeleportModal{}
 }
 
-func TeleportWarpListBypassesModal(skill session.Skill, list network.WarpPointList) bool {
+func TeleportWarpListBypassesModal(list network.WarpPointList) bool {
 	if list.SkillID != teleportSkillID {
 		return false
-	}
-	if IsLevelOneTeleportSkill(skill) {
-		return true
 	}
 	for _, name := range list.MapNames {
 		if name != "" && name != teleportRandomMap {
@@ -106,7 +103,7 @@ func (m *TeleportModal) Update(ctx Context) bool {
 }
 
 func (m *TeleportModal) cancel(ctx Context) {
-	if m.skill.ID == warpPortalSkillID && ctx.Network != nil {
+	if m.skillID == warpPortalSkillID && ctx.Network != nil {
 		if err := ctx.Network.SendSelectWarpPoint(uint16(warpPortalSkillID), warpPointCancelMap); err != nil {
 			m.status = fmt.Sprintf("Cancel failed: %v", err)
 			m.refresh(ctx)
@@ -123,8 +120,8 @@ func (m *TeleportModal) selectWarpPoint(ctx Context, mapName string) {
 		return
 	}
 	skillID := uint16(teleportSkillID)
-	if m.skill.ID != 0 {
-		skillID = m.skill.ID
+	if m.skillID != 0 {
+		skillID = m.skillID
 	}
 	if err := ctx.Network.SendSelectWarpPoint(skillID, mapName); err != nil {
 		m.status = fmt.Sprintf("Teleport failed: %v", err)
@@ -146,28 +143,16 @@ func (m TeleportModal) savePointEnabled() bool {
 	return m.savePointMapName() != ""
 }
 
-func (m TeleportModal) randomMapName() string {
-	for _, name := range m.mapNames {
-		if name == teleportRandomMap {
-			return name
-		}
-	}
-	return teleportRandomMap
-}
-
 func (m TeleportModal) savePointMapName() string {
-	if m.skill.ID == teleportSkillID && m.skill.Level >= 2 && m.hasSavePointChoice() {
+	if m.hasSavePointChoice() {
 		return teleportSavePointMap
 	}
 	return ""
 }
 
 func (m TeleportModal) hasSavePointChoice() bool {
-	if m.skill.ID != teleportSkillID || m.skill.Level < 2 {
+	if m.skillID != teleportSkillID {
 		return false
-	}
-	if len(m.mapNames) == 0 {
-		return true
 	}
 	for _, name := range m.mapNames {
 		if name != "" && name != teleportRandomMap {
@@ -189,7 +174,7 @@ func warpPortalDestinationLabel(mapName string, index int) string {
 }
 
 func (m TeleportModal) Title() string {
-	if m.skill.ID == warpPortalSkillID {
+	if m.skillID == warpPortalSkillID {
 		return "Warp Portal"
 	}
 	return "Teleport"
@@ -289,7 +274,7 @@ func (m *TeleportModal) destinationList() widget.Widget {
 }
 
 func (m *TeleportModal) destinations() []teleportDestination {
-	if m.skill.ID == warpPortalSkillID {
+	if m.skillID == warpPortalSkillID {
 		destinations := make([]teleportDestination, 0, len(m.mapNames))
 		for i, name := range m.mapNames {
 			if name == "" {
@@ -304,7 +289,7 @@ func (m *TeleportModal) destinations() []teleportDestination {
 		return destinations
 	}
 	return []teleportDestination{
-		{label: "Random", mapName: m.randomMapName(), enabled: true},
+		{label: "Random", mapName: teleportRandomMap, enabled: true},
 		{label: "Save Point", mapName: m.savePointMapName(), enabled: m.savePointEnabled()},
 	}
 }

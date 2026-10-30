@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/kivutar/goro/network"
-	"github.com/kivutar/goro/session"
 )
 
 func TestTeleportModalSelectsFirstEnabledDestination(t *testing.T) {
@@ -13,7 +12,7 @@ func TestTeleportModalSelectsFirstEnabledDestination(t *testing.T) {
 	modal.OpenWarpPointList(network.WarpPointList{
 		SkillID:  teleportSkillID,
 		MapNames: []string{teleportRandomMap},
-	}, session.Skill{ID: teleportSkillID, Level: 2})
+	})
 
 	if modal.row != 0 {
 		t.Fatalf("selected row = %d, want Random", modal.row)
@@ -33,7 +32,7 @@ func TestTeleportModalWarpPortalDestinationsSkipEmptySlots(t *testing.T) {
 	modal.OpenWarpPointList(network.WarpPointList{
 		SkillID:  warpPortalSkillID,
 		MapNames: []string{"prontera", "", "geffen"},
-	}, session.Skill{ID: warpPortalSkillID, Level: 1})
+	})
 
 	destinations := modal.destinations()
 	if len(destinations) != 2 {
@@ -47,5 +46,29 @@ func TestTeleportModalWarpPortalDestinationsSkipEmptySlots(t *testing.T) {
 	}
 	if modal.row != 0 {
 		t.Fatalf("selected row = %d, want first warp destination", modal.row)
+	}
+}
+
+func TestTeleportModalSavePointFollowsDestinations(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		maps    []string
+		enabled bool
+	}{
+		{"empty", nil, false},
+		{"random only", []string{"Random"}, false},
+		{"save point", []string{"Random", "prontera"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var modal TeleportModal
+			modal.OpenWarpPointList(network.WarpPointList{SkillID: teleportSkillID, MapNames: tc.maps})
+			destination := modal.destinations()[1]
+			if destination.enabled != tc.enabled {
+				t.Fatalf("save point enabled=%t, want %t", destination.enabled, tc.enabled)
+			}
+			if tc.enabled && destination.mapName != "SavePoint" {
+				t.Fatalf("save point selection=%q, want SavePoint", destination.mapName)
+			}
+		})
 	}
 }

@@ -372,7 +372,9 @@ func TestTeleportWaitsForMapChange(t *testing.T) {
 		cancel bool
 	}{
 		{name: "level one", level: 1, maps: []string{"Random"}},
+		{name: "level one with map extension", level: 1, maps: []string{"Random.gat"}},
 		{name: "level two random", level: 2, maps: []string{"Random", "prontera"}},
+		{name: "level two with map extensions", level: 2, maps: []string{"Random.gat", "prontera.gat"}},
 		{name: "cancel level two", level: 2, maps: []string{"Random", "prontera"}, cancel: true},
 		{name: "server skips menu", level: 1},
 	} {
@@ -387,6 +389,7 @@ func TestTeleportWaitsForMapChange(t *testing.T) {
 				World:   world,
 				Input:   input.NewState(),
 			}
+			ctx.Session.Skills.List = []session.Skill{{ID: db.SkillALTeleport, Level: 2}}
 			skill := session.Skill{ID: db.SkillALTeleport, Type: skills.SkillTargetSelf, Level: tc.level}
 			if err := mode.skills().Use(ctx, skill, "test"); err != nil {
 				t.Fatal(err)
@@ -397,7 +400,20 @@ func TestTeleportWaitsForMapChange(t *testing.T) {
 			}
 			readBotTestPackets(t, serverConn, want)
 			if tc.maps != nil {
-				mode.skills().ApplyWarpPointList(ctx, network.WarpPointList{SkillID: skill.ID, MapNames: tc.maps})
+				data := make([]byte, 68)
+				binary.LittleEndian.PutUint16(data[0:2], 0x011C)
+				binary.LittleEndian.PutUint16(data[2:4], skill.ID)
+				for i, name := range tc.maps {
+					copy(data[4+i*16:4+(i+1)*16], name)
+				}
+				list, ok, err := network.ParseWarpPointList(network.Packet{ID: 0x011C, Data: data})
+				if err != nil || !ok {
+					t.Fatalf("parse warp list: ok=%t err=%v", ok, err)
+				}
+				mode.skills().ApplyWarpPointList(ctx, list)
+				if tc.level == 1 && mode.ui.teleportModal.IsOpen() {
+					t.Fatal("level-one Teleport opened the destination dialog with level two learned")
+				}
 				if tc.level == 2 {
 					if !mode.ui.teleportModal.IsOpen() {
 						t.Fatal("level-two Teleport did not open its destination dialog")

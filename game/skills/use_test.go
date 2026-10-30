@@ -133,12 +133,10 @@ func TestTargetSkillRangeUsesMovingActorCurrentCell(t *testing.T) {
 }
 
 func TestTeleportModalRules(t *testing.T) {
-	lv1 := session.Skill{ID: 26, Level: 1, Type: SkillTargetEnemy, Range: 9}
-	lv2 := session.Skill{ID: 26, Level: 2, Type: SkillTargetEnemy, Range: 9}
-	if !gameui.TeleportWarpListBypassesModal(lv1, network.WarpPointList{SkillID: 26, MapNames: []string{"Random"}}) {
+	if !gameui.TeleportWarpListBypassesModal(network.WarpPointList{SkillID: 26, MapNames: []string{"Random"}}) {
 		t.Fatal("Teleport level 1 should bypass the modal")
 	}
-	if gameui.TeleportWarpListBypassesModal(lv2, network.WarpPointList{SkillID: 26, MapNames: []string{"Random", "prontera"}}) {
+	if gameui.TeleportWarpListBypassesModal(network.WarpPointList{SkillID: 26, MapNames: []string{"Random", "prontera"}}) {
 		t.Fatal("Teleport level 2 with a save point should show the modal")
 	}
 }

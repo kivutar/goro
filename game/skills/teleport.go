@@ -4,7 +4,6 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/network"
-	"github.com/kivutar/goro/session"
 	gameui "github.com/kivutar/goro/ui"
 )
 
@@ -13,18 +12,11 @@ func (m *System) ApplyWarpPointList(ctx client.Context, list network.WarpPointLi
 		glog.Debugf("warp point list ignored skill=%d maps=%v", list.SkillID, list.MapNames)
 		return
 	}
-	skill, ok := SkillByID(ctx.Session, list.SkillID)
-	if !ok {
-		skill = session.Skill{ID: list.SkillID, Level: 1}
-		if len(list.MapNames) > 1 {
-			skill.Level = 2
-		}
-	}
-	if gameui.TeleportWarpListBypassesModal(skill, list) {
+	if gameui.TeleportWarpListBypassesModal(list) {
 		m.autoSelectTeleportRandom(ctx, list)
 		return
 	}
-	m.bindings.TeleportModal.OpenWarpPointList(list, skill)
+	m.bindings.TeleportModal.OpenWarpPointList(list)
 	glog.Debugf("warp point destination list skill=%d maps=%v", list.SkillID, list.MapNames)
 }
 
@@ -43,17 +35,10 @@ func (m *System) ApplyRememberWarpPointAck(_ client.Context, ack network.Remembe
 }
 
 func (m *System) autoSelectTeleportRandom(ctx client.Context, list network.WarpPointList) {
-	mapName := gameui.TeleportRandomMap
-	for _, name := range list.MapNames {
-		if name == gameui.TeleportRandomMap {
-			mapName = name
-			break
-		}
-	}
 	if ctx.Network == nil {
 		return
 	}
-	if err := ctx.Network.SendSelectWarpPoint(list.SkillID, mapName); err != nil {
+	if err := ctx.Network.SendSelectWarpPoint(list.SkillID, gameui.TeleportRandomMap); err != nil {
 		return
 	}
 	// Like the destination dialog, only select here. ZC_CHANGEMAP drives
