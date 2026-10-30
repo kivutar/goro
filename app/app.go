@@ -144,6 +144,11 @@ func (g *Game) HandleGamepadInput(dt float64) input.GamepadCapture {
 }
 
 func (g *Game) HandleKeyPress(code input.KeyCode) {
+	if code == gpucontext.KeyEnter && g.input.Pressed(input.KeyAlt) {
+		g.runtime.SetFullscreen(!g.runtime.Fullscreen())
+		g.input.ConsumeKeyCodePress(code)
+		return
+	}
 	if g.modes != nil {
 		g.modes.HandleKeyPress(g.modeContext(), code)
 	}

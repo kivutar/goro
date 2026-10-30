@@ -113,7 +113,7 @@ func (w *SettingsWindow) tabContent(ctx client.Context) widget.Widget {
 func (w *SettingsWindow) displayTree(ctx client.Context) widget.Widget {
 	return primitives.Box(
 		rotheme.Checkbox(
-			checkbox.Checked(settingsRuntimeFullscreen(ctx)),
+			checkbox.CheckedFn(func() bool { return settingsRuntimeFullscreen(ctx) }),
 			checkbox.LabelOpt("Fullscreen"),
 			checkbox.OnToggle(func(enabled bool) {
 				if ctx.Runtime != nil {
