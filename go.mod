@@ -66,4 +66,4 @@ replace github.com/gogpu/gg => github.com/kivutar/gg v0.52.4-0.20261005130553-22
 
 replace github.com/gogpu/ui => github.com/kivutar/ui v0.1.55-0.20261025114315-0caf9ae78f4e
 
-replace github.com/gogpu/wgpu => github.com/kivutar/wgpu v0.34.4-0.20261009223552-9757f595a6f7
+replace github.com/gogpu/wgpu => github.com/kivutar/wgpu v0.34.4-0.20261030134930-d82232ecde21
