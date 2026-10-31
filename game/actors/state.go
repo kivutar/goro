@@ -177,6 +177,10 @@ func (m *System) ActorBodyColorTint(actorID uint32, tint color.RGBA, now time.Ti
 			continue
 		}
 		switch effect.EffectID {
+		case effects.Gumgang:
+			if effect.Persistent {
+				tint = effects.FuryBodyTint(base, effect, now)
+			}
 		case effects.Portal4:
 			if effects.SniperBodyFlashActive(effect.EffectID, int(now.Sub(effect.Starts)/db.EffectFrameDuration)) {
 				tint = scene.MultiplyTint(base, 220.0/255, 250.0/255, 220.0/255, 1)

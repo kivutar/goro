@@ -1354,66 +1354,6 @@ func TestGroundTextureEffectHoverMovesBetweenZRange(t *testing.T) {
 
 func TestRobrowserSpecialEffectsTwoFiftyToThreeHundredMatchTableRows(t *testing.T) {
 
-	absorb, ok := Lookup(AbsorbSpirits)
-	if !ok || len(absorb.Components) != 6 || absorb.Duration != 1890*time.Millisecond {
-		t.Fatalf("EF_ABSORBSPIRITS spec = %+v ok=%t", absorb, ok)
-	}
-	if len(absorb.Sfx) != 1 || absorb.Sfx[0] != "effect\\흡기.wav" {
-		t.Fatalf("EF_ABSORBSPIRITS sfx = %v", absorb.Sfx)
-	}
-	first, second, third := absorb.Components[0], absorb.Components[1], absorb.Components[2]
-	for i, component := range []Component{first, second, third} {
-		if component.Kind != ComponentCylinder || component.TextureName != "ring_blue" || component.Duration != 1500*time.Millisecond || component.AlphaMax != 0.3 || component.Animation != 1 || component.BlendMode != 2 || !component.BlendAdditive || !component.Fade || !component.Rotate || !component.AttachedEntity {
-			t.Fatalf("EF_ABSORBSPIRITS cylinder %d = %+v", i, component)
-		}
-		if component.Color.R != 77 || component.Color.G != 77 || component.Color.B != 255 {
-			t.Fatalf("EF_ABSORBSPIRITS cylinder %d color = %+v", i, component.Color)
-		}
-	}
-	if first.BottomSize != 1.1 || first.TopSize != 1.1 || first.Height != 15 || second.BottomSize != 1 || second.TopSize != 1 || second.Height != 13 || third.BottomSize != 1.1 || third.TopSize != 3 || third.Height != 2 {
-		t.Fatalf("EF_ABSORBSPIRITS cylinder sizes = %+v %+v %+v", first, second, third)
-	}
-	sparkA, sparkB, sparkC := absorb.Components[3], absorb.Components[4], absorb.Components[5]
-	if sparkA.Kind != Component3D || sparkA.TextureFile != "effect/pok3.tga" || sparkA.Duration != 1500*time.Millisecond || sparkA.Duplicate != 4 || sparkA.DuplicateDelay != 10*time.Millisecond || sparkA.PosXRand != 1.2 || sparkA.PosYRand != 1.2 || sparkA.PosZEndRand != 1 || sparkA.PosZEndMiddle != 8 || !sparkA.Sparkling || sparkA.SparkNumber != 2 {
-		t.Fatalf("EF_ABSORBSPIRITS first particle = %+v", sparkA)
-	}
-	if sparkB.Duration != 1300*time.Millisecond || sparkB.Delay != 400*time.Millisecond || sparkB.Duplicate != 20 || sparkB.PosXRand != 1.5 || sparkB.PosYRand != 1.5 || sparkB.PosZEndRand != 3 || sparkB.PosZEndMiddle != 6 || !sparkB.Sparkling || sparkB.SparkNumber != 2 {
-		t.Fatalf("EF_ABSORBSPIRITS second particle = %+v", sparkB)
-	}
-	if sparkC.Duration != 1100*time.Millisecond || sparkC.Delay != 200*time.Millisecond || sparkC.Duplicate != 10 || sparkC.DuplicateDelay != 50*time.Millisecond || sparkC.PosXRand != 1 || sparkC.PosYRand != 1 || sparkC.PosZEnd != 6 || sparkC.PosZStartRand != 1 || sparkC.Sparkling {
-		t.Fatalf("EF_ABSORBSPIRITS third particle = %+v", sparkC)
-	}
-
-	for _, tc := range []struct {
-		name     string
-		id       int
-		duration time.Duration
-		alpha    float64
-		bottom   float64
-		top      float64
-		wav      string
-	}{
-		{"EF_GUMGANG2", Gumgang2, 1500 * time.Millisecond, 0.5, 2, 5, ""},
-	} {
-		spec, ok := Lookup(tc.id)
-		if !ok || len(spec.Components) != 1 || spec.Duration != tc.duration+300*time.Millisecond {
-			t.Fatalf("%s spec = %+v ok=%t", tc.name, spec, ok)
-		}
-		component := spec.Components[0]
-		if component.Kind != ComponentCylinder || component.TextureName != "ring_yellow" || component.Duration != tc.duration || component.AlphaMax != tc.alpha || component.Animation != 4 || component.BlendMode != 8 || component.BlendAdditive || component.Duplicate != 4 || component.DuplicateDelay != 100*time.Millisecond || component.BottomSize != tc.bottom || component.TopSize != tc.top || component.Height != 2 || !component.Fade || !component.Rotate || !component.AttachedEntity {
-			t.Fatalf("%s component = %+v", tc.name, component)
-		}
-		if tc.wav == "" {
-			if len(spec.Sfx) != 0 {
-				t.Fatalf("%s sfx = %v, want none", tc.name, spec.Sfx)
-			}
-			continue
-		}
-		if len(spec.Sfx) != 1 || spec.Sfx[0] != tc.wav {
-			t.Fatalf("%s sfx = %v, want %q", tc.name, spec.Sfx, tc.wav)
-		}
-	}
-
 	for _, tc := range []struct {
 		name     string
 		id       int

@@ -271,12 +271,16 @@ func LockOnTargetTint(starts, now time.Time) color.RGBA {
 	return color.RGBA{R: 255, G: gb, B: gb, A: 255}
 }
 
-// VOLCANO / PrimGI2: four expanding rings at the selected ground cell.
+// VOLCANO / VOLCANO2: four expanding bands share the PrimGI2 animation.
 func (m *System) drawGroundCastEffect(screen *render.Frame, ctx client.Context, component Component, effect Instance, x, y, z float64, now time.Time) {
 	n := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
 	heightScale, initialRise, fade := 5.0, 80, 2
 	if effect.EffectID == Ganbantein {
 		heightScale, initialRise, fade = 3, 70, 8
+	}
+	expansion, rotation, minRise := .3, 5, 40
+	if effect.EffectID == Gumgang2 || effect.EffectID == db.SkillEffectSteelBodyRing {
+		expansion, rotation, minRise = .1, 3, 30
 	}
 	fadeIn := 20
 	if effect.EffectID == Gumgang3 {
@@ -290,13 +294,13 @@ func (m *System) drawGroundCastEffect(screen *render.Frame, ctx client.Context, 
 	if texture == nil {
 		return
 	}
-	rise := scene.DegreesToRadians(float64(max(40, initialRise-n)))
+	rise := scene.DegreesToRadians(float64(max(minRise, initialRise-n)))
 	origin := scene.Point3{X: x, Y: z, Z: y}
 	vertices, indices := []render.Vertex3D{}, []uint16{}
 	for i := 0; i < 4; i++ {
 		height := heightScale * math.Sin(rise) * (1 + .15*math.Sin(scene.DegreesToRadians(float64(n+i*90))))
-		appendEffectBand(&vertices, &indices, texture, origin, (float64(i+1)+.3*float64(n))/5,
-			scene.DegreesToRadians(float64(i*90+n*5)), 2*math.Pi, 1/math.Tan(rise), 20,
+		appendEffectBand(&vertices, &indices, texture, origin, (float64(i+1)+expansion*float64(n))/5,
+			scene.DegreesToRadians(float64(i*90+n*rotation)), 2*math.Pi, 1/math.Tan(rise), 20,
 			color.RGBA{255, 255, 255, uint8(alpha)},
 			func(j int) float64 { return height * math.Sin(scene.DegreesToRadians(float64(j*9))) })
 	}

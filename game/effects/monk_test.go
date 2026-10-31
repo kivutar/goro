@@ -26,6 +26,9 @@ func TestMonkAttackBlendModes(t *testing.T) {
 		{TeiHit1X, 45, []render.Blend{render.BlendLighter}},
 		{HitLine, 30, []render.Blend{render.BlendLighter}},
 		{TripleAttack, 10, []render.Blend{render.BlendSourceOver, render.BlendLighter}},
+		{AbsorbSpirits, 30, []render.Blend{render.BlendLighter}},
+		{Gumgang2, 30, []render.Blend{render.BlendSourceOver}},
+		{db.SkillEffectSteelBodyRing, 30, []render.Blend{render.BlendSourceOver}},
 	} {
 		spec, _ := Lookup(tc.id)
 		m := &System{textures: map[string]*render.Image{
@@ -55,6 +58,7 @@ func TestMonkAttackEffectsRenderWithClientAssets(t *testing.T) {
 	for _, tc := range []struct{ id, tick int }{
 		{TeiHit1, 45}, {TeiHit1X, 45}, {TeiHit2, 49},
 		{TripleAttack, 10}, {HitLine, 30}, {Tanji, 24},
+		{AbsorbSpirits, 30}, {Gumgang2, 30}, {db.SkillEffectSteelBodyRing, 30},
 	} {
 		m := &System{}
 		if !m.AddBetween(ctx, tc.id, 300, 2000000, starts) {
@@ -210,6 +214,62 @@ func TestMonkParticleCounts(t *testing.T) {
 		}
 		if tc.id != BackStab && len(spec.Sfx) != 0 {
 			t.Fatalf("impact effect %d must not add a skill activation sound", tc.id)
+		}
+	}
+}
+
+func TestMonkBandsMatchOriginalPhases(t *testing.T) {
+	ctx := testutil.MonkEffectContext()
+	ctx.Resources = &res.Manager{}
+	start := time.Unix(100, 0)
+	projection := testutil.Projection(800, 600, 12.5, 20.5, 0)
+	for _, tc := range []struct {
+		id, tick, alpha int
+		radii           [4]float64
+	}{
+		{AbsorbSpirits, 14, 75, [4]float64{.92, 1, 1, 1.04}},
+		{AbsorbSpirits, 39, 73, [4]float64{.92, 1, 1, 1.04}},
+		{AbsorbSpirits, 77, 0, [4]float64{}},
+		{Gumgang2, 0, 20, [4]float64{.22, .42, .62, .82}},
+		{Gumgang2, 9, 200, [4]float64{.4, .6, .8, 1}},
+		{Gumgang3, 9, 100, [4]float64{.8, 1, 1.2, 1.4}},
+		{Gumgang2, 109, 0, [4]float64{}},
+		{db.SkillEffectSteelBodyRing, 9, 200, [4]float64{.4, .6, .8, 1}},
+	} {
+		spec, _ := Lookup(tc.id)
+		m := &System{textures: map[string]*render.Image{
+			"__effectfile_" + spec.Components[0].TextureFile + "|blackkey=true": render.NewImage(8, 8),
+		}}
+		ctx.World.Player.X = 10
+		m.AddAt(ctx, tc.id, 2000000, start)
+		// All four bands must follow the caster, including after movement.
+		ctx.World.Player.X = 15
+		origin := EffectWorldAnchor(ctx, m.Active[0], start)
+		frame := render.NewFrame(800, 600)
+		m.Draw(frame, ctx, projection, start.Add(time.Duration(tc.tick)*db.EffectFrameDuration), false)
+		commands := reflect.ValueOf(frame).Elem().FieldByName("worldCommands")
+		if tc.alpha == 0 {
+			if commands.Len() != 0 {
+				t.Fatalf("effect %d tick %d did not fade out", tc.id, tc.tick)
+			}
+			continue
+		}
+		if commands.Len() != 1 {
+			t.Fatalf("effect %d tick %d: draws=%d, want four bands in one draw", tc.id, tc.tick, commands.Len())
+		}
+		vertices := commands.Index(0).FieldByName("Vertices")
+		if vertices.Len() != 320 {
+			t.Fatalf("effect %d: vertices=%d, want four 20-segment bands", tc.id, vertices.Len())
+		}
+		for i, radius := range tc.radii {
+			v := vertices.Index(i*80 + 3) // bottom of the first segment
+			x, z := v.FieldByName("X").Float()-origin.X, v.FieldByName("Z").Float()-origin.Z
+			if math.Abs(math.Hypot(x, z)-radius) > 1e-5 || math.Abs(v.FieldByName("Y").Float()-origin.Y) > 1e-5 {
+				t.Fatalf("effect %d tick %d band %d: bottom is misplaced", tc.id, tc.tick, i)
+			}
+			if math.Abs(v.FieldByName("ColorA").Float()-float64(tc.alpha)/255) > 1e-6 {
+				t.Fatalf("effect %d tick %d: incorrect fade", tc.id, tc.tick)
+			}
 		}
 	}
 }

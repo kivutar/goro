@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -1192,6 +1193,7 @@ func TestSpiritSpherePacketsUpdateCountsAndLifecycle(t *testing.T) {
 			ctx.World.Actors[300] = actor
 			m := &WorldMode{}
 			for _, count := range []uint16{1, 3, 3, 5, 2, 0, 1} {
+				previous := append([]effects.Instance(nil), m.effects().Active...)
 				m.handleNetworkPacket(ctx, testutil.SpiritSpherePacket(network.PacketZCSpirits, actorID, count), time.Now())
 				actor, _, _ := scene.ActorForCombatID(ctx, actorID)
 				if actor.SpiritSpheres != count || !actor.HasSpiritSpheres {
@@ -1205,6 +1207,13 @@ func TestSpiritSpherePacketsUpdateCountsAndLifecycle(t *testing.T) {
 				}
 				if count > 0 {
 					e := m.effects().Active[0]
+					if len(previous) > 0 && previous[0].SpiritSpheres == e.SpiritSpheres {
+						t.Fatal("sphere notification did not restart the orbit")
+					}
+					m.handleNetworkPacket(ctx, testutil.SpiritSpherePacket(network.PacketZCSpirits2, actorID, count), time.Now())
+					if m.effects().Active[0].SpiritSpheres != e.SpiritSpheres {
+						t.Fatal("visibility notification restarted the orbit")
+					}
 					if e.HitCount != int(count) || e.SpiritSpheres == nil {
 						t.Fatalf("sphere animation did not follow count %d: %+v", count, e)
 					}
@@ -1316,6 +1325,81 @@ func TestMonkEffectsRenderWithOldROAssets(t *testing.T) {
 	}
 }
 
+func TestFuryRecastRestartsLightningWithoutDuplicatingIt(t *testing.T) {
+	ctx := testutil.MonkEffectContext()
+	m := &WorldMode{}
+	status := network.StatusEffectChange{StatusID: db.StatusExplosionspirits, ActorID: 150000, Active: true}
+	m.applyStatusEffectChange(ctx, status)
+	for i := 0; i < 2; i++ {
+		for j := range m.effects().Active {
+			m.effects().Active[j].Starts = time.Unix(100, 0)
+		}
+		m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{SourceID: 2000000, TargetID: 2000000, SkillID: db.SkillMOExplosionspirits, Result: 1})
+		m.applyStatusEffectChange(ctx, status)
+		count := 0
+		for _, effect := range m.effects().Active {
+			if effect.EffectID == effects.Gumgang {
+				count++
+				if !effect.Persistent || effect.Starts.Equal(time.Unix(100, 0)) {
+					t.Fatal("Fury did not restart its persistent lightning")
+				}
+			}
+		}
+		if count != 1 || len(m.scheduledSounds) != i+1 {
+			t.Fatal("Fury recast duplicated its lightning or sound")
+		}
+	}
+	status.Active = false
+	m.applyStatusEffectChange(ctx, status)
+	if m.effects().HasActive(effects.Gumgang, 2000000, time.Now()) {
+		t.Fatal("Fury lightning survived status removal")
+	}
+}
+
+func TestFuryBodyTintFollowsStatus(t *testing.T) {
+	ctx := testutil.MonkEffectContext()
+	m := &WorldMode{}
+	status := network.StatusEffectChange{StatusID: db.StatusExplosionspirits, ActorID: 300, Active: true}
+	m.applyStatusEffectChange(ctx, status)
+	start := time.Unix(100, 0)
+	m.effects().Active[0].Starts = start
+	base := color.RGBA{255, 255, 255, 173}
+	pink, white := color.RGBA{250, 200, 200, 173}, color.RGBA{250, 250, 250, 173}
+	seen := map[color.RGBA]bool{}
+	for tick := 0; tick < 420; tick++ {
+		now := start.Add(time.Duration(tick) * db.EffectFrameDuration)
+		got := m.actors().ActorBodyColorTint(300, base, now)
+		if got != pink && got != white {
+			t.Fatalf("Fury tint = %v, want pale red or white with unchanged alpha", got)
+		}
+		seen[got] = true
+		if m.actors().ActorBodyColorTint(300, base, now.Add(db.EffectFrameDuration/2)) != got {
+			t.Fatal("Fury flash changed within a simulation tick")
+		}
+		if got == pink {
+			frozen := actors.ActorStateTint(worldstate.Actor{BodyState: db.BodyStateFreeze})
+			if tinted := m.actors().ActorBodyColorTint(300, frozen, now); tinted != (color.RGBA{0, 80, 160, 255}) {
+				t.Fatalf("Fury lost the frozen body tint: %v", tinted)
+			}
+		}
+	}
+	if !seen[pink] || !seen[white] {
+		t.Fatal("Fury did not alternate between its pale red tint and white flashes")
+	}
+	if m.actors().ActorBodyColorTint(2000000, base, start) != base {
+		t.Fatal("Fury tinted another actor")
+	}
+	status.Active = false
+	m.applyStatusEffectChange(ctx, status)
+	if m.actors().ActorBodyColorTint(300, base, start) != base {
+		t.Fatal("Fury tint survived status removal")
+	}
+	m.effects().AddAt(ctx, effects.Gumgang, 300, start)
+	if m.actors().ActorBodyColorTint(300, base, start) != base {
+		t.Fatal("standalone lightning should not apply Fury's body tint")
+	}
+}
+
 func TestSteelBodyAuraPacketOrderAndLifetime(t *testing.T) {
 	for _, statusFirst := range []bool{true, false} {
 		ctx := testutil.MonkEffectContext()
@@ -1331,8 +1415,19 @@ func TestSteelBodyAuraPacketOrderAndLifetime(t *testing.T) {
 			status(true)
 		}
 		status(true)
-		if len(m.scheduledSounds) != 1 {
-			t.Fatalf("statusFirst=%t: duplicate activation sounds: %+v", statusFirst, m.scheduledSounds)
+		if len(m.scheduledSounds) != 2 {
+			t.Fatalf("statusFirst=%t: activation sounds = %+v, want impact and aura", statusFirst, m.scheduledSounds)
+		}
+		for _, path := range []string{"effect\\mon_맹룡과강.wav", "effect\\mon_금강불괴.wav"} {
+			count := 0
+			for _, sound := range m.scheduledSounds {
+				if slices.Contains(sound.paths, path) {
+					count++
+				}
+			}
+			if count != 1 {
+				t.Fatalf("statusFirst=%t: sound %q played %d times", statusFirst, path, count)
+			}
 		}
 		auras := 0
 		for _, effect := range m.effects().Active {

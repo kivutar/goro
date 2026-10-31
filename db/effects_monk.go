@@ -75,66 +75,9 @@ func chimtoEffectSpec() EffectSpec {
 }
 
 func absorbSpiritsEffectSpec() EffectSpec {
-	tint := color.RGBA{R: 77, G: 77, B: 255, A: 255}
-	return EffectSpec{
-		Duration: 1890 * time.Millisecond,
-		SFX:      []string{"effect\\흡기.wav"},
-		Components: []EffectComponent{
-			robrCylinderBlendComponent("ring_blue", tint, 1500*time.Millisecond, 0.3, 1, 1.1, 1.1, 15, true, true, true, 2),
-			robrCylinderBlendComponent("ring_blue", tint, 1500*time.Millisecond, 0.3, 1, 1, 1, 13, true, true, true, 2),
-			robrCylinderBlendComponent("ring_blue", tint, 1500*time.Millisecond, 0.3, 1, 1.1, 3, 2, true, true, true, 2),
-			absorbSpiritParticle(tint, 1500*time.Millisecond, 0, 10*time.Millisecond, 4, 1.2, 1.2, 0, 0, 0, 1, 8, true),
-			absorbSpiritParticle(tint, 1300*time.Millisecond, 400*time.Millisecond, 10*time.Millisecond, 20, 1.5, 1.5, 0, 0, 0, 3, 6, true),
-			absorbSpiritParticle(tint, 1100*time.Millisecond, 200*time.Millisecond, 50*time.Millisecond, 10, 1, 1, 1, 0, 6, 0, 0, false),
-		},
-	}
-}
-
-func absorbSpiritParticle(tint color.RGBA, duration, delay, duplicateDelay time.Duration, duplicate int, posXRand, posYRand, posZStartRand, posZStartMiddle, posZEnd, posZEndRand, posZEndMiddle float64, sparkling bool) EffectComponent {
-	component := EffectComponent{
-		Kind:             EffectComponent3D,
-		TextureFile:      "effect/pok3.tga",
-		Color:            tint,
-		Duration:         duration,
-		Delay:            delay,
-		Duplicate:        duplicate,
-		DuplicateDelay:   duplicateDelay,
-		AlphaMax:         0.8,
-		FadeIn:           true,
-		FadeOut:          true,
-		PosXRand:         posXRand,
-		PosYRand:         posYRand,
-		PosZStartRand:    posZStartRand,
-		PosZStartMiddle:  posZStartMiddle,
-		PosZEnd:          posZEnd,
-		PosZEndRand:      posZEndRand,
-		PosZEndMiddle:    posZEndMiddle,
-		SizeStart:        effectTableSize(9),
-		SizeEnd:          effectTableSize(9),
-		SizeRand:         effectTableSize(2),
-		BlendMode:        2,
-		BlendAdditive:    true,
-		AttachedEntity:   true,
-		Sparkling:        sparkling,
-		RotateWithCamera: false,
-	}
-	if sparkling {
-		component.SparkNumber = 2
-	}
-	return component
-}
-
-func gumgangRingEffectSpec(duration time.Duration, alphaMax, bottomSize, topSize float64, wav string) EffectSpec {
-	component := robrCylinderBlendComponent("ring_yellow", color.RGBA{}, duration, alphaMax, 4, bottomSize, topSize, 2, true, true, true, 8)
-	component.Duplicate = 4
-	component.DuplicateDelay = 100 * time.Millisecond
-	spec := EffectSpec{
-		Duration:   duration + 300*time.Millisecond,
-		Components: []EffectComponent{component},
-	}
-	if wav != "" {
-		spec.SFX = []string{wav}
-	}
+	spec := funcEffectSpec("AbsorbSpirits", 100*EffectFrameDuration, true)
+	spec.Components[0].TextureFile = "effect/ring_blue.tga"
+	spec.SFX = []string{"effect\\흡기.wav"}
 	return spec
 }
 
@@ -164,11 +107,11 @@ func steelBodyEffectSpec() EffectSpec {
 }
 
 func steelBodyRingEffectSpec() EffectSpec {
-	return gumgangRingEffectSpec(1500*time.Millisecond, 0.5, 2, 5, "")
+	return gumgang2EffectSpec()
 }
 
 func gumgang2EffectSpec() EffectSpec {
-	return gumgangRingEffectSpec(1500*time.Millisecond, 0.5, 2, 5, "")
+	return groundCastEffectSpec("ring_yellow", 300)
 }
 
 func teiHit1EffectSpec() EffectSpec {

@@ -8,6 +8,7 @@ import (
 	"github.com/kivutar/goro/client"
 	"github.com/kivutar/goro/game/actors"
 	"github.com/kivutar/goro/game/companion"
+	"github.com/kivutar/goro/game/effects"
 	"github.com/kivutar/goro/game/gm"
 	"github.com/kivutar/goro/game/login"
 	maps "github.com/kivutar/goro/game/map"
@@ -1415,6 +1416,17 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		glog.Errorf("parse spirit spheres 0x%04X: %v", pkt.ID, err)
 	} else if ok {
 		if actors.ApplySpiritSphereCount(ctx, spheres) {
+			// A new sphere notification restarts the orbit, even at the cap.
+			// ZC_SPIRITS2 only restores the spheres when an actor becomes visible.
+			if pkt.ID == network.PacketZCSpirits {
+				actorID := spheres.ActorID
+				if scene.IsLocalActor(ctx, actorID) {
+					actorID = scene.LocalSkillTarget(ctx)
+				}
+				for _, id := range [...]int{effects.Chookgi, effects.Chookgi2, effects.Chookgi3} {
+					m.effects().Remove(id, actorID)
+				}
+			}
 			m.actors().SyncActorSpiritEffects(ctx, spheres.ActorID)
 		}
 		return nil, false

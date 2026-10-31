@@ -130,12 +130,12 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 		}
 	}
 	for _, effectID := range effects.SkillSuccessEffectSelfIDs(notify.SkillID) {
-		if effectID == effects.RedBody || effectID == effects.LKConcentration {
+		if effectID == effects.RedBody || effectID == effects.LKConcentration || effectID == effects.Gumgang {
 			actorID := notify.SourceID
 			if scene.IsLocalActor(ctx, actorID) {
 				actorID = scene.LocalSkillTarget(ctx)
 			}
-			if effectID == effects.LKConcentration {
+			if effectID == effects.LKConcentration || effectID == effects.Gumgang {
 				m.effects().Remove(effectID, actorID)
 			}
 			m.actors().SetActorStateEffect(ctx, actorID, effectID, true)

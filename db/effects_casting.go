@@ -192,7 +192,7 @@ func groundSampleEffectSpec() EffectSpec {
 }
 
 func groundCastEffectSpec(texture string, ticks int) EffectSpec {
-	spec := funcEffectSpec("SageGroundCast", time.Duration(ticks)*EffectFrameDuration, false)
+	spec := funcEffectSpec("GroundCast", time.Duration(ticks)*EffectFrameDuration, false)
 	spec.Components[0].TextureFile = "effect/" + texture + ".tga"
 	return spec
 }

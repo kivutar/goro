@@ -108,6 +108,7 @@ const (
 	effectFuncSightTrasher
 	effectFuncFirePillar
 	effectFuncGroundCast
+	effectFuncAbsorbSpirits
 	effectFuncSoulDrain
 	effectFuncGravitation
 	effectFuncHPConversion
@@ -279,6 +280,8 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 		m.drawLevel99BubbleEffect(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncPropertyGround:
 		m.drawPropertyGroundEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
+	case effectFuncAbsorbSpirits:
+		m.drawAbsorbSpiritsEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncGroundCast:
 		m.drawGroundCastEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	case EffectFuncGroundSigil:
@@ -349,7 +352,9 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return effectFuncCartTermination
 	case "HasteUp", "Overthrust":
 		return effectFuncBlacksmith
-	case "SageGroundCast":
+	case "AbsorbSpirits":
+		return effectFuncAbsorbSpirits
+	case "GroundCast":
 		return effectFuncGroundCast
 	case "WizardSpikes":
 		return effectFuncGroundSpikes
