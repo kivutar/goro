@@ -73,17 +73,36 @@ func PressureImage(effect Instance, process int) shieldImage {
 	}
 }
 
+type pressureFlight struct {
+	tick   int
+	origin scene.Point3
+	images [4]shieldImage
+}
+
+func (flight *pressureFlight) advance(ctx client.Context, effect Instance, now time.Time) {
+	// The main cross fades at tick 72, followed by its three afterimages.
+	process := min(int(now.Sub(effect.Starts)/db.EffectFrameDuration)+1, 75)
+	for flight.tick < process {
+		copy(flight.images[1:], flight.images[:3])
+		// The cross follows its victim for 32 ticks; each afterimage keeps
+		// the position it had on its own tick, including after landing.
+		if flight.tick < 32 {
+			at := effect.Starts.Add(time.Duration(flight.tick) * db.EffectFrameDuration)
+			flight.origin = EffectWorldAnchor(ctx, effect, at)
+		}
+		flight.tick++
+		effect.ActorOrigin = flight.origin
+		flight.images[0] = PressureImage(effect, flight.tick)
+	}
+}
+
 func (m *System) drawPressureEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, now time.Time) {
 	texture := m.EffectFileTexture(ctx.Resources, component.TextureFile)
-	if texture == nil {
+	if texture == nil || effect.pressure == nil {
 		return
 	}
 	process := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
-	for i := 0; i < 4; i++ {
-		if process-i <= 0 {
-			continue
-		}
-		particle := PressureImage(effect, process-i)
+	for i, particle := range effect.pressure.images {
 		if i > 0 {
 			particle.Alpha -= 100 + 25*(i-1)
 		}

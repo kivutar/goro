@@ -1661,13 +1661,6 @@ func TestPaladinNativeTiming(t *testing.T) {
 	if pressure.SfxDelays[0] != 3*db.EffectFrameDuration || pressure.CameraShakeDelay != 32*db.EffectFrameDuration || sacrifice.SfxDelays[0] != 22*db.EffectFrameDuration {
 		t.Fatal("native audio or impact timing changed")
 	}
-	m.effects().Active = []effects.Instance{{EffectID: effects.Shrink, ActorID: 300, Starts: start}}
-	base := color.RGBA{255, 255, 255, 255}
-	if m.actors().ActorBodyColorTint(300, base, start.Add(6*db.EffectFrameDuration)) != (color.RGBA{250, 250, 100, 255}) ||
-		m.actors().ActorBodyColorTint(300, base, start.Add(7*db.EffectFrameDuration)) != base ||
-		m.actors().ActorBodyColorTint(300, base, start.Add(26*db.EffectFrameDuration)) != base {
-		t.Fatal("Shrink must blink only during frames 5..25")
-	}
 }
 
 func TestAssumptioFollowsStatusInEitherPacketOrder(t *testing.T) {

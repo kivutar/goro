@@ -185,16 +185,6 @@ func (m *System) ActorBodyColorTint(actorID uint32, tint color.RGBA, now time.Ti
 			if effects.SniperBodyFlashActive(effect.EffectID, int(now.Sub(effect.Starts)/db.EffectFrameDuration)) {
 				tint = scene.MultiplyTint(base, 220.0/255, 250.0/255, 220.0/255, 1)
 			}
-		case effects.Shrink:
-			frame := now.Sub(effect.Starts) / db.EffectFrameDuration
-			if frame >= 5 && frame < 26 && frame%2 == 0 {
-				tint = scene.MultiplyTint(base, 250.0/255, 250.0/255, 100.0/255, 1)
-			}
-		case effects.Bash3D:
-			frame := now.Sub(effect.Starts) / db.EffectFrameDuration
-			if frame >= 20 && frame <= 40 {
-				tint = scene.MultiplyTint(base, 1, 200.0/255, 200.0/255, 1)
-			}
 		case effects.BodyColor:
 			tint = effectBodyColorTint(tint, now.Sub(effect.Starts))
 		case effects.MagicCrasher2:

@@ -808,7 +808,7 @@ type Instance struct {
 	HitCount                             int
 	Shield                               *shieldFlight
 	ShieldChain                          *shieldChainFlight
-	PressureLanded                       bool
+	pressure                             *pressureFlight
 	NinjaWind                            *NinjaWind
 	SpiritSpheres                        *spiritSpheres
 	NinjaPetals                          *NinjaPetals
@@ -1207,6 +1207,9 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	}
 	if effectID == ShieldBoomerang3 {
 		effect.ShieldChain = &shieldChainFlight{Origins: [5]scene.Point3{effect.ActorOrigin}, Count: 1}
+	}
+	if effectID == Pressure {
+		effect.pressure = &pressureFlight{}
 	}
 	if effectID == SpearBoomerang {
 		initSpearBoomerang(ctx, &effect)
@@ -1731,15 +1734,8 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 			effect.ActorOrigin = EffectWorldAnchor(ctx, effect, effect.Starts)
 			effect.HasActorTransform = true
 		}
-		if effect.EffectID == Pressure && !effect.PressureLanded {
-			at := now
-			// Process 1 starts at time zero; process 32 ends the fall.
-			landingAt := effect.Starts.Add(31 * db.EffectFrameDuration)
-			if !now.Before(landingAt) {
-				at = landingAt
-				effect.PressureLanded = true
-			}
-			effect.ActorOrigin = EffectWorldAnchor(ctx, effect, at)
+		if effect.pressure != nil {
+			effect.pressure.advance(ctx, effect, now)
 		}
 		active = append(active, effect)
 		// Keep lifetimes and actor state while hidden so toggling back on cannot

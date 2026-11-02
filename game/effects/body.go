@@ -69,6 +69,21 @@ func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render
 			if frame >= 5 && frame <= 35 && billboard.LayerGroup == 0 {
 				blend = render.BlendLighter
 			}
+		case Bash3D:
+			if frame >= 20 && frame <= 40 {
+				doubleBody = doubleBody || billboard.LayerGroup == 0
+				tint.R, tint.G, tint.B = 255, 200, 200
+			}
+		case Shrink:
+			if frame >= 5 && frame < 26 {
+				tint.R, tint.G, tint.B = 255, 255, 255
+				if frame%2 == 0 {
+					tint.R, tint.G, tint.B = 250, 250, 100
+					if billboard.LayerGroup == 0 {
+						blend = render.BlendLighter
+					}
+				}
+			}
 		case Portal5:
 			if frame >= 5 && frame <= 65 {
 				tint.R, tint.G, tint.B = 250, 250, 200

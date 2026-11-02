@@ -12,7 +12,7 @@ import (
 	"github.com/kivutar/goro/render"
 )
 
-// The native ring primitives have a height at each of their 21 vertices.
+// Defender draws eight 40-degree faces, sampling the first nine native heights.
 func (m *System) drawCrusaderDefenseEffect(screen *render.Frame, ctx client.Context, _ scene.Projection, component Component, effect Instance, now time.Time) {
 	n := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
 	alpha := min(n, 80) - 5*max(0, n-179)
@@ -26,7 +26,7 @@ func (m *System) drawCrusaderDefenseEffect(screen *render.Frame, ctx client.Cont
 		rotationSpeed, waveSpeed := 1+i%2, 1+i/2
 		height := float64(40-i) / 5 * (1 + .3*math.Sin(scene.DegreesToRadians(float64(n*waveSpeed+i*90))))
 		appendEffectBand(&vertices, &indices, texture, origin, (8-.1*float64(i))/5,
-			scene.DegreesToRadians(float64(180+90*i+n*rotationSpeed)), 2*math.Pi, 0, 20, color.RGBA{255, 255, 255, uint8(alpha)},
+			scene.DegreesToRadians(float64(180+90*i+n*rotationSpeed)), scene.DegreesToRadians(320), 0, 8, color.RGBA{255, 255, 255, uint8(alpha)},
 			func(j int) float64 { return height * math.Sin(scene.DegreesToRadians(float64(j*9))) })
 	}
 	screen.DrawTriangles3DOwned(vertices, indices, texture, TexturedEffectBillboardDrawOptions(false, false))
