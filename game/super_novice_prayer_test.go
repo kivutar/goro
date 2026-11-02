@@ -121,3 +121,91 @@ func TestSuperNovicePrayerUsesServerFuryStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestSuperNoviceLevelUpEffects(t *testing.T) {
+	for _, job := range []int16{db.JobSuperNovice, db.JobSuperNoviceB} {
+		for _, explicit := range []bool{false, true} {
+			for _, notifyFirst := range []bool{false, true} {
+				ctx := testutil.MonkEffectContext()
+				ctx.World.Player.Job, ctx.Session.Selected.Job = job, job
+				ctx.Session.Progress.BaseLevel, ctx.Session.Progress.JobLevel = 60, 50
+				m := &WorldMode{}
+				parameter := func() {
+					m.applyParameterChange(ctx, network.ParameterChange{VarID: network.StatusBaseLevel, Value: 61})
+					m.applyParameterChange(ctx, network.ParameterChange{VarID: network.StatusJobLevel, Value: 51})
+				}
+				notify := func() {
+					base, job := uint32(network.SpecialEffectBaseLevelUp), uint32(network.SpecialEffectJobLevelUp)
+					if explicit {
+						base, job = network.SpecialEffectSuperNoviceBaseLevelUp, network.SpecialEffectSuperNoviceJobLevelUp
+					}
+					m.applySpecialEffectNotify(ctx, network.SpecialEffectNotify{AID: ctx.Session.AccountID, EffectID: base})
+					m.applySpecialEffectNotify(ctx, network.SpecialEffectNotify{AID: ctx.Session.AccountID, EffectID: job})
+				}
+				if notifyFirst {
+					notify()
+					parameter()
+				} else {
+					parameter()
+					notify()
+				}
+				if len(m.effects().Active) != 2 || !m.effects().HasActive(effects.Angel2, ctx.Session.AccountID, time.Now()) || !m.effects().HasActive(effects.JobLvUp50, ctx.Session.AccountID, time.Now()) {
+					t.Fatalf("job %d explicit=%t notifyFirst=%t: duplicated or ordinary effects: %+v", job, explicit, notifyFirst, m.effects().Active)
+				}
+				if len(m.scheduledSounds) != 1 || m.scheduledSounds[0].paths[0] != "levelup.wav" {
+					t.Fatalf("level-up sound must play once: %+v", m.scheduledSounds)
+				}
+				if !m.ui.levelUpNotifications.BaseVisible() || !m.ui.levelUpNotifications.JobVisible() {
+					t.Fatal("missing local level-up notifications")
+				}
+			}
+		}
+	}
+}
+
+func TestRemoteSuperNoviceLevelUpIsSilent(t *testing.T) {
+	for _, job := range []int16{db.JobSuperNovice, db.JobSuperNoviceB} {
+		ctx := testutil.MonkEffectContext()
+		actor := ctx.World.Actors[300]
+		actor.Job = job
+		ctx.World.Actors[300] = actor
+		m := &WorldMode{}
+		m.applySpecialEffectNotify(ctx, network.SpecialEffectNotify{AID: 300, EffectID: network.SpecialEffectSuperNoviceBaseLevelUp})
+		if !m.effects().HasActive(effects.Angel2, 300, time.Now()) {
+			t.Fatalf("job %d: missing remote guardian angel", job)
+		}
+		if len(m.scheduledSounds) != 0 {
+			t.Fatalf("job %d: remote guardian angel must be silent: %+v", job, m.scheduledSounds)
+		}
+	}
+}
+
+func TestFirstAidEffectBelongsToCaster(t *testing.T) {
+	ctx := testutil.MonkEffectContext()
+	m := &WorldMode{}
+	notify := network.SkillNoDamageNotify{SourceID: ctx.Session.AccountID, TargetID: 300, SkillID: db.SkillNVFirstaid, Result: 0}
+	m.applySkillNoDamageNotify(ctx, notify)
+	if len(m.effects().Active) != 0 {
+		t.Fatal("failed First Aid produced a glow")
+	}
+	notify.Result = 1
+	m.applySkillNoDamageNotify(ctx, notify)
+	if len(m.effects().Active) != 1 || m.effects().Active[0].EffectID != effects.FirstAid || m.effects().Active[0].ActorID != ctx.Session.AccountID {
+		t.Fatalf("First Aid must appear on its caster: %+v", m.effects().Active)
+	}
+}
+
+func TestSuperNoviceRawLevelUpEffectsRemainExplicit(t *testing.T) {
+	ctx := testutil.MonkEffectContext()
+	ctx.Session.Selected.Job, ctx.World.Player.Job = db.JobSuperNovice, db.JobSuperNovice
+	for _, id := range []int{effects.BaseLevelUp, effects.Angel2} {
+		m := &WorldMode{}
+		m.applySpecialEffectNotify(ctx, network.SpecialEffectNotify{AID: ctx.Session.AccountID, EffectID: uint32(id)})
+		if len(m.effects().Active) != 1 || m.effects().Active[0].EffectID != id {
+			t.Fatalf("explicit effect %d was replaced: %+v", id, m.effects().Active)
+		}
+		if id == effects.Angel2 && len(m.scheduledSounds) != 0 {
+			t.Fatal("the raw guardian angel effect should be silent")
+		}
+	}
+}

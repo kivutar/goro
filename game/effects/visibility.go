@@ -18,7 +18,7 @@ func effectEnabled(ctx client.Context, effectID int) bool {
 	switch effectID {
 	case Emotion, LockOnTarget, ReadyPortalOld, ReadyPortal, Portal,
 		RefineOK, RefineFail, FirePillarOn, Blind, TalkFrostJoke, TalkScream,
-		BaseLevelUp, BlueBody, RedLightBody, AsuraBody, TaeReady,
+		BaseLevelUp, Angel2, BlueBody, RedLightBody, AsuraBody, TaeReady,
 		RedHit, BlueHit, JumpBody, LandBody, QuakeBody, ReflectBody,
 		Devil1, Devil2, Devil3, Devil4, Devil5, Devil6, Devil7, Devil8, Devil9, Devil10:
 		return true

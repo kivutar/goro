@@ -314,6 +314,7 @@ const (
 	PoisonStatus      = 335
 	Guard             = 336
 	JobLvUp50         = 337
+	Angel2            = 338
 	Magnum2           = 339
 	CoupleCasting     = 342
 	Entry2            = 344
@@ -823,6 +824,7 @@ type Instance struct {
 	CoinTrails                           *[5][]scene.Point3
 	ArrowTargets                         *[9]scene.Point3
 	HasActorTransform                    bool
+	superAngel                           *superAngel
 	X                                    int
 	Y                                    int
 	Starts                               time.Time
@@ -1122,6 +1124,13 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	}
 	if effectID == EnergyDrain2 {
 		initSoulDrain(ctx, &effect)
+	}
+	if effectID == FirstAid || effectID == Angel2 {
+		effect.ActorOrigin = EffectWorldAnchor(ctx, effect, starts)
+		effect.HasActorTransform = true
+		if effectID == Angel2 {
+			effect.superAngel = &superAngel{origins: [7]scene.Point3{effect.ActorOrigin}, count: 1}
+		}
 	}
 	if effectID == EnergyDrain3 || effectID == FullStrip || effectID == Preserve || effectID == db.SkillEffectChaseWalkSmoke {
 		effect.ActorDirection = EffectActorDirection(ctx, actorID, starts)

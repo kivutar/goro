@@ -241,8 +241,8 @@ func TestConsoleDoriDoriCommandWithoutNetwork(t *testing.T) {
 }
 
 func TestDoriDoriHeadDirectionAlternates(t *testing.T) {
-	if got := nextDoriDoriHeadDir(0); got != 1 {
-		t.Fatalf("center head direction became %d, want 1", got)
+	if got := nextDoriDoriHeadDir(0); got != 2 {
+		t.Fatalf("center head direction became %d, want 2", got)
 	}
 	if got := nextDoriDoriHeadDir(1); got != 2 {
 		t.Fatalf("left head direction became %d, want 2", got)
@@ -255,13 +255,13 @@ func TestDoriDoriHeadDirectionAlternates(t *testing.T) {
 func TestDoriDoriRecoveryTiming(t *testing.T) {
 	start := time.Unix(100, 0)
 	var turns [doriDoriTurns]time.Time
-	for i := 0; i < doriDoriTurns-1; i++ {
-		if recordDoriDoriTurn(&turns, start.Add(time.Duration(i)*500*time.Millisecond)) {
+	for i := 0; i < 5; i++ {
+		if recordDoriDoriTurn(&turns, start.Add(time.Duration(i)*400*time.Millisecond)) {
 			t.Fatalf("recovery triggered after %d turns", i+1)
 		}
 	}
 	if !recordDoriDoriTurn(&turns, start.Add(2*time.Second)) {
-		t.Fatal("five turns spanning two seconds did not trigger recovery")
+		t.Fatal("six turns spanning two seconds did not trigger recovery")
 	}
 
 	for _, span := range []time.Duration{1500 * time.Millisecond, 3 * time.Second} {

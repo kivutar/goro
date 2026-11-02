@@ -3923,7 +3923,7 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillASPoisonreact:              {SuccessEffectIDs: []int{126}},
 	SkillASVenomdust:                {EffectIDs: []int{124}, GroundEffectIDs: []int{effectVenomDust2}},
 	SkillASSplasher:                 {SuccessEffectIDs: []int{effectEnchantPoison}},
-	SkillNVFirstaid:                 {EffectIDs: []int{effectFirstAid}},
+	SkillNVFirstaid:                 {SuccessEffectIDsSelf: []int{effectFirstAid}},
 	SkillACChargearrow:              {BeginCastEffectIDs: []int{effectBashBegin}, HitEffectIDs: []int{effectHit1}},
 	SkillTFSprinklesand:             {BeforeHitEffectIDs: []int{effectSprinkleSand}},
 	SkillTFBacksliding:              {},

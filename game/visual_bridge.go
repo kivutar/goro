@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/game/effects"
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/game/sprites"
@@ -83,6 +84,12 @@ func (m *WorldMode) applySpecialEffectNotify(ctx client.Context, notify network.
 		m.effects().Remove(effects.NPCStop2, notify.AID)
 		return
 	}
+	switch notify.EffectID {
+	case network.SpecialEffectBaseLevelUp, network.SpecialEffectSuperNoviceBaseLevelUp,
+		network.SpecialEffectJobLevelUp, network.SpecialEffectSuperNoviceJobLevelUp, network.SpecialEffectTaekwonBaseLevelUp:
+		m.addLevelUpEffect(ctx, notify.AID, effectID)
+		return
+	}
 	spec, _ := effects.Lookup(effectID)
 	if effects.CraftingResultSpecialEffect(notify.EffectID) {
 		m.effects().ReplaceCraftingResultEffect(ctx, notify, effectID, spec)
@@ -95,6 +102,45 @@ func (m *WorldMode) applySpecialEffectNotify(ctx client.Context, notify network.
 	if m.effects().Add(ctx, effectID, notify.AID) {
 		glog.Debugf("special effect actor=%d special=%d effect=%d sfx=%v", notify.AID, notify.EffectID, effectID, spec.Sfx)
 	}
+}
+
+func (m *WorldMode) addLevelUpEffect(ctx client.Context, actorID uint32, effectID int) {
+	effectID = localLevelUpEffect(ctx, actorID, effectID)
+	if scene.IsLocalActor(ctx, actorID) {
+		actorID = scene.LocalSkillTarget(ctx)
+	}
+	ordinary, enhanced := effects.BaseLevelUp, effects.Angel2
+	if effectID == effects.JobLevelUp || effectID == effects.JobLvUp50 {
+		ordinary, enhanced = effects.JobLevelUp, effects.JobLvUp50
+	}
+	// Parameter updates and effect notifications may arrive in either order.
+	if effectID == ordinary && m.effects().HasActive(enhanced, actorID, time.Now()) {
+		return
+	}
+	if effectID == enhanced {
+		m.effects().Remove(ordinary, actorID)
+	}
+	if m.effects().AddIfMissing(ctx, effectID, actorID) && effectID == effects.Angel2 && scene.IsLocalActor(ctx, actorID) {
+		// The angel itself is silent; only the local level-up plays this sound.
+		m.scheduleSoundAtActor(time.Now(), actorID, "levelup.wav")
+	}
+}
+
+func localLevelUpEffect(ctx client.Context, actorID uint32, effectID int) int {
+	if ctx.Session == nil || !scene.IsLocalActor(ctx, actorID) {
+		return effectID
+	}
+	switch effectID {
+	case effects.BaseLevelUp:
+		if ctx.Session.Selected.Job == db.JobSuperNovice || ctx.Session.Selected.Job == db.JobSuperNoviceB {
+			return effects.Angel2
+		}
+	case effects.JobLevelUp:
+		if ctx.Session.Progress.JobLevel > 50 {
+			return effects.JobLvUp50
+		}
+	}
+	return effectID
 }
 
 func (m *WorldMode) applyMVPNotify(ctx client.Context, notify network.MVPNotify) {

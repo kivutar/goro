@@ -14,14 +14,14 @@ import (
 
 func TestWorldEffectSpecCatalogCoverage(t *testing.T) {
 	coverage := testutil.EffectCoverageSnapshot()
-	if coverage.Implemented != 750 {
-		t.Fatalf("implemented effects = %d, want 750", coverage.Implemented)
+	if coverage.Implemented != 751 {
+		t.Fatalf("implemented effects = %d, want 751", coverage.Implemented)
 	}
 	if coverage.ReferenceActive != 607 || coverage.ReferenceAll != 1147 {
 		t.Fatalf("reference client totals = active %d all %d", coverage.ReferenceActive, coverage.ReferenceAll)
 	}
-	if coverage.ActivePercent < 123.55 || coverage.ActivePercent > 123.56 {
-		t.Fatalf("active coverage = %.3f, want about 123.56", coverage.ActivePercent)
+	if coverage.ActivePercent < 123.72 || coverage.ActivePercent > 123.73 {
+		t.Fatalf("active coverage = %.3f, want about 123.72", coverage.ActivePercent)
 	}
 }
 
@@ -1384,7 +1384,7 @@ func TestRobrowserSimpleEffectsThreeHundredToThreeFiftyMatchTableRows(t *testing
 	}
 
 	job, ok := Lookup(JobLvUp50)
-	if !ok || len(job.Components) != 1 {
+	if !ok || len(job.Components) != 2 {
 		t.Fatalf("EF_JOBLVUP50 spec = %+v ok=%t", job, ok)
 	}
 	if component := job.Components[0]; component.Kind != ComponentSTR || component.StrFile != "joblvup" || !component.AttachedEntity {

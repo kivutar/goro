@@ -34,6 +34,9 @@ const (
 	effectFuncHitLineBurst
 	effectFuncEsma
 	effectFuncKaizel
+	effectFuncFirstAid
+	effectFuncSuperAngel
+	effectFuncLevelUpBurst
 	effectFuncEsmaHitTexture
 	effectFuncSoulLink
 	effectFuncKaupeDodge
@@ -322,6 +325,12 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 		m.drawEsmaEffect(screen, ctx, component, effect, now)
 	case effectFuncKaizel:
 		m.DrawKaizelEffect(screen, ctx, component, effect, worldX, worldY, worldZ, now)
+	case effectFuncFirstAid:
+		m.drawFirstAidEffect(screen, ctx, projection, component, effect, now)
+	case effectFuncSuperAngel:
+		m.drawSuperAngelEffect(screen, ctx, projection, component, effect, now)
+	case effectFuncLevelUpBurst:
+		m.drawLevelUpBurst(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncEsmaHitTexture:
 		m.drawEsmaHitTexture(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncHitLineBurst:
@@ -540,6 +549,12 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return effectFuncEsma
 	case "Kaizel":
 		return effectFuncKaizel
+	case "FirstAid":
+		return effectFuncFirstAid
+	case "SuperAngel":
+		return effectFuncSuperAngel
+	case "LevelUpBurst":
+		return effectFuncLevelUpBurst
 	case "EsmaHitTexture":
 		return effectFuncEsmaHitTexture
 	case "SoulLinkerHitLines":

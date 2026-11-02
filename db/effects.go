@@ -313,6 +313,7 @@ const (
 	effectPoisonStatus      = 335
 	effectGuard             = 336
 	effectJobLvUp50         = 337
+	effectAngel2            = 338
 	effectMagnum2           = 339
 	effectCoupleCasting     = 342
 	effectEntry2            = 344
@@ -1253,6 +1254,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectPoisonStatus:      poisonStatusEffectSpec(),
 	effectGuard:             guardEffectSpec(),
 	effectJobLvUp50:         jobLvUp50EffectSpec(),
+	effectAngel2:            superAngelEffectSpec(),
 	effectMagnum2:           magnum2EffectSpec(),
 	effectCoupleCasting:     coupleCastingEffectSpec(),
 	effectEntry2:            entry2EffectSpec(),

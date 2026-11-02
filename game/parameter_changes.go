@@ -213,7 +213,8 @@ func (v statusVisualEffect) applyParameterChange(ctx client.Context, mode *World
 		return
 	}
 	if v.levelEffectID > 0 && current > previous {
-		mode.effects().AddIfMissing(ctx, v.levelEffectID, scene.LocalSkillTarget(ctx))
+		actorID := scene.LocalSkillTarget(ctx)
+		mode.addLevelUpEffect(ctx, actorID, v.levelEffectID)
 		switch v.levelEffectID {
 		case effects.BaseLevelUp:
 			mode.ui.levelUpNotifications.NotifyBase()

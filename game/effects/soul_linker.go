@@ -378,32 +378,8 @@ func (m *System) drawSoulLinkEffect(screen *render.Frame, ctx client.Context, pr
 func (m *System) DrawKaizelEffect(screen *render.Frame, ctx client.Context, component Component, effect Instance, x, y, z float64, now time.Time) {
 	// EF_KAIZEL launches JobLvUp50_2(0) and (45) at tick 15.
 	age := int(now.Sub(effect.Starts)/db.EffectFrameDuration) - 15 + 1
-	alpha := 5*min(age, 7) - 2*max(age-9, 0)
-	if now.Before(effect.Starts) || age <= 0 || alpha <= 0 {
+	if now.Before(effect.Starts) {
 		return
 	}
-	texture := m.EffectFileTexture(ctx.Resources, component.TextureFile)
-	if texture == nil {
-		return
-	}
-	inner, outer := float64(1+age)/5, float64(3+3*age)/5
-	height := (1.5 + .4*float64(min(age, 7))) / 5
-	var vertices []render.Vertex3D
-	var indices []uint16
-	for blade := 0; blade < 8; blade++ {
-		for slice := 0; slice < 3; slice++ {
-			sin, cos := math.Sincos(scene.DegreesToRadians(float64(blade*45 - 1 + slice)))
-			low, high, a := height*.1, height*.4, alpha/3
-			if slice == 1 {
-				low, high, a = height*.2, height, alpha
-			}
-			appendEffectQuad(&vertices, &indices, texture, [4]scene.Point3{
-				{X: x + cos*inner, Y: z + low, Z: y + sin*inner},
-				{X: x + cos*outer, Y: z + high, Z: y + sin*outer},
-				{X: x + cos*outer, Y: z, Z: y + sin*outer},
-				{X: x + cos*inner, Y: z, Z: y + sin*inner},
-			}, color.RGBA{255, 255, 255, uint8(a)})
-		}
-	}
-	screen.DrawTriangles3DOwned(vertices, indices, texture, TexturedEffectBillboardDrawOptions(true, false))
+	m.drawRadialBlades(screen, ctx, component.TextureFile, scene.Point3{X: x, Y: z, Z: y}, age, 1.5, 0, 8)
 }

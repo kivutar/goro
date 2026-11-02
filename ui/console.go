@@ -33,7 +33,7 @@ const (
 	consoleMaxHistory = 20
 	consoleFieldH     = 24
 	consoleLineH      = 14
-	doriDoriTurns     = 5
+	doriDoriTurns     = 6
 	doriDoriMinSpan   = 1500 * time.Millisecond
 	doriDoriMaxSpan   = 3 * time.Second
 )
@@ -954,10 +954,10 @@ func (c *ChatConsole) submitDoriDori(ctx client.Context, now time.Time) {
 }
 
 func nextDoriDoriHeadDir(current uint8) uint8 {
-	if current == 1 {
-		return 2
+	if current == 2 {
+		return 1
 	}
-	return 1
+	return 2
 }
 
 func recordDoriDoriTurn(turns *[doriDoriTurns]time.Time, now time.Time) bool {

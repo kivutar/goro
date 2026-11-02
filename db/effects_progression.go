@@ -29,7 +29,26 @@ func jobLevelUpEffectSpec() EffectSpec {
 }
 
 func jobLvUp50EffectSpec() EffectSpec {
-	return strEffectSpecAttached("joblvup", "", false)
+	spec := strEffectSpecAttached("joblvup", "", false)
+	spec.Components = append(spec.Components, EffectComponent{
+		Kind: EffectComponentFUNC, FuncName: "LevelUpBurst", TextureFile: "effect/magic_green.tga",
+		Duration: 33 * EffectFrameDuration, AttachedEntity: true,
+	})
+	return spec
+}
+
+func superAngelEffectSpec() EffectSpec {
+	spec := EffectSpec{Duration: 200 * EffectFrameDuration}
+	for layer, sprite := range []string{"천사", "천사날개", "깃털1", "깃털2"} {
+		spec.Components = append(spec.Components, EffectComponent{
+			Kind: EffectComponentFUNC, FuncName: "SuperAngel", SpriteFile: sprite, SpriteFrame: layer,
+		})
+	}
+	spec.Components = append(spec.Components, EffectComponent{
+		Kind: EffectComponentFUNC, FuncName: "LevelUpBurst", TextureFile: "effect/ring_blue.tga",
+		AttachedEntity: true,
+	})
+	return spec
 }
 
 func achCompleteEffectSpec() EffectSpec {

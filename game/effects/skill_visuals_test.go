@@ -684,7 +684,7 @@ func TestNoviceSkillEffectMappings(t *testing.T) {
 	if action := SkillAction(db.SkillNVBasic); !action.Defined || action.Action != SkillActorActionNone {
 		t.Fatalf("basic skill action = %+v, want no source action", action)
 	}
-	testutil.ExpectEffectIDs(t, "NV_FIRSTAID", SkillEffectIDs(142), FirstAid)
+	testutil.ExpectEffectIDs(t, "NV_FIRSTAID", SkillSuccessEffectSelfIDs(142), FirstAid)
 	testutil.ExpectEffectIDs(t, "NV_TRICKDEAD", SkillEffectIDs(143))
 }
 

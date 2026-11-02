@@ -29,8 +29,8 @@ var networkSpecialEffectIDs = map[uint32]int{
 	network.SpecialEffectGameOver:               0,
 	network.SpecialEffectPharmacySuccess:        PharmacyOK,
 	network.SpecialEffectPharmacyFailure:        PharmacyFail,
-	network.SpecialEffectSuperNoviceBaseLevelUp: BaseLevelUp,
-	network.SpecialEffectSuperNoviceJobLevelUp:  JobLevelUp,
+	network.SpecialEffectSuperNoviceBaseLevelUp: Angel2,
+	network.SpecialEffectSuperNoviceJobLevelUp:  JobLvUp50,
 	network.SpecialEffectTaekwonBaseLevelUp:     BaseLevelUp,
 }
 
