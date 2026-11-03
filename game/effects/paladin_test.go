@@ -152,6 +152,7 @@ func TestShieldChainCapturesEachSpawnPosition(t *testing.T) {
 			"__effectfile_effect/shield_boomerang.bmp|blackkey=true": render.NewImage(1, 1),
 		}}
 		m.AddBetween(ctx, ShieldBoomerang3, 300, 2000000, start)
+		ctx.Session.NoEffects = true
 		for _, tick := range ticks {
 			now := start.Add(time.Duration(tick) * db.EffectFrameDuration)
 			m.Draw(render.NewFrame(800, 600), ctx, projection, now, false)
@@ -168,10 +169,15 @@ func TestShieldChainCapturesEachSpawnPosition(t *testing.T) {
 			}
 		}
 		origins := effect.ShieldChain.Origins
+		stopped := actor
+		stopped.Moving, stopped.X, stopped.Y = false, 60, 20
+		ctx.World.Actors[300] = stopped
+		ctx.Session.NoEffects = false
 		m.Draw(render.NewFrame(800, 600), ctx, projection, start.Add(30*db.EffectFrameDuration), false)
 		if effect.ShieldChain.Origins != origins {
 			t.Fatal("existing shield trajectories moved with the victim")
 		}
+		ctx.World.Actors[300] = actor
 	}
 }
 

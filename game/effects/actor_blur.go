@@ -33,7 +33,7 @@ func (m *System) DrawActorBlurs(screen *render.Frame, projection scene.Projectio
 	clear(blurs[len(live):])
 	blurs = live
 	// MakeBlur emits a frozen CBlurPC every five ticks, except on dyed bodies.
-	active := (entry.IsPlayer || scene.ActorRepresentsPlayer(entry.Actor)) && entry.Actor.BodyPal == 0 && entry.Actor.Opt3State&db.Opt3Overthrust != 0
+	active := (entry.IsPlayer || scene.ActorRepresentsPlayer(entry.Actor)) && entry.Actor.BodyPal == 0 && entry.Actor.Opt3State&(db.Opt3Quicken|db.Opt3Overthrust) != 0
 	interval := 5 * db.EffectFrameDuration
 	if !active && (entry.IsPlayer || scene.ActorRepresentsPlayer(entry.Actor)) && entry.Actor.Opt3State&db.Opt3Bunsin != 0 {
 		active, interval = true, 20*db.EffectFrameDuration

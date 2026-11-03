@@ -606,19 +606,23 @@ func TestRuwachUsesSightSoundOncePerActivation(t *testing.T) {
 	}
 }
 
-func TestOverthrustAfterimages(t *testing.T) {
+func TestQuickenAndOverthrustAfterimages(t *testing.T) {
 	ctx := testutil.ArcherEffectContext()
 	start := time.Unix(100, 0)
 	projection := testutil.Projection(800, 600, 10, 20, 0)
 	billboard := &scene.Billboard{Image: render.NewImage(20, 40)}
 	billboard.Image.Fill(color.RGBA{255, 255, 255, 255})
-	for _, status := range []uint16{db.StatusOverthrust, db.StatusOverthrustmax} {
+	for _, status := range []uint16{db.StatusOverthrust, db.StatusOverthrustmax, db.StatusSpearquicken, db.StatusTwohandquicken, db.StatusOnehandquicken} {
 		m := &WorldMode{}
 		m.applyStatusEffectChange(ctx, network.StatusEffectChange{ActorID: 2000000, StatusID: status, Active: true})
 		entry := scene.ActorDrawEntry{Actor: ctx.World.Player, IsPlayer: true, WorldX: 10.5, WorldY: 20.5, Scale: 1}
 		tint := actors.ActorStateTint(entry.Actor)
-		if tint != (color.RGBA{250, 150, 150, 255}) {
-			t.Fatalf("incorrect native Overthrust tint: %v", tint)
+		wantTint := color.RGBA{200, 200, 0, 255}
+		if status == db.StatusOverthrust || status == db.StatusOverthrustmax {
+			wantTint = color.RGBA{250, 150, 150, 255}
+		}
+		if tint != wantTint {
+			t.Fatalf("status %d: tint %v, want %v", status, tint, wantTint)
 		}
 		for tick := 0; tick <= 100; tick++ {
 			frame := render.NewFrame(800, 600)

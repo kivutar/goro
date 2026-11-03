@@ -1964,6 +1964,9 @@ func TestPaladinAttackEffects(t *testing.T) {
 		if len(m.effects().Active) != 1 || m.effects().Active[0].EffectID != tc.effect || m.effects().Active[0].ActorID != owner || !m.effects().Active[0].Starts.Equal(start) {
 			t.Fatalf("skill %d must launch once at action start on %d: %+v", tc.skill, owner, m.effects().Active)
 		}
+		if tc.skill == db.SkillCRHolycross && (len(m.scheduledSounds) != 1 || m.scheduledSounds[0].positioned) {
+			t.Fatal("Holy Cross must play one unpositioned sound")
+		}
 		m.addSkillHitEffect(ctx, action, hit)
 		if len(m.effects().Active) != 6 {
 			t.Fatalf("skill %d must retain each ordinary impact, got %d", tc.skill, len(m.effects().Active))

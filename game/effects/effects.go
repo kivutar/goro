@@ -1412,7 +1412,7 @@ func (m *System) ScheduleWorldEffectSound(starts time.Time, spec Spec, effect In
 		if i < len(spec.SfxDelays) {
 			delay = spec.SfxDelays[i]
 		}
-		if effect.EffectID == TripleAction {
+		if effect.EffectID == TripleAction || effect.EffectID == HolyCross || effect.EffectID == BottomGospel {
 			m.scheduleSound(starts.Add(delay), path)
 		} else {
 			m.scheduleSoundAtWorldEffect(starts.Add(delay), effect, path)
@@ -1740,6 +1740,12 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 		}
 		if effect.acidBottles != nil {
 			effect.acidBottles.advance(ctx, effect, spec, now)
+		}
+		if effect.Shield != nil {
+			effect.Shield.advance(ctx, effect, now)
+		}
+		if effect.ShieldChain != nil {
+			effect.ShieldChain.advance(ctx, effect, now)
 		}
 		active = append(active, effect)
 		// Keep lifetimes and actor state while hidden so toggling back on cannot

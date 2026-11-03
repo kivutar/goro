@@ -84,7 +84,10 @@ func holyCrossEffectSpec() EffectSpec {
 }
 
 func shieldChargeEffectSpec() EffectSpec {
-	return strEffectSpecAttached("shield_charge", "", false)
+	spec := strEffectSpecAttached("shield_charge", "", false)
+	// Shield Charge uses a zero screen offset instead of the usual -80 pixels.
+	spec.Components[0].SpriteYOffset = 80
+	return spec
 }
 
 func spearQuickenEffectSpec() EffectSpec {

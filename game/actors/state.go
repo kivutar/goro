@@ -106,7 +106,7 @@ func ActorStateTint(actor worldstate.Actor) color.RGBA {
 func actorOpt3StateTint(opt3State uint32) (float64, float64, float64, float64) {
 	r, g, b, a := 1.0, 1.0, 1.0, 1.0
 	if opt3State&db.Opt3Quicken != 0 {
-		b = 0
+		r, g, b = 200.0/255, 200.0/255, 0
 	}
 	if opt3State&db.Opt3Energycoat != 0 {
 		r, g, b = 0.5, 0.5, 0.85

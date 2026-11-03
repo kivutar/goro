@@ -5254,6 +5254,9 @@ func TestGospelGroundSkillNotifyPlaysOneCastSoundOnCaster(t *testing.T) {
 	if len(mode.scheduledSounds) != 1 || len(mode.scheduledSounds[0].paths) != 1 || mode.scheduledSounds[0].paths[0] != "effect\\가스펠.wav" {
 		t.Fatalf("Gospel cast sounds = %+v, want one Gospel sound", mode.scheduledSounds)
 	}
+	if mode.scheduledSounds[0].positioned {
+		t.Fatal("Gospel's cast sound must not be attenuated with distance")
+	}
 }
 
 func TestGospelSkillUnitUsesPersistentGroundVisualWithoutSound(t *testing.T) {

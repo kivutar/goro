@@ -42,7 +42,6 @@ func (m *System) drawShieldChainEffect(screen *render.Frame, ctx client.Context,
 	if texture == nil || effect.ShieldChain == nil {
 		return
 	}
-	effect.ShieldChain.advance(ctx, effect, now)
 	frame := int(now.Sub(effect.Starts) / db.EffectFrameDuration)
 	for i := 0; i < 5; i++ {
 		process := frame - 3*i + 1

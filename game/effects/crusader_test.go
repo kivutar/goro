@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -12,6 +13,45 @@ import (
 	"github.com/kivutar/goro/network"
 	"github.com/kivutar/goro/render"
 )
+
+func TestShieldBoomerangFollowsMovingCasterAcrossSkippedFrames(t *testing.T) {
+	ctx := testutil.KnightEffectContext()
+	start := time.Unix(100, 0)
+	caster := &ctx.World.Player
+	caster.Moving, caster.MoveStarted, caster.MoveDuration = true, start, 3*time.Second
+	caster.FromX, caster.FromY, caster.ToX, caster.ToY = 20, 20, 20, 40
+	projection := testutil.Projection(800, 600, 20, 20, 0)
+	var want shieldFlight
+	for _, interval := range []int{1, 10, 70} {
+		for _, hidden := range []bool{false, true} {
+			t.Run(fmt.Sprintf("interval=%d/hidden=%t", interval, hidden), func(t *testing.T) {
+				ctx.Session.NoEffects = false
+				m := &System{textures: map[string]*render.Image{
+					"__effectfile_effect/shield_boomerang.bmp|blackkey=true": render.NewImage(1, 1),
+				}}
+				m.AddBetween(ctx, ShieldBoomer, 300, 2000000, start)
+				ctx.Session.NoEffects = hidden
+				for tick := 0; tick <= 70; tick += interval {
+					m.Draw(render.NewFrame(800, 600), ctx, projection, start.Add(time.Duration(tick)*db.EffectFrameDuration), false)
+				}
+				flight := *m.Active[0].Shield
+				if interval == 1 && !hidden {
+					want = flight
+					if flight.tick != 71 || flight.Phase == 0 {
+						t.Fatal("shield must have begun its return flight")
+					}
+				} else if flight != want {
+					t.Fatalf("return flight or trail depends on drawing frequency or visibility: got %+v, want %+v", flight, want)
+				}
+				ctx.Session.NoEffects = false
+				m.Draw(render.NewFrame(800, 600), ctx, projection, start.Add(70*db.EffectFrameDuration), true)
+				if *m.Active[0].Shield != flight {
+					t.Fatal("drawing the other render pass advanced the shield twice")
+				}
+			})
+		}
+	}
+}
 
 func TestCrusaderDefenseRingsKeepTheirOpenArc(t *testing.T) {
 	ctx := testutil.KnightEffectContext()

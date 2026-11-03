@@ -176,6 +176,19 @@ func initShieldBoomerang(ctx client.Context, effect *Instance) {
 	}
 }
 
+func (flight *shieldFlight) advance(ctx client.Context, effect Instance, now time.Time) {
+	tick := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
+	if flight.oneWay {
+		flight.Advance(tick-15, scene.Point3{})
+		return
+	}
+	for flight.tick < min(tick, 499) {
+		// Returning shields steer toward the caster's position on each tick.
+		at := effect.Starts.Add(time.Duration(flight.tick) * db.EffectFrameDuration)
+		flight.Advance(flight.tick+1, EffectWorldAnchor(ctx, effect, at))
+	}
+}
+
 func (flight *shieldFlight) Advance(tick int, caster scene.Point3) {
 	for flight.tick < min(tick, 499) {
 		flight.tick++
@@ -241,16 +254,13 @@ func (m *System) drawShieldBoomerangEffect(screen *render.Frame, ctx client.Cont
 	if texture == nil || effect.Shield == nil {
 		return
 	}
-	tick := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
 	size := 7 * math.Sqrt2 / 5
 	if effect.Shield.oneWay {
-		tick -= 15
 		size = effect.Size
 		if size == 0 {
 			size = 2 * math.Sqrt2 / 5
 		}
 	}
-	effect.Shield.Advance(tick, EffectWorldAnchor(ctx, effect, now))
 	for _, particle := range effect.Shield.Images {
 		drawShieldImage(screen, projection, texture, particle, size, effect.Shield.oneWay)
 	}
