@@ -321,7 +321,7 @@ func SpriteMotionIndexWithOptions(action res.ACTAction, started time.Time, now t
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	index := int(float64(elapsed.Milliseconds()) / delay)
+	index := int(float64(elapsed) / (delay * float64(time.Millisecond)))
 	if loop || motionCount == 1 {
 		return MinInt(frameOffset+index%motionCount, len(action.Animations)-1)
 	}

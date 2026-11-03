@@ -23,7 +23,7 @@ func (m *System) drawChemicalProtection(screen *render.Frame, ctx client.Context
 		return
 	}
 	center := effect.ActorOrigin
-	center.Y += 1.8
+	// The rays capture the recipient's position before the parent effect's lift.
 	right, up, _, ok := projection.BillboardBasis(center.X, center.Z, center.Y)
 	if !ok {
 		return

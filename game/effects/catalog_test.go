@@ -1379,7 +1379,7 @@ func TestRobrowserSimpleEffectsThreeHundredToThreeFiftyMatchTableRows(t *testing
 	if !ok || len(demo.Components) != 1 {
 		t.Fatalf("EF_DEMONSTRATION spec = %+v ok=%t", demo, ok)
 	}
-	if component := demo.Components[0]; component.Kind != Component3D || component.SpriteFile != "데몬스트레이션" || component.AttachedEntity {
+	if component := demo.Components[0]; component.FuncAdapter != effectFuncNativeSprite || component.SpriteFile != "데몬스트레이션" || component.AttachedEntity {
 		t.Fatalf("EF_DEMONSTRATION component = %+v", component)
 	}
 

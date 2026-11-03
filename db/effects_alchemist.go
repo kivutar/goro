@@ -11,7 +11,7 @@ func demonstrationEffectSpec() EffectSpec {
 	return EffectSpec{
 		Duration: 99999 * EffectFrameDuration,
 		Components: []EffectComponent{{
-			Kind: EffectComponent3D, SpriteFile: "데몬스트레이션",
+			Kind: EffectComponentFUNC, FuncName: "NativeSprite", SpriteFile: "데몬스트레이션",
 			SpriteRepeat: true, SpriteDelay: 4 * EffectFrameDuration,
 			WorldSizedSprite: true, PosZ: .2, AlphaMax: 200.0 / 255,
 			SizeStart: 120 * EffectPixelRatio, SizeEnd: 120 * EffectPixelRatio,

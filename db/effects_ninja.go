@@ -57,6 +57,7 @@ func ninjaSpriteEffectSpec(id int) EffectSpec {
 	case effectThunderStorm2:
 		spec.Duration = 200 * EffectFrameDuration
 		c.SpriteFile, c.SpriteDelay, c.PosZ = "썬더스톰", 2*EffectFrameDuration, .9
+		c.SizeStart = 250 * EffectPixelRatio
 		c.SpriteRepeat = true
 		spec.SFX = []string{"effect\\EF_ThunderStorm.wav"}
 	}

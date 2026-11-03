@@ -809,6 +809,7 @@ type Instance struct {
 	Shield                               *shieldFlight
 	ShieldChain                          *shieldChainFlight
 	pressure                             *pressureFlight
+	acidBottles                          *acidBottleFlight
 	NinjaWind                            *NinjaWind
 	SpiritSpheres                        *spiritSpheres
 	NinjaPetals                          *NinjaPetals
@@ -1736,6 +1737,9 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 		}
 		if effect.pressure != nil {
 			effect.pressure.advance(ctx, effect, now)
+		}
+		if effect.acidBottles != nil {
+			effect.acidBottles.advance(ctx, effect, spec, now)
 		}
 		active = append(active, effect)
 		// Keep lifetimes and actor state while hidden so toggling back on cannot

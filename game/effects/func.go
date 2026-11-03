@@ -258,7 +258,7 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 	case effectFuncAcidDemon:
 		m.drawAcidDemon(screen, ctx, component, effect, now)
 	case EffectFuncThrowItem:
-		m.drawThrowItemEffect(screen, ctx, projection, component, effect, now)
+		m.drawThrowItemEffect(screen, ctx, projection, component, componentIndex, effect, now)
 	case EffectFuncSonicBlow:
 		m.drawSonicBlowEffect(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncGrimtooth:

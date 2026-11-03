@@ -330,11 +330,11 @@ func (m *System) drawNativeSpriteEffect(screen *render.Frame, ctx client.Context
 		}
 		return
 	}
-	// Prim3DParticle advances its first motion on tick zero.
+	// Native sprite primitives advance their first motion on tick zero.
 	effect.Starts = effect.Starts.Add(c.Delay - c.SpriteDelay)
 	c.Delay = 0
-	if effect.EffectID == ThunderStorm2 {
-		m.draw3DSpriteEffect(screen, ctx, projection, effect, c, x, y, z+c.PosZ, 250*scene.PixelRatio, 1, 0, effect.Starts, now)
+	if c.SizeStart > 0 {
+		m.draw3DSpriteEffect(screen, ctx, projection, effect, c, x, y, z+c.PosZ, c.SizeStart, effectComponentAlpha(0, c), 0, effect.Starts, now)
 		return
 	}
 	m.DrawSPREffect(screen, ctx, projection, effect, c, x, y, z, now)

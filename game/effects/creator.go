@@ -11,6 +11,22 @@ import (
 	"github.com/kivutar/goro/render"
 )
 
+type acidBottleFlight struct {
+	origins [2]scene.Point3
+	count   int
+}
+
+func (flight *acidBottleFlight) advance(ctx client.Context, effect Instance, spec Spec, now time.Time) {
+	for flight.count < len(flight.origins) {
+		at := effect.Starts.Add(spec.Components[flight.count].Delay)
+		if now.Before(at) {
+			break
+		}
+		flight.origins[flight.count] = EffectWorldAnchor(ctx, effect, at)
+		flight.count++
+	}
+}
+
 func (m *System) drawSlimPitcher(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, now time.Time) {
 	n := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
 	origin := EffectWorldAnchor(ctx, effect, now)

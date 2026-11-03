@@ -36,6 +36,9 @@ func initDirectedEffect(ctx client.Context, effect *Instance) {
 	effect.ActorOrigin = origin
 	effect.ProjectileDirection = direction
 	effect.HasActorTransform = true
+	if effect.EffectID == ThrowItem4 {
+		effect.acidBottles = &acidBottleFlight{}
+	}
 }
 
 func ThrowItemAt(effect Instance, process int) (position scene.Point3, angle float64, alpha int) {
@@ -64,7 +67,7 @@ func ThrowItemAt(effect Instance, process int) (position scene.Point3, angle flo
 	return position, scene.DegreesToRadians(float64((rotation + process*spin) % 360)), max(0, 255-20*max(0, process-stop))
 }
 
-func (m *System) drawThrowItemEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, now time.Time) {
+func (m *System) drawThrowItemEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, componentIndex int, effect Instance, now time.Time) {
 	texture := m.EffectFileTextureWithBlackKey(ctx.Resources, component.TextureFile, !isAlchemistBottle(effect.EffectID))
 	if texture == nil {
 		return
@@ -74,6 +77,16 @@ func (m *System) drawThrowItemEffect(screen *render.Frame, ctx client.Context, p
 		return
 	}
 	if effect.EffectID == ThrowItem4 {
+		if effect.acidBottles == nil || componentIndex >= effect.acidBottles.count {
+			return
+		}
+		// Each bottle starts at the caster's position on its launch tick, but
+		// both aim at the victim's position from the cast notification.
+		destination := scene.Add3(effect.ActorOrigin, effect.ProjectileDirection)
+		destination.Y -= 1.6
+		effect.ActorOrigin = effect.acidBottles.origins[componentIndex]
+		effect.ProjectileDirection = scene.Sub3(destination, effect.ActorOrigin)
+		effect.ActorOrigin.Y += 1.6
 		effect.ItemLevel = 4
 	}
 	for trail := 0; trail < 4; trail++ {
