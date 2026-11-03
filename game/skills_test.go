@@ -1919,6 +1919,39 @@ func TestMerchantAttackEffects(t *testing.T) {
 	}
 }
 
+func TestCartRevolutionBurstSoundsStayAtOrigin(t *testing.T) {
+	ctx := testutil.MerchantEffectContext()
+	start := time.Unix(100, 0)
+	m := &WorldMode{}
+	action := network.ActorActionNotify{SkillID: db.SkillMCCartrevolution, SourceID: 2000000, TargetID: 300, Damage: 100}
+	m.addSkillBeforeHitEffect(ctx, action, start)
+	m.addSkillHitEffect(ctx, action, start.Add(500*time.Millisecond))
+	ctx.World.Player.X = 20
+	victim := ctx.World.Actors[300]
+	victim.X = 21
+	ctx.World.Actors[300] = victim
+	if len(m.scheduledSounds) != 4 {
+		t.Fatal("Cart Revolution must play two bursts on the caster and two on the victim")
+	}
+	for i, sound := range m.scheduledSounds {
+		x, y, ok := scheduledSoundPosition(ctx, sound, sound.at)
+		if !ok || x != float64(10+i/2) || y != 20 {
+			t.Fatalf("burst %d followed the moving actor: (%g, %g)", i, x, y)
+		}
+	}
+	m.scheduledSounds = nil
+	m.effects().AddCellLifetime(ctx, effects.CartRevolution, 0, 25, 30, start, 0, false)
+	if len(m.scheduledSounds) != 2 {
+		t.Fatal("ground-positioned Cart Revolution must also play both bursts")
+	}
+	for _, sound := range m.scheduledSounds {
+		x, y, ok := scheduledSoundPosition(ctx, sound, sound.at)
+		if !ok || x != 25 || y != 30 {
+			t.Fatal("ground-positioned burst lost its cell coordinates")
+		}
+	}
+}
+
 func TestMammoniteCoinBounces(t *testing.T) {
 	ctx := testutil.MerchantEffectContext()
 	ctx.World.GAT = &res.GAT{Width: 30, Height: 30, Cells: make([]res.GATCell, 900)}
@@ -1985,7 +2018,7 @@ func TestMerchantEffectsWithClientAssets(t *testing.T) {
 	}
 	projection := testutil.Projection(800, 600, 11, 20, 0)
 	coin, _ := effects.Lookup(effects.Mammonite)
-	for _, tc := range []struct{ tick, count int }{{19, 0}, {20, 5}, {21, 10}, {35, 10}, {90, 0}} {
+	for _, tc := range []struct{ tick, count int }{{19, 0}, {20, 10}, {21, 10}, {35, 10}, {90, 0}} {
 		frame := render.NewFrame(800, 600)
 		m.effects().DrawMammoniteCoins(frame, ctx, projection, coin.Components[1], m.effects().Active[0], start.Add(time.Duration(tc.tick)*db.EffectFrameDuration))
 		if count := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len(); count != tc.count {

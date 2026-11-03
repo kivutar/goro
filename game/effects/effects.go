@@ -1420,6 +1420,12 @@ func (m *System) ScheduleWorldEffectSound(starts time.Time, spec Spec, effect In
 		}
 		if effect.EffectID == TripleAction || effect.EffectID == HolyCross || effect.EffectID == BottomGospel {
 			m.scheduleSound(starts.Add(delay), path)
+		} else if effect.EffectID == CartRevolution {
+			x, y := float64(effect.X), float64(effect.Y)
+			if effect.HasActorTransform {
+				x, y = effect.ActorOrigin.X-.5, effect.ActorOrigin.Z-.5
+			}
+			m.scheduleSoundVolumeAtPosition(starts.Add(delay), 1, x, y, path)
 		} else {
 			m.scheduleSoundAtWorldEffect(starts.Add(delay), effect, path)
 		}

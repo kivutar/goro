@@ -17,6 +17,7 @@ func (m *System) initMammonite(ctx client.Context, effect *Instance) {
 		return
 	}
 	origin := EffectWorldAnchor(ctx, *effect, effect.Starts)
+	effect.ActorOrigin, effect.HasActorTransform = origin, true
 	effect.CoinTrails = new([5][]scene.Point3)
 	// The native Coin effect spawns five PP_3DPARTICLEGRAVITY sprites at tick 20.
 	// Compute their short paths once, so bounce audio and visuals share timing.
@@ -60,10 +61,11 @@ func (m *System) DrawMammoniteCoins(screen *render.Frame, ctx client.Context, pr
 		alpha := effectParticleAlpha(age, len(trail), 1, len(trail)-len(trail)/3, 254)
 		// ShiftSegment keeps one smaller, half-opacity afterimage.
 		for segment := 1; segment >= 0; segment-- {
-			if age < segment {
-				continue
+			position := effect.ActorOrigin
+			if age >= segment {
+				position = trail[age-segment]
 			}
-			m.drawEffectParticleSprite(screen, ctx, projection, component.SpriteFile, trail[age-segment],
+			m.drawEffectParticleSprite(screen, ctx, projection, component.SpriteFile, position,
 				age+1, 2-.5*float64(segment), 0, color.RGBA{255, 255, 255, alpha / uint8(segment+1)})
 		}
 	}
