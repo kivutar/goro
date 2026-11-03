@@ -801,6 +801,7 @@ type Instance struct {
 	ActorID                              uint32
 	TargetID                             uint32
 	castSourceID                         uint32
+	randomSeed                           uint32
 	ServerTick                           uint32
 	ActorDirection                       int
 	ActorOrigin                          scene.Point3
@@ -1122,6 +1123,11 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 		Starts:   starts,
 		Expires:  starts.Add(duration),
 		Duration: durationOverride,
+	}
+	if effectID == BashBegin {
+		// Envenom launches two flares on the same actor at the same instant.
+		effect.randomSeed = m.nextRandomSeed
+		m.nextRandomSeed++
 	}
 	if effectID == EnergyDrain2 {
 		initSoulDrain(ctx, &effect)
@@ -1981,7 +1987,7 @@ func deterministicFloatRange(effect Instance, salt int, min, max float64) float6
 }
 
 func deterministicUnit(effect Instance, salt int) float64 {
-	value := uint32(effect.EffectID*1103515245) ^ effect.ActorID ^ uint32(effect.Starts.UnixNano()) ^ uint32(salt*2654435761)
+	value := uint32(effect.EffectID*1103515245) ^ effect.ActorID ^ uint32(effect.Starts.UnixNano()) ^ uint32(salt*2654435761) ^ effect.randomSeed
 	value ^= value >> 16
 	value *= 2246822519
 	value ^= value >> 13

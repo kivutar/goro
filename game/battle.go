@@ -452,6 +452,8 @@ func skillSplashAction(action network.ActorActionNotify) bool {
 		return true
 	case db.SkillACDouble, db.SkillACChargearrow, db.SkillMCMammonite, db.SkillMCCartrevolution, db.SkillWSCarttermination, db.SkillAMAcidterror, db.SkillCRAciddemonstration:
 		return true
+	case db.SkillTFPoison, db.SkillTFSprinklesand, db.SkillTFThrowstone:
+		return true
 	case db.SkillWZFirepillar, db.SkillWZSightrasher, db.SkillWZMeteor, db.SkillWZJupitel, db.SkillWZVermilion,
 		db.SkillWZWaterball, db.SkillWZFrostnova, db.SkillWZStormgust, db.SkillWZEarthspike, db.SkillWZHeavendrive:
 		return true
@@ -701,7 +703,7 @@ func (m *WorldMode) addSkillHitEffect(ctx client.Context, action network.ActorAc
 			if (effectID == effects.BowlingBash || effectID == effects.BlitzBeat) && i > 0 {
 				continue
 			}
-			if i > 0 && effectID == effects.BashHit && (action.SkillID == db.SkillACDouble || action.SkillID == db.SkillSNSharpshooting || action.SkillID == db.SkillCGArrowvulcan || action.SkillID == db.SkillHTPhantasmic || action.SkillID == db.SkillHTPower || action.SkillID == db.SkillMOFingeroffensive || action.SkillID == db.SkillMOCombofinish || action.SkillID == db.SkillChTigerfist || action.SkillID == db.SkillChChaincrush) {
+			if i > 0 && effectID == effects.BashHit && (action.SkillID == db.SkillTFPoison || action.SkillID == db.SkillACDouble || action.SkillID == db.SkillSNSharpshooting || action.SkillID == db.SkillCGArrowvulcan || action.SkillID == db.SkillHTPhantasmic || action.SkillID == db.SkillHTPower || action.SkillID == db.SkillMOFingeroffensive || action.SkillID == db.SkillMOCombofinish || action.SkillID == db.SkillChTigerfist || action.SkillID == db.SkillChChaincrush) {
 				continue
 			}
 			if i > 0 && (action.SkillID == db.SkillMGNapalmbeat || action.SkillID == db.SkillMGSoulstrike || action.SkillID == db.SkillMGFireball || action.SkillID == db.SkillMGFrostdiver) && (effectID == effects.BashHit || effectID == effects.FrostDiverHit) {

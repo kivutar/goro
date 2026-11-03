@@ -10,6 +10,9 @@ func Enabled(ctx client.Context) bool {
 }
 
 func effectEnabled(ctx client.Context, effectID int) bool {
+	if effectID == BashBegin && lessEffectsEnabled(ctx) {
+		return false
+	}
 	if Enabled(ctx) {
 		return true
 	}

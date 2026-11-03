@@ -87,4 +87,17 @@ func TestEffectVisibilityUsesSessionOverrideAndRetainsBodyFeedback(t *testing.T)
 	if !effectEnabled(ctx, Heal) {
 		t.Fatal("runtime preference must override configuration independently of /mineffect")
 	}
+	if effectEnabled(ctx, BashBegin) || !effectEnabled(ctx, BashHit) || !effectEnabled(ctx, Detoxication) {
+		t.Fatal("/mineffect must suppress the Bash flare without hiding impacts or Detoxify")
+	}
+	ctx.Config.Gameplay.LessEffects = true
+	ctx.Session.LessEffects = false
+	if !effectEnabled(ctx, BashBegin) {
+		t.Fatal("the runtime /mineffect preference must override configuration")
+	}
+	ctx.Session = nil
+	ctx.Config.Gameplay.NoEffects = false
+	if effectEnabled(ctx, BashBegin) {
+		t.Fatal("/mineffect must use configuration when there is no session")
+	}
 }

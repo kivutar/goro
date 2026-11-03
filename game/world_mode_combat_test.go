@@ -2909,24 +2909,79 @@ func TestThiefSkillPacketEffects(t *testing.T) {
 	for _, skill := range []uint16{db.SkillTFPoison, db.SkillTFSprinklesand, db.SkillTFThrowstone} {
 		m := &WorldMode{}
 		action := network.ActorActionNotify{SkillID: skill, SourceID: 2000000, TargetID: 300, Damage: 50}
+		m.addSkillBeginEffect(ctx, action, starts)
 		m.addSkillBeforeHitEffect(ctx, action, starts)
 		m.addSkillEffect(ctx, action, starts, hitAt)
 		m.addSkillHitEffect(ctx, action, hitAt)
-		want, at, actor := effects.BashHit, hitAt, uint32(300)
+		want := []int{effects.BashBegin, effects.BashBegin, effects.Hit1, effects.BashHit}
 		if skill == db.SkillTFSprinklesand {
-			want, at = effects.SprinkleSand, starts
+			want = []int{effects.SprinkleSand, effects.Hit1}
 		} else if skill == db.SkillTFThrowstone {
-			want, at, actor = effects.ThrowItem3, starts, 2000000
+			want = []int{effects.ThrowItem3, effects.Hit1}
 		}
-		if len(m.effects().Active) != 1 || m.effects().Active[0].EffectID != want || m.effects().Active[0].ActorID != actor || !m.effects().Active[0].Starts.Equal(at) {
-			t.Fatalf("skill %d has wrong effect or timing: %+v", skill, m.effects().Active)
+		if len(m.effects().Active) != len(want) {
+			t.Fatalf("skill %d effects: %+v, want %v", skill, m.effects().Active, want)
 		}
-		if skill == db.SkillTFPoison {
-			m.effects().Active = nil
-			action.Damage = 0
-			m.addSkillHitEffect(ctx, action, hitAt)
-			if len(m.effects().Active) != 0 {
-				t.Fatal("missed Envenom must not show an impact")
+		for i, effect := range m.effects().Active {
+			at, actor := hitAt, uint32(300)
+			if i == 0 || skill == db.SkillTFPoison && i == 1 {
+				at = starts
+				if skill != db.SkillTFSprinklesand {
+					actor = 2000000
+				}
+			}
+			if effect.EffectID != want[i] || effect.ActorID != actor || !effect.Starts.Equal(at) {
+				t.Fatalf("skill %d effect %d has wrong ownership or timing: %+v", skill, i, effect)
+			}
+		}
+		m.effects().Active = nil
+		action.Damage = 0
+		m.addSkillHitEffect(ctx, action, hitAt)
+		if len(m.effects().Active) != 0 {
+			t.Fatalf("missed skill %d must not show an impact", skill)
+		}
+		action.Damage, action.Action = 50, 5
+		m.applyActorActionNotify(ctx, action)
+		if len(m.effects().Active) != 0 {
+			t.Fatalf("skill %d replayed effects for a splash notification", skill)
+		}
+	}
+	m := &WorldMode{}
+	m.addSkillHitEffect(ctx, network.ActorActionNotify{SkillID: db.SkillTFPoison, TargetID: 300, Damage: 50, HitCount: 2}, hitAt)
+	if len(m.effects().Active) != 3 || m.effects().Active[0].EffectID != effects.Hit1 ||
+		m.effects().Active[1].EffectID != effects.BashHit || m.effects().Active[2].EffectID != effects.Hit1 ||
+		!m.effects().Active[2].Starts.Equal(hitAt.Add(scene.MultiHitDelay)) {
+		t.Fatal("Envenom's secondary impact must play only on the first hit")
+	}
+}
+
+func TestThiefEnvenomReducedEffects(t *testing.T) {
+	ctx := testutil.ThiefEffectContext()
+	ctx.Session.LessEffects = true
+	m := &WorldMode{}
+	action := network.ActorActionNotify{SkillID: db.SkillTFPoison, SourceID: 2000000, TargetID: 300, Damage: 50}
+	start := time.Unix(100, 0)
+	m.addSkillBeginEffect(ctx, action, start)
+	if len(m.effects().Active) != 0 || len(m.scheduledSounds) != 0 {
+		t.Fatal("/mineffect must suppress Envenom's startup flares and their sounds")
+	}
+	m.addSkillHitEffect(ctx, action, start.Add(500*time.Millisecond))
+	if len(m.effects().Active) != 2 || m.effects().Active[0].EffectID != effects.Hit1 || m.effects().Active[1].EffectID != effects.BashHit {
+		t.Fatal("/mineffect must retain Envenom's impact effects")
+	}
+}
+
+func TestThiefEnvenomAnimation(t *testing.T) {
+	for _, damage := range []int32{0, 50} {
+		ctx := testutil.ThiefEffectContext()
+		m := &WorldMode{}
+		m.applyActorActionNotify(ctx, network.ActorActionNotify{
+			SkillID: db.SkillTFPoison, SourceID: 2000000, TargetID: 300,
+			Action: network.ActorActionSkill, Damage: damage, SourceSpeed: 500,
+		})
+		for _, id := range []uint32{2000000, 100} {
+			if anim := m.actorSystem.ActorAnims[id]; anim.ActionFamily != sprites.ActionPCSkill || !anim.Play || anim.Duration != 500*time.Millisecond {
+				t.Fatalf("Envenom must use the skill pose even on a miss: %+v", anim)
 			}
 		}
 	}

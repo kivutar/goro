@@ -85,9 +85,12 @@ func (m *System) drawRisingParticlesEffect(screen *render.Frame, ctx client.Cont
 	if effect.EffectID == VenomDust2 {
 		life, last = 10, frame/5
 	} else if effect.EffectID == Detoxication {
+		if lessEffectsEnabled(ctx) {
+			interval = 15
+		}
 		// ProcessAlpha puts particles that would outlive the emitter straight
 		// into their final fade, starting from zero alpha.
-		last = min(frame/5, 12)
+		last = min(frame/interval, 60/interval)
 	} else if effect.EffectID == EDP {
 		interval, last = 3, min(frame/3, 26)
 		origin = EffectWorldAnchor(ctx, effect, now)

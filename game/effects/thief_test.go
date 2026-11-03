@@ -7,13 +7,69 @@ import (
 
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/game/internal/testutil"
+	"github.com/kivutar/goro/game/scene"
+	"github.com/kivutar/goro/game/sprites"
 	"github.com/kivutar/goro/render"
 )
+
+func TestThiefEnvenomFlarePatterns(t *testing.T) {
+	ctx := testutil.ThiefEffectContext()
+	start := time.Unix(100, 0)
+	m := &System{}
+	for _, id := range SkillBeginEffectIDs(db.SkillTFPoison) {
+		m.AddAt(ctx, id, 2000000, start)
+	}
+	if len(m.Active) != 2 || !m.Active[0].Starts.Equal(m.Active[1].Starts) {
+		t.Fatal("Envenom must launch two simultaneous flares")
+	}
+	for i := 0; i < 20; i++ {
+		a, b, c := bashFlash(m.Active[0], i, 5)
+		x, y, z := bashFlash(m.Active[1], i, 5)
+		if a != x || b != y || c != z {
+			return
+		}
+	}
+	t.Fatal("Envenom's flares must have independent ray patterns")
+}
+
+func TestDetoxifyReducedParticles(t *testing.T) {
+	ctx := testutil.ThiefEffectContext()
+	start := time.Unix(100, 0)
+	projection := testutil.Projection(800, 600, 14, 20, 0)
+	for _, reduced := range []bool{false, true} {
+		ctx.Session.LessEffects = reduced
+		m := &System{EffectViews: map[string]*scene.SpriteView{"particle2": testutil.EffectRenderTestSprite()}}
+		m.AddAt(ctx, Detoxication, 300, start)
+		for _, tc := range []struct{ tick, normal, reduced int }{{20, 5, 2}, {40, 8, 2}, {70, 6, 2}, {98, 1, 1}, {100, 0, 0}} {
+			frame := render.NewFrame(800, 600)
+			m.Draw(frame, ctx, projection, start.Add(time.Duration(tc.tick)*db.EffectFrameDuration), false)
+			want := tc.normal
+			if reduced {
+				want = tc.reduced
+			}
+			if got := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len(); got != want {
+				t.Fatalf("tick %d reduced=%t: got %d particles, want %d", tc.tick, reduced, got, want)
+			}
+		}
+	}
+}
 
 func TestThiefEffectsWithClientAssets(t *testing.T) {
 	manager := testutil.RealDataManager(t)
 	ctx := testutil.ThiefEffectContext()
 	ctx.Resources = manager
+	ctx.Session.Selected.Job = db.JobThief
+	for _, sex := range []uint8{0, 1} {
+		view, status := sprites.LoadPlayer(manager, ctx.Session.Selected, sex, false)
+		if view == nil {
+			t.Fatalf("Thief sprite missing: %s", status)
+		}
+		for dir := 0; dir < 8; dir++ {
+			if _, action, ok := sprites.ResolveAction(view.Body.Act, sprites.ActionPCSkill, dir); !ok || len(action.Animations) == 0 {
+				t.Fatal("Thief skill ACT missing")
+			}
+		}
+	}
 	m := &System{}
 	starts := time.Unix(100, 0)
 	projection := testutil.Projection(800, 600, 14, 20, 0)

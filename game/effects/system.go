@@ -24,6 +24,7 @@ type Host interface {
 // Its zero value is ready to use; a host adds sound and camera integration.
 type System struct {
 	host           Host
+	nextRandomSeed uint32
 	Active         []Instance
 	specs          map[int]Spec
 	StrEffects     map[string]*res.STR
