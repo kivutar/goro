@@ -825,6 +825,7 @@ type Instance struct {
 	ItemLevel                            int
 	CoinTrails                           *[5][]scene.Point3
 	ArrowTargets                         *[9]scene.Point3
+	arrow                                *arrowFlight
 	HasActorTransform                    bool
 	superAngel                           *superAngel
 	X                                    int
@@ -1188,6 +1189,9 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	}
 	if effectID == Mammonite {
 		m.initMammonite(ctx, &effect)
+	}
+	if effectID == ArrowShot {
+		initArrow(ctx, &effect)
 	}
 	if effectID == CartRevolution || effectID == HasteUp || effectID == RepairWeapon || effectID == MaximizePower {
 		effect.ActorOrigin = EffectWorldAnchor(ctx, effect, starts)
@@ -1749,6 +1753,9 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 		}
 		if effect.pressure != nil {
 			effect.pressure.advance(ctx, effect, now)
+		}
+		if effect.arrow != nil {
+			effect.arrow.release(ctx, effect)
 		}
 		if effect.acidBottles != nil {
 			effect.acidBottles.advance(ctx, effect, spec, now)

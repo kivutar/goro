@@ -1708,11 +1708,11 @@ func TestArcherProjectileEffects(t *testing.T) {
 		t.Fatalf("arrow shot spec = %#v ok=%t, want one component", shot, ok)
 	}
 	component := shot.Components[0]
-	if component.Kind != Component3D || component.SpriteFile != "data/sprite/npc/skel_archer_arrow" {
-		t.Fatalf("arrow shot component = %#v, want skel_archer_arrow 3D sprite", component)
+	if component.FuncAdapter != EffectFuncArrows || component.SpriteFile != "data/sprite/몬스터/skel_archer_arrow" {
+		t.Fatalf("arrow shot component = %#v, want native arrow flight", component)
 	}
-	if !component.ToSrc || !component.RotateToTarget || !component.RotateWithCamera || component.Duration != 140*time.Millisecond {
-		t.Fatalf("arrow shot robr flags = %#v", component)
+	if shot.Duration != scene.ReferenceBowArrowFlightDuration {
+		t.Fatalf("arrow shot duration = %s, want %s", shot.Duration, scene.ReferenceBowArrowFlightDuration)
 	}
 
 	shower, ok := Lookup(ArrowShower)
@@ -1720,7 +1720,7 @@ func TestArcherProjectileEffects(t *testing.T) {
 		t.Fatalf("arrow shower spec = %#v ok=%t, want one component", shower, ok)
 	}
 	component = shower.Components[0]
-	if component.FuncAdapter != EffectFuncArrowShower || shower.Duration != scene.ReferenceBowArrowFlightDuration {
+	if component.FuncAdapter != EffectFuncArrows || shower.Duration != scene.ReferenceBowArrowFlightDuration {
 		t.Fatalf("arrow shower must use native flight and spread: %#v", component)
 	}
 }

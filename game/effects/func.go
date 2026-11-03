@@ -49,7 +49,7 @@ const (
 	effectFuncRisingParticles
 	effectFuncSteal
 	effectFuncMammoniteCoins
-	EffectFuncArrowShower
+	EffectFuncArrows
 	effectFuncHunter
 	effectFuncSniper
 	effectFuncClownGypsy
@@ -243,8 +243,8 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 		m.drawMagnumBreakEffect(screen, ctx, component, effect, now)
 	case effectFuncHunter:
 		m.drawHunterEffect(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
-	case EffectFuncArrowShower:
-		m.DrawArrowShower(screen, ctx, projection, component, effect, now)
+	case EffectFuncArrows:
+		m.DrawArrows(screen, ctx, projection, component, effect, now)
 	case effectFuncMammoniteCoins:
 		m.DrawMammoniteCoins(screen, ctx, projection, component, effect, now)
 	case effectFuncCartRevolution:
@@ -529,8 +529,8 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return effectFuncSteal
 	case "Detecting", "RemoveTrap", "Flasher", "BlitzBeat":
 		return effectFuncHunter
-	case "ArrowShower":
-		return EffectFuncArrowShower
+	case "Arrow", "ArrowShower":
+		return EffectFuncArrows
 	case "MammoniteCoins":
 		return effectFuncMammoniteCoins
 	case "CartRevolution":

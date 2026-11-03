@@ -489,11 +489,11 @@ func TestArcherArrowShowerReplacesPendingReleaseSound(t *testing.T) {
 
 func TestArcherArrowFlightAndSplash(t *testing.T) {
 	origin, target := scene.Point3{}, scene.Point3{X: 4}
-	if p, ok := effects.ArrowShowerPosition(origin, target, 48*time.Millisecond); !ok || math.Abs(p.X-2) > 1e-9 {
+	if p, ok := effects.ArrowPosition(origin, target, 48*time.Millisecond); !ok || math.Abs(p.X-2) > 1e-9 {
 		t.Fatalf("nearby arrow must travel at the native minimum speed: %+v, %t", p, ok)
 	}
 	for _, elapsed := range []time.Duration{-1, 96 * time.Millisecond} {
-		if _, ok := effects.ArrowShowerPosition(origin, target, elapsed); ok {
+		if _, ok := effects.ArrowPosition(origin, target, elapsed); ok {
 			t.Fatal("arrow visible before release or after arrival")
 		}
 	}

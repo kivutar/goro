@@ -912,7 +912,7 @@ func TestArcherEffectsWithClientAssets(t *testing.T) {
 		count int
 	}{{-1, 0}, {48 * time.Millisecond, 9}, {192 * time.Millisecond, 0}} {
 		frame := render.NewFrame(800, 600)
-		m.effects().DrawArrowShower(frame, ctx, projection, spec.Components[0], effect, effect.Starts.Add(tc.delay))
+		m.effects().DrawArrows(frame, ctx, projection, spec.Components[0], effect, effect.Starts.Add(tc.delay))
 		if got := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len(); got != tc.count {
 			t.Fatalf("delay %s: drew %d arrows, want %d", tc.delay, got, tc.count)
 		}

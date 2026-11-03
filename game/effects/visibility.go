@@ -19,7 +19,7 @@ func effectEnabled(ctx client.Context, effectID int) bool {
 	// The classic toggle keeps targeting, feedback and essential body effects.
 	// Emotions are a separate actor overlay in the original client.
 	switch effectID {
-	case Emotion, GreedSound, LockOnTarget, ReadyPortalOld, ReadyPortal, Portal,
+	case Emotion, GreedSound, ArrowShot, ArrowShower, LockOnTarget, ReadyPortalOld, ReadyPortal, Portal,
 		RefineOK, RefineFail, FirePillarOn, Blind, TalkFrostJoke, TalkScream,
 		BaseLevelUp, Angel2, BlueBody, RedLightBody, AsuraBody, TaeReady,
 		RedHit, BlueHit, JumpBody, LandBody, QuakeBody, ReflectBody,
