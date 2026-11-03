@@ -836,6 +836,27 @@ func TestBlacksmithSkillPacketOwnership(t *testing.T) {
 	}
 }
 
+func TestGreedSoundIsUnpositionedAndSurvivesEffectToggle(t *testing.T) {
+	ctx := testutil.MerchantEffectContext()
+	for _, hidden := range []bool{false, true} {
+		ctx.Session.NoEffects = hidden
+		m := &WorldMode{}
+		notify := network.SkillNoDamageNotify{SkillID: db.SkillBSGreed, SourceID: 300, TargetID: 300}
+		m.applySkillNoDamageNotify(ctx, notify)
+		if len(m.scheduledSounds) != 0 {
+			t.Fatal("failed Greed played a sound")
+		}
+		notify.Result = 1
+		m.applySkillNoDamageNotify(ctx, notify)
+		if len(m.scheduledSounds) != 1 || m.scheduledSounds[0].paths[0] != "effect\\ef_entry.wav" {
+			t.Fatal("successful Greed must play its sound even with effects disabled")
+		}
+		if sound := m.scheduledSounds[0]; sound.actorID != 0 || sound.hasPosition {
+			t.Fatal("Greed must play without positional attenuation")
+		}
+	}
+}
+
 func TestChampionAttacksUseReleaseEffectsAndSingleSecondaryHit(t *testing.T) {
 	ctx := testutil.MonkEffectContext()
 	ctx.World.Player.Job, ctx.Session.Selected.Job = db.JobMonkH, db.JobMonkH

@@ -18,10 +18,16 @@ func (m *System) drawBlacksmithEffect(screen *render.Frame, ctx client.Context, 
 	}
 	origin := EffectWorldAnchor(ctx, effect, now)
 	if effect.EffectID == HasteUp && frame < 100 {
+		// The orbit stays at the casting position; the screen-space rays follow the actor.
+		particleOrigin := origin
+		if effect.HasActorTransform {
+			particleOrigin = effect.ActorOrigin
+		}
 		n := float64(frame + 1)
 		for i := 0; i < 4; i++ {
-			angle := scene.DegreesToRadians(float64(i*90) + .3*n + .1*n*(n+1))
-			position := scene.Add3(origin, scene.Point3{
+			longitude := float64(i*90) + .3*n + .1*n*(n+1)
+			angle := scene.DegreesToRadians(math.Trunc(longitude))
+			position := scene.Add3(particleOrigin, scene.Point3{
 				X: 1.4 * math.Sin(angle), Z: 1.4 * math.Cos(angle),
 				Y: (.1*n + .001*n*(n+1)) / 5,
 			})

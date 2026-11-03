@@ -1189,7 +1189,7 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	if effectID == Mammonite {
 		m.initMammonite(ctx, &effect)
 	}
-	if effectID == CartRevolution {
+	if effectID == CartRevolution || effectID == HasteUp || effectID == RepairWeapon || effectID == MaximizePower {
 		effect.ActorOrigin = EffectWorldAnchor(ctx, effect, starts)
 		effect.HasActorTransform = true
 	}
@@ -1418,9 +1418,9 @@ func (m *System) ScheduleWorldEffectSound(starts time.Time, spec Spec, effect In
 		if i < len(spec.SfxDelays) {
 			delay = spec.SfxDelays[i]
 		}
-		if effect.EffectID == TripleAction || effect.EffectID == HolyCross || effect.EffectID == BottomGospel {
+		if effect.EffectID == TripleAction || effect.EffectID == HolyCross || effect.EffectID == BottomGospel || effect.EffectID == GreedSound {
 			m.scheduleSound(starts.Add(delay), path)
-		} else if effect.EffectID == CartRevolution {
+		} else if effect.EffectID == CartRevolution || effect.EffectID == HasteUp || effect.EffectID == RepairWeapon || effect.EffectID == MaximizePower {
 			x, y := float64(effect.X), float64(effect.Y)
 			if effect.HasActorTransform {
 				x, y = effect.ActorOrigin.X-.5, effect.ActorOrigin.Z-.5

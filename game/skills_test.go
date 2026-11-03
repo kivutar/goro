@@ -1150,6 +1150,37 @@ func TestBlacksmithHammerFallAndCastPoses(t *testing.T) {
 	}
 }
 
+func TestBlacksmithDelayedSoundsKeepTheirCastingPosition(t *testing.T) {
+	for _, id := range []int{effects.HasteUp, effects.RepairWeapon, effects.MaximizePower, effects.CartTermination} {
+		for _, actorID := range []uint32{2000000, 300} {
+			ctx := testutil.MerchantEffectContext()
+			start := time.Unix(100, 0)
+			m := &WorldMode{}
+			m.effects().AddAt(ctx, id, actorID, start)
+			ctx.World.Player.X += 10
+			actor := ctx.World.Actors[300]
+			actor.X += 10
+			ctx.World.Actors[300] = actor
+			wantX := 10.0
+			if actorID == 300 {
+				wantX++
+			}
+			if id == effects.CartTermination {
+				wantX += 10 // This effect samples the victim's position at the burst.
+			}
+			if len(m.scheduledSounds) == 0 {
+				t.Fatalf("effect %d scheduled no sounds", id)
+			}
+			for _, sound := range m.scheduledSounds {
+				x, y, ok := scheduledSoundPosition(ctx, sound, sound.at)
+				if !ok || x != wantX || y != 20 {
+					t.Fatalf("effect %d sound: (%g, %g), want (%g, 20)", id, x, y, wantX)
+				}
+			}
+		}
+	}
+}
+
 func TestBlacksmithEffectsWithClientAssets(t *testing.T) {
 	ctx := testutil.MerchantEffectContext()
 	ctx.Resources = testutil.RealDataManager(t)
