@@ -304,6 +304,8 @@ func directedSpriteAction(direction scene.Point3, yaw float64) int {
 
 func (m *System) drawDirectedSpriteEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, now time.Time) {
 	component.Duration = 0 // The non-repeating ACT owns its visible lifetime.
+	// Native sprite primitives advance their first motion on tick zero.
+	effect.Starts = effect.Starts.Add(-component.SpriteDelay)
 	p := effect.ActorOrigin
 	m.DrawSPREffect(screen, ctx, projection, effect, component, p.X, p.Z, p.Y, now)
 }

@@ -44,11 +44,23 @@ func (m *WorldMode) applySkillNameBubble(ctx client.Context, sourceID uint32, sk
 	m.actors().ApplySpeechBubble(ctx, network.ChatMessage{GID: sourceID, Text: skills.SkillNameBubbleText(ctx, skillID)}, now)
 }
 
+func (m *WorldMode) scheduleSkillSuccessSounds(skillID uint16, actorID uint32, now time.Time) {
+	for _, sound := range db.SkillEffects[skillID].SFX {
+		if effects.IsBardPerformance(skillID) || effects.IsDancerPerformance(skillID) || skillID == db.SkillDCWinkcharm || skillID == db.SkillBaPangvoice {
+			m.scheduleSound(now, sound)
+		} else {
+			m.scheduleSoundAtActor(now, actorID, sound)
+		}
+	}
+}
+
 func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.SkillNoDamageNotify) {
 	if notify.Result == 0 {
 		return
 	}
-	if notify.SkillID == db.SkillHWSouldrain || notify.SkillID == db.SkillPFSoulchange || (notify.SkillID >= db.SkillSGSunWarm && notify.SkillID <= db.SkillSGStarWarm) {
+	switch notify.SkillID {
+	case db.SkillHWSouldrain, db.SkillPFSoulchange, db.SkillSGSunWarm, db.SkillSGMoonWarm, db.SkillSGStarWarm,
+		db.SkillBaPangvoice:
 		if _, ok, _ := scene.ActorForCombatID(ctx, notify.SourceID); !ok {
 			return
 		}
@@ -69,6 +81,14 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 	}
 	m.applySkillNameBubble(ctx, notify.SourceID, notify.SkillID, now)
 	m.startSkillNoDamageSourceAnimation(ctx, notify, now)
+	if notify.SkillID == db.SkillDCWinkcharm {
+		// The caster still dances and names the skill if the target has left view.
+		_, sourceOK, _ := scene.ActorForCombatID(ctx, notify.SourceID)
+		_, targetOK, _ := scene.ActorForCombatID(ctx, notify.TargetID)
+		if !sourceOK || !targetOK {
+			return
+		}
+	}
 	if m.applyHunterTrapSkill(ctx, notify, now) {
 		return
 	}
@@ -92,9 +112,7 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 	m.applyTaekwonSkill(ctx, notify, now)
 	m.applyStarGladiatorSkill(ctx, notify, now)
 	m.applyWinkCharm(ctx, notify)
-	for _, sound := range db.SkillEffects[notify.SkillID].SFX {
-		m.scheduleSoundAtActor(now, notify.TargetID, sound)
-	}
+	m.scheduleSkillSuccessSounds(notify.SkillID, notify.TargetID, now)
 	effectIDs := effects.SkillEffectIDs(notify.SkillID)
 	if notify.SkillID == db.SkillALHeal {
 		effectIDs = []int{effects.HealEffectID(notify.Amount)}
@@ -585,12 +603,6 @@ func (m *WorldMode) applyWinkCharm(ctx client.Context, notify network.SkillNoDam
 	if notify.SkillID != db.SkillDCWinkcharm {
 		return
 	}
-	if _, ok, _ := scene.ActorForCombatID(ctx, notify.SourceID); !ok {
-		return
-	}
-	if _, ok, _ := scene.ActorForCombatID(ctx, notify.TargetID); !ok {
-		return
-	}
 	m.applyEmotionNotify(ctx, network.EmotionNotify{GID: notify.SourceID, Type: 30}) // ET_CHUP
 }
 
@@ -654,9 +666,7 @@ func (m *WorldMode) applyPerformanceGroundSkill(ctx client.Context, notify netwo
 	if actor, ok, _ := scene.ActorForCombatID(ctx, notify.SourceID); ok {
 		m.startSkillActionAnimation(ctx, notify.SourceID, actor, effects.SkillAction(notify.SkillID), now, scene.DefaultAttackAnimationDuration)
 	}
-	for _, sound := range db.SkillEffects[notify.SkillID].SFX {
-		m.scheduleSoundAtActor(now, notify.SourceID, sound)
-	}
+	m.scheduleSkillSuccessSounds(notify.SkillID, notify.SourceID, now)
 	if notify.SkillID == db.SkillCGMoonlit {
 		m.applyClownGypsySkill(ctx, network.SkillNoDamageNotify{SkillID: notify.SkillID, SourceID: notify.SourceID}, now)
 	}

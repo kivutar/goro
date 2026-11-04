@@ -3,9 +3,7 @@ package db
 import "time"
 
 func pangVoiceEffectSpec() EffectSpec {
-	spec := directedSpriteEffectSpec("fvoice")
-	spec.SFX = []string{"amon_ra_die01.wav"}
-	return spec
+	return directedSpriteEffectSpec("fvoice")
 }
 
 func bottomWhistleEffectSpec() EffectSpec {

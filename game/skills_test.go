@@ -4473,6 +4473,11 @@ func TestBardPerformanceOwnership(t *testing.T) {
 			if len(m.effects().Active) != 0 || len(m.scheduledSounds) != sounds || !m.actorSystem.ActorAnims[2000000].Loop {
 				t.Fatalf("skill %d ground=%t: activation must only start performance and its one sound", skill, ground)
 			}
+			for _, sound := range m.scheduledSounds {
+				if sound.positioned {
+					t.Fatalf("song %d ground=%t must play without panning or distance attenuation", skill, ground)
+				}
+			}
 			m.stopPerformance(ctx, network.StatusEffectChange{StatusID: db.StatusBdplaying, ActorID: 100})
 			if len(m.actorSystem.ActorAnims) != 0 {
 				t.Fatal("performance end must clear both local actor aliases")
@@ -4542,7 +4547,7 @@ func TestBardPangVoiceAndSongAssets(t *testing.T) {
 		}
 	}
 	for skill, spec := range db.SkillEffects {
-		if effects.IsBardPerformance(skill) {
+		if effects.IsBardPerformance(skill) || skill == db.SkillBaPangvoice {
 			for _, sound := range spec.SFX {
 				if _, err := ctx.Resources.ReadFile("data/wav/" + sound); err != nil {
 					t.Fatal(err)
@@ -4642,6 +4647,11 @@ func TestDancerPerformanceOwnership(t *testing.T) {
 			if len(m.effects().Active) != 0 || len(m.scheduledSounds) != sounds || !m.actorSystem.ActorAnims[2000000].PingPong {
 				t.Fatalf("dance %d ground=%t must start only its pose and sound", skill, ground)
 			}
+			for _, sound := range m.scheduledSounds {
+				if sound.positioned {
+					t.Fatalf("dance %d ground=%t must play without panning or distance attenuation", skill, ground)
+				}
+			}
 			m.stopPerformance(ctx, network.StatusEffectChange{StatusID: db.StatusBdplaying, ActorID: 100})
 			if len(m.actorSystem.ActorAnims) != 0 {
 				t.Fatal("dance continued after status end")
@@ -4663,6 +4673,60 @@ func TestDancerPerformanceOwnership(t *testing.T) {
 	}
 	if len(m.effects().Active) != 0 {
 		t.Fatal("dance visual survived ground unit removal")
+	}
+}
+
+func TestWinkAndPangVoiceSoundAndActorPresence(t *testing.T) {
+	for _, skill := range []uint16{db.SkillDCWinkcharm, db.SkillBaPangvoice} {
+		for _, tc := range []struct {
+			source, target uint32
+			result         uint8
+			noEffects      bool
+			wantSound      bool
+		}{
+			{2000000, 300, 1, false, true},
+			{2000000, 300, 1, true, true},
+			{999, 300, 1, false, false},
+			{2000000, 999, 1, false, false},
+			{2000000, 300, 0, false, false},
+		} {
+			ctx := testutil.ArcherEffectContext()
+			ctx.Session.NoEffects = tc.noEffects
+			m := &WorldMode{}
+			m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{SkillID: skill, SourceID: tc.source, TargetID: tc.target, Result: tc.result})
+			if tc.wantSound {
+				if len(m.scheduledSounds) != 1 || m.scheduledSounds[0].positioned {
+					t.Fatalf("skill %d noEffects=%t must play one unpositioned sound", skill, tc.noEffects)
+				}
+				if tc.noEffects {
+					for _, effect := range m.effects().Active {
+						if effect.EffectID != effects.Emotion {
+							t.Fatalf("skill %d must hide its sprite with effects disabled", skill)
+						}
+					}
+				}
+			} else if len(m.scheduledSounds)+len(m.effects().Active) != 0 {
+				t.Fatalf("skill %d source=%d target=%d result=%d must not emit effects or sound", skill, tc.source, tc.target, tc.result)
+			}
+			if (tc.source == 999 || tc.result == 0) && len(m.actorSystem.ActorAnims)+len(m.actorSystem.SpeechBubbles) != 0 {
+				t.Fatalf("skill %d must not animate a missing caster or failed cast", skill)
+			}
+		}
+	}
+}
+
+func TestWinkMissingTargetKeepsCasterFeedback(t *testing.T) {
+	ctx := testutil.ArcherEffectContext()
+	m := &WorldMode{}
+	m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{SkillID: db.SkillDCWinkcharm, SourceID: 2000000, TargetID: 999, Result: 1})
+	if anim, ok := m.actorSystem.ActorAnims[2000000]; !ok || !anim.PingPong || anim.ActionFamily != sprites.ActionPCSkill {
+		t.Fatal("Wink must still animate its caster when the target has left view")
+	}
+	if bubble := m.actorSystem.SpeechBubbles[2000000]; bubble.Text == "" {
+		t.Fatal("Wink must still show its skill name when the target has left view")
+	}
+	if len(m.scheduledSounds)+len(m.effects().Active) != 0 {
+		t.Fatal("Wink must skip the kiss emote, sprite, and sound without its target")
 	}
 }
 

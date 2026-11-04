@@ -4246,7 +4246,7 @@ var SkillEffects = map[uint16]SkillEffectSpec{
 	SkillSACreatecon:                {},
 	SkillSAElementwater:             {SuccessEffectIDs: []int{effectFrostWeapon}},
 	SkillHTPhantasmic:               {BeginCastEffectIDs: []int{effectBashBegin}, HitEffectIDs: []int{effectHit1, effectBashHit}, BeforeHitEffectIDs: []int{SkillEffectArrowShot}},
-	SkillBaPangvoice:                {SuccessEffectIDs: []int{effectFVoice}},
+	SkillBaPangvoice:                {SuccessEffectIDs: []int{effectFVoice}, SFX: []string{"amon_ra_die01.wav"}},
 	SkillDCWinkcharm:                {SuccessEffectIDs: []int{effectWink}, SFX: []string{"effect\\vallentine.wav"}, HideCastAura: true},
 	SkillMOKitranslation:            {},
 	SkillMOBalkyoung:                {HitEffectIDs: []int{effectHit3}, HideCastAura: true},
