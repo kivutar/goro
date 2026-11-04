@@ -776,6 +776,50 @@ func TestGypsySkillAnimationsWithClientAssets(t *testing.T) {
 	}
 }
 
+func TestClownGypsyActivationPoseWithClientAssets(t *testing.T) {
+	ctx := testutil.ArcherEffectContext()
+	ctx.Resources = testutil.RealDataManager(t)
+	start := time.Unix(100, 0)
+	for _, job := range []int16{db.JobBardH, db.JobDancerH} {
+		ctx.World.Player.Job, ctx.Session.Selected.Job = job, job
+		sex := uint8(0)
+		if job == db.JobBardH {
+			sex = 1
+		}
+		ctx.World.Player.Sex = sex
+		view, status := sprites.LoadPlayer(ctx.Resources, ctx.Session.Selected, sex, false)
+		if view == nil || !strings.Contains(view.Body.ActSource, res.PlayerJobToken(int(job))) {
+			t.Fatalf("must load job %d without a fallback: %s", job, status)
+		}
+		m := &WorldMode{actorSystem: actors.System{PlayerView: view}}
+		for _, skill := range []uint16{db.SkillCGLongingfreedom, db.SkillCGTarotcard, db.SkillACConcentration} {
+			m.startSkillNoDamageSourceAnimation(ctx, network.SkillNoDamageNotify{SkillID: skill, SourceID: 2000000, TargetID: 300, Result: 1}, start)
+			anim := m.actorSystem.ActorAnims[2000000]
+			if anim.ActionFamily != sprites.ActionPCSkill || anim.Duration != 400*time.Millisecond || !anim.HasFixedMotion || anim.FixedMotion != 0 {
+				t.Fatalf("job %d skill %d must hold ACT 96 frame zero for 400ms: %+v", job, skill, anim)
+			}
+			for direction := 0; direction < 8; direction++ {
+				_, action, ok := sprites.ResolveAction(view.Body.Act, sprites.ActionPCSkill, direction)
+				if !ok {
+					t.Fatal("missing skill action")
+				}
+				state := sprites.State{Direction: direction}
+				actors.ApplyActorAnimationToSpriteState(&state, anim, true)
+				if frame := sprites.BodyMotionForState(action, state, start, start.Add(250*time.Millisecond)); frame != 0 {
+					t.Fatalf("job %d direction %d: held pose advanced to frame %d", job, direction, frame)
+				}
+			}
+			if _, ok := m.actors().ActorAnimation(2000000, start.Add(400*time.Millisecond)); ok {
+				t.Fatal("skill pose outlived its 400ms duration")
+			}
+		}
+		m.startSkillSourceCastAnimation(ctx, 2000000, db.SkillCGTarotcard, time.Second, start)
+		if anim := m.actorSystem.ActorAnims[2000000]; anim.Duration != time.Second {
+			t.Fatal("activation pose must not shorten the casting animation")
+		}
+	}
+}
+
 func TestClownGypsyMarionetteLinkLifetime(t *testing.T) {
 	for _, end := range []uint16{db.StatusMarionetteMaster, db.StatusMarionette} {
 		ctx := testutil.ArcherEffectContext()

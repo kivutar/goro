@@ -826,6 +826,7 @@ type Instance struct {
 	CoinTrails                           *[5][]scene.Point3
 	ArrowTargets                         *[9]scene.Point3
 	arrow                                *arrowFlight
+	arrowVulcan                          *arrowVulcanRays
 	HasActorTransform                    bool
 	superAngel                           *superAngel
 	X                                    int
@@ -1174,6 +1175,9 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	}
 	if effectID == TripleAttack || effectID == TripleAttack2 || effectID == TripleAttack3 || effectID == Chemical2Dash {
 		initTripleAttack(ctx, &effect)
+	}
+	if effectID == TripleAttack3 {
+		effect.arrowVulcan = &arrowVulcanRays{origins: [9]scene.Point3{effect.ActorOrigin}, count: 1}
 	}
 	if effectID >= TarotCard1 && effectID <= TarotCard14 || effectID == TeiHit1 || effectID == TeiHit1X || effectID == HitLine || effectID == HitLine2 || effectID == Portal4 || effectID == Portal5 || effectID == BeginAsura || effectID == BeginAsura11 {
 		effect.ActorOrigin = EffectWorldAnchor(ctx, effect, starts)
@@ -1765,6 +1769,9 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 		}
 		if effect.ShieldChain != nil {
 			effect.ShieldChain.advance(ctx, effect, now)
+		}
+		if effect.arrowVulcan != nil {
+			effect.arrowVulcan.advance(ctx, effect, now)
 		}
 		active = append(active, effect)
 		// Keep lifetimes and actor state while hidden so toggling back on cannot

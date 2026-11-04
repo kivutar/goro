@@ -1058,8 +1058,8 @@ func TestClownGypsySuccessPacketsAndTarotSelection(t *testing.T) {
 		}
 		n.Result = 1
 		m.applySkillNoDamageNotify(ctx, n)
-		if len(m.scheduledSounds) != 1 {
-			t.Fatal("successful skill must play exactly one sound")
+		if len(m.scheduledSounds) != 1 || m.scheduledSounds[0].positioned {
+			t.Fatal("successful skill must play exactly one centered sound")
 		}
 		if skill == db.SkillCGHermode {
 			if len(m.effects().Active) != 0 {
@@ -1084,6 +1084,27 @@ func TestClownGypsySuccessPacketsAndTarotSelection(t *testing.T) {
 	for _, tc := range []struct{ frame, alpha int }{{0, 10}, {21, 220}, {198, 220}, {199, 215}, {242, 0}} {
 		if alpha := effects.TarotCardAlpha(tc.frame); alpha != tc.alpha {
 			t.Fatalf("Tarot frame %d: alpha %d, want %d", tc.frame, alpha, tc.alpha)
+		}
+	}
+}
+
+func TestClownGypsySoundsWithEffectsDisabled(t *testing.T) {
+	ctx := testutil.ArcherEffectContext()
+	ctx.World.Player.Job, ctx.Session.Selected.Job = db.JobBardH, db.JobBardH
+	ctx.Session.NoEffects = true
+	for _, skill := range []uint16{db.SkillCGMoonlit, db.SkillCGHermode, db.SkillCGLongingfreedom, db.SkillCGTarotcard} {
+		for _, targetID := range []uint32{300, 999} {
+			m := &WorldMode{}
+			m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{SkillID: skill, SourceID: 2000000, TargetID: targetID, Result: 1})
+			if skill == db.SkillCGTarotcard && targetID == 999 {
+				if len(m.scheduledSounds)+len(m.effects().Active) != 0 || len(m.actorSystem.ActorAnims) == 0 {
+					t.Fatal("Tarot without a victim must only animate its caster")
+				}
+				continue
+			}
+			if len(m.scheduledSounds) != 1 || m.scheduledSounds[0].positioned {
+				t.Fatalf("skill %d target %d must keep its centered sound with effects disabled", skill, targetID)
+			}
 		}
 	}
 }

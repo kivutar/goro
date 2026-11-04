@@ -45,8 +45,13 @@ func (m *WorldMode) applySkillNameBubble(ctx client.Context, sourceID uint32, sk
 }
 
 func (m *WorldMode) scheduleSkillSuccessSounds(skillID uint16, actorID uint32, now time.Time) {
+	global := effects.IsBardPerformance(skillID) || effects.IsDancerPerformance(skillID)
+	switch skillID {
+	case db.SkillDCWinkcharm, db.SkillBaPangvoice, db.SkillCGMoonlit, db.SkillCGHermode, db.SkillCGLongingfreedom, db.SkillCGTarotcard:
+		global = true
+	}
 	for _, sound := range db.SkillEffects[skillID].SFX {
-		if effects.IsBardPerformance(skillID) || effects.IsDancerPerformance(skillID) || skillID == db.SkillDCWinkcharm || skillID == db.SkillBaPangvoice {
+		if global {
 			m.scheduleSound(now, sound)
 		} else {
 			m.scheduleSoundAtActor(now, actorID, sound)
@@ -86,6 +91,11 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 		_, sourceOK, _ := scene.ActorForCombatID(ctx, notify.SourceID)
 		_, targetOK, _ := scene.ActorForCombatID(ctx, notify.TargetID)
 		if !sourceOK || !targetOK {
+			return
+		}
+	}
+	if notify.SkillID == db.SkillCGTarotcard {
+		if _, ok, _ := scene.ActorForCombatID(ctx, notify.TargetID); !ok {
 			return
 		}
 	}

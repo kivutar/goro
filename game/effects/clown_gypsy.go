@@ -11,6 +11,22 @@ import (
 	"github.com/kivutar/goro/render"
 )
 
+type arrowVulcanRays struct {
+	origins [9]scene.Point3
+	count   int
+}
+
+func (rays *arrowVulcanRays) advance(ctx client.Context, effect Instance, now time.Time) {
+	for rays.count < len(rays.origins) {
+		at := effect.Starts.Add(time.Duration(rays.count) * db.EffectFrameDuration)
+		if now.Before(at) {
+			break
+		}
+		rays.origins[rays.count] = EffectWorldAnchor(ctx, effect, at)
+		rays.count++
+	}
+}
+
 func (m *System) RemoveMarionetteLinks(actorID uint32) {
 	active := m.Active[:0]
 	for _, effect := range m.Active {
@@ -22,6 +38,11 @@ func (m *System) RemoveMarionetteLinks(actorID uint32) {
 }
 
 func arrowVulcanLine(effect Instance, index, frame int) (from, to scene.Point3, alpha int, radius float64) {
+	if effect.arrowVulcan != nil {
+		destination := scene.Add3(effect.ActorOrigin, effect.ProjectileDirection)
+		effect.ActorOrigin = effect.arrowVulcan.origins[index/4]
+		effect.ProjectileDirection = scene.Sub3(destination, effect.ActorOrigin)
+	}
 	salt := index * 7
 	age := frame + 1 - index/4 - 30 - HitEffectRandom(effect, salt, 110)
 	alpha = max(0, 8*scene.ClampInt(age, 0, 5)-4*max(0, age-5))

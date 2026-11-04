@@ -179,6 +179,9 @@ func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render
 				doubleBody, blend = true, render.BlendLighter
 			}
 		case ChemicalBody:
+			fixedStatusColor := entry.Actor.BodyState == db.BodyStateFreeze ||
+				entry.Actor.BodyState == db.BodyStateStone || entry.Actor.BodyState == db.BodyStateStonewait ||
+				entry.Actor.HealthState&(db.HealthStatePoison|db.HealthStateDpoison|db.HealthStateCurse) != 0
 			if frame < 31 {
 				doubleBody = billboard.LayerGroup == 0
 				tint.R, tint.G, tint.B = 255, 255, 255
@@ -188,6 +191,9 @@ func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render
 						blend = render.BlendLighter
 					}
 				}
+			} else if frame < 62 && !fixedStatusColor {
+				// Recover by eight color levels per tick unless a status fixes the color.
+				tint.R, tint.G, tint.B = uint8(8*(frame-30)), uint8(8*(frame-30)), 255
 			}
 		case RedBody:
 			tint.R, tint.G, tint.B = 255, 100, 100

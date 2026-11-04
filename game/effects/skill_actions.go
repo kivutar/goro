@@ -108,6 +108,11 @@ func (s SkillActionSpec) ActorAnimationForActorWithResources(manager *res.Manage
 	if !s.Defined {
 		s = defaultSkillActionSpec
 	}
+	// Clown and Gypsy hold their generic skill pose; explicit dance and
+	// attack sequences keep their own frames and timing.
+	if s.Action == SkillActorActionSkill && !s.HasFrame && (actor.Job == db.JobBardH || actor.Job == db.JobDancerH) {
+		s.HasFrame, s.Play, s.Duration = true, false, 400*time.Millisecond
+	}
 	if s.RandomReverse && started.UnixNano()&1 != 0 {
 		copy := cloneSkillActionSpec(&s)
 		last := copy
