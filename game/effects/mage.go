@@ -34,6 +34,32 @@ func FrostDiverTrailCount(effect Instance) int {
 	return 1 + max(0, int(math.Ceil((distance*5-7.5)/2)))
 }
 
+func (m *System) drawSafetyWall(screen *render.Frame, ctx client.Context, component Component, effect Instance, origin scene.Point3, now time.Time) {
+	if now.Before(effect.Starts) {
+		return
+	}
+	n := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
+	alpha := 5*min(n, 15) - 2*max(0, n-3079)
+	if alpha <= 0 {
+		return
+	}
+	texture := m.EffectFileTexture(ctx.Resources, component.TextureFile)
+	if texture == nil {
+		return
+	}
+	var vertices []render.Vertex3D
+	var indices []uint16
+	for i := 0; i < 3; i++ {
+		height := float64(34+3*i) / 5 * math.Sin(scene.DegreesToRadians(float64(min(n, 90))))
+		appendEffectBand(&vertices, &indices, texture, origin, (3.6-.3*float64(i))/5,
+			scene.DegreesToRadians(float64(HitEffectRandom(effect, i, 360))), 2*math.Pi, 0, 20,
+			color.RGBA{255, 89, 182, uint8(alpha)}, func(j int) float64 {
+				return height * (.75 + .25*math.Sin(scene.DegreesToRadians(float64(j*34+n*(4-i)))))
+			})
+	}
+	screen.DrawTriangles3DOwned(vertices, indices, texture, TexturedEffectBillboardDrawOptions(true, false))
+}
+
 func (m *System) drawMageProjectile(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, now time.Time) {
 	if now.Before(effect.Starts) {
 		return

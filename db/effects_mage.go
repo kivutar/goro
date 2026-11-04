@@ -1,9 +1,6 @@
 package db
 
-import (
-	"image/color"
-	"time"
-)
+import "time"
 
 func mageProjectileEffectSpec(id int) EffectSpec {
 	spec := funcEffectSpec("MageProjectile", 52*EffectFrameDuration, true)
@@ -65,59 +62,19 @@ func mageSightEffectSpec() EffectSpec {
 
 func safetyWallEffectSpec() EffectSpec {
 	return EffectSpec{
-		Duration: 50 * time.Second,
+		Duration: 9999 * EffectFrameDuration,
 		SFX:      []string{"effect\\ef_glasswall.wav"},
 		Components: []EffectComponent{
 			{
-				Kind:    EffectComponentSTR,
-				STRFile: "safetywall",
+				Kind:           EffectComponentSTR,
+				STRFile:        "safetywall",
+				AttachedEntity: true,
 			},
 			{
-				Kind:             EffectComponentCylinder,
-				TextureName:      "alpha_down",
-				Duration:         50 * time.Second,
-				AlphaMax:         0.4,
-				Fade:             true,
-				Rotate:           true,
-				Animation:        0,
-				BottomSize:       0.6,
-				TopSize:          0.6,
-				Height:           7,
-				TotalCircleSides: 32,
-				CircleSides:      32,
-				Color:            color.RGBA{R: 128, G: 25, B: 128, A: 255},
-			},
-			{
-				Kind:             EffectComponentCylinder,
-				TextureName:      "alpha_down",
-				Duration:         50 * time.Second,
-				Delay:            50 * time.Millisecond,
-				AlphaMax:         0.4,
-				Fade:             true,
-				Rotate:           true,
-				Animation:        0,
-				BottomSize:       0.65,
-				TopSize:          0.65,
-				Height:           6,
-				TotalCircleSides: 32,
-				CircleSides:      32,
-				Color:            color.RGBA{R: 128, G: 25, B: 128, A: 255},
-			},
-			{
-				Kind:             EffectComponentCylinder,
-				TextureName:      "alpha_down",
-				Duration:         50 * time.Second,
-				Delay:            100 * time.Millisecond,
-				AlphaMax:         0.4,
-				Fade:             true,
-				Rotate:           true,
-				Animation:        0,
-				BottomSize:       0.7,
-				TopSize:          0.7,
-				Height:           7,
-				TotalCircleSides: 32,
-				CircleSides:      32,
-				Color:            color.RGBA{R: 128, G: 25, B: 128, A: 255},
+				Kind:           EffectComponentFUNC,
+				FuncName:       "SafetyWall",
+				TextureFile:    "effect/alpha_down.tga",
+				AttachedEntity: true,
 			},
 		},
 	}

@@ -105,6 +105,7 @@ const (
 	effectFuncFrostDiverHit
 	EffectFuncMageBolt
 	effectFuncSight
+	effectFuncSafetyWall
 	effectFuncGroundSpikes
 	effectFuncWaterBall
 	effectFuncJupitel
@@ -152,6 +153,8 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 		m.drawMageBolt(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
 	case effectFuncSight:
 		m.drawSightEffect(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncSafetyWall:
+		m.drawSafetyWall(screen, ctx, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
 	case effectFuncTurnUndead:
 		m.drawTurnUndeadEffect(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncRevive:
@@ -383,6 +386,8 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return EffectFuncMageBolt
 	case "Sight":
 		return effectFuncSight
+	case "SafetyWall":
+		return effectFuncSafetyWall
 	case "TurnUndead":
 		return effectFuncTurnUndead
 	case "Revive":

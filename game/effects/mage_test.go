@@ -13,6 +13,96 @@ import (
 	"github.com/kivutar/goro/res"
 )
 
+func TestSafetyWallRisesAndRipples(t *testing.T) {
+	ctx := testutil.KnightEffectContext()
+	start := time.Unix(100, 0)
+	texture := render.NewImage(32, 32)
+	m := &System{textures: map[string]*render.Image{
+		"__effectfile_effect/alpha_down.tga|blackkey=true": texture,
+	}}
+	spec, _ := Lookup(SafetyWall)
+	effect := Instance{EffectID: SafetyWall, Starts: start}
+	for _, tick := range []int{-1, 0, 14, 89, 150, 3000, 3117} {
+		frame := render.NewFrame(800, 600)
+		m.drawSafetyWall(frame, ctx, spec.Components[1], effect, scene.Point3{}, start.Add(time.Duration(tick)*db.EffectFrameDuration))
+		cmds := reflect.ValueOf(frame).Elem().FieldByName("worldCommands")
+		if tick < 0 || tick == 3117 {
+			if cmds.Len() != 0 {
+				t.Fatalf("tick %d: wall visible outside its lifetime", tick)
+			}
+			continue
+		}
+		if cmds.Len() != 1 {
+			t.Fatalf("tick %d: got %d draw calls, want one band mesh", tick, cmds.Len())
+		}
+		cmd := cmds.Index(0)
+		vertices := cmd.FieldByName("Vertices")
+		if vertices.Len() != 3*20*4 || !cmd.FieldByName("Options").FieldByName("DepthTest").Bool() ||
+			render.Blend(cmd.FieldByName("Options").FieldByName("Blend").Int()) != render.BlendLighter {
+			t.Fatal("Safety Wall must draw three additive, depth-tested bands")
+		}
+		alpha := 75.0
+		if tick == 0 {
+			alpha = 5
+		}
+		for channel, want := range map[string]float64{"ColorR": 1, "ColorG": 89.0 / 255, "ColorB": 182.0 / 255, "ColorA": alpha / 255} {
+			if got := vertices.Index(0).FieldByName(channel).Float(); math.Abs(got-want) > 1e-6 {
+				t.Fatalf("tick %d: %s=%g, want %g", tick, channel, got, want)
+			}
+		}
+		for band, radius := range []float64{.72, .66, .60} {
+			low, high := math.Inf(1), 0.0
+			for i := band * 80; i < (band+1)*80; i++ {
+				v := vertices.Index(i)
+				x, y, z := v.FieldByName("X").Float(), v.FieldByName("Y").Float(), v.FieldByName("Z").Float()
+				if math.Abs(math.Hypot(x, z)-radius) > 1e-6 {
+					t.Fatalf("band %d: radius=%g, want %g", band, math.Hypot(x, z), radius)
+				}
+				if i%4 < 2 {
+					low, high = min(low, y), max(high, y)
+				} else if y != 0 {
+					t.Fatal("wall lifted off the ground")
+				}
+			}
+			if tick == 0 && high > .15 || tick >= 89 && high < 6 || low >= high*.75 {
+				t.Fatalf("tick %d band %d: wall did not rise/ripple: heights %g..%g", tick, band, low, high)
+			}
+		}
+	}
+}
+
+func TestSafetyWallStartupDoesNotRepeat(t *testing.T) {
+	ctx := testutil.KnightEffectContext()
+	ctx.Resources = testutil.RealDataManager(t)
+	m := &System{}
+	str := m.LoadWorldEffectSTR(ctx.Resources, "safetywall", "")
+	if str == nil || str.MaxKey <= 0 || str.FPS <= 0 {
+		t.Fatal("Safety Wall animation missing")
+	}
+	start := time.Unix(100, 0)
+	m.AddCellLifetime(ctx, SafetyWall, 999, 20, 20, start, time.Minute, true)
+	projection := testutil.Projection(800, 600, 20, 20, 0)
+	for tick := 1; tick < min(30, str.MaxKey); tick++ {
+		at := start.Add(time.Duration(tick) * time.Second / time.Duration(str.FPS))
+		startup := render.NewFrame(800, 600)
+		m.Draw(startup, ctx, projection, at, false)
+		if reflect.ValueOf(startup).Elem().FieldByName("worldCommands").Len() <= 1 {
+			continue
+		}
+		later := render.NewFrame(800, 600)
+		m.Draw(later, ctx, projection, at.Add(time.Duration(str.MaxKey)*time.Second/time.Duration(str.FPS)), false)
+		if got := reflect.ValueOf(later).Elem().FieldByName("worldCommands").Len(); got != 1 {
+			t.Fatalf("got %d draw calls after startup; only the wall bands should remain", got)
+		}
+		m.Remove(SafetyWall, 999)
+		if len(m.Active) != 0 {
+			t.Fatal("wall survived removal of its skill unit")
+		}
+		return
+	}
+	t.Fatal("Safety Wall startup animation produced no geometry")
+}
+
 func TestSightFlamesStayAtOrbitHeight(t *testing.T) {
 	ctx := testutil.KnightEffectContext()
 	view := testutil.EffectRenderTestSprite()

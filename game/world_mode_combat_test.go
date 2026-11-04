@@ -1641,6 +1641,17 @@ func TestMageSuccessAndSplashEffects(t *testing.T) {
 	}
 }
 
+func TestStoneCurseMissingTargetIsSilent(t *testing.T) {
+	ctx := testutil.KnightEffectContext()
+	m := &WorldMode{}
+	m.applySkillNoDamageNotify(ctx, network.SkillNoDamageNotify{
+		SkillID: db.SkillMGStonecurse, SourceID: 2000000, TargetID: 999, Result: 1,
+	})
+	if len(m.effects().Active) != 0 || len(m.scheduledSounds) != 0 {
+		t.Fatal("Stone Curse played an effect or sound for a target outside view")
+	}
+}
+
 func TestMerchantUtilityEffects(t *testing.T) {
 	ctx := testutil.MerchantEffectContext()
 	m := &WorldMode{}

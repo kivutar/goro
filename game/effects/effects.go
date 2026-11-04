@@ -1787,8 +1787,8 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 			if component.RenderBefore != beforeEntities {
 				continue
 			}
-			// Concentration keeps its tint until status end, but its STR plays once.
-			if effect.Persistent && effect.EffectID != LKConcentration {
+			// These persistent effects play their startup STR only once.
+			if effect.Persistent && effect.EffectID != LKConcentration && effect.EffectID != SafetyWall {
 				component.Repeat = true
 			}
 			componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component)

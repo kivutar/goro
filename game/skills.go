@@ -94,7 +94,7 @@ func (m *WorldMode) applySkillNoDamageNotify(ctx client.Context, notify network.
 			return
 		}
 	}
-	if notify.SkillID == db.SkillCGTarotcard {
+	if notify.SkillID == db.SkillCGTarotcard || notify.SkillID == db.SkillMGStonecurse {
 		if _, ok, _ := scene.ActorForCombatID(ctx, notify.TargetID); !ok {
 			return
 		}
