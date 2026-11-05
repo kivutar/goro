@@ -16,12 +16,12 @@ func iceCrashEffectSpec() EffectSpec {
 
 func blindEffectSpec() EffectSpec {
 	return EffectSpec{
-		Duration: 500 * time.Millisecond,
-		SFX:      []string{"_blind.wav"},
+		Duration: 99999999 * EffectFrameDuration,
 		Components: []EffectComponent{{
 			Kind:           EffectComponentFUNC,
 			FuncName:       "Blind",
-			AttachedEntity: false,
+			TextureFiles:   []string{"effect/fullb.tga", "effect/white02.bmp"},
+			AttachedEntity: true,
 		}},
 	}
 }

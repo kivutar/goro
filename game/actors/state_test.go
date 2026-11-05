@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"image/color"
 	"math"
 	"reflect"
 	"testing"
@@ -168,8 +169,41 @@ func TestActorStateTintMatchesReferenceBodyAndHealthTints(t *testing.T) {
 		HealthState: db.HealthStateBlind,
 		HasState:    true,
 	})
-	if tint.R != 0 || tint.G != 20 || tint.B != 40 || tint.A != 255 {
-		t.Fatalf("tint = %+v, want frozen blue darkened by blind", tint)
+	if tint.R != 0 || tint.G != 128 || tint.B != 255 || tint.A != 255 {
+		t.Fatalf("tint = %+v, want frozen blue without a blind sprite tint", tint)
+	}
+}
+
+func TestHealthAilmentsUseOriginalStatusColors(t *testing.T) {
+	for _, tc := range []struct {
+		health uint16
+		want   color.RGBA
+	}{
+		{db.HealthStatePoison, color.RGBA{0, 192, 64, 255}},
+		{db.HealthStateDpoison, color.RGBA{0, 192, 64, 255}},
+		{db.HealthStateBleeding, color.RGBA{200, 32, 0, 255}},
+		{db.HealthStatePoison | db.HealthStateBleeding, color.RGBA{200, 32, 0, 255}},
+		{db.HealthStateCurse, color.RGBA{200, 50, 50, 255}},
+		{db.HealthStatePoison | db.HealthStateCurse, color.RGBA{200, 50, 50, 255}},
+		{db.HealthStatePoison | db.HealthStateBleeding | db.HealthStateCurse, color.RGBA{200, 50, 50, 255}},
+	} {
+		if got := ActorStateTint(worldstate.Actor{BodyState: db.BodyStateFreeze, HealthState: tc.health, Opt3State: db.Opt3Energycoat}); got != tc.want {
+			t.Fatalf("status 0x%04x color = %v, want %v", tc.health, got, tc.want)
+		}
+	}
+}
+
+func TestPetrificationUsesOriginalGreys(t *testing.T) {
+	for _, tc := range []struct {
+		body uint16
+		grey uint8
+	}{
+		{db.BodyStateStonewait, 128}, {db.BodyStateStone, 64},
+	} {
+		want := color.RGBA{tc.grey, tc.grey, tc.grey, 255}
+		if got := ActorStateTint(worldstate.Actor{BodyState: tc.body, Opt3State: db.Opt3Quicken}); got != want {
+			t.Fatalf("petrification color = %v, want %v", got, want)
+		}
 	}
 }
 

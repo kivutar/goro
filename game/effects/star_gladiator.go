@@ -109,42 +109,6 @@ func starRingState(black bool, ring, age int) (radius, tilt, height float64, alp
 	return
 }
 
-func (m *System) drawStarBlind(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, x, y, z float64, now time.Time) {
-	if !scene.IsLocalActor(ctx, effect.ActorID) || now.Before(effect.Starts) || len(component.TextureFiles) != 2 {
-		return
-	}
-	texture := m.EffectFileTexture(ctx.Resources, component.TextureFiles[0])
-	white := m.EffectFileTexture(ctx.Resources, component.TextureFiles[1])
-	right, up, units, ok := projection.BillboardBasis(x, y, z)
-	if texture == nil || white == nil || !ok {
-		return
-	}
-	radius := float64(140-10*(effect.EffectID-Devil1+1)) / 5
-	tint := color.RGBA{30, 30, 30, uint8(min(255, int(now.Sub(effect.Starts)/db.EffectFrameDuration)+1))}
-	point := func(dx, dy float64) scene.Point3 {
-		return scene.Add3(scene.Point3{X: x, Y: z, Z: y}, scene.Add3(scene.Mul3(right, dx), scene.Mul3(up, dy)))
-	}
-	for i, signs := range [][2]float64{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}} {
-		var vertices []render.Vertex3D
-		var indices []uint16
-		appendEffectQuad(&vertices, &indices, texture, [4]scene.Point3{point(signs[0]*radius, 0), point(signs[0]*radius, signs[1]*radius), point(0, signs[1]*radius), point(0, 0)}, tint)
-		// RenderBlind uses additive blending on its first quadrant.
-		opts := TexturedEffectBillboardDrawOptions(i == 0, false)
-		opts.DepthTest, opts.DepthWrite = false, false
-		screen.DrawTriangles3DOwned(vertices, indices, texture, opts)
-	}
-	// Extend the original opaque surround to cover modern widescreen viewports.
-	outer := radius + math.Max(projection.ScreenW, projection.ScreenH)*units*2
-	var vertices []render.Vertex3D
-	var indices []uint16
-	for _, rect := range [][4]float64{{-outer, radius, outer, outer}, {-outer, -outer, outer, -radius}, {-outer, -radius, -radius, radius}, {radius, -radius, outer, radius}} {
-		appendEffectQuad(&vertices, &indices, white, [4]scene.Point3{point(rect[0], rect[3]), point(rect[2], rect[3]), point(rect[2], rect[1]), point(rect[0], rect[1])}, tint)
-	}
-	opts := TexturedEffectBillboardDrawOptions(false, false)
-	opts.DepthTest, opts.DepthWrite = false, false
-	screen.DrawTriangles3DOwned(vertices, indices, white, opts)
-}
-
 type StarFlight struct {
 	updated       time.Time
 	ticks, height int

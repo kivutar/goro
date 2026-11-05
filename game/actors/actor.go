@@ -1102,7 +1102,11 @@ func (m *System) drawActorSprite3D(screen *render.Frame, ctx client.Context, pro
 	}
 	if !res.HasPlayerJobToken(int(actor.Job)) {
 		if m.nonPCActorHasGR2Model(ctx, actor) {
-			return m.drawNonPCGR2Model3D(screen, ctx, entry, shadow)
+			drawn := m.drawNonPCGR2Model3D(screen, ctx, entry, shadow)
+			if drawn {
+				m.drawActorAilments(screen, ctx, projection, entry, nil, m.actorVisualAlpha(actor.ID, time.Now()), time.Now())
+			}
+			return drawn
 		}
 		return m.DrawNonPCSprite3D(screen, ctx, projection, entry, cameraYaw, shadow)
 	}

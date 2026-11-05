@@ -92,7 +92,7 @@ const (
 	effectFuncGlyphs
 	effectFuncTaekwonStorm
 	effectFuncStarRings
-	effectFuncStarBlind
+	effectFuncBlind
 	effectFuncTaekwonStop
 	effectFuncChemicalDash
 	effectFuncTaekwonJump
@@ -187,8 +187,8 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 		m.DrawEffectGlyphs(screen, ctx, projection, component, effect, now)
 	case effectFuncStarRings:
 		m.drawStarRings(screen, ctx, component, effect, worldX, worldY, worldZ, now)
-	case effectFuncStarBlind:
-		m.drawStarBlind(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
+	case effectFuncBlind:
+		m.drawBlind(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncTaekwonStorm:
 		m.drawTaekwonStorm(screen, ctx, component, effect, now)
 	case effectFuncTaekwonStop:
@@ -498,8 +498,8 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return effectFuncGlyphs
 	case "StarRings":
 		return effectFuncStarRings
-	case "StarBlind":
-		return effectFuncStarBlind
+	case "Blind", "StarBlind":
+		return effectFuncBlind
 	case "TaekwonStorm":
 		return effectFuncTaekwonStorm
 	case "TaekwonStop":

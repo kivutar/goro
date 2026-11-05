@@ -14,11 +14,12 @@ import (
 )
 
 type Bindings struct {
-	Map           *maps.System
-	Effects       *effects.System
-	Skills        *skills.System
-	Social        *social.System
-	SpriteTexture func(*render.Image) *render.Image
+	Map                  *maps.System
+	Effects              *effects.System
+	Skills               *skills.System
+	Social               *social.System
+	SpriteTexture        func(*render.Image) *render.Image
+	ScheduleSoundAtActor func(time.Time, uint32, ...string)
 }
 
 type System struct {
@@ -47,6 +48,7 @@ type System struct {
 	ActorVanishes     map[uint32]VanishFade
 	ActorNameReqAt    map[uint32]time.Time
 	SpeechBubbles     map[uint32]SpeechBubble
+	Ailments          map[uint32]AilmentVisual
 	bindings          Bindings
 }
 

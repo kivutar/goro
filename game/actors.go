@@ -25,6 +25,7 @@ func (m *WorldMode) upsertNetworkActor(ctx client.Context, entry network.ActorEn
 		return
 	}
 	m.actors().ClearActorVanish(entry.ID)
+	previous := ctx.World.Actors[entry.ID]
 	oldState := uint32(0)
 	if existing, ok := ctx.World.Actors[entry.ID]; ok && existing.HasState {
 		oldState = existing.EffectState
@@ -44,6 +45,7 @@ func (m *WorldMode) upsertNetworkActor(ctx client.Context, entry network.ActorEn
 		return
 	}
 	m.actors().ApplyActorEffectStateEffects(ctx, actor.ID, oldState, actor.EffectState)
+	m.actors().SyncActorAilments(ctx, actor.ID, previous, previous.HasState)
 }
 
 func (m *WorldMode) applyActorVanish(ctx client.Context, vanish network.ActorVanish) {
@@ -110,6 +112,7 @@ func (m *WorldMode) removeActorNow(ctx client.Context, id uint32) {
 }
 
 func (m *WorldMode) clearRemovedActorState(id uint32) {
+	delete(m.actorSystem.Ailments, id)
 	delete(m.effects().ActorBlurs, id)
 	m.effects().RemoveActor(id)
 	if m.scriptHighlight.id == id {
@@ -257,6 +260,7 @@ func (m *WorldMode) syncCurrentActorEffectStateEffects(ctx client.Context) {
 	}
 	if ctx.World.Player.HasState {
 		m.actors().ApplyActorEffectStateEffects(ctx, ctx.World.Player.ID, 0, ctx.World.Player.EffectState)
+		m.actors().SyncActorAilments(ctx, ctx.World.Player.ID, ctx.World.Player, false)
 	}
 	if ctx.Session != nil {
 		if status, ok := ctx.Session.Statuses.Active[db.StatusLkconcentration]; ok && (!status.HasDuration || time.Now().Before(status.ExpiresAt)) {
@@ -277,6 +281,7 @@ func (m *WorldMode) syncCurrentActorEffectStateEffects(ctx client.Context) {
 	for _, actor := range ctx.World.Actors {
 		if actor.HasState {
 			m.actors().ApplyActorEffectStateEffects(ctx, actor.ID, 0, actor.EffectState)
+			m.actors().SyncActorAilments(ctx, actor.ID, actor, false)
 		}
 		m.actors().SyncActorSpiritEffects(ctx, actor.ID)
 	}
@@ -284,11 +289,13 @@ func (m *WorldMode) syncCurrentActorEffectStateEffects(ctx client.Context) {
 
 func (m *WorldMode) applyActorStateChange(ctx client.Context, change network.ActorStateChange) {
 	oldVisualJob := actors.LocalPlayerVisualJob(ctx)
+	previous, _, _ := scene.ActorForCombatID(ctx, change.ID)
 	oldState, local, ok := actors.ApplyActorStateSnapshot(ctx, change)
 	if !ok {
 		return
 	}
 	m.actors().ApplyActorEffectStateEffects(ctx, change.ID, oldState, change.EffectState)
+	m.actors().SyncActorAilments(ctx, change.ID, previous, true)
 	m.actors().SyncActorSpiritEffects(ctx, change.ID)
 	if (oldState^change.EffectState)&db.EffectStateHide != 0 {
 		m.effects().Add(ctx, effects.SummonSlave, change.ID)
@@ -428,11 +435,12 @@ func (m *WorldMode) applyPushCartStatus(ctx client.Context, change network.Statu
 
 func (m *WorldMode) actors() *actors.System {
 	m.actorSystem.Bind(actors.Bindings{
-		Map:           &m.mapScene,
-		Effects:       m.effects(),
-		Skills:        &m.skillSystem,
-		Social:        m.social(),
-		SpriteTexture: m.spriteTexture,
+		Map:                  &m.mapScene,
+		Effects:              m.effects(),
+		Skills:               &m.skillSystem,
+		Social:               m.social(),
+		SpriteTexture:        m.spriteTexture,
+		ScheduleSoundAtActor: m.scheduleSoundAtActor,
 	})
 	return &m.actorSystem
 }

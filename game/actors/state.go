@@ -68,37 +68,34 @@ func applyActorBodyState(actor worldstate.Actor, state *sprites.State) {
 
 func ActorStateTint(actor worldstate.Actor) color.RGBA {
 	r, g, b, a := 1.0, 1.0, 1.0, 1.0
+	fixed := false
 	switch actor.BodyState {
 	case db.BodyStateStone:
-		r, g, b = 0.1, 0.1, 0.1
+		r, g, b, fixed = 64.0/255, 64.0/255, 64.0/255, true
 	case db.BodyStateStonewait:
-		r, g, b = 0.3, 0.3, 0.3
+		r, g, b, fixed = 128.0/255, 128.0/255, 128.0/255, true
 	case db.BodyStateFreeze:
-		r, g, b = 0.0, 0.4, 0.8
+		r, g, b, fixed = 0, 128.0/255, 1, true
+	}
+	if actor.HealthState&(db.HealthStatePoison|db.HealthStateDpoison) != 0 {
+		r, g, b, fixed = 0, 192.0/255, 64.0/255, true
+	}
+	if actor.HealthState&db.HealthStateBleeding != 0 {
+		r, g, b, fixed = 200.0/255, 32.0/255, 0, true
 	}
 	if actor.HealthState&db.HealthStateCurse != 0 {
-		r *= 0.5
-		g *= 0.15
-		b *= 0.1
-	}
-	if actor.HealthState&db.HealthStatePoison != 0 {
-		r *= 0.9
-		g *= 0.4
-		b *= 0.8
-	}
-	if actor.HealthState&db.HealthStateBlind != 0 {
-		r *= 0.2
-		g *= 0.2
-		b *= 0.2
+		r, g, b, fixed = 200.0/255, 50.0/255, 50.0/255, true
 	}
 	opt3 := actor.Opt3State
 	if scene.IsMonsterLikeHoverActor(actor) {
 		opt3 &^= db.Opt3Energycoat | db.Opt3Overthrust // Monsters use these bits for Eske and Eswoo.
 	}
 	vr, vg, vb, va := actorOpt3StateTint(opt3)
-	r *= vr
-	g *= vg
-	b *= vb
+	if !fixed {
+		r *= vr
+		g *= vg
+		b *= vb
+	}
 	a *= va
 	return color.RGBA{R: byte(scene.ClampUnit(r) * 255), G: byte(scene.ClampUnit(g) * 255), B: byte(scene.ClampUnit(b) * 255), A: byte(scene.ClampUnit(a) * 255)}
 }

@@ -181,7 +181,7 @@ func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render
 		case ChemicalBody:
 			fixedStatusColor := entry.Actor.BodyState == db.BodyStateFreeze ||
 				entry.Actor.BodyState == db.BodyStateStone || entry.Actor.BodyState == db.BodyStateStonewait ||
-				entry.Actor.HealthState&(db.HealthStatePoison|db.HealthStateDpoison|db.HealthStateCurse) != 0
+				entry.Actor.HealthState&(db.HealthStatePoison|db.HealthStateDpoison|db.HealthStateBleeding|db.HealthStateCurse) != 0
 			if frame < 31 {
 				doubleBody = billboard.LayerGroup == 0
 				tint.R, tint.G, tint.B = 255, 255, 255

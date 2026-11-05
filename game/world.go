@@ -326,6 +326,7 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	m.actorSoundFrames = make(map[uint32]actorSoundFrame)
 	m.battleSystem.ActorLife = make(map[uint32]battle.Life)
 	m.actorSystem.SpeechBubbles = make(map[uint32]actors.SpeechBubble)
+	m.actorSystem.Ailments = nil
 	m.syncCurrentActorEffectStateEffects(ctx)
 	m.ui.npc.Dialog.ResetPublished(ctx)
 	m.ui.npc.Cutin.Clear()
@@ -1134,6 +1135,8 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 	ctx.Session.Zone.MapName = change.MapName
 	actors.ApplyWarpPosition(ctx, change.X, change.Y)
 	ctx.World.Actors = make(map[uint32]worldstate.Actor)
+	m.actorSystem.Ailments = nil
+	m.actors().SyncActorAilments(ctx, ctx.World.Player.ID, ctx.World.Player, false)
 	if reuseLoadedMap {
 		m.camera.ResetTracking()
 		m.camera.Update(ctx, time.Now())

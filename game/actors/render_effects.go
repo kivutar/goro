@@ -25,4 +25,5 @@ func (m *System) StarFusionHeight(actor worldstate.Actor, now time.Time) float64
 // They never mutate the cached image or the actor's authoritative position.
 func (m *System) DrawActorSpriteWithEffects3D(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility, shadow float64, tint color.RGBA, blend render.Blend, now time.Time) {
 	m.bindings.Effects.DrawActor(ctx, screen, projection, entry, billboard, scale, visibility, shadow, tint, blend, now, m.StarFusionHeight(entry.Actor, now))
+	m.drawActorAilments(screen, ctx, projection, entry, billboard, visibility, now)
 }

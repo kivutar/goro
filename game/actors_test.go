@@ -1431,7 +1431,7 @@ func TestFuryBodyTintFollowsStatus(t *testing.T) {
 		}
 		if got == pink {
 			frozen := actors.ActorStateTint(worldstate.Actor{BodyState: db.BodyStateFreeze})
-			if tinted := m.actors().ActorBodyColorTint(300, frozen, now); tinted != (color.RGBA{0, 80, 160, 255}) {
+			if tinted := m.actors().ActorBodyColorTint(300, frozen, now); tinted != (color.RGBA{0, 100, 200, 255}) {
 				t.Fatalf("Fury lost the frozen body tint: %v", tinted)
 			}
 		}
@@ -3840,5 +3840,33 @@ func TestSoulLinkAndEskeToggleLocalNightLighting(t *testing.T) {
 	}
 	if restored := drawColors(); restored != day {
 		t.Fatalf("meshes did not regain day lighting: got=%v want=%v", restored, day)
+	}
+}
+
+func TestActorAilmentPacketsDrivePersistentVisuals(t *testing.T) {
+	w := worldstate.New()
+	w.Player = worldstate.Actor{ID: 100, HasState: true}
+	ctx := client.Context{World: w, Session: &session.Session{AccountID: 100, CharID: 200}}
+	m := &WorldMode{}
+	change := network.ActorStateChange{ID: 200, HealthState: db.HealthStateBlind}
+	m.applyActorStateChange(ctx, change)
+	m.applyActorStateChange(ctx, change)
+	if !m.effects().HasActive(effects.Blind, 100, time.Now()) || len(m.scheduledSounds) != 1 {
+		t.Fatal("status packets did not start exactly one local mask and sound")
+	}
+	entry := network.ActorEntry{ID: 300, Job: 1002, HasState: true, BodyState: db.BodyStateStun}
+	m.upsertNetworkActor(ctx, entry)
+	started := m.actorSystem.Ailments[300].BodyStarted
+	m.upsertNetworkActor(ctx, entry)
+	if started.IsZero() || started != m.actorSystem.Ailments[300].BodyStarted || len(m.scheduledSounds) != 1 {
+		t.Fatal("actor snapshots lost the stun indicator or replayed its sound")
+	}
+	m.applyActorStateChange(ctx, network.ActorStateChange{ID: 300})
+	if _, ok := m.actorSystem.Ailments[300]; ok {
+		t.Fatal("monster cure retained its indicator")
+	}
+	m.applyActorStateChange(ctx, network.ActorStateChange{ID: 100})
+	if m.effects().HasActive(effects.Blind, 100, time.Now()) {
+		t.Fatal("player cure retained its screen mask")
 	}
 }

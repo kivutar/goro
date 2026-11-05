@@ -1411,13 +1411,13 @@ func TestRobrowserSimpleEffectsThreeHundredToThreeFiftyMatchTableRows(t *testing
 	}
 
 	blind, ok := Lookup(Blind)
-	if !ok || len(blind.Components) != 1 || blind.Duration != 500*time.Millisecond {
+	if !ok || len(blind.Components) != 1 || blind.Duration != 99999999*db.EffectFrameDuration {
 		t.Fatalf("EF_BLIND spec = %+v ok=%t", blind, ok)
 	}
-	if len(blind.Sfx) != 1 || blind.Sfx[0] != "_blind.wav" {
+	if len(blind.Sfx) != 0 {
 		t.Fatalf("EF_BLIND sfx = %#v", blind.Sfx)
 	}
-	if component := blind.Components[0]; component.Kind != ComponentFUNC || component.FuncName != "Blind" || component.FuncAdapter != EffectFuncUnknown || component.AttachedEntity {
+	if component := blind.Components[0]; component.Kind != ComponentFUNC || component.FuncName != "Blind" || component.FuncAdapter != effectFuncBlind || !component.AttachedEntity {
 		t.Fatalf("EF_BLIND component = %+v", component)
 	}
 

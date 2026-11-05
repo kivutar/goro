@@ -38,6 +38,7 @@ func (m *System) ApplyActorEffectStateEffects(ctx client.Context, actorID uint32
 }
 
 func (m *System) RemoveActorEffectStateEffects(actorID uint32) {
+	delete(m.Ailments, actorID)
 	for _, stateEffect := range actorEffectStateEffects {
 		m.bindings.Effects.Remove(stateEffect.effectID, actorID)
 	}
