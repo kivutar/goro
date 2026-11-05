@@ -155,9 +155,15 @@ func (m *WorldMode) requestPickup(ctx client.Context, item worldstate.FloorItem,
 		m.setWalkCooldown(walkErrorCooldown)
 		return false
 	}
-	playerX, playerY := scene.CurrentPlayerCell(ctx, time.Now())
+	m.cancelPlayerAction(ctx)
+	now := time.Now()
+	playerX, playerY := scene.CurrentPlayerCell(ctx, now)
 	if itemWithinPickupRange(playerX, playerY, item.X, item.Y) {
-		return m.sendPickupRequest(ctx, item, source)
+		if !scene.ActorIsMovingAt(ctx.World.Player, now) && m.playerCanAct(ctx, now) {
+			return m.sendPickupRequest(ctx, item, source)
+		}
+		m.pendingPickup = pickupIntent{itemID: item.ID, expires: now.Add(8 * time.Second)}
+		return true
 	}
 	targetX, targetY, ok := pickupApproachCell(ctx, item)
 	if !ok {
@@ -202,6 +208,9 @@ func (m *WorldMode) updatePendingPickup(ctx client.Context, source string, logOu
 		if logOutOfRange {
 			glog.Debugf("%s pending pickup still out of range item=%d player=%d,%d item=%d,%d", source, item.ID, playerX, playerY, item.X, item.Y)
 		}
+		if !scene.ActorIsMovingAt(ctx.World.Player, now) && m.walkReady(now) && m.playerCanAct(ctx, now) {
+			m.requestPickup(ctx, item, source)
+		}
 		return
 	}
 	readyAt := pendingPickupReadyAt(ctx.World.Player, now)
@@ -223,7 +232,7 @@ func (m *WorldMode) processPendingPickup(ctx client.Context) {
 		m.pendingPickup = pickupIntent{}
 		return
 	}
-	if now.Before(m.pendingPickup.readyAt) {
+	if now.Before(m.pendingPickup.readyAt) || scene.ActorIsMovingAt(ctx.World.Player, now) || !m.playerCanAct(ctx, now) {
 		return
 	}
 	item, ok := ctx.World.Items[m.pendingPickup.itemID]
@@ -244,9 +253,9 @@ func (m *WorldMode) processPendingPickup(ctx client.Context) {
 }
 
 func pendingPickupReadyAt(player worldstate.Actor, now time.Time) time.Time {
-	readyAt := now.Add(60 * time.Millisecond)
+	readyAt := now
 	if scene.ActorIsMovingAt(player, now) && player.MoveDuration > 0 {
-		walkReadyAt := player.MoveStarted.Add(player.MoveDuration).Add(60 * time.Millisecond)
+		walkReadyAt := player.MoveStarted.Add(player.MoveDuration)
 		if walkReadyAt.After(readyAt) {
 			readyAt = walkReadyAt
 		}
@@ -258,6 +267,7 @@ func (m *WorldMode) sendPickupRequest(ctx client.Context, item worldstate.FloorI
 	if ctx.PlayerHasEffectState(db.EffectStateHide) {
 		return false
 	}
+	m.queuedWalk = nil
 	if err := ctx.Network.SendItemPickup(item.ID); err == nil {
 		m.facePlayerTowardItem(ctx, item)
 		m.setWalkCooldown(walkRequestCooldown)

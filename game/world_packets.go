@@ -342,10 +342,10 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 	if ack, ok, err := network.ParseSelfMoveAck(pkt); err != nil {
 		glog.Errorf("parse self move ack 0x%04X: %v", pkt.ID, err)
 	} else if ok {
+		m.walkAwaitingAck = false
 		applySelfMoveAck(ctx, ack)
 		m.clearLocalActorAction(ctx)
 		glog.Debugf("walk ack from=%d,%d to=%d,%d tick=%d", ack.FromX, ack.FromY, ack.ToX, ack.ToY, ack.ServerTick)
-		m.continuePendingAttack(ctx, "walk ack")
 		m.continuePendingPickup(ctx, "walk ack")
 		m.skills().ContinuePendingTarget(ctx, "walk ack")
 		return nil, false
@@ -358,7 +358,6 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 		}
 		actors.ApplyActorSetPosition(ctx, position)
 		if scene.IsLocalActor(ctx, position.ID) {
-			m.continuePendingAttack(ctx, "position fix")
 			m.continuePendingPickup(ctx, "position fix")
 			m.skills().ContinuePendingTarget(ctx, "position fix")
 		}
@@ -1154,10 +1153,7 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 	} else if ok {
 		m.applyActorVanish(ctx, vanish)
 		if m.pendingAttack.targetID == vanish.ID {
-			m.pendingAttack = attackIntent{}
-		}
-		if m.lockedAttackID == vanish.ID {
-			m.clearLockedAttack()
+			m.cancelAttackIntent()
 		}
 		if m.attackFocusID == vanish.ID {
 			m.clearAttackFocus()

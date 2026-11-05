@@ -13,23 +13,13 @@ func AttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange int
 }
 
 func NormalAttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange int) bool {
-	attackRange = scene.MaxInt(1, attackRange)
-	if attackRange <= 1 {
-		return AttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange)
-	}
-	dx := scene.AbsInt(playerX - targetX)
-	dy := scene.AbsInt(playerY - targetY)
-	return dx*dx+dy*dy <= attackRange*attackRange
+	dx := float64(playerX - targetX)
+	dy := float64(playerY - targetY)
+	return math.Hypot(dx, dy) < float64(scene.MaxInt(1, attackRange))+1.1
 }
 
 func NormalAttackApproachCellFromTarget(ctx client.Context, sourceX, sourceY, targetX, targetY int, attackRange int) (int, int, bool) {
-	attackRange = scene.MaxInt(1, attackRange)
-	if attackRange > 1 {
-		if x, y, ok := RangedAttackApproachCellFromTargetMatching(ctx, sourceX, sourceY, targetX, targetY, attackRange, NormalAttackTargetWithinRange); ok {
-			return x, y, true
-		}
-	}
-	return AttackApproachCellFromTarget(ctx, sourceX, sourceY, targetX, targetY, 1)
+	return RangedAttackApproachCellFromTargetMatching(ctx, sourceX, sourceY, targetX, targetY, attackRange, NormalAttackTargetWithinRange)
 }
 
 func AttackApproachCellFromTarget(ctx client.Context, sourceX, sourceY, targetX, targetY int, attackRange int) (int, int, bool) {
@@ -83,11 +73,12 @@ func RangedAttackApproachCellFromTargetMatching(ctx client.Context, sourceX, sou
 		y        int
 		walkCost int
 	}
-	candidates := make([]candidate, 0, (attackRange*2+1)*(attackRange*2+1))
-	for dy := -attackRange; dy <= attackRange; dy++ {
-		for dx := -attackRange; dx <= attackRange; dx++ {
+	searchRange := attackRange + 1
+	candidates := make([]candidate, 0, (searchRange*2+1)*(searchRange*2+1))
+	for dy := -searchRange; dy <= searchRange; dy++ {
+		for dx := -searchRange; dx <= searchRange; dx++ {
 			ringDistance := scene.MaxInt(scene.AbsInt(dx), scene.AbsInt(dy))
-			if ringDistance == 0 || ringDistance > attackRange {
+			if ringDistance == 0 || ringDistance > searchRange {
 				continue
 			}
 			x := targetX + dx

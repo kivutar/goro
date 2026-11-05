@@ -117,6 +117,7 @@ type Actor struct {
 	HasMoveStartTick bool
 	MoveStarted      time.Time
 	MoveDuration     time.Duration
+	MoveSpeed        int
 	MovePath         []WalkStep
 	MoveStartX       float64
 	MoveStartY       float64

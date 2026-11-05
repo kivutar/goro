@@ -3328,7 +3328,7 @@ func TestRemoveActorNowRemovesActorWorldEffects(t *testing.T) {
 func TestApplyActorActionNotifyUpdatesLocalSitState(t *testing.T) {
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20, Moving: true}
-	mode := &WorldMode{pendingAttack: attackIntent{targetID: 300}, lockedAttackID: 300, attackFocusID: 300, actorSystem: actors.System{ActorAnims: map[uint32]scene.ActorAnimation{
+	mode := &WorldMode{pendingAttack: attackIntent{targetID: 300}, attackFocusID: 300, actorSystem: actors.System{ActorAnims: map[uint32]scene.ActorAnimation{
 		2000000: {ActionFamily: sprites.ActionPCReadyFight, Loop: true},
 		150000:  {ActionFamily: sprites.ActionPCReadyFight, Loop: true},
 	}}}
@@ -3353,8 +3353,8 @@ func TestApplyActorActionNotifyUpdatesLocalSitState(t *testing.T) {
 	if _, ok := mode.actorSystem.ActorAnims[150000]; ok {
 		t.Fatal("local character animation survived sitting")
 	}
-	if mode.pendingAttack.targetID != 0 || mode.lockedAttackID != 0 || mode.attackFocusID != 0 {
-		t.Fatalf("local attack intent survived sitting: pending=%d locked=%d focus=%d", mode.pendingAttack.targetID, mode.lockedAttackID, mode.attackFocusID)
+	if mode.pendingAttack.targetID != 0 || mode.attackFocusID != 0 {
+		t.Fatalf("local attack intent survived sitting: pending=%d focus=%d", mode.pendingAttack.targetID, mode.attackFocusID)
 	}
 
 	mode.actorSystem.ActorAnims[2000000] = scene.ActorAnimation{ActionFamily: sprites.ActionPCReadyFight, Loop: true}

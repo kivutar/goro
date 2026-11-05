@@ -9,6 +9,7 @@ import (
 	"github.com/kivutar/goro/game/actors"
 	maps "github.com/kivutar/goro/game/map"
 	"github.com/kivutar/goro/game/scene"
+	"github.com/kivutar/goro/game/sprites"
 	"github.com/kivutar/goro/glog"
 	"github.com/kivutar/goro/input"
 	"github.com/kivutar/goro/network"
@@ -17,10 +18,10 @@ import (
 )
 
 const (
-	walkRequestCooldown    = 200 * time.Millisecond
+	walkRequestCooldown    = 225 * time.Millisecond
 	walkErrorCooldown      = 500 * time.Millisecond
 	turnDirectionCooldown  = 100 * time.Millisecond
-	heldWalkRepeatInterval = 500 * time.Millisecond
+	heldWalkRepeatInterval = 600 * time.Millisecond
 )
 
 func (m *WorldMode) setWalkCooldown(duration time.Duration) {
@@ -28,7 +29,8 @@ func (m *WorldMode) setWalkCooldown(duration time.Duration) {
 }
 
 func (m *WorldMode) walkReady(now time.Time) bool {
-	return m.walkCooldownUntil.IsZero() || !now.Before(m.walkCooldownUntil)
+	return (m.walkCooldownUntil.IsZero() || !now.Before(m.walkCooldownUntil)) &&
+		(!m.walkAwaitingAck || now.Sub(m.walkRequestAt) >= time.Second)
 }
 
 type hoveredWalkCellCache struct {
@@ -73,7 +75,7 @@ func (m *WorldMode) updateHeldWalk(ctx client.Context, pointerBlocked bool, now 
 		m.nextHeldWalkAt = time.Time{}
 		return false
 	}
-	if ctx.Input.MouseJustPressed(input.MouseButtonLeft) || m.skillSystem.Pending.Skill.ID != 0 || m.petSystem.PendingCapture.Active || shouldUseTurnOnlyGroundClick(ctx) {
+	if ctx.Input.MouseJustPressed(input.MouseButtonLeft) || m.pendingAttack.targetID != 0 || m.pendingPickup.itemID != 0 || m.queuedWalk != nil || m.skillSystem.Pending.Skill.ID != 0 || m.petSystem.PendingCapture.Active || shouldUseTurnOnlyGroundClick(ctx) {
 		return false
 	}
 	if !m.walkReady(now) || (!m.nextHeldWalkAt.IsZero() && now.Before(m.nextHeldWalkAt)) {
@@ -87,8 +89,7 @@ func (m *WorldMode) updateHeldWalk(ctx client.Context, pointerBlocked bool, now 
 	if !ok || playerAtWalkTarget(ctx.World.Player, targetX, targetY, now) {
 		return false
 	}
-	m.cancelAttackIntent()
-	m.requestWalk(ctx, targetX, targetY, "held click")
+	m.requestMove(ctx, targetX, targetY, "held click")
 	return true
 }
 
@@ -141,28 +142,103 @@ func warpWalkTarget(ctx client.Context, actor worldstate.Actor, now time.Time) (
 	return bestX, bestY, found
 }
 
-func (m *WorldMode) requestWalk(ctx client.Context, targetX, targetY int, source string) bool {
-	if scene.PlayerIsDead(ctx) {
+type walkIntent struct {
+	x, y    int
+	source  string
+	chasing bool
+}
+
+func (m *WorldMode) playerChasing() bool {
+	return m.pendingAttack.targetID != 0 || m.pendingPickup.itemID != 0 || m.skillSystem.PlayerChasing()
+}
+
+func (m *WorldMode) cancelPlayerAction(ctx client.Context) {
+	m.stopAttack(ctx)
+	m.pendingPickup = pickupIntent{}
+	m.skillSystem.CancelPlayerChase()
+	m.queuedWalk = nil
+	m.scheduledResumes = nil
+}
+
+func (m *WorldMode) requestMove(ctx client.Context, x, y int, source string) bool {
+	if !playerCanWalkTo(ctx, x, y) {
 		return false
 	}
-	if ctx.PlayerHasEffectState(db.EffectStateHide) && learnedSkillLevel(ctx.Session, db.SkillRGTunneldrive) == 0 {
+	m.cancelPlayerAction(ctx)
+	return m.requestWalk(ctx, x, y, source)
+}
+
+func (m *WorldMode) playerAnimation(ctx client.Context, now time.Time) (scene.ActorAnimation, bool) {
+	if ctx.World == nil {
+		return scene.ActorAnimation{}, false
+	}
+	ids := []uint32{ctx.World.Player.ID}
+	if ctx.Session != nil {
+		ids = append(ids, ctx.Session.AccountID, ctx.Session.CharID)
+	}
+	for _, id := range ids {
+		if anim, ok := m.actorSystem.ActorAnimation(id, now); ok && !anim.AutoCounter && !anim.KeepMovement &&
+			(anim.Casting || now.Before(anim.Started.Add(anim.Duration))) {
+			return anim, true
+		}
+	}
+	return scene.ActorAnimation{}, false
+}
+
+func (m *WorldMode) playerMoveLocked(ctx client.Context, now time.Time) bool {
+	anim, ok := m.playerAnimation(ctx, now)
+	return ok && (anim.ActionFamily == scene.SpriteActionPickup ||
+		anim.ActionFamily == sprites.ActionPCAttack1 || anim.ActionFamily == sprites.ActionPCAttack2 || anim.ActionFamily == sprites.ActionPCAttack3)
+}
+
+func (m *WorldMode) playerCanAct(ctx client.Context, now time.Time) bool {
+	if scene.PlayerIsDead(ctx) || ctx.World == nil || ctx.World.Player.Sitting {
 		return false
 	}
-	if ctx.World == nil || ctx.Network == nil || !scene.WalkTargetInBounds(ctx, targetX, targetY) {
-		m.setWalkCooldown(walkRequestCooldown)
-		return false
-	}
-	playerX, playerY := scene.CurrentPlayerCell(ctx, time.Now())
-	glog.Debugf("%s walk request from=%d,%d to=%d,%d", source, playerX, playerY, targetX, targetY)
-	if err := ctx.Network.SendWalkToXY(targetX, targetY); err == nil {
-		m.walkSequence++
-		m.setWalkCooldown(walkRequestCooldown)
+	anim, ok := m.playerAnimation(ctx, now)
+	return !ok || (!anim.Casting && anim.ActionFamily != sprites.ActionPCSkill && !m.playerMoveLocked(ctx, now))
+}
+
+func (m *WorldMode) playerCanUseSkill(ctx client.Context, now time.Time) bool {
+	anim, ok := m.playerAnimation(ctx, now)
+	return (ok && anim.Combo && !scene.PlayerIsDead(ctx) && !ctx.World.Player.Sitting) || m.playerCanAct(ctx, now)
+}
+
+func (m *WorldMode) processQueuedWalk(ctx client.Context, now time.Time) bool {
+	if m.queuedWalk == nil || !m.walkReady(now) || m.playerMoveLocked(ctx, now) {
 		return true
-	} else {
-		glog.Warnf("%s walk request failed from=%d,%d to=%d,%d: %v", source, playerX, playerY, targetX, targetY, err)
+	}
+	walk := *m.queuedWalk
+	m.queuedWalk = nil
+	if (walk.chasing && !m.playerChasing()) || !playerCanWalkTo(ctx, walk.x, walk.y) {
+		return false
+	}
+	if err := ctx.Network.SendWalkToXY(walk.x, walk.y); err != nil {
+		glog.Warnf("%s walk request failed to=%d,%d: %v", walk.source, walk.x, walk.y, err)
 		m.setWalkCooldown(walkErrorCooldown)
 		return false
 	}
+	m.walkAwaitingAck = true
+	m.walkRequestAt = now
+	m.setWalkCooldown(walkRequestCooldown)
+	return true
+}
+
+func playerCanWalkTo(ctx client.Context, x, y int) bool {
+	return ctx.World != nil && ctx.Network != nil && !scene.PlayerIsDead(ctx) &&
+		scene.WalkTargetInBounds(ctx, x, y) &&
+		(!ctx.PlayerHasEffectState(db.EffectStateHide) || learnedSkillLevel(ctx.Session, db.SkillRGTunneldrive) > 0)
+}
+
+func (m *WorldMode) requestWalk(ctx client.Context, targetX, targetY int, source string) bool {
+	if !playerCanWalkTo(ctx, targetX, targetY) {
+		return false
+	}
+	m.queuedWalk = &walkIntent{x: targetX, y: targetY, source: source, chasing: m.playerChasing()}
+	// Ownership changes immediately, even if an animation or acknowledgement
+	// delays the packet. A previous input controller must not stop this walk.
+	m.walkSequence++
+	return m.processQueuedWalk(ctx, time.Now())
 }
 
 // requestWalkStop shortens the current walk to the end of its active path
@@ -190,7 +266,7 @@ func nextPlayerPathCell(player worldstate.Actor, now time.Time) (int, int) {
 		_, _, x, y := scene.RenderPathSegmentWithSpeed(
 			player.MovePath,
 			elapsed,
-			scene.ActorMoveSpeed(player),
+			scene.ActorWalkSpeed(player),
 			player.MoveStartX,
 			player.MoveStartY,
 			player.HasMoveStart,
@@ -335,6 +411,13 @@ func setPlayerMovementAt(ctx client.Context, fromX, fromY, toX, toY, dir int, no
 		return
 	}
 	path := maps.WalkPath(ctx.World.GAT, fromX, fromY, toX, toY)
+	if len(path) == 0 {
+		fromX, fromY = scene.CurrentPlayerCell(ctx, now)
+		path = maps.WalkPath(ctx.World.GAT, fromX, fromY, toX, toY)
+		if len(path) == 0 {
+			return
+		}
+	}
 	setPlayerMovementPathAt(ctx, path, fromX, fromY, toX, toY, dir, now, fastForward)
 }
 
@@ -366,6 +449,7 @@ func setPlayerMovementPathAt(ctx client.Context, path []worldstate.WalkStep, fro
 	ctx.World.Player.MoveStarted = now.Add(-offset)
 	ctx.World.Player.MovePath = path
 	ctx.World.Player.MoveDuration = duration
+	ctx.World.Player.MoveSpeed = speed
 	ctx.World.Player.MoveStartX = startX
 	ctx.World.Player.MoveStartY = startY
 	ctx.World.Player.HasMoveStart = hasMoveStart

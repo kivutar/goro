@@ -151,10 +151,7 @@ func (m *WorldMode) cleanupDeadActors(ctx client.Context, now time.Time) {
 		delete(m.actorSystem.SpeechBubbles, id)
 		delete(m.actorSystem.PetAccessoryIDs, id)
 		if m.pendingAttack.targetID == id {
-			m.pendingAttack = attackIntent{}
-		}
-		if m.lockedAttackID == id {
-			m.clearLockedAttack()
+			m.cancelAttackIntent()
 		}
 		if m.attackFocusID == id {
 			m.clearAttackFocus()
@@ -325,7 +322,7 @@ func (m *WorldMode) applyActorStateChange(ctx client.Context, change network.Act
 		return
 	}
 	if change.EffectState&scene.ActorStealthMask != 0 {
-		if m.pendingAttack.targetID == change.ID || m.lockedAttackID == change.ID {
+		if m.pendingAttack.targetID == change.ID {
 			m.cancelAttackIntent()
 		}
 		if m.skillSystem.Pending.TargetID == change.ID {

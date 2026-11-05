@@ -237,70 +237,6 @@ func TestApplyAttackFailureForDistanceStoresServerRange(t *testing.T) {
 	}
 }
 
-func TestContinuePendingAttackSchedulesDelayedAction(t *testing.T) {
-	world := worldstate.New()
-	world.Player = worldstate.Actor{X: 10, Y: 20}
-	world.UpsertActor(worldstate.Actor{
-		ID:            300,
-		X:             11,
-		Y:             20,
-		ObjectType:    scene.ActorObjectTypeMob,
-		HasObjectType: true,
-	})
-	mode := &WorldMode{
-		pendingAttack: attackIntent{
-			targetID: 300,
-			expires:  time.Now().Add(time.Second),
-		},
-	}
-	ctx := client.Context{
-		Session: &session.Session{AccountID: 100, CharID: 200},
-		World:   world,
-	}
-
-	mode.continuePendingAttack(ctx, "test")
-
-	if mode.pendingAttack.targetID != 300 {
-		t.Fatalf("pending target cleared")
-	}
-	if mode.pendingAttack.readyAt.IsZero() {
-		t.Fatal("pending attack was not scheduled")
-	}
-	if time.Until(mode.pendingAttack.readyAt) > 100*time.Millisecond {
-		t.Fatalf("readyAt too far in future: %s", time.Until(mode.pendingAttack.readyAt))
-	}
-}
-
-func TestUpdatePendingAttackDoesNotKeepDelayingScheduledAction(t *testing.T) {
-	world := worldstate.New()
-	world.Player = worldstate.Actor{X: 10, Y: 20}
-	world.UpsertActor(worldstate.Actor{
-		ID:            300,
-		X:             11,
-		Y:             20,
-		ObjectType:    scene.ActorObjectTypeMob,
-		HasObjectType: true,
-	})
-	readyAt := time.Now().Add(10 * time.Millisecond)
-	mode := &WorldMode{
-		pendingAttack: attackIntent{
-			targetID: 300,
-			expires:  time.Now().Add(time.Second),
-			readyAt:  readyAt,
-		},
-	}
-	ctx := client.Context{
-		Session: &session.Session{AccountID: 100, CharID: 200},
-		World:   world,
-	}
-
-	mode.updatePendingAttack(ctx, "test", false)
-
-	if !mode.pendingAttack.readyAt.Equal(readyAt) {
-		t.Fatalf("readyAt moved from %s to %s", readyAt, mode.pendingAttack.readyAt)
-	}
-}
-
 func TestGroundClickCancelsPendingAttackChase(t *testing.T) {
 	world := worldstate.New()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
@@ -320,10 +256,8 @@ func TestGroundClickCancelsPendingAttackChase(t *testing.T) {
 	mode := &WorldMode{
 		pendingAttack: attackIntent{
 			targetID:    300,
-			expires:     now.Add(time.Second),
 			lastChaseAt: now,
 		},
-		lockedAttackID:   300,
 		attackFocusID:    300,
 		attackFocusStart: now,
 	}
@@ -345,9 +279,6 @@ func TestGroundClickCancelsPendingAttackChase(t *testing.T) {
 	}
 	if mode.pendingAttack.targetID != 0 {
 		t.Fatalf("pending attack target = %d, want canceled", mode.pendingAttack.targetID)
-	}
-	if mode.lockedAttackID != 0 {
-		t.Fatalf("locked attack target = %d, want canceled", mode.lockedAttackID)
 	}
 	if mode.attackFocusID != 0 {
 		t.Fatalf("attack focus target = %d, want canceled", mode.attackFocusID)
@@ -603,29 +534,6 @@ func TestNormalAttackLockActiveUsesNoCtrlOrHeldCtrl(t *testing.T) {
 	inputState.SetKey(input.KeyCtrl, true)
 	if !normalAttackLockActive(ctx) {
 		t.Fatal("attack lock should be active while ctrl is held")
-	}
-}
-
-func TestLockAttackKeepsExistingRetryTimersForSameTarget(t *testing.T) {
-	firstAttack := time.Unix(100, 0)
-	firstChase := time.Unix(101, 0)
-	mode := &WorldMode{
-		lockedAttackID: 300,
-		lastAttackAt:   firstAttack,
-		lastChaseAt:    firstChase,
-	}
-
-	mode.lockAttack(300)
-	if mode.lastAttackAt != firstAttack || mode.lastChaseAt != firstChase {
-		t.Fatal("same target lock reset retry timers")
-	}
-
-	mode.lockAttack(400)
-	if mode.lockedAttackID != 400 {
-		t.Fatalf("locked target = %d, want 400", mode.lockedAttackID)
-	}
-	if !mode.lastAttackAt.IsZero() || !mode.lastChaseAt.IsZero() {
-		t.Fatal("new target lock should reset retry timers")
 	}
 }
 
@@ -1213,7 +1121,7 @@ func TestApplyActorActionNotifyResumesFocusedLocalWalkAfterHurt(t *testing.T) {
 		ObjectType:    scene.ActorObjectTypeMob,
 		HasObjectType: true,
 	})
-	mode := &WorldMode{lockedAttackID: 400}
+	mode := &WorldMode{pendingAttack: attackIntent{targetID: 400}}
 	ctx := client.Context{
 		Session: &session.Session{AccountID: 2000000, CharID: 150000},
 		World:   world,

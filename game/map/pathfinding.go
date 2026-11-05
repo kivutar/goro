@@ -12,18 +12,28 @@ func WalkPath(gat *res.GAT, fromX, fromY, toX, toY int) []worldstate.WalkStep {
 	if fromX == toX && fromY == toY {
 		return []worldstate.WalkStep{{X: fromX, Y: fromY}}
 	}
-	if gat == nil || !gat.InBounds(fromX, fromY) || !gat.InBounds(toX, toY) {
+	if gat == nil {
 		return []worldstate.WalkStep{{X: fromX, Y: fromY}, {X: toX, Y: toY}}
 	}
 	if path, ok := FindWalkPath(gat, fromX, fromY, toX, toY); ok {
 		return path
 	}
-	return []worldstate.WalkStep{{X: fromX, Y: fromY}, {X: toX, Y: toY}}
+	return nil
 }
 
+// Classic servers allow paths of up to 32 steps. Even an all-diagonal path
+// fits this cost budget, which bounds searches without a node-count cutoff.
+const maxWalkPathCost = 32 * 14
+
 func FindWalkPath(gat *res.GAT, fromX, fromY, toX, toY int) ([]worldstate.WalkStep, bool) {
+	if gat == nil || !gat.InBounds(fromX, fromY) || !gat.InBounds(toX, toY) || !gat.Walkable(toX, toY) {
+		return nil, false
+	}
 	start := PathPoint{X: fromX, Y: fromY}
 	goal := PathPoint{X: toX, Y: toY}
+	if PathHeuristic(start, goal) > maxWalkPathCost {
+		return nil, false
+	}
 	open := &pathHeap{}
 	heap.Init(open)
 	startNode := &pathNode{point: start, g: 0, f: PathHeuristic(start, goal)}
@@ -45,17 +55,20 @@ func FindWalkPath(gat *res.GAT, fromX, fromY, toX, toY int) ([]worldstate.WalkSt
 				continue
 			}
 			cost := current.g + PathStepCost(current.point, next)
+			estimate := cost + PathHeuristic(next, goal)
+			if estimate > maxWalkPathCost {
+				continue
+			}
 			node, ok := nodes[next]
 			if !ok {
-				node = &pathNode{point: next, g: cost, f: cost + PathHeuristic(next, goal), parent: current}
+				node = &pathNode{point: next, g: cost, f: estimate, parent: current}
 				nodes[next] = node
 				heap.Push(open, node)
 				continue
 			}
 			if cost < node.g {
-				node.g = cost
-				node.f = cost + PathHeuristic(next, goal)
-				node.parent = current
+				node = &pathNode{point: next, g: cost, f: estimate, parent: current}
+				nodes[next] = node
 				heap.Push(open, node)
 			}
 		}

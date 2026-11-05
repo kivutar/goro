@@ -43,6 +43,8 @@ type Bindings struct {
 	Error               func(string, ...any)
 	RequestWalk         func(client.Context, int, int, string) bool
 	WalkBlocked         func()
+	BeginPlayerAction   func(client.Context)
+	PlayerCanUseSkill   func(client.Context, time.Time) bool
 	RememberSenseTarget func(uint16, uint32, time.Time)
 	ClickActor          func(client.Context, scene.Projection, session.Skill, int, int, time.Time) (worldstate.Actor, bool)
 	NumberBillboard     func(client.Context, string) (*scene.Billboard, bool)

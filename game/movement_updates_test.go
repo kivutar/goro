@@ -214,3 +214,56 @@ func TestRemoteMoveUpdateUsesServerMoveStartTick(t *testing.T) {
 		t.Fatalf("render position = %.2f,%.2f, want around 2,0", x, y)
 	}
 }
+
+func TestSpeedUpdateDoesNotRewriteActiveWalk(t *testing.T) {
+	w := worldstate.New()
+	w.Player = worldstate.Actor{ID: 100, X: 10, Y: 20, Speed: 150}
+	w.GAT = testutil.FlatWalkableGAT(64, 64)
+	ctx := client.Context{World: w, Session: &session.Session{}}
+	now := time.Now()
+	setPlayerMovementAt(ctx, 10, 20, 20, 20, 0, now, 0)
+	beforeX, beforeY := scene.ActorRenderPosition(w.Player, now.Add(600*time.Millisecond))
+	applyParameterChange(ctx, network.ParameterChange{VarID: network.StatusSpeed, Value: 300})
+	afterX, afterY := scene.ActorRenderPosition(w.Player, now.Add(600*time.Millisecond))
+	if beforeX != afterX || beforeY != afterY || w.Player.MoveDuration != 1500*time.Millisecond {
+		t.Fatal("speed update changed the position or finish time of an active path")
+	}
+	w.SetPlayerPosition(20, 20, 0)
+	setPlayerMovementAt(ctx, 20, 20, 22, 20, 0, now.Add(2*time.Second), 0)
+	if w.Player.MoveDuration != 600*time.Millisecond {
+		t.Fatal("new walk did not use the updated speed")
+	}
+}
+
+func TestImpossibleMovementDoesNotCrossWall(t *testing.T) {
+	w := worldstate.New()
+	w.Player = worldstate.Actor{ID: 100, X: 0, Y: 1, Speed: 150}
+	w.GAT = testutil.PathGAT(3, 3, map[worldstate.WalkStep]bool{{X: 1, Y: 0}: true, {X: 1, Y: 1}: true, {X: 1, Y: 2}: true})
+	ctx := client.Context{World: w, Session: &session.Session{}}
+	setPlayerMovementAt(ctx, 0, 1, 2, 1, 0, time.Now(), 0)
+	if w.Player.Moving || w.Player.X != 0 {
+		t.Fatal("failed pathfinding invented a route through the wall")
+	}
+	actors.UpsertActor(ctx, worldstate.Actor{ID: 300, Moving: true, FromX: 0, FromY: 1, ToX: 2, ToY: 1, X: 2, Y: 1})
+	if a := w.Actors[300]; a.Moving || a.X != 0 {
+		t.Fatal("remote actor crossed the wall")
+	}
+}
+
+func TestLongAcknowledgedWalkMovesLocalAndRemoteActors(t *testing.T) {
+	w := worldstate.New()
+	w.GAT = testutil.FlatWalkableGAT(64, 64)
+	w.Player = worldstate.Actor{ID: 100, X: 10, Y: 10, Speed: 150}
+	ctx := client.Context{World: w, Session: &session.Session{AccountID: 100}}
+	applySelfMoveAck(ctx, network.SelfMoveAck{FromX: 10, FromY: 10, ToX: 42, ToY: 42})
+	actors.UpsertActor(ctx, worldstate.Actor{ID: 300, Moving: true, FromX: 10, FromY: 10, ToX: 42, ToY: 42, X: 42, Y: 42, Speed: 150})
+	for _, actor := range []worldstate.Actor{w.Player, w.Actors[300]} {
+		if !actor.Moving || len(actor.MovePath) != 33 {
+			t.Fatalf("actor %d did not follow the acknowledged 32-step route: %+v", actor.ID, actor)
+		}
+		x, y := scene.ActorRenderPosition(actor, actor.MoveStarted.Add(actor.MoveDuration/2))
+		if x < 25.9 || x > 26.1 || y < 25.9 || y > 26.1 {
+			t.Fatalf("actor %d halfway position = %f,%f, want 26,26", actor.ID, x, y)
+		}
+	}
+}

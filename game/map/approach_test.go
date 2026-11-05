@@ -86,16 +86,16 @@ func TestAttackApproachCellChoosesClosestWalkableNeighbor(t *testing.T) {
 	if !ok {
 		t.Fatal("expected approach cell")
 	}
-	if x != 115 || y != 302 {
-		t.Fatalf("approach = %d,%d, want 115,302", x, y)
+	if x != 114 || y != 303 {
+		t.Fatalf("approach = %d,%d, want 114,303", x, y)
 	}
 
-	world.GAT.Cells[302*world.GAT.Width+115] = res.GATCell{}
+	world.GAT.Cells[303*world.GAT.Width+114] = res.GATCell{}
 	x, y, ok = maps.NormalAttackApproachCellFromTarget(ctx, ctx.World.Player.X, ctx.World.Player.Y, actor.X, actor.Y, 1)
 	if !ok {
 		t.Fatal("expected fallback approach cell")
 	}
-	if x == 115 && y == 302 {
+	if x == 114 && y == 303 {
 		t.Fatalf("blocked approach cell was selected")
 	}
 }
@@ -119,8 +119,8 @@ func TestAttackApproachCellUsesRangedAttackRange(t *testing.T) {
 		t.Fatal("expected ranged approach cell")
 	}
 	targetDistance := scene.MaxInt(scene.AbsInt(x-actor.X), scene.AbsInt(y-actor.Y))
-	if targetDistance > 5 {
-		t.Fatalf("ranged approach = %d,%d, distance %d from target, want within 5", x, y, targetDistance)
+	if !maps.NormalAttackTargetWithinRange(x, y, actor.X, actor.Y, 5) {
+		t.Fatalf("ranged approach = %d,%d, distance %d from target, want within client range 5", x, y, targetDistance)
 	}
 	if targetDistance <= 1 {
 		t.Fatalf("ranged approach = %d,%d, want not adjacent contact", x, y)

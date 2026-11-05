@@ -101,7 +101,6 @@ func (m *WorldMode) scriptLoot(ctx client.Context, id uint32) bool {
 	if !ok {
 		return false
 	}
-	m.clearLockedAttack()
 	m.clearAttackFocus()
 	return m.requestPickup(ctx, item, "script")
 }
@@ -143,12 +142,11 @@ func (m *WorldMode) scriptWalk(ctx client.Context, x, y int) bool {
 	if playerAtWalkTarget(ctx.World.Player, x, y, now) {
 		return false
 	}
-	m.cancelAttackIntent()
-	return m.requestWalk(ctx, x, y, "script")
+	return m.requestMove(ctx, x, y, "script")
 }
 
 func (m *WorldMode) scriptStop(ctx client.Context) bool {
-	m.cancelAttackIntent()
+	m.cancelPlayerAction(ctx)
 	return m.requestWalkStop(ctx, "script")
 }
 

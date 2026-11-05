@@ -18,7 +18,7 @@ func ActorRenderPosition(actor worldstate.Actor, now time.Time) (float64, float6
 	}
 	elapsed := now.Sub(actor.MoveStarted)
 	if len(actor.MovePath) >= 2 {
-		return RenderPathPositionWithSpeed(actor.MovePath, elapsed, ActorMoveSpeed(actor), actor.MoveStartX, actor.MoveStartY, actor.HasMoveStart)
+		return RenderPathPositionWithSpeed(actor.MovePath, elapsed, ActorWalkSpeed(actor), actor.MoveStartX, actor.MoveStartY, actor.HasMoveStart)
 	}
 	t := float64(elapsed) / float64(actor.MoveDuration)
 	if t < 0 {
@@ -36,7 +36,7 @@ func ActorRenderDirection(actor worldstate.Actor, now time.Time) int {
 		return actor.Dir
 	}
 	elapsed := now.Sub(actor.MoveStarted)
-	fromX, fromY, toX, toY := RenderPathSegmentWithSpeed(actor.MovePath, elapsed, ActorMoveSpeed(actor), actor.MoveStartX, actor.MoveStartY, actor.HasMoveStart)
+	fromX, fromY, toX, toY := RenderPathSegmentWithSpeed(actor.MovePath, elapsed, ActorWalkSpeed(actor), actor.MoveStartX, actor.MoveStartY, actor.HasMoveStart)
 	if math.Abs(fromX-toX) < 0.001 && math.Abs(fromY-toY) < 0.001 {
 		return actor.Dir
 	}
@@ -44,6 +44,13 @@ func ActorRenderDirection(actor worldstate.Actor, now time.Time) int {
 }
 
 const DefaultMoveSpeedMS = 150
+
+func ActorWalkSpeed(actor worldstate.Actor) int {
+	if actor.MoveSpeed > 0 {
+		return actor.MoveSpeed
+	}
+	return ActorMoveSpeed(actor)
+}
 
 func ActorMoveSpeed(actor worldstate.Actor) int {
 	if actor.Speed > 0 {

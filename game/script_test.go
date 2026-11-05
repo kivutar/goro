@@ -207,6 +207,9 @@ func TestWASDKeyboardAndGamepadUseSameTargeting(t *testing.T) {
 					default:
 						press(caster, "skill")
 					}
+					if order == "attack_nearest" || order == "attack_selected" {
+						testutil.ReadPackets(t, server, []byte{0x18, 0x01})
+					}
 					readBotTestPackets(t, server, network.BuildUseSkillToIDPacketForClientDate(skill.ID, 3, want, 20080910))
 					assertNoBotTestPacket(t, server, func() error { return nil })
 				})
@@ -253,6 +256,7 @@ func TestWASDArmingSkillPreservesMovementRelease(t *testing.T) {
 				ctx.World.Player = worldstate.Actor{ID: 100, X: 10, Y: 28, FromX: 10, FromY: 20, ToX: 10, ToY: 28,
 					Moving: true, MoveStarted: time.Now(), MoveDuration: 8 * time.Second}
 				mode.walkCooldownUntil = time.Time{}
+				mode.walkAwaitingAck = false
 				if release == "same_frame" {
 					setMovement(false)
 				}
@@ -347,6 +351,7 @@ func TestWASDSkillChaseTakesOverMovement(t *testing.T) {
 				ctx.World.Player = worldstate.Actor{ID: 100, X: 10, Y: 28, FromX: 10, FromY: 20, ToX: 10, ToY: 28,
 					Moving: true, MoveStarted: time.Now(), MoveDuration: 8 * time.Second}
 				mode.walkCooldownUntil = time.Time{}
+				mode.walkAwaitingAck = false
 				ctx.Input.SetKeyCode(gpucontext.KeyW, false)
 				wasdControlPress(t, ctx, mode, device, castAction)
 				if mode.skillSystem.Pending.TargetID != 300 {
@@ -357,6 +362,7 @@ func TestWASDSkillChaseTakesOverMovement(t *testing.T) {
 				// Releasing the old movement must not stop the new skill chase,
 				// even before the server acknowledges that new destination.
 				mode.walkCooldownUntil = time.Time{}
+				mode.walkAwaitingAck = false
 				assertNoBotTestPacket(t, server, func() error {
 					mode.updateBotInput(ctx, true)
 					return nil
@@ -439,6 +445,7 @@ func TestWASDSkillsResumeHeldMovementAfterServerStop(t *testing.T) {
 				// The reply can arrive after another input frame; keep the old
 				// walk until the server actually interrupts it for the cast.
 				mode.walkCooldownUntil = time.Time{}
+				mode.walkAwaitingAck = false
 				assertNoBotTestPacket(t, server, func() error { frame(false); return nil })
 				mode.applySkillCastNotify(ctx, network.SkillCastNotify{SourceID: 100, TargetID: 100, SkillID: skill.ID, DelayTime: 1})
 				if ctx.World.Player.Moving {
@@ -488,10 +495,21 @@ func TestWASDGroundSkillChaseSurvivesMovementRelease(t *testing.T) {
 			mode.updateBotInput(ctx, true)
 			mode.skills().HandleClick(ctx, projection, time.Now())
 			ctx.Input.EndFrame()
+			if mode.queuedWalk == nil {
+				t.Fatal("skill chase was not queued behind the previous walk")
+			}
+			assertNoBotTestPacket(t, server, func() error { frame(false, false); return nil })
+			if !mode.skillSystem.Pending.Ground {
+				t.Fatal("releasing movement canceled the queued skill chase")
+			}
+			mode.walkAwaitingAck = false
+			mode.walkCooldownUntil = time.Time{}
+			mode.processQueuedWalk(ctx, time.Now())
 			chase, _ := network.BuildWalkToXYPacketForClientDate(20, 20, 20080910)
 			readBotTestPackets(t, server, chase)
 			applySelfMoveAck(ctx, network.SelfMoveAck{FromX: 10, FromY: 20, ToX: 20, ToY: 20})
 			mode.walkCooldownUntil = time.Time{}
+			mode.walkAwaitingAck = false
 			assertNoBotTestPacket(t, server, func() error { frame(false, false); return nil })
 			if !mode.skillSystem.Pending.Ground {
 				t.Fatal("ground skill chase was canceled")
@@ -1107,6 +1125,7 @@ func TestWASDGamepadDisconnectStopsWalking(t *testing.T) {
 	state.EndFrame()
 	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 28, FromX: 10, FromY: 20, ToX: 10, ToY: 28, Moving: true, MoveStarted: time.Now(), MoveDuration: 8 * time.Second, MovePath: []worldstate.WalkStep{{X: 10, Y: 20}, {X: 10, Y: 21}, {X: 10, Y: 28}}}
 	mode.walkCooldownUntil = time.Time{}
+	mode.walkAwaitingAck = false
 	state.SetGamepad(input.GamepadFrame{})
 	if err := bot.InputFrame(true); err != nil {
 		t.Fatal(err)
@@ -1745,6 +1764,7 @@ func TestLuaBotCanStartLongWalkFromPhysicalKey(t *testing.T) {
 		Moving: true, MoveStarted: time.Now().Add(-time.Second), MoveDuration: 8 * time.Second,
 	}
 	mode.walkCooldownUntil = time.Time{}
+	mode.walkAwaitingAck = false
 	if err := bot.InputFrame(true); err != nil {
 		t.Fatal(err)
 	}
@@ -1757,6 +1777,7 @@ func TestLuaBotCanStartLongWalkFromPhysicalKey(t *testing.T) {
 
 	world.Player.MoveStarted = time.Now().Add(-5 * time.Second)
 	mode.walkCooldownUntil = time.Time{}
+	mode.walkAwaitingAck = false
 	if err := bot.InputFrame(true); err != nil {
 		t.Fatal(err)
 	}
@@ -1787,6 +1808,7 @@ func TestLuaBotCanStartLongWalkFromPhysicalKey(t *testing.T) {
 		},
 	}
 	mode.walkCooldownUntil = time.Time{}
+	mode.walkAwaitingAck = false
 	if err := bot.InputFrame(true); err != nil {
 		t.Fatal(err)
 	}

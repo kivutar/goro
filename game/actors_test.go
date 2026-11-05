@@ -414,6 +414,11 @@ func TestStealthActionPackets(t *testing.T) {
 	readBotTestPackets(t, server, network.BuildUseInventoryItemPacketForClientDate(item.Index, ctx.Session.AccountID, 20080910))
 	actor.EffectState = db.EffectStateHide
 	ctx.World.UpsertActor(actor)
+	mode.requestAttack(ctx, actor, "test")
+	readBotTestPackets(t, server, []byte{0x18, 0x01})
+	if mode.pendingAttack.targetID != 0 {
+		t.Fatal("hidden actor retained its attack")
+	}
 	assertNoBotTestPacket(t, server, func() error {
 		mode.requestAttack(ctx, actor, "test")
 		if mode.skills().SendToID(ctx, session.Skill{ID: db.SkillALHeal, Level: 1}, actor.ID, "test") == nil {
@@ -452,11 +457,11 @@ func TestStealthCancelsQueuedActionsAndHidesAttachments(t *testing.T) {
 		t.Fatal("missing initial level aura")
 	}
 	mode.pendingAttack = attackIntent{targetID: actor.ID}
-	mode.lockedAttackID, mode.attackFocusID = actor.ID, actor.ID
+	mode.attackFocusID = actor.ID
 	mode.skillSystem.Pending = skills.PendingTarget{Skill: session.Skill{ID: db.SkillALHeal}, TargetID: actor.ID}
 	mode.applyActorStateChange(ctx, network.ActorStateChange{ID: actor.ID, EffectState: db.EffectStateCloak})
 	mode.effects().SyncLevel99AuraEffects(ctx, time.Now())
-	if mode.pendingAttack.targetID != 0 || mode.lockedAttackID != 0 || mode.attackFocusID != 0 || mode.skillSystem.Pending.Skill.ID != 0 || len(mode.effects().Active) != 0 {
+	if mode.pendingAttack.targetID != 0 || mode.attackFocusID != 0 || mode.skillSystem.Pending.Skill.ID != 0 || len(mode.effects().Active) != 0 {
 		t.Fatal("hidden target retained an action or aura")
 	}
 	mode.applyActorStateChange(ctx, network.ActorStateChange{ID: actor.ID})

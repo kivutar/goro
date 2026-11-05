@@ -40,7 +40,15 @@ func UpsertActorAt(ctx client.Context, actor worldstate.Actor, now time.Time) {
 		if len(actor.MovePath) == 0 {
 			actor.MovePath = maps.WalkPath(ctx.World.GAT, actor.FromX, actor.FromY, actor.ToX, actor.ToY)
 			if len(actor.MovePath) == 0 {
-				actor.MovePath = DirectMovementPath(actor.FromX, actor.FromY, actor.ToX, actor.ToY)
+				// The map may have changed (for example an Ice Wall). Do not
+				// draw a straight line through it when the announced route fails.
+				actor.X, actor.Y = actor.FromX, actor.FromY
+				if hasExisting {
+					actor.X, actor.Y = scene.ActorCurrentCell(existing, now)
+				}
+				ClearActorMovement(&actor)
+				ctx.World.UpsertActor(actor)
+				return
 			}
 		}
 		fastForward := time.Duration(0)
@@ -52,6 +60,7 @@ func UpsertActorAt(ctx client.Context, actor worldstate.Actor, now time.Time) {
 		speed := scene.ActorMoveSpeed(actor)
 		startX, startY, hasMoveStart, offset := MovementStart(actor.MovePath, existing, now, fastForward, speed, actor.FromX, actor.FromY)
 		actor.MoveStarted = now.Add(-offset)
+		actor.MoveSpeed = speed
 		actor.MoveDuration = ActorMovementDurationFromWithSpeed(actor.MovePath, actor.FromX, actor.FromY, actor.ToX, actor.ToY, speed, startX, startY, hasMoveStart)
 		actor.MoveStartX = startX
 		actor.MoveStartY = startY
@@ -139,6 +148,7 @@ func ClearActorMovement(actor *worldstate.Actor) {
 	actor.MoveStartX = 0
 	actor.MoveStartY = 0
 	actor.WalkDistance = 0
+	actor.MoveSpeed = 0
 }
 
 func actorRenderWalkDistance(actor worldstate.Actor, now time.Time) float64 {
@@ -151,7 +161,7 @@ func actorRenderWalkDistance(actor worldstate.Actor, now time.Time) float64 {
 		elapsed = 0
 	}
 	if len(actor.MovePath) >= 2 {
-		return base + pathWalkDistanceWithSpeed(actor.MovePath, elapsed, scene.ActorMoveSpeed(actor), actor.MoveStartX, actor.MoveStartY, actor.HasMoveStart)
+		return base + pathWalkDistanceWithSpeed(actor.MovePath, elapsed, scene.ActorWalkSpeed(actor), actor.MoveStartX, actor.MoveStartY, actor.HasMoveStart)
 	}
 	t := float64(elapsed) / float64(actor.MoveDuration)
 	if t < 0 {

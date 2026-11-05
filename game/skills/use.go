@@ -233,6 +233,33 @@ func (c *System) Use(ctx client.Context, skill session.Skill, source string) err
 	return c.SendToID(ctx, skill, target, source)
 }
 
+// Companion orders do not replace the player's own movement or attack.
+func (c *System) beginPlayerAction(ctx client.Context, skill session.Skill) {
+	if IsSelfTargetSkill(skill) {
+		switch skill.ID {
+		case db.SkillMOChaincombo, db.SkillMOCombofinish, db.SkillChTigerfist, db.SkillChChaincrush,
+			db.SkillMOExtremityfist, db.SkillTKTurnkick, db.SkillTKStormkick, db.SkillTKDownkick,
+			db.SkillTKCounter, db.SkillTKJumpkick, db.SkillHTPower:
+			// These skills use the server's current attack target. Canceling
+			// the attack first would erase that target before the skill arrives.
+			return
+		}
+	}
+	if skillCasterKindForID(skill.ID) == skillCasterPlayer && c.bindings.BeginPlayerAction != nil {
+		c.bindings.BeginPlayerAction(ctx)
+	}
+}
+
+func (c *System) PlayerChasing() bool {
+	return c.Pending.hasTarget() && skillCasterKindForID(c.Pending.Skill.ID) == skillCasterPlayer
+}
+
+func (c *System) CancelPlayerChase() {
+	if c.PlayerChasing() {
+		c.Pending = PendingTarget{}
+	}
+}
+
 func (c *System) SendToID(ctx client.Context, skill session.Skill, target uint32, source string) error {
 	if err := CheckStealthSkill(ctx, skill.ID, target); err != nil {
 		return err
@@ -249,6 +276,7 @@ func (c *System) SendToID(ctx client.Context, skill session.Skill, target uint32
 	if target == 0 {
 		return fmt.Errorf("missing skill target")
 	}
+	c.beginPlayerAction(ctx, skill)
 	level := skillUseLevel(skill)
 	glog.Debugf("%s skill use skill=%d level=%d target=%d", source, skill.ID, level, target)
 	if err := ctx.Network.SendUseSkillToID(skill.ID, level, target); err != nil {
@@ -285,6 +313,7 @@ func (c *System) SendToGround(ctx client.Context, skill session.Skill, x, y int,
 	if !scene.WalkTargetInBounds(ctx, x, y) {
 		return fmt.Errorf("invalid ground target %d,%d", x, y)
 	}
+	c.beginPlayerAction(ctx, skill)
 	level := skillUseLevel(skill)
 	glog.Debugf("%s ground skill use skill=%d level=%d target=%d,%d", source, skill.ID, level, x, y)
 	if err := ctx.Network.SendUseSkillToGround(skill.ID, level, x, y); err != nil {
@@ -309,6 +338,7 @@ func (c *System) SendToGroundWithText(ctx client.Context, skill session.Skill, x
 	if !scene.WalkTargetInBounds(ctx, x, y) {
 		return fmt.Errorf("invalid ground target %d,%d", x, y)
 	}
+	c.beginPlayerAction(ctx, skill)
 	level := skillUseLevel(skill)
 	glog.Debugf("%s ground skill with text use skill=%d level=%d target=%d,%d text_len=%d", source, skill.ID, level, x, y, len([]byte(text)))
 	if err := ctx.Network.SendUseSkillToGroundWithText(skill.ID, level, x, y, text); err != nil {
@@ -427,6 +457,7 @@ func (c *System) UseTarget(ctx client.Context, skill session.Skill, actor worlds
 	if IsGroundTargetSkill(skill) || IsSelfTargetSkill(skill) {
 		return fmt.Errorf("not an actor target skill")
 	}
+	c.beginPlayerAction(ctx, skill)
 	if c.chaseTargetIfNeeded(ctx, skill, actor, source) {
 		return nil
 	}
@@ -462,6 +493,7 @@ func (c *System) UseGround(ctx client.Context, skill session.Skill, x, y int, te
 	if ctx.Network == nil {
 		return fmt.Errorf("not connected")
 	}
+	c.beginPlayerAction(ctx, skill)
 	pending := PendingTarget{Skill: skill, Ground: true, X: x, Y: y, Text: text}
 	if c.chaseSkillTargetIfNeeded(ctx, pending, x, y, source) {
 		return nil
@@ -488,7 +520,7 @@ func (c *System) targetCell(ctx client.Context, pending PendingTarget, now time.
 		unit, ok := c.Units[pending.TargetID]
 		return unit.X, unit.Y, ok
 	}
-	actor, ok := ctx.World.Actors[pending.TargetID]
+	actor, ok, _ := scene.ActorForCombatID(ctx, pending.TargetID)
 	if !ok || scene.ActorHasStealth(actor) {
 		return 0, 0, false
 	}
@@ -525,14 +557,18 @@ func (c *System) chaseSkillTargetIfNeeded(ctx client.Context, pending PendingTar
 	now := time.Now()
 	casterX, casterY := SkillCasterCell(caster, now)
 	skillRange := skillTargetRangeForCaster(caster, skill)
-	if caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
+	inRange := caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange)
+	if inRange && (caster.Kind != skillCasterPlayer || c.bindings.PlayerCanUseSkill == nil || c.bindings.PlayerCanUseSkill(ctx, now)) {
 		return false
 	}
 	approachCell := maps.AttackApproachCellFromTarget
 	if caster.Kind == skillCasterPlayer {
 		approachCell = maps.NormalAttackApproachCellFromTarget
 	}
-	chaseX, chaseY, ok := approachCell(ctx, casterX, casterY, targetX, targetY, skillRange)
+	chaseX, chaseY, ok := casterX, casterY, true
+	if !inRange {
+		chaseX, chaseY, ok = approachCell(ctx, casterX, casterY, targetX, targetY, skillRange)
+	}
 	if !ok {
 		glog.Warnf("%s skill chase blocked skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d", source, skill.ID, SkillCasterKindName(caster.Kind), caster.ID, casterX, casterY, pending.TargetID, targetX, targetY, skillRange)
 		c.Cancel("unreachable target")
@@ -558,7 +594,9 @@ func (c *System) chaseSkillTargetIfNeeded(ctx client.Context, pending PendingTar
 	pending.LastChaseAt = now
 	c.Pending = pending
 	glog.Debugf("%s skill chase target skill=%d caster=%s caster_id=%d caster=%d,%d target=%d target_cell=%d,%d range=%d chase=%d,%d", source, skill.ID, SkillCasterKindName(caster.Kind), caster.ID, casterX, casterY, pending.TargetID, targetX, targetY, skillRange, chaseX, chaseY)
-	c.requestSkillCasterMove(ctx, caster, chaseX, chaseY, source+" skill chase")
+	if !inRange {
+		c.requestSkillCasterMove(ctx, caster, chaseX, chaseY, source+" skill chase")
+	}
 	return true
 }
 
@@ -622,13 +660,13 @@ func (c *System) UpdatePendingTarget(ctx client.Context, source string, logOutOf
 		if scene.MovingActorDestinationWithinRange(caster.actor, targetX, targetY, skillRange, caster.targetWithinRange) {
 			return
 		}
-		if scene.AttackRetryDue(pending.LastChaseAt, now) {
+		if pending.LastChaseAt.IsZero() || now.Sub(pending.LastChaseAt) >= scene.ChaseRetryInterval {
 			c.Pending = pending
 			c.chaseSkillTargetIfNeeded(ctx, pending, targetX, targetY, "pending")
 		}
 		return
 	}
-	readyAt := scene.PendingAttackReadyAt(caster.actor, now)
+	readyAt := now
 	if pending.ReadyAt.IsZero() {
 		pending.ReadyAt = readyAt
 	}
@@ -664,6 +702,9 @@ func (c *System) ProcessPendingTarget(ctx client.Context) {
 		c.Pending = PendingTarget{}
 		return
 	}
+	if caster.Kind == skillCasterPlayer && c.bindings.PlayerCanUseSkill != nil && !c.bindings.PlayerCanUseSkill(ctx, now) {
+		return
+	}
 	casterX, casterY := SkillCasterCell(caster, now)
 	skillRange := skillTargetRangeForCaster(caster, pending.Skill)
 	if !caster.targetWithinRange(casterX, casterY, targetX, targetY, skillRange) {
@@ -695,9 +736,7 @@ func SkillTargetOverrideActive(ctx client.Context) bool {
 }
 
 func targetSkillRange(skill session.Skill) int {
-	// robr approaches player skill targets within a circle of server range + 1.
-	// This fits rAthena's truncated client distance without using square corners.
-	return scene.MaxInt(1, skill.Range+1)
+	return scene.MaxInt(1, skill.Range)
 }
 
 func targetSkillWithinRangeCells(sourceX, sourceY, targetX, targetY, skillRange int) bool {

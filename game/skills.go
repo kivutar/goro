@@ -833,6 +833,8 @@ func (m *WorldMode) skills() *skills.System {
 		StarPlaceConfirm:    &m.ui.starPlaceConfirm,
 		Error:               m.ui.console.AddErrorMessage,
 		RequestWalk:         m.requestWalk,
+		BeginPlayerAction:   m.cancelPlayerAction,
+		PlayerCanUseSkill:   m.playerCanUseSkill,
 		WalkBlocked:         func() { m.setWalkCooldown(walkRequestCooldown) },
 		RememberSenseTarget: m.battleSystem.RememberSenseTarget,
 		ClickActor: func(ctx client.Context, projection scene.Projection, skill session.Skill, x, y int, now time.Time) (worldstate.Actor, bool) {

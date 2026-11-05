@@ -295,6 +295,10 @@ func (c *Client) SendChangeDirection(headDir, dir uint8) error {
 	return err
 }
 
+func (c *Client) SendCancelLockOn() error {
+	return c.Send([]byte{0x18, 0x01})
+}
+
 func (c *Client) SendActionRequest(targetGID uint32, action uint8) error {
 	packet := BuildActionRequestPacketForClientDate(targetGID, action, c.clientDate)
 	err := c.Send(packet)

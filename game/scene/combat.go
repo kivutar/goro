@@ -8,20 +8,10 @@ import (
 )
 
 const AttackRetryInterval = 1200 * time.Millisecond
+const ChaseRetryInterval = 450 * time.Millisecond
 
 func AttackRetryDue(last time.Time, now time.Time) bool {
 	return last.IsZero() || now.Sub(last) >= AttackRetryInterval
-}
-
-func PendingAttackReadyAt(player world.Actor, now time.Time) time.Time {
-	readyAt := now.Add(60 * time.Millisecond)
-	if ActorIsMovingAt(player, now) && player.MoveDuration > 0 {
-		walkReadyAt := player.MoveStarted.Add(player.MoveDuration).Add(60 * time.Millisecond)
-		if walkReadyAt.After(readyAt) {
-			readyAt = walkReadyAt
-		}
-	}
-	return readyAt
 }
 
 type CellRangePredicate func(sourceX, sourceY, targetX, targetY, attackRange int) bool

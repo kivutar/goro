@@ -26,7 +26,7 @@ func (m *WorldMode) startServerProgress(ctx client.Context, progress network.Pro
 	m.npc().StartProgress(progress, now)
 	// A progress bar is a server-owned WIP_DISABLE_ALL interval. Drop queued
 	// character work so it cannot fire when that interval ends.
-	m.cancelAttackIntent()
+	m.cancelPlayerAction(ctx)
 	m.pendingPickup = pickupIntent{}
 	m.skillSystem.Pending = skills.PendingTarget{}
 	m.skillSystem.PendingText = skills.PendingTextTarget{}
@@ -42,7 +42,7 @@ func (m *WorldMode) requestNPCTalk(ctx client.Context, actor worldstate.Actor, s
 		m.setWalkCooldown(walkErrorCooldown)
 		return
 	}
-	m.clearLockedAttack()
+	m.cancelPlayerAction(ctx)
 	if err := ctx.Network.SendNPCContact(actor.ID); err == nil {
 		m.setWalkCooldown(walkRequestCooldown)
 	} else {

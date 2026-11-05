@@ -169,6 +169,8 @@ func TestGroundSkillRetryKeepsDeadlineAndText(t *testing.T) {
 	readBotTestPackets(t, serverConn, walk)
 	deadline := mode.skillSystem.Pending.Expires
 	mode.skillSystem.Pending.LastChaseAt = time.Now().Add(-scene.AttackRetryInterval)
+	mode.walkRequestAt = time.Now().Add(-2 * time.Second)
+	mode.walkCooldownUntil = time.Time{}
 	mode.skills().UpdatePendingTarget(ctx, "test", false)
 	readBotTestPackets(t, serverConn, walk)
 	if !mode.skillSystem.Pending.Expires.Equal(deadline) {
@@ -567,7 +569,7 @@ func TestHealApproachesZombieWithoutWalkingAwayOnOtherAxis(t *testing.T) {
 	if err := mode.skills().UseTarget(ctx, skill, zombie, "test"); err != nil {
 		t.Fatal(err)
 	}
-	want, ok := network.BuildWalkToXYPacketForClientDate(22, 20, 20080910)
+	want, ok := network.BuildWalkToXYPacketForClientDate(21, 21, 20080910)
 	if !ok {
 		t.Fatal("could not build expected approach packet")
 	}

@@ -67,9 +67,10 @@ var changeDirectionPacketLayouts = []changeDirectionPacketLayout{
 }
 
 const (
-	ActionSitDown uint8 = 2
-	ActionStandUp uint8 = 3
-	ActionAttack  uint8 = 7
+	ActionAttackOnce uint8 = 0
+	ActionSitDown    uint8 = 2
+	ActionStandUp    uint8 = 3
+	ActionAttack     uint8 = 7
 )
 
 const (

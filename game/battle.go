@@ -23,11 +23,20 @@ import (
 	"github.com/kivutar/goro/world"
 )
 
+type attackMode uint8
+
+const (
+	attackRepeat attackMode = iota
+	attackWhileHeld
+	attackOnce
+)
+
 type attackIntent struct {
-	targetID    uint32
-	expires     time.Time
-	readyAt     time.Time
-	lastChaseAt time.Time
+	targetID     uint32
+	mode         attackMode
+	requested    bool
+	lastChaseAt  time.Time
+	chaseCurrent bool
 }
 
 func combatMotionDelayFromAction(action res.ACTAction, duration time.Duration, motion int) time.Duration {
@@ -68,65 +77,69 @@ func maxDuration(a, b time.Duration) time.Duration {
 }
 
 func (m *WorldMode) requestAttack(ctx client.Context, actor world.Actor, source string) {
-	if !skills.LocalStealthAllowsSkill(ctx, 0) || scene.ActorHasStealth(actor) {
-		m.cancelAttackIntent()
+	if m.pendingAttack.targetID == actor.ID && m.pendingAttack.mode == attackRepeat &&
+		(!m.pendingAttack.requested || !scene.AttackRetryDue(m.lastAttackAt, time.Now())) {
+		m.updatePendingAttack(ctx, source)
 		return
 	}
-	if scene.PlayerIsDead(ctx) {
+	m.beginAttack(ctx, actor, attackRepeat, source)
+}
+
+func (m *WorldMode) requestMouseAttack(ctx client.Context, actor world.Actor) {
+	mode := attackWhileHeld
+	if normalAttackLockActive(ctx) {
+		mode = attackRepeat
+	}
+	m.beginAttack(ctx, actor, mode, "click")
+}
+
+func (m *WorldMode) beginAttack(ctx client.Context, actor world.Actor, mode attackMode, source string) {
+	if scene.PlayerIsDead(ctx) || ctx.World == nil || ctx.Network == nil ||
+		!skills.LocalStealthAllowsSkill(ctx, 0) || scene.ActorHasStealth(actor) {
 		return
 	}
-	if ctx.Network == nil {
-		m.setWalkCooldown(walkErrorCooldown)
-		return
+	m.cancelPlayerAction(ctx)
+	m.lastAttackAt = time.Time{}
+	m.pendingAttack = attackIntent{
+		targetID: actor.ID, mode: mode,
+		chaseCurrent: scene.ActorMoveSpeed(actor) > scene.ActorMoveSpeed(ctx.World.Player)*4/3,
 	}
 	m.focusAttackTarget(actor.ID, time.Now())
-	if normalAttackLockActive(ctx) {
-		m.lockAttack(actor.ID)
-	} else {
-		m.clearLockedAttack()
-	}
-	now := time.Now()
-	attackRange := currentNormalAttackRange(ctx)
-	playerX, playerY := scene.CurrentPlayerCell(ctx, now)
-	targetX, targetY := scene.ActorCurrentCell(actor, now)
-	if maps.NormalAttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange) {
-		m.sendAttackAction(ctx, actor, source)
-		return
-	}
-	chaseX, chaseY, ok := maps.NormalAttackApproachCellFromTarget(ctx, playerX, playerY, targetX, targetY, attackRange)
-	if !ok {
-		glog.Warnf("%s attack chase blocked target=%d player=%d,%d target=%d,%d range=%d", source, actor.ID, playerX, playerY, targetX, targetY, attackRange)
-		m.setWalkCooldown(walkRequestCooldown)
-		return
-	}
-	m.pendingAttack = attackIntent{
-		targetID:    actor.ID,
-		expires:     now.Add(8 * time.Second),
-		lastChaseAt: now,
-	}
-	glog.Debugf("%s attack chase target=%d player=%d,%d target=%d,%d range=%d chase=%d,%d", source, actor.ID, playerX, playerY, targetX, targetY, attackRange, chaseX, chaseY)
-	m.requestWalk(ctx, chaseX, chaseY, source+" attack chase")
-}
-
-func (m *WorldMode) lockAttack(targetID uint32) {
-	if targetID == 0 || m.lockedAttackID == targetID {
-		return
-	}
-	m.lockedAttackID = targetID
-	m.lastAttackAt = time.Time{}
-	m.lastChaseAt = time.Time{}
-}
-
-func (m *WorldMode) clearLockedAttack() {
-	m.lockedAttackID = 0
-	m.lastAttackAt = time.Time{}
-	m.lastChaseAt = time.Time{}
+	m.updatePendingAttack(ctx, source)
 }
 
 func (m *WorldMode) cancelAttackIntent() {
+	if m.pendingAttack.targetID != 0 {
+		m.queuedWalk = nil
+		m.scheduledResumes = nil
+	}
 	m.pendingAttack = attackIntent{}
-	m.clearLockedAttack()
 	m.clearAttackFocus()
+}
+
+func (m *WorldMode) stopAttack(ctx client.Context) {
+	if m.pendingAttack.requested && ctx.World != nil && ctx.Network != nil {
+		if _, present := ctx.World.Actors[m.pendingAttack.targetID]; !present {
+			m.cancelAttackIntent()
+			return
+		}
+		if err := ctx.Network.SendCancelLockOn(); err != nil {
+			glog.Debugf("cancel attack: %v", err)
+		}
+	}
+	m.cancelAttackIntent()
+}
+
+func (m *WorldMode) releaseMouseAttack(ctx client.Context) {
+	if m.pendingAttack.mode != attackWhileHeld || ctx.Input == nil || ctx.Input.MousePressed(input.MouseButtonLeft) {
+		return
+	}
+	if m.pendingAttack.requested {
+		m.stopAttack(ctx)
+	} else {
+		// A short click still gets one swing after approaching the target.
+		m.pendingAttack.mode = attackOnce
+	}
 }
 
 func (m *WorldMode) focusAttackTarget(targetID uint32, now time.Time) {
@@ -146,110 +159,26 @@ func (m *WorldMode) clearAttackFocus() {
 	m.attackFocusStart = time.Time{}
 }
 
-func (m *WorldMode) continuePendingAttack(ctx client.Context, source string) {
-	m.updatePendingAttack(ctx, source, true)
-}
-
-func (m *WorldMode) updatePendingAttack(ctx client.Context, source string, logOutOfRange bool) {
-	if m.pendingAttack.targetID == 0 {
+func (m *WorldMode) updatePendingAttack(ctx client.Context, source string) {
+	intent := &m.pendingAttack
+	if intent.targetID == 0 || ctx.World == nil || ctx.Network == nil {
 		return
 	}
-	if ctx.World == nil {
+	actor, ok := ctx.World.Actors[intent.targetID]
+	_, dead := m.actorSystem.ActorDeaths[intent.targetID]
+	if !ok || dead || scene.PlayerIsDead(ctx) || !skills.LocalStealthAllowsSkill(ctx, 0) || scene.ActorHasStealth(actor) {
+		m.stopAttack(ctx)
+		return
+	}
+	if intent.requested {
 		return
 	}
 	now := time.Now()
-	if now.After(m.pendingAttack.expires) {
-		glog.Debugf("%s pending attack expired target=%d", source, m.pendingAttack.targetID)
-		m.pendingAttack = attackIntent{}
-		return
-	}
-	actor, ok := ctx.World.Actors[m.pendingAttack.targetID]
-	if !ok {
-		glog.Debugf("%s pending attack target vanished id=%d", source, m.pendingAttack.targetID)
-		m.pendingAttack = attackIntent{}
-		return
-	}
-	attackRange := currentNormalAttackRange(ctx)
-	playerX, playerY := scene.CurrentPlayerCell(ctx, now)
-	targetX, targetY := scene.ActorCurrentCell(actor, now)
-	if !maps.NormalAttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange) {
-		if logOutOfRange {
-			glog.Debugf("%s pending attack still out of range target=%d player=%d,%d target=%d,%d range=%d", source, actor.ID, playerX, playerY, targetX, targetY, attackRange)
-		}
-		if scene.MovingActorDestinationWithinRange(ctx.World.Player, targetX, targetY, attackRange, maps.NormalAttackTargetWithinRange) {
+	if !m.playerCanAct(ctx, now) {
+		anim, ok := m.playerAnimation(ctx, now)
+		if !ok || !anim.Casting || ctx.World.Player.Sitting || learnedSkillLevel(ctx.Session, db.SkillSAFreecast) == 0 {
 			return
 		}
-		if scene.AttackRetryDue(m.pendingAttack.lastChaseAt, now) {
-			m.requestAttack(ctx, actor, "pending")
-		}
-		return
-	}
-	readyAt := scene.PendingAttackReadyAt(ctx.World.Player, now)
-	if m.pendingAttack.readyAt.IsZero() {
-		m.pendingAttack.readyAt = readyAt
-	}
-	if logOutOfRange {
-		glog.Debugf("%s pending attack scheduled target=%d delay_ms=%d", source, actor.ID, scene.MaxInt(0, int(m.pendingAttack.readyAt.Sub(now).Milliseconds())))
-	}
-}
-
-func (m *WorldMode) processPendingAttack(ctx client.Context) {
-	if m.pendingAttack.targetID == 0 || m.pendingAttack.readyAt.IsZero() {
-		return
-	}
-	now := time.Now()
-	if now.After(m.pendingAttack.expires) {
-		glog.Debugf("pending attack expired target=%d", m.pendingAttack.targetID)
-		m.pendingAttack = attackIntent{}
-		return
-	}
-	if now.Before(m.pendingAttack.readyAt) {
-		return
-	}
-	actor, ok := ctx.World.Actors[m.pendingAttack.targetID]
-	if !ok {
-		glog.Debugf("pending attack target vanished id=%d", m.pendingAttack.targetID)
-		m.pendingAttack = attackIntent{}
-		return
-	}
-	attackRange := currentNormalAttackRange(ctx)
-	playerX, playerY := scene.CurrentPlayerCell(ctx, now)
-	targetX, targetY := scene.ActorCurrentCell(actor, now)
-	if !maps.NormalAttackTargetWithinRange(playerX, playerY, targetX, targetY, attackRange) {
-		glog.Debugf("pending attack became out of range target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, targetX, targetY, attackRange)
-		m.pendingAttack.readyAt = time.Time{}
-		m.requestAttack(ctx, actor, "pending")
-		return
-	}
-	m.pendingAttack = attackIntent{}
-	m.sendAttackAction(ctx, actor, "pending")
-}
-
-func (m *WorldMode) processLockedAttack(ctx client.Context) {
-	if m.lockedAttackID == 0 || ctx.Network == nil {
-		return
-	}
-	if !normalAttackLockActive(ctx) {
-		m.clearLockedAttack()
-		return
-	}
-	if m.pendingAttack.targetID == m.lockedAttackID {
-		return
-	}
-	now := time.Now()
-	if scene.ActorIsMovingAt(ctx.World.Player, now) {
-		return
-	}
-	actor, ok := ctx.World.Actors[m.lockedAttackID]
-	if !ok {
-		glog.Debugf("locked attack target vanished id=%d", m.lockedAttackID)
-		m.clearLockedAttack()
-		return
-	}
-	if !actors.ActorCanBeAttackClicked(ctx, actor) {
-		glog.Debugf("locked attack target no longer attackable id=%d object_type=%d", actor.ID, actor.ObjectType)
-		m.clearLockedAttack()
-		return
 	}
 	attackRange := currentNormalAttackRange(ctx)
 	playerX, playerY := scene.CurrentPlayerCell(ctx, now)
@@ -258,16 +187,30 @@ func (m *WorldMode) processLockedAttack(ctx client.Context) {
 		if !scene.AttackRetryDue(m.lastAttackAt, now) {
 			return
 		}
-		glog.Debugf("locked attack retry target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, targetX, targetY, attackRange)
-		m.sendAttackAction(ctx, actor, "locked")
+		m.queuedWalk = nil
+		m.sendAttackAction(ctx, actor, source)
 		return
 	}
-	if !scene.AttackRetryDue(m.lastChaseAt, now) {
+	interval := scene.ChaseRetryInterval
+	if intent.chaseCurrent {
+		interval = scene.AttackRetryInterval
+	}
+	if !intent.lastChaseAt.IsZero() && now.Sub(intent.lastChaseAt) < interval {
 		return
 	}
-	m.lastChaseAt = now
-	glog.Debugf("locked attack chase retry target=%d player=%d,%d target=%d,%d range=%d", actor.ID, playerX, playerY, targetX, targetY, attackRange)
-	m.requestAttack(ctx, actor, "locked")
+	if !intent.chaseCurrent && scene.ActorIsMovingAt(actor, now) {
+		targetX, targetY = actor.ToX, actor.ToY
+	}
+	if scene.MovingActorDestinationWithinRange(ctx.World.Player, targetX, targetY, attackRange, maps.NormalAttackTargetWithinRange) {
+		return
+	}
+	chaseX, chaseY, ok := maps.NormalAttackApproachCellFromTarget(ctx, playerX, playerY, targetX, targetY, attackRange)
+	if !ok {
+		m.stopAttack(ctx)
+		return
+	}
+	intent.lastChaseAt = now
+	m.requestWalk(ctx, chaseX, chaseY, source+" attack chase")
 }
 
 func normalAttackLockActive(ctx client.Context) bool {
@@ -275,16 +218,16 @@ func normalAttackLockActive(ctx client.Context) bool {
 }
 
 func (m *WorldMode) sendAttackAction(ctx client.Context, actor world.Actor, source string) {
-	if !skills.LocalStealthAllowsSkill(ctx, 0) || scene.ActorHasStealth(actor) {
-		m.cancelAttackIntent()
-		return
+	action := network.ActionAttack
+	if m.pendingAttack.mode == attackOnce {
+		action = network.ActionAttackOnce
 	}
-	if err := ctx.Network.SendActionRequest(actor.ID, network.ActionAttack); err == nil {
+	if err := ctx.Network.SendActionRequest(actor.ID, action); err == nil {
+		m.pendingAttack.requested = true
 		m.lastAttackAt = time.Now()
-		m.setWalkCooldown(walkRequestCooldown)
 	} else {
-		glog.Warnf("%s attack request failed target=%d action=%d: %v", source, actor.ID, network.ActionAttack, err)
-		m.setWalkCooldown(walkErrorCooldown)
+		glog.Warnf("%s attack request failed target=%d: %v", source, actor.ID, err)
+		m.cancelAttackIntent()
 	}
 }
 
@@ -292,6 +235,11 @@ func (m *WorldMode) applyActorActionNotify(ctx client.Context, action network.Ac
 	glog.Debugf("actor action src=%d dst=%d skill=%d level=%d damage=%d left_damage=%d hits=%d action=%d src_speed=%d dst_speed=%d tick=%d", action.SourceID, action.TargetID, action.SkillID, action.SkillLevel, action.Damage, action.LeftDamage, action.HitCount, action.Action, action.SourceSpeed, action.TargetSpeed, action.ServerTick)
 	now := time.Now()
 	m.applyActorActionAIState(ctx, action, now)
+	if action.SkillID == 0 && scene.IsLocalActor(ctx, action.SourceID) &&
+		m.pendingAttack.targetID == action.TargetID && m.pendingAttack.mode == attackOnce {
+		m.pendingAttack = attackIntent{}
+	}
+
 	if action.Action == network.ActorActionPickupItem {
 		m.applyActorPickupActionNotify(ctx, action, now)
 		return
@@ -858,7 +806,7 @@ func (m *WorldMode) actorActionShouldResumeWalk(ctx client.Context, id uint32, a
 }
 
 func (m *WorldMode) hasCombatFocus() bool {
-	return m.lockedAttackID != 0 || m.pendingAttack.targetID != 0
+	return m.pendingAttack.targetID != 0
 }
 
 func cloneActorAnimation(anim *scene.ActorAnimation) *scene.ActorAnimation {
@@ -1103,6 +1051,10 @@ func applyAttackRange(ctx client.Context, attackRange int) {
 }
 
 func (m *WorldMode) applyAttackFailureForDistance(ctx client.Context, failure network.AttackFailureForDistance) {
+	if m.pendingAttack.targetID != failure.TargetID {
+		applyAttackRange(ctx, scene.MaxInt(1, failure.AttackRange))
+		return
+	}
 	attackRange := scene.MaxInt(1, failure.AttackRange)
 	applyAttackRange(ctx, attackRange)
 	playerX, playerY := scene.CurrentPlayerCell(ctx, time.Now())
@@ -1119,16 +1071,10 @@ func (m *WorldMode) applyAttackFailureForDistance(ctx client.Context, failure ne
 		actor.MovePath = nil
 		actors.UpsertActor(ctx, actor)
 	}
-	if m.lockedAttackID != failure.TargetID && m.pendingAttack.targetID != failure.TargetID {
-		return
-	}
-	m.pendingAttack = attackIntent{}
-	m.lastAttackAt = time.Now()
-	if !maps.NormalAttackTargetWithinRange(failure.SourceX, failure.SourceY, failure.TargetX, failure.TargetY, attackRange) {
-		if actor, ok := ctx.World.Actors[failure.TargetID]; ok {
-			m.requestAttack(ctx, actor, "attack failure")
-		}
-	}
+	m.pendingAttack.requested = false
+	m.pendingAttack.chaseCurrent = !m.pendingAttack.chaseCurrent
+	m.pendingAttack.lastChaseAt = time.Time{}
+	m.updatePendingAttack(ctx, "attack failure")
 }
 
 func (m *WorldMode) applyRecovery(ctx client.Context, recovery network.Recovery) {
@@ -1195,6 +1141,8 @@ func (m *WorldMode) startActorDeath(ctx client.Context, id uint32) {
 		if ctx.Session != nil {
 			ctx.Session.Dead = true
 		}
+		m.queuedWalk = nil
+		m.scheduledResumes = nil
 		m.cancelAttackIntent()
 		m.pendingPickup = pickupIntent{}
 		m.skillSystem.Pending = skills.PendingTarget{}

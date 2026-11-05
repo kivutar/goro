@@ -42,6 +42,9 @@ type WorldMode struct {
 	skillSystem       skills.System
 	mapScene          maps.System
 	effectSystem      effects.System
+	queuedWalk        *walkIntent
+	walkRequestAt     time.Time
+	walkAwaitingAck   bool
 	walkCooldownUntil time.Time
 	walkSequence      uint64
 	nextHeldWalkAt    time.Time
@@ -66,12 +69,10 @@ type WorldMode struct {
 	deferredPackets  []network.Packet
 	pendingAttack    attackIntent
 	pendingPickup    pickupIntent
-	lockedAttackID   uint32
 	attackFocusID    uint32
 	attackFocusStart time.Time
 	scriptHighlight  actorHighlight
 	lastAttackAt     time.Time
-	lastChaseAt      time.Time
 
 	scheduledSounds  []scheduledSound
 	scheduledStops   []scheduledActorStop
@@ -295,6 +296,8 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	m.actorSystem.PetAccessoryMiss = make(map[actors.PetAccessorySpriteKey]struct{})
 	m.mapScene.ResetGeometry()
 	m.pendingWarp = false
+	m.queuedWalk = nil
+	m.walkAwaitingAck = false
 	m.pendingAttack = attackIntent{}
 	m.pendingPickup = pickupIntent{}
 	m.skillSystem.Pending = skills.PendingTarget{}
@@ -302,11 +305,9 @@ func (m *WorldMode) Enter(ctx client.Context) Mode {
 	m.socialSystem.GuildAction = gameui.GuildMemberAction{}
 	m.socialSystem.GuildOpenPending = false
 	m.ui.social.GuildMemberPrompt.Close()
-	m.lockedAttackID = 0
 	m.clearAttackFocus()
 	m.clearScriptHighlight()
 	m.lastAttackAt = time.Time{}
-	m.lastChaseAt = time.Time{}
 	m.actorSystem.ActorAnims = make(map[uint32]scene.ActorAnimation)
 	m.actorSystem.ComboDelays = nil
 	m.effects().ActorBlurs = nil
@@ -512,14 +513,16 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			return nil, nil
 		}
 	}
+	m.releaseMouseAttack(ctx)
 	if !progressBlocksActions {
-		m.updatePendingAttack(ctx, "update", false)
-		m.processPendingAttack(ctx)
-		m.updatePendingPickup(ctx, "update", false)
-		m.processPendingPickup(ctx)
-		m.skills().UpdatePendingTarget(ctx, "update", false)
-		m.skills().ProcessPendingTarget(ctx)
-		m.processLockedAttack(ctx)
+		defer func() {
+			m.updatePendingAttack(ctx, "update")
+			m.updatePendingPickup(ctx, "update", false)
+			m.processPendingPickup(ctx)
+			m.skills().UpdatePendingTarget(ctx, "update", false)
+			m.skills().ProcessPendingTarget(ctx)
+			m.processQueuedWalk(ctx, time.Now())
+		}()
 	}
 	now = time.Now()
 	m.cleanupDeadActors(ctx, now)
@@ -969,17 +972,15 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		if item, ok := clickedGroundItem(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now); ok {
 			glog.Debugf("click pickup target mouse=%d,%d id=%d item_id=%d amount=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, item.ID, item.ItemID, item.Amount, playerX, playerY, item.X, item.Y)
-			m.clearLockedAttack()
 			m.clearAttackFocus()
 			m.requestPickup(ctx, item, "click")
 			return nil, nil
 		}
 		if actor, ok := hoveredCursorActor(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorSystem.ActorDeaths); ok && npc.IsWarpActor(actor) {
-			m.clearLockedAttack()
 			m.clearAttackFocus()
 			if targetX, targetY, targetOK := warpWalkTarget(ctx, actor, now); targetOK {
 				glog.Debugf("click warp target mouse=%d,%d id=%d job=%d player=%d,%d warp=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Job, playerX, playerY, actor.X, actor.Y, targetX, targetY)
-				m.requestWalk(ctx, targetX, targetY, "warp click")
+				m.requestMove(ctx, targetX, targetY, "warp click")
 			} else {
 				glog.Debugf("click warp target unreachable mouse=%d,%d id=%d job=%d player=%d,%d warp=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Job, playerX, playerY, actor.X, actor.Y)
 			}
@@ -987,7 +988,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		}
 		if actor, ok := clickedAttackTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorSystem.ActorDeaths); ok {
 			glog.Debugf("click attack target mouse=%d,%d id=%d name=%q job=%d object_type=%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, actor.ID, actor.Name, actor.Job, actor.ObjectType, playerX, playerY, actor.X, actor.Y)
-			m.requestAttack(ctx, actor, "click")
+			m.requestMouseAttack(ctx, actor)
 			return nil, nil
 		}
 		if actor, ok := clickedTalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY, now, m.actorSystem.ActorDeaths); ok {
@@ -996,14 +997,13 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 			m.requestNPCTalk(ctx, actor, "click")
 			return nil, nil
 		}
-		if targetX, targetY, ok := maps.ClickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); ok && m.walkReady(now) {
+		if targetX, targetY, ok := maps.ClickedWalkTarget(ctx, projection, ctx.Input.MouseX, ctx.Input.MouseY); ok {
 			glog.Debugf("click walk target mouse=%d,%d player=%d,%d target=%d,%d", ctx.Input.MouseX, ctx.Input.MouseY, playerX, playerY, targetX, targetY)
-			m.cancelAttackIntent()
 			if shouldUseTurnOnlyGroundClick(ctx) {
 				m.requestChangeDirection(ctx, targetX, targetY, "click")
 				return nil, nil
 			}
-			m.requestWalk(ctx, targetX, targetY, "click")
+			m.requestMove(ctx, targetX, targetY, "click")
 		}
 	}
 	if m.updateHeldWalk(ctx, pointerBlocked, now) {
@@ -1112,8 +1112,9 @@ func (m *WorldMode) handleMapChange(ctx client.Context, change network.MapChange
 	m.npcSystem.ShowDigit = npc.ShowDigitState{}
 	m.ui.minimap.ClearBossMarker()
 	m.ui.poptips.Clear()
+	m.queuedWalk = nil
+	m.walkAwaitingAck = false
 	m.pendingAttack = attackIntent{}
-	m.clearLockedAttack()
 	m.clearAttackFocus()
 	m.clearLocalActorAction(ctx)
 	m.scheduledStops = nil
@@ -1597,6 +1598,10 @@ func (m *WorldMode) startMapFadeOut(change network.MapChange, now time.Time) {
 	m.social().CancelChatRoomRequests()
 	// A queued cell (or message) belongs to the map where it was selected,
 	// even when the server warps us within the same loaded map.
+	m.cancelAttackIntent()
+	m.pendingPickup = pickupIntent{}
+	m.queuedWalk = nil
+	m.scheduledResumes = nil
 	m.skillSystem.Pending = skills.PendingTarget{}
 	m.skillSystem.PendingText = skills.PendingTextTarget{}
 	if m.ui.skillTextPrompt.IsOpen() {
