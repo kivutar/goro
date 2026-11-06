@@ -1,8 +1,6 @@
 package maps
 
 import (
-	"container/heap"
-
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/res"
 	worldstate "github.com/kivutar/goro/world"
@@ -34,42 +32,34 @@ func FindWalkPath(gat *res.GAT, fromX, fromY, toX, toY int) ([]worldstate.WalkSt
 	if PathHeuristic(start, goal) > maxWalkPathCost {
 		return nil, false
 	}
-	open := &pathHeap{}
-	heap.Init(open)
-	startNode := &pathNode{point: start, g: 0, f: PathHeuristic(start, goal)}
-	heap.Push(open, startNode)
+	open := pathHeap{}
+	startNode := &pathNode{point: start, f: pathPriority(start, goal)}
+	open.push(startNode)
 	nodes := map[PathPoint]*pathNode{start: startNode}
-	closed := make(map[PathPoint]struct{})
 
-	for open.Len() > 0 {
-		current := heap.Pop(open).(*pathNode)
-		if _, ok := closed[current.point]; ok {
-			continue
-		}
+	for len(open) > 0 {
+		current := open.pop()
 		if current.point == goal {
 			return reconstructPath(current), true
 		}
-		closed[current.point] = struct{}{}
 		for _, next := range pathNeighbors(gat, current.point) {
-			if _, ok := closed[next]; ok {
-				continue
-			}
 			cost := current.g + PathStepCost(current.point, next)
-			estimate := cost + PathHeuristic(next, goal)
-			if estimate > maxWalkPathCost {
+			if cost+PathHeuristic(next, goal) > maxWalkPathCost {
 				continue
 			}
 			node, ok := nodes[next]
 			if !ok {
-				node = &pathNode{point: next, g: cost, f: estimate, parent: current}
+				node = &pathNode{point: next, index: -1}
 				nodes[next] = node
-				heap.Push(open, node)
+			} else if cost >= node.g {
 				continue
 			}
-			if cost < node.g {
-				node = &pathNode{point: next, g: cost, f: estimate, parent: current}
-				nodes[next] = node
-				heap.Push(open, node)
+			node.g, node.f, node.parent = cost, cost+pathPriority(next, goal), current
+			if !ok {
+				open.push(node)
+			} else if node.index >= 0 {
+				// Like the classic client, only reprioritize cells still open.
+				open.up(node.index)
 			}
 		}
 	}
@@ -86,52 +76,77 @@ type pathNode struct {
 	g      int
 	f      int
 	parent *pathNode
+	index  int
 }
 
+// Match the classic client's heap: preserve ties on insertion, prefer the
+// right child on removal, then sift the replacement back up from the leaf.
+// A different tie order can draw a different route from the server's.
 type pathHeap []*pathNode
 
-func (h pathHeap) Len() int { return len(h) }
-
-func (h pathHeap) Less(i, j int) bool {
-	if h[i].f == h[j].f {
-		return h[i].g > h[j].g
-	}
-	return h[i].f < h[j].f
+func (h pathHeap) swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index, h[j].index = i, j
 }
 
-func (h pathHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h pathHeap) up(i int) {
+	for i > 0 {
+		parent := (i - 1) / 2
+		if h[parent].f <= h[i].f {
+			break
+		}
+		h.swap(i, parent)
+		i = parent
+	}
+}
 
-func (h *pathHeap) Push(x any) { *h = append(*h, x.(*pathNode)) }
+func (h *pathHeap) push(node *pathNode) {
+	node.index = len(*h)
+	*h = append(*h, node)
+	h.up(node.index)
+}
 
-func (h *pathHeap) Pop() any {
-	old := *h
-	n := len(old)
-	node := old[n-1]
-	*h = old[:n-1]
+func (h *pathHeap) pop() *pathNode {
+	node := (*h)[0]
+	last := len(*h) - 1
+	h.swap(0, last)
+	(*h)[last] = nil
+	*h = (*h)[:last]
+	node.index = -1
+	i := 0
+	for child := 1; child < len(*h); child = 2*i + 1 {
+		if child+1 < len(*h) && (*h)[child+1].f <= (*h)[child].f {
+			child++
+		}
+		h.swap(i, child)
+		i = child
+	}
+	h.up(i)
 	return node
 }
 
 func pathNeighbors(gat *res.GAT, point PathPoint) []PathPoint {
 	var out []PathPoint
-	for dy := -1; dy <= 1; dy++ {
-		for dx := -1; dx <= 1; dx++ {
-			if dx == 0 && dy == 0 {
-				continue
-			}
-			next := PathPoint{X: point.X + dx, Y: point.Y + dy}
-			if !gat.InBounds(next.X, next.Y) {
-				continue
-			}
-			if !gat.Walkable(next.X, next.Y) {
-				continue
-			}
-			if dx != 0 && dy != 0 && (!gat.Walkable(point.X+dx, point.Y) || !gat.Walkable(point.X, point.Y+dy)) {
-				continue
-			}
-			out = append(out, next)
+	// The order is significant when routes have the same priority.
+	for _, delta := range [...]PathPoint{{1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}} {
+		dx, dy := delta.X, delta.Y
+		next := PathPoint{X: point.X + dx, Y: point.Y + dy}
+		if !gat.InBounds(next.X, next.Y) {
+			continue
 		}
+		if !gat.Walkable(next.X, next.Y) {
+			continue
+		}
+		if dx != 0 && dy != 0 && (!gat.Walkable(point.X+dx, point.Y) || !gat.Walkable(point.X, point.Y+dy)) {
+			continue
+		}
+		out = append(out, next)
 	}
 	return out
+}
+
+func pathPriority(from, to PathPoint) int {
+	return 10 * (scene.AbsInt(to.X-from.X) + scene.AbsInt(to.Y-from.Y))
 }
 
 func PathStepCost(from, to PathPoint) int {
@@ -141,6 +156,8 @@ func PathStepCost(from, to PathPoint) int {
 	return 10
 }
 
+// PathHeuristic is a lower bound for search limits and approach-cell scoring.
+// The classic client's route priority deliberately uses Manhattan distance.
 func PathHeuristic(from, to PathPoint) int {
 	dx := scene.AbsInt(to.X - from.X)
 	dy := scene.AbsInt(to.Y - from.Y)
