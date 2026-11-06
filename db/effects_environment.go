@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"time"
@@ -43,92 +44,27 @@ func cloud8EffectSpec() EffectSpec {
 }
 
 func smokeEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 10 * time.Second,
-		Components: []EffectComponent{{
-			Kind:             EffectComponent3D,
-			SpriteFile:       "굴뚝연기",
-			SpriteRepeat:     true,
-			Duration:         10 * time.Second,
-			Duplicate:        10,
-			DuplicateDelay:   time.Second,
-			AlphaMax:         0.8,
-			FadeOut:          true,
-			BlendAdditive:    true,
-			PosZ:             0,
-			PosZEnd:          20,
-			PosXEndRand:      3,
-			PosXSmooth:       true,
-			SizeStart:        effectTableSize(70),
-			SizeEnd:          effectTableSize(300),
-			SizeSmooth:       true,
-			AngleStart:       -90,
-			AngleEnd:         0,
-			Rotate:           true,
-			RotateWithCamera: true,
-			Color:            color.RGBA{R: 255, G: 255, B: 255, A: 255},
-		}},
-	}
+	return ambientSpriteEffectSpec("굴뚝연기", 50)
 }
 
 func fireflyEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 3 * time.Second,
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			SpriteFile:     "data/sprite/이팩트/particle1",
-			SpriteRepeat:   true,
-			Duration:       3 * time.Second,
-			Duplicate:      3,
-			DuplicateDelay: 420 * time.Millisecond,
-			PosXRand:       0.18,
-			PosYRand:       0.18,
-			PosZ:           0.25,
-			PosZEnd:        1.0,
-			PosZStartRand:  0.2,
-			PosZEndRand:    0.25,
-			SizeStart:      effectTableSize(70),
-			SizeEnd:        effectTableSize(110),
-			AlphaMax:       0.22,
-			FadeIn:         true,
-			FadeOut:        true,
-			Color:          color.RGBA{R: 230, G: 250, B: 255, A: 255},
-		}},
-	}
+	return ambientSpriteEffectSpec("particle1", 140)
 }
 
 func torchEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 24 * time.Hour,
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			SpriteFile:     "torch_01",
-			SpriteRepeat:   true,
-			Duration:       600 * time.Millisecond,
-			SpriteDelay:    100 * time.Millisecond,
-			PosX:           0.1,
-			PosZ:           0.8,
-			SizeStart:      effectTableSize(100),
-			SizeEnd:        effectTableSize(100),
-			AngleStart:     270,
-			AngleEnd:       270,
-			RotateToTarget: true,
-			AlphaMax:       1,
-			Color:          color.RGBA{R: 255, G: 255, B: 255, A: 255},
-		}},
-	}
+	return ambientSpriteEffectSpec("torch_01", 250)
 }
 
 func torchRedEffectSpec() EffectSpec {
-	return coloredTorchEffectSpec(color.RGBA{R: 255, G: 110, B: 75, A: 255})
+	return coloredTorchEffectSpec("red")
 }
 
 func torchGreenEffectSpec() EffectSpec {
-	return coloredTorchEffectSpec(color.RGBA{R: 90, G: 255, B: 135, A: 255})
+	return coloredTorchEffectSpec("green")
 }
 
 func torchPurpleEffectSpec() EffectSpec {
-	return coloredTorchEffectSpec(color.RGBA{R: 190, G: 120, B: 255, A: 255})
+	return coloredTorchEffectSpec("violet")
 }
 
 func bubbleEffectSpec() EffectSpec {
@@ -136,95 +72,60 @@ func bubbleEffectSpec() EffectSpec {
 }
 
 func dragonSmokeEffectSpec() EffectSpec {
-	return EffectSpec{
-		Components: []EffectComponent{{
-			Kind:           EffectComponentSPR,
-			SpriteFile:     "poisonhit",
-			AttachedEntity: true,
-		}},
-	}
+	return ambientSpriteEffectSpec("굴뚝연기", 50)
 }
 
 func mapPillarBlueEffectSpec() EffectSpec {
-	return mapPillarEffectSpec("ring_blue", color.RGBA{R: 110, G: 175, B: 255, A: 255}, 2, 50.0/255.0)
+	return mapPillarEffectSpec("ring_blue", color.RGBA{R: 100, G: 100, B: 255, A: 255}, 2, 50.0/255.0)
 }
 
 func mapPillar2EffectSpec() EffectSpec {
-	return mapPillarEffectSpec("ring_blue", color.RGBA{R: 110, G: 175, B: 255, A: 255}, 11, 70.0/255.0)
+	return mapPillarEffectSpec("ring_blue", color.RGBA{R: 100, G: 100, B: 255, A: 255}, 11, 70.0/255.0)
 }
 
 func mapPillar3EffectSpec() EffectSpec {
-	return mapPillarEffectSpec("magic_green", color.RGBA{R: 255, G: 255, B: 255, A: 255}, 2, 50.0/255.0)
+	return mapPillarEffectSpec("magic_green", color.RGBA{R: 100, G: 255, B: 100, A: 255}, 2, 50.0/255.0)
 }
 
 func mapPillar4EffectSpec() EffectSpec {
-	return mapPillarEffectSpec("ring_red", color.RGBA{R: 255, G: 255, B: 255, A: 255}, 2, 50.0/255.0)
+	return mapPillarEffectSpec("ring_red", color.RGBA{R: 255, G: 100, B: 100, A: 255}, 2, 50.0/255.0)
 }
 
 func mapGhostEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 24 * time.Hour,
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			SpriteFile:     "particle2",
-			SpriteRepeat:   true,
-			Duration:       1400 * time.Millisecond,
-			Duplicate:      7,
-			DuplicateDelay: 190 * time.Millisecond,
-			AlphaMax:       0.5,
-			FadeIn:         true,
-			FadeOut:        true,
-			BlendAdditive:  true,
-			PosZ:           0.2,
-			PosZEnd:        2,
-			PosXRand:       0.35,
-			PosYRand:       0.35,
-			SizeStart:      effectTableSize(70),
-			SizeEnd:        effectTableSize(120),
-			Color:          color.RGBA{R: 180, G: 230, B: 255, A: 255},
-		}},
-	}
+	spec := funcEffectSpec("MapGhost", 99999999*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = "effect/ghost.bmp"
+	return spec
 }
 
 func glow1EffectSpec() EffectSpec {
-	return mapGlowEffectSpec(color.RGBA{R: 255, G: 245, B: 190, A: 255}, 1.2)
+	return mapGlowEffectSpec("effect/glow01.bmp")
 }
 
 func glow2EffectSpec() EffectSpec {
-	return mapGlowEffectSpec(color.RGBA{R: 150, G: 210, B: 255, A: 255}, 1.45)
+	return mapGlowEffectSpec("effect/glow02.bmp")
 }
 
 func glow4EffectSpec() EffectSpec {
-	return mapGlowEffectSpec(color.RGBA{R: 220, G: 175, B: 255, A: 255}, 1.8)
+	spec := funcEffectSpec("MapGlow", 99999999*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = "effect/glow04.bmp"
+	spec.Components[0].TextureFiles = []string{"effect/mpa3.tga"}
+	return spec
 }
 
 func bubbleDropEffectSpec() EffectSpec {
-	return mapFallingParticleEffectSpec("effect/pok3.tga", color.RGBA{R: 95, G: 180, B: 255, A: 255}, 30)
+	spec := funcEffectSpec("BubbleDrop", 200*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = "effect/썬더스톰파티클.tga"
+	return spec
 }
 
 func rainbowEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 24 * time.Hour,
-		Components: []EffectComponent{
-			mapRainbowBand(color.RGBA{R: 255, G: 90, B: 90, A: 255}, 0),
-			mapRainbowBand(color.RGBA{R: 255, G: 210, B: 90, A: 255}, 0.18),
-			mapRainbowBand(color.RGBA{R: 90, G: 255, B: 120, A: 255}, 0.36),
-			mapRainbowBand(color.RGBA{R: 90, G: 170, B: 255, A: 255}, 0.54),
-			mapRainbowBand(color.RGBA{R: 185, G: 110, B: 255, A: 255}, 0.72),
-		},
-	}
+	spec := funcEffectSpec("Rainbow", 300*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = "effect/alpha_center.tga"
+	return spec
 }
 
 func banjjakiiEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: time.Second,
-		Components: []EffectComponent{{
-			Kind:           EffectComponentSPR,
-			SpriteFile:     "크리스마스",
-			Duration:       time.Second,
-			AttachedEntity: true,
-		}},
-	}
+	return ambientSpriteEffectSpec("크리스마스", 125)
 }
 
 func bottomBlueEffectSpec() EffectSpec {
@@ -259,53 +160,23 @@ func bottomBlueCylinder(size, height, alpha, angleY float64, tint color.RGBA) Ef
 	}
 }
 
-func coloredTorchEffectSpec(tint color.RGBA) EffectSpec {
-	return EffectSpec{
-		Duration: 24 * time.Hour,
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			SpriteFile:     "torch_01",
-			SpriteRepeat:   true,
-			Duration:       600 * time.Millisecond,
-			SpriteDelay:    100 * time.Millisecond,
-			PosX:           0.1,
-			PosZ:           0.8,
-			SizeStart:      effectTableSize(100),
-			SizeEnd:        effectTableSize(100),
-			AngleStart:     270,
-			AngleEnd:       270,
-			RotateToTarget: true,
-			AlphaMax:       1,
-			BlendAdditive:  true,
-			Color:          tint,
-		}},
+func coloredTorchEffectSpec(variant string) EffectSpec {
+	spec := funcEffectSpec("MapTexture", 99999999*EffectFrameDuration, false)
+	for frame := 1; frame <= 13; frame++ {
+		spec.Components[0].TextureFiles = append(spec.Components[0].TextureFiles, fmt.Sprintf("effect/torch_%s%02d.bmp", variant, frame))
 	}
+	return spec
 }
 
-func mapGlowEffectSpec(tint color.RGBA, radius float64) EffectSpec {
-	return EffectSpec{
-		Duration: 24 * time.Hour,
-		Components: []EffectComponent{{
-			Kind:             EffectComponentCylinder,
-			TextureName:      "alpha_center",
-			Duration:         1600 * time.Millisecond,
-			AlphaMax:         0.36,
-			Fade:             true,
-			Rotate:           true,
-			BottomSize:       radius,
-			TopSize:          radius,
-			Height:           0.06,
-			TotalCircleSides: 32,
-			CircleSides:      32,
-			BlendAdditive:    true,
-			Color:            tint,
-		}},
-	}
+func mapGlowEffectSpec(texture string) EffectSpec {
+	spec := funcEffectSpec("MapTexture", 99999999*EffectFrameDuration, false)
+	spec.Components[0].TextureFile = texture
+	return spec
 }
 
 func mapPillarEffectSpec(texture string, tint color.RGBA, radiusStart, alphaMax float64) EffectSpec {
 	const (
-		duration   = 16 * time.Second
+		duration   = 999 * EffectFrameDuration
 		worldScale = 0.2
 	)
 	return EffectSpec{
@@ -325,50 +196,10 @@ func mapPillarEffectSpec(texture string, tint color.RGBA, radiusStart, alphaMax 
 	}
 }
 
-func mapFallingParticleEffectSpec(textureFile string, tint color.RGBA, count int) EffectSpec {
-	return EffectSpec{
-		Duration: 1400 * time.Millisecond,
-		Components: []EffectComponent{{
-			Kind:           EffectComponent3D,
-			TextureFile:    textureFile,
-			Duration:       1400 * time.Millisecond,
-			Duplicate:      count,
-			DuplicateDelay: 18 * time.Millisecond,
-			AlphaMax:       0.78,
-			FadeIn:         true,
-			FadeOut:        true,
-			BlendAdditive:  true,
-			PosXRand:       4,
-			PosYRand:       4,
-			PosZStartRand:  1.5,
-			PosZ:           12,
-			PosZEnd:        0.2,
-			PosXEndRand:    1,
-			PosYEndRand:    1,
-			PosZSmooth:     true,
-			SizeStart:      effectTableSize(8),
-			SizeEnd:        effectTableSize(5),
-			Color:          tint,
-		}},
-	}
-}
-
-func mapRainbowBand(tint color.RGBA, zOffset float64) EffectComponent {
-	return EffectComponent{
-		Kind:          EffectComponent3D,
-		TextureFile:   "effect/alpha_center.tga",
-		Duration:      2200 * time.Millisecond,
-		AlphaMax:      0.3,
-		Fade:          true,
-		BlendAdditive: true,
-		PosZ:          7 + zOffset,
-		SizeStartX:    effectTableSize(900),
-		SizeStartY:    effectTableSize(45),
-		SizeEndX:      effectTableSize(900),
-		SizeEndY:      effectTableSize(45),
-		AngleStart:    -18,
-		Color:         tint,
-	}
+func ambientSpriteEffectSpec(sprite string, frames int) EffectSpec {
+	spec := funcEffectSpec("AmbientSprite", time.Duration(frames)*EffectFrameDuration, false)
+	spec.Components[0].SpriteFile = sprite
+	return spec
 }
 
 func weatherRainEffectSpec() EffectSpec {

@@ -139,7 +139,7 @@ func (m *System) drawLoopingMapWeatherEffect(screen *render.Frame, ctx client.Co
 	worldY := projection.PlayerY
 	worldZ := scene.TerrainHeightAt(ctx.World, worldX-0.5, worldY-0.5) + 1
 	for componentIndex, component := range spec.Components {
-		duration := fx.WorldEffectResolvedComponentDuration(ctx, spec, component)
+		duration := fx.WorldEffectResolvedComponentDuration(ctx, spec, component, effect)
 		if duration <= 0 {
 			duration = spec.Duration
 		}

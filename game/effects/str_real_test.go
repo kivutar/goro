@@ -3,10 +3,59 @@ package effects
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kivutar/goro/game/internal/testutil"
 	"github.com/kivutar/goro/res"
 )
+
+func TestRandomSTRLifetimesUseTheRenderedVariant(t *testing.T) {
+	ctx := testutil.KnightEffectContext()
+	strs := map[string]*res.STR{
+		"pong1": {FPS: 60, MaxKey: 69},
+		"pong2": {FPS: 60, MaxKey: 100},
+		"pong3": {FPS: 60, MaxKey: 90},
+	}
+	spec, _ := Lookup(Pong)
+	for _, path := range []string{"actor", "cell", "cell lifetime"} {
+		t.Run(path, func(t *testing.T) {
+			m := &System{StrEffects: make(map[string]*res.STR)}
+			for file, str := range strs {
+				m.StrEffects[`__str_data\texture\effect\`+file+`.str|`] = str
+			}
+			seen := make(map[string]bool)
+			for i := 0; i < 32; i++ {
+				start := time.Unix(int64(10+i), 0)
+				var added bool
+				switch path {
+				case "actor":
+					added = m.AddAt(ctx, Pong, 300, start)
+				case "cell":
+					added = m.AddCell(ctx, Pong, 300, 30, 20, start, 0, 0)
+				case "cell lifetime":
+					added = m.AddCellLifetime(ctx, Pong, 300, 30, 20, start, 0, false)
+				}
+				if !added {
+					t.Fatal("effect was not added")
+				}
+				effect := m.Active[len(m.Active)-1]
+				file := ResolveEffectSTRFile(spec.Components[0], effect, false)
+				seen[file] = true
+				str := strs[file]
+				want := time.Duration(float64(str.MaxKey)/float64(str.FPS)*float64(time.Second)) + 100*time.Millisecond
+				if got := effect.Expires.Sub(start); got != want {
+					t.Fatalf("%s lifetime = %s, want %s", file, got, want)
+				}
+				if got := m.WorldEffectResolvedComponentDuration(ctx, spec, spec.Components[0], effect); got != want {
+					t.Fatalf("%s draw duration = %s, want %s", file, got, want)
+				}
+			}
+			if len(seen) != len(strs) {
+				t.Fatalf("did not exercise all variants: %v", seen)
+			}
+		})
+	}
+}
 
 func TestSTRAnimationUnknownAniTypeKeepsSourceTextureFrame(t *testing.T) {
 	layer := res.STRLayer{

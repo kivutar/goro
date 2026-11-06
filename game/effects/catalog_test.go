@@ -456,13 +456,6 @@ func TestRobrowserSimpleEffectsOneFiftyToTwoHundredMatchTableRows(t *testing.T) 
 }
 
 func TestRobrowserSpecialEffectsOneFiftyToTwoHundredMatchTableRows(t *testing.T) {
-	banjjakii, ok := Lookup(Banjjakii)
-	if !ok || banjjakii.Duration != time.Second || len(banjjakii.Components) != 1 {
-		t.Fatalf("EF_BANJJAKII spec = %+v ok=%t", banjjakii, ok)
-	}
-	if component := banjjakii.Components[0]; component.Kind != ComponentSPR || component.SpriteFile != "크리스마스" || component.Duration != time.Second || !component.AttachedEntity {
-		t.Fatalf("EF_BANJJAKII component = %+v", component)
-	}
 
 	makeBlur, ok := Lookup(MakeBlur)
 	if !ok || makeBlur.Duration != 2*time.Second || len(makeBlur.Components) != 1 {
@@ -1609,7 +1602,6 @@ func TestRobrowserSimpleEffectsThreeFiftyToFourHundredMatchTableRows(t *testing.
 		head bool
 	}{
 		{"EF_VALLENTINE", FoodChocolate, "vallentine", "effect\\vallentine.wav", false},
-		{"EF_DRAGONSMOKE", DragonSmoke, "poisonhit", "", false},
 	} {
 		spec, ok := Lookup(tc.id)
 		if !ok || len(spec.Components) != 1 {

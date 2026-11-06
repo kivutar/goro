@@ -94,7 +94,7 @@ type RSWEffect struct {
 	Name     string
 	Position RSWVector3
 	ID       int32
-	Delay    float32
+	Delay    float32 // Emission interval in classic 60 Hz effect ticks.
 	Param    [4]float32
 }
 
@@ -275,7 +275,7 @@ func readRSWEffect(reader *rswReader) RSWEffect {
 		Name:     fixedBinaryString(reader.bytes(80)),
 		Position: reader.scaledPosition3(5),
 		ID:       reader.i32(),
-		Delay:    reader.f32() * 10,
+		Delay:    reader.f32(),
 	}
 	for i := range effect.Param {
 		effect.Param[i] = reader.f32()

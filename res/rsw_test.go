@@ -103,7 +103,7 @@ func TestParseRSW(t *testing.T) {
 	if len(rsw.Sounds) != 1 || rsw.Sounds[0].File != "amb.wav" || rsw.Sounds[0].Position.Y != -2 || rsw.Sounds[0].Cycle != 3.5 {
 		t.Fatalf("unexpected sounds: %+v", rsw.Sounds)
 	}
-	if len(rsw.Effects) != 1 || rsw.Effects[0].Position.Y != -12 || rsw.Effects[0].Delay != 25 || rsw.Effects[0].Param[3] != 4 {
+	if len(rsw.Effects) != 1 || rsw.Effects[0].Position.Y != -12 || rsw.Effects[0].Delay != 2.5 || rsw.Effects[0].Param[3] != 4 {
 		t.Fatalf("unexpected effects: %+v", rsw.Effects)
 	}
 }

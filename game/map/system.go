@@ -27,6 +27,8 @@ type System struct {
 	gndNormalSource  *res.GND
 	gndTopNormals    [][4]scene.Point3
 	MapSoundNext     map[int]time.Time
+	rswEffectSource  *res.RSW
+	rswEffects       []rswEffectEmitter
 	Night            bool
 }
 

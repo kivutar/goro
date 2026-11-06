@@ -1159,7 +1159,7 @@ func TestLordKnightRealAssets(t *testing.T) {
 	m.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusLkconcentration, ActorID: 300, Active: true})
 	effect := m.effects().Active[0]
 	spec, _ := effects.Lookup(effects.LKConcentration)
-	duration := m.effects().WorldEffectResolvedComponentDuration(ctx, spec, spec.Components[0])
+	duration := m.effects().WorldEffectResolvedComponentDuration(ctx, spec, spec.Components[0], effect)
 	for _, cycle := range []int{0, 1, 2} {
 		frame := render.NewFrame(800, 600)
 		at := effect.Starts.Add(time.Duration(cycle)*duration + duration/2)

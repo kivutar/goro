@@ -798,6 +798,7 @@ const (
 
 type Instance struct {
 	EffectID                             int
+	Params                               [4]float32
 	ActorID                              uint32
 	TargetID                             uint32
 	castSourceID                         uint32
@@ -811,6 +812,8 @@ type Instance struct {
 	ShieldChain                          *shieldChainFlight
 	pressure                             *pressureFlight
 	acidBottles                          *acidBottleFlight
+	firefly                              *fireflyPath
+	mapParticles                         *mapParticleState
 	NinjaWind                            *NinjaWind
 	SpiritSpheres                        *spiritSpheres
 	NinjaPetals                          *NinjaPetals
@@ -1103,9 +1106,18 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	if (effectID == BlueCasting || effectID == CoupleCasting) && durationOverride > 0 {
 		durationOverride = max(durationOverride, 56*db.EffectFrameDuration)
 	}
+	effect := Instance{
+		EffectID: effectID,
+		ActorID:  actorID,
+		TargetID: targetID,
+		X:        x,
+		Y:        y,
+		Starts:   starts,
+		Duration: durationOverride,
+	}
 	duration := spec.Duration
 	for _, component := range spec.Components {
-		componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component)
+		componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component, effect)
 		if componentDuration > duration {
 			duration = componentDuration
 		}
@@ -1116,16 +1128,7 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	if durationOverride > 0 {
 		duration = durationOverride
 	}
-	effect := Instance{
-		EffectID: effectID,
-		ActorID:  actorID,
-		TargetID: targetID,
-		X:        x,
-		Y:        y,
-		Starts:   starts,
-		Expires:  starts.Add(duration),
-		Duration: durationOverride,
-	}
+	effect.Expires = starts.Add(duration)
 	if effectID == BashBegin {
 		// Envenom launches two flares on the same actor at the same instant.
 		effect.randomSeed = m.nextRandomSeed
@@ -1284,6 +1287,7 @@ func (m *System) addBetweenDuration(ctx client.Context, effectID int, actorID, t
 	if persistent {
 		effect.Persistent, effect.Expires = true, time.Time{}
 	}
+	m.PrepareEnvironmentEffect(&effect, scene.Projection{CameraYaw: m.cameraYaw(ctx)})
 	m.Active = append(m.Active, effect)
 	if effectEnabled(ctx, effectID) {
 		m.ScheduleWorldEffectSound(starts, spec, effect)
@@ -1301,9 +1305,17 @@ func (m *System) AddCellLifetime(ctx client.Context, effectID int, actorID uint3
 	if !ok {
 		return false
 	}
+	effect := Instance{
+		EffectID:   effectID,
+		ActorID:    actorID,
+		X:          x,
+		Y:          y,
+		Starts:     starts,
+		Persistent: persistent,
+	}
 	duration := spec.Duration
 	for _, component := range spec.Components {
-		componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component)
+		componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component, effect)
 		if componentDuration > duration {
 			duration = componentDuration
 		}
@@ -1343,15 +1355,8 @@ func (m *System) AddCellLifetime(ctx client.Context, effectID int, actorID uint3
 			return moved
 		}
 	}
-	effect := Instance{
-		EffectID:   effectID,
-		ActorID:    actorID,
-		X:          x,
-		Y:          y,
-		Starts:     starts,
-		Expires:    expires,
-		Persistent: persistent,
-	}
+	effect.Expires = expires
+	m.PrepareEnvironmentEffect(&effect, scene.Projection{CameraYaw: m.cameraYaw(ctx)})
 	m.Active = append(m.Active, effect)
 	if effectEnabled(ctx, effectID) {
 		m.ScheduleWorldEffectSound(starts, spec, effect)
@@ -1372,9 +1377,19 @@ func (m *System) addCellRotation(ctx client.Context, effectID int, actorID uint3
 	if !ok {
 		return false
 	}
+	effect := Instance{
+		EffectID:                             effectID,
+		ActorID:                              actorID,
+		X:                                    x,
+		Y:                                    y,
+		Starts:                               starts,
+		Duration:                             durationOverride,
+		Size:                                 sizeOverride,
+		GroundSampleRotationRadiansPerSecond: rotationRadiansPerSecond,
+	}
 	duration := spec.Duration
 	for _, component := range spec.Components {
-		componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component)
+		componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component, effect)
 		if componentDuration > duration {
 			duration = componentDuration
 		}
@@ -1385,17 +1400,8 @@ func (m *System) addCellRotation(ctx client.Context, effectID int, actorID uint3
 	if durationOverride > 0 {
 		duration = durationOverride
 	}
-	effect := Instance{
-		EffectID:                             effectID,
-		ActorID:                              actorID,
-		X:                                    x,
-		Y:                                    y,
-		Starts:                               starts,
-		Expires:                              starts.Add(duration),
-		Duration:                             durationOverride,
-		Size:                                 sizeOverride,
-		GroundSampleRotationRadiansPerSecond: rotationRadiansPerSecond,
-	}
+	effect.Expires = starts.Add(duration)
+	m.PrepareEnvironmentEffect(&effect, scene.Projection{CameraYaw: m.cameraYaw(ctx)})
 	m.Active = append(m.Active, effect)
 	m.ScheduleWorldEffectSound(starts, spec, effect)
 	m.startWorldEffectCameraShake(starts, spec)
@@ -1791,7 +1797,7 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 			if effect.Persistent && effect.EffectID != LKConcentration && effect.EffectID != SafetyWall {
 				component.Repeat = true
 			}
-			componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component)
+			componentDuration := m.WorldEffectResolvedComponentDuration(ctx, spec, component, effect)
 			if effect.Duration > 0 && !component.Repeat {
 				componentDuration = effect.Duration
 			}
@@ -1815,10 +1821,10 @@ func EffectWorldAnchor(ctx client.Context, effect Instance, at time.Time) scene.
 	return scene.Point3{X: scene.CellCenter(x), Y: scene.TerrainHeightAt(ctx.World, x, y) + 0.07, Z: scene.CellCenter(y)}
 }
 
-func (m *System) WorldEffectResolvedComponentDuration(ctx client.Context, spec Spec, component Component) time.Duration {
+func (m *System) WorldEffectResolvedComponentDuration(ctx client.Context, spec Spec, component Component, effect Instance) time.Duration {
 	duration := WorldEffectComponentDuration(spec, component)
 	if component.Kind == ComponentSTR {
-		if str := m.LoadWorldEffectSTR(ctx.Resources, ResolveEffectSTRFile(component, Instance{}, lessEffectsEnabled(ctx)), component.TexturePath); str != nil {
+		if str := m.LoadWorldEffectSTR(ctx.Resources, ResolveEffectSTRFile(component, effect, lessEffectsEnabled(ctx)), component.TexturePath); str != nil {
 			duration = strEffectDuration(str, duration)
 		}
 	}

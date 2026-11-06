@@ -121,10 +121,28 @@ const (
 	effectFuncNinjaWind
 	effectFuncNinjaPetals
 	effectFuncNativeSprite
+	effectFuncAmbientSprite
+	effectFuncMapTexture
+	effectFuncMapGlow
+	effectFuncMapGhost
+	effectFuncRainbow
+	effectFuncBubbleDrop
 )
 
 func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, effect Instance, component Component, componentIndex int, worldX, worldY, worldZ, progress float64, now time.Time) {
 	switch component.FuncAdapter {
+	case effectFuncAmbientSprite:
+		m.drawAmbientSprite(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncMapTexture:
+		m.drawMapTexture(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncMapGlow:
+		m.drawMapGlow(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncMapGhost:
+		m.drawMapGhost(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncRainbow:
+		m.drawRainbow(screen, ctx, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncBubbleDrop:
+		m.drawBubbleDrop(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
 	case effectFuncHPConversion:
 		m.drawHPConversion(screen, ctx, projection, component, effect, now)
 	case effectFuncSoulBreaker:
@@ -464,6 +482,18 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return EffectFuncBodyColor
 	case "MapPillar":
 		return EffectFuncMapPillar
+	case "AmbientSprite":
+		return effectFuncAmbientSprite
+	case "MapTexture":
+		return effectFuncMapTexture
+	case "MapGlow":
+		return effectFuncMapGlow
+	case "MapGhost":
+		return effectFuncMapGhost
+	case "Rainbow":
+		return effectFuncRainbow
+	case "BubbleDrop":
+		return effectFuncBubbleDrop
 	case "HitRing":
 		return EffectFuncHitRing
 	case "HitParticles":

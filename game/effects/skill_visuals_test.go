@@ -568,51 +568,6 @@ func TestPneumaEffectSpecMatchesRoBrowserSTR(t *testing.T) {
 	}
 }
 
-func TestTorchEffectSpecMatchesRoBrowserShape(t *testing.T) {
-	spec, ok := Lookup(Torch)
-	if !ok {
-		t.Fatal("torch effect spec missing")
-	}
-	if spec.Duration != 24*time.Hour {
-		t.Fatalf("torch duration = %s", spec.Duration)
-	}
-	if len(spec.Components) != 1 {
-		t.Fatalf("torch components = %d, want 1", len(spec.Components))
-	}
-	component := spec.Components[0]
-	if component.Kind != Component3D || component.SpriteFile != "torch_01" || !component.SpriteRepeat {
-		t.Fatalf("torch component = %+v", component)
-	}
-	if component.Duration != 600*time.Millisecond || component.SpriteDelay != 100*time.Millisecond {
-		t.Fatalf("torch timing = duration %s delay %s", component.Duration, component.SpriteDelay)
-	}
-	if component.PosX != 0.1 || component.PosZ != 0.8 || component.SizeStart != testutil.EffectTableSize(100) || component.AngleStart != 270 || !component.RotateToTarget {
-		t.Fatalf("torch placement = %+v", component)
-	}
-	ctx := client.Context{World: worldstate.New()}
-	angle, ok := EffectSpriteRobrowserRotation(ctx, scene.Projection{}, component, Instance{EffectID: Torch}, 0)
-	if !ok || math.Abs(angle+2*math.Pi) > 0.001 {
-		t.Fatalf("torch effective angle = %.3f, %v, want -2π radians, true", angle, ok)
-	}
-}
-
-func TestFireflyEffectSpecUsesFaintSpriteParticles(t *testing.T) {
-	spec, ok := Lookup(Firefly)
-	if !ok {
-		t.Fatal("firefly effect spec missing")
-	}
-	if len(spec.Components) != 1 {
-		t.Fatalf("firefly components = %d, want 1", len(spec.Components))
-	}
-	component := spec.Components[0]
-	if component.Kind != Component3D || component.TextureFile != "" || component.SpriteFile == "" || !component.SpriteRepeat {
-		t.Fatalf("firefly component = %+v", component)
-	}
-	if component.AlphaMax > 0.25 || component.SizeEnd > testutil.EffectTableSize(120) {
-		t.Fatalf("firefly should stay faint and moderately sized: %+v", component)
-	}
-}
-
 func TestBubbleEffectSpecMatchesRoBrowserShape(t *testing.T) {
 	spec, ok := Lookup(Bubble)
 	if !ok {
