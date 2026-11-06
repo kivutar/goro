@@ -2,6 +2,7 @@ package weather
 
 import (
 	"image/color"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,13 +13,13 @@ import (
 	"github.com/kivutar/goro/res"
 )
 
-func TestSceneFogFromMapUsesReferenceClientScaleAndFullStrength(t *testing.T) {
+func TestSceneFogFromMapUsesOriginalViewPlanes(t *testing.T) {
 	root := t.TempDir()
 	dataDir := filepath.Join(root, "data")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dataDir, "fogparametertable.txt"), []byte("prontera#0.5#1.5#ffffff#0.3#"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dataDir, "fogparametertable.txt"), []byte("tur_dun02#0.2#0.4#4a6976#0.3#"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	manager, err := res.NewManager(root)
@@ -26,18 +27,18 @@ func TestSceneFogFromMapUsesReferenceClientScaleAndFullStrength(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fog := FogFromMap(manager, "prontera", config.FogConfig{Enabled: true})
+	fog := FogFromMap(manager, "tur_dun02", config.FogConfig{Enabled: true})
 	if !fog.Enabled {
 		t.Fatal("expected fog")
 	}
-	if fog.Near != 120 || fog.Far != 360 {
+	if math.Abs(fog.Near-61.6) > 1e-9 || math.Abs(fog.Far-121.2) > 1e-9 {
 		t.Fatalf("unexpected scaled distances: near=%v far=%v", fog.Near, fog.Far)
 	}
 	projection := testutil.Projection(800, 600, 10.5, 20.5, 0)
 	if got := projection.RenderCameraWithFog(fog).Fog.Strength; got != 1 {
 		t.Fatalf("fog strength = %.2f, want full reference-client strength", got)
 	}
-	if disabled := FogFromMap(manager, "prontera", config.FogConfig{Enabled: false}); disabled.Enabled {
+	if disabled := FogFromMap(manager, "tur_dun02", config.FogConfig{Enabled: false}); disabled.Enabled {
 		t.Fatal("disabled fog still enabled on a foggy map")
 	}
 }
@@ -65,7 +66,7 @@ func TestSceneFogFromMapUsesEinbrochWeatherTint(t *testing.T) {
 	}
 }
 
-func TestSceneFogMixColorSmoothstepsToFogColor(t *testing.T) {
+func TestSceneFogMixColorPreservesAlpha(t *testing.T) {
 	fog := scene.SceneFog{
 		Enabled: true,
 		Near:    10,
@@ -79,7 +80,7 @@ func TestSceneFogMixColorSmoothstepsToFogColor(t *testing.T) {
 	if got := fog.MixColor(base, 20); got != (color.RGBA{R: 200, G: 100, B: 50, A: 180}) {
 		t.Fatalf("far color mismatch: %#v", got)
 	}
-	if got := fog.MixColor(base, 15); got != (color.RGBA{R: 150, G: 100, B: 75, A: 180}) {
+	if got := fog.MixColor(base, 15); got != (color.RGBA{R: 150, G: 100, B: 74, A: 180}) {
 		t.Fatalf("mid color mismatch: %#v", got)
 	}
 }

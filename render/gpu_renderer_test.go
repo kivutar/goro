@@ -61,19 +61,27 @@ func TestRendererShadersGenerateSPIRV(t *testing.T) {
 	}
 }
 
-func TestWorldShadersUseProjectedFogDepth(t *testing.T) {
+func TestWorldShadersUseLinearVertexFog(t *testing.T) {
 	for name, source := range map[string]string{
 		"world":           worldShaderWGSL,
 		"world-billboard": worldBillboardShaderWGSL,
+		"ssao-depth":      worldShaderWGSL + ssaoDepthShaderWGSL,
 	} {
-		if !strings.Contains(source, "fog_depth") || !strings.Contains(source, "smoothstep(uniforms.fog[0], uniforms.fog[1], input.fog_depth)") {
-			t.Fatalf("%s shader does not use interpolated fog depth", name)
+		if !strings.Contains(source, "vec2<f32>(fog_visibility(clip[3], uniforms.fog[0], uniforms.fog[1]), 1.0) * clip[3]") ||
+			!strings.Contains(source, "input.fog_visibility.x / input.fog_visibility.y") {
+			t.Fatalf("%s shader does not interpolate vertex fog in screen space", name)
+		}
+		if strings.Contains(source, "smoothstep") {
+			t.Fatalf("%s shader uses a nonlinear fog ramp", name)
 		}
 		if !strings.Contains(source, "* uniforms.fog[3]") {
 			t.Fatalf("%s shader does not use fog strength", name)
 		}
 		if strings.Contains(source, "input.clip[2] /") {
 			t.Fatalf("%s shader uses fragment clip depth for fog", name)
+		}
+		if strings.Contains(source, "input.clip[3]") || strings.Contains(source, "input.clip.w") {
+			t.Fatalf("%s shader depends on backend-specific fragment position.w", name)
 		}
 	}
 	if !strings.Contains(worldBillboardShaderWGSL, "* input.fog_enabled") {

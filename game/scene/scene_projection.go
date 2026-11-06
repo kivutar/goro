@@ -119,15 +119,6 @@ func (p Projection) Depth(x, y, z float64) float64 {
 	return clipW
 }
 
-func (p Projection) FogDepth(x, y, z float64) float64 {
-	_, _, clipZ, clipW := mat4TransformVec4(p.ViewProjection, x, z, y, 1)
-	if clipW <= 0 || !finite4(clipZ, clipW, 0, 1) {
-		return math.Inf(-1)
-	}
-	windowZ := (clipZ/clipW + 1) * 0.5
-	return windowZ * clipW
-}
-
 func (p Projection) VisibleForTriangle(x, y, z float64) bool {
 	clipX, clipY, clipZ, clipW := mat4TransformVec4(p.ViewProjection, x, z, y, 1)
 	if clipW <= 1 || !finite4(clipX, clipY, clipZ, clipW) {

@@ -18,16 +18,18 @@ func FogFromMap(manager *res.Manager, mapName string, cfg config.FogConfig) scen
 	if !ok || parameter.Far <= parameter.Near {
 		return scene.SceneFog{}
 	}
-	// The table's factor column is parsed for compatibility, but the reference
-	// clients apply the near/far fog ramp at full strength.
+	// The original uses linear fog, so the table's exponential density is unused.
 	fogColor := parameter.Color
 	if weatherColor, ok := sceneFogColorForMapWeather(mapName); ok {
 		fogColor = weatherColor
 	}
+	// Table distances span the original 10..1500 view planes, with five source
+	// units per Goro cell. They are independent of our camera's clipping planes.
+	const nearPlane, farPlane = 10.0 / 5, 1500.0 / 5
 	return scene.SceneFog{
 		Enabled: true,
-		Near:    parameter.Near * 240,
-		Far:     parameter.Far * 240,
+		Near:    nearPlane + parameter.Near*(farPlane-nearPlane),
+		Far:     nearPlane + parameter.Far*(farPlane-nearPlane),
 		Color:   fogColor,
 	}
 }

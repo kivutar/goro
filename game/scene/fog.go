@@ -13,10 +13,13 @@ type SceneFog struct {
 }
 
 func (f SceneFog) MixColor(c color.RGBA, depth float64) color.RGBA {
-	if !f.Enabled || !IsFinite(depth) {
+	if !f.Enabled || f.Far <= f.Near || !IsFinite(depth) {
 		return c
 	}
-	amount := smoothstep(f.Near, f.Far, depth)
+	visibility := math.Max(0, math.Min(1, (f.Far-depth)/(f.Far-f.Near)))
+	// The original stores visibility in the vertex's 8-bit specular alpha.
+	visibility = math.Floor(visibility*255) / 255
+	amount := 1 - visibility
 	if amount <= 0 {
 		return c
 	}
@@ -37,19 +40,7 @@ func (f SceneFog) MixVertexTints(projection Projection, verts [4]Point3, tints [
 		return tints
 	}
 	for i, vert := range verts {
-		tints[i] = f.MixColor(tints[i], projection.FogDepth(vert.X, vert.Z, vert.Y))
+		tints[i] = f.MixColor(tints[i], projection.Depth(vert.X, vert.Z, vert.Y))
 	}
 	return tints
-}
-
-func smoothstep(edge0, edge1, x float64) float64 {
-	if edge0 == edge1 {
-		if x < edge0 {
-			return 0
-		}
-		return 1
-	}
-	t := (x - edge0) / (edge1 - edge0)
-	t = math.Max(0, math.Min(1, t))
-	return t * t * (3 - 2*t)
 }

@@ -43,7 +43,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 `
 
-const worldShaderWGSL = `
+const worldFogShaderWGSL = `
+fn fog_visibility(depth: f32, near: f32, far: f32) -> f32 {
+	let visibility = clamp((far - depth) / max(far - near, 0.000001), 0.0, 1.0);
+	return floor(visibility * 255.0) / 255.0;
+}
+`
+
+const worldShaderWGSL = worldFogShaderWGSL + `
 struct Uniforms {
 	c0: vec4<f32>,
 	c1: vec4<f32>,
@@ -75,7 +82,7 @@ struct VertexOutput {
 	@location(1) color: vec4<f32>,
 	@location(2) fog_enabled: f32,
 	@location(3) light_uv: vec2<f32>,
-	@location(4) fog_depth: f32,
+	@location(4) fog_visibility: vec2<f32>,
 }
 
 @vertex
@@ -92,7 +99,9 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 	out.color = input.color;
 	out.fog_enabled = input.fog_enabled;
 	out.light_uv = input.light_uv;
-	out.fog_depth = max(0.0, clip_z);
+	// Dividing the interpolated (visibility * w, w) pair gives screen-linear fog.
+	// Avoids GLES noperspective and backend differences in fragment position.w.
+	out.fog_visibility = vec2<f32>(fog_visibility(clip[3], uniforms.fog[0], uniforms.fog[1]), 1.0) * clip[3];
 	return out;
 }
 
@@ -104,7 +113,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 	if (color[3] < 0.01) {
 		discard;
 	}
-	let fog = clamp(smoothstep(uniforms.fog[0], uniforms.fog[1], input.fog_depth) * uniforms.fog[2] * uniforms.fog[3] * input.fog_enabled, 0.0, 1.0);
+	let fog = clamp((1.0 - input.fog_visibility.x / input.fog_visibility.y) * uniforms.fog[2] * uniforms.fog[3] * input.fog_enabled, 0.0, 1.0);
 	return vec4<f32>(
 		color[0] * (1.0 - fog) + uniforms.fog_color[0] * fog,
 		color[1] * (1.0 - fog) + uniforms.fog_color[1] * fog,
@@ -114,7 +123,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 `
 
-const worldBillboardShaderWGSL = `
+const worldBillboardShaderWGSL = worldFogShaderWGSL + `
 struct Uniforms {
 	c0: vec4<f32>,
 	c1: vec4<f32>,
@@ -146,7 +155,7 @@ struct VertexOutput {
 	@builtin(position) clip: vec4<f32>,
 	@location(0) uv: vec2<f32>,
 	@location(1) color: vec4<f32>,
-	@location(2) fog_depth: f32,
+	@location(2) fog_visibility: vec2<f32>,
 	@location(3) fog_enabled: f32,
 }
 
@@ -171,7 +180,7 @@ fn billboard_vertex(input: VertexInput, depth_only: bool) -> VertexOutput {
 	out.clip = vec4<f32>(clip[0], clip[1], final_z, clip[3]);
 	out.uv = input.uv;
 	out.color = input.color;
-	out.fog_depth = max(0.0, clip_z);
+	out.fog_visibility = vec2<f32>(fog_visibility(clip[3], uniforms.fog[0], uniforms.fog[1]), 1.0) * clip[3];
 	out.fog_enabled = input.fog_enabled;
 	return out;
 }
@@ -192,7 +201,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 	if (color[3] < 0.01) {
 		discard;
 	}
-	let fog = clamp(smoothstep(uniforms.fog[0], uniforms.fog[1], input.fog_depth) * uniforms.fog[2] * uniforms.fog[3] * input.fog_enabled, 0.0, 1.0);
+	let fog = clamp((1.0 - input.fog_visibility.x / input.fog_visibility.y) * uniforms.fog[2] * uniforms.fog[3] * input.fog_enabled, 0.0, 1.0);
 	return vec4<f32>(
 		color[0] * (1.0 - fog) + uniforms.fog_color[0] * fog,
 		color[1] * (1.0 - fog) + uniforms.fog_color[1] * fog,
