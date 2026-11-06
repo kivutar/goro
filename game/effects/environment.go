@@ -9,6 +9,7 @@ import (
 	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 )
 
 const (
@@ -160,9 +161,75 @@ func (m *System) drawAmbientSprite(screen *render.Frame, ctx client.Context, pro
 	}
 	for i := 0; i < count; i++ {
 		p, action, motion := ambientSpriteAt(effect, i, frame)
+		if effect.EffectID == Torch {
+			m.drawTorchSprite(screen, ctx, projection, c.SpriteFile, scene.Add3(origin, p.Position), motion, p.size)
+			continue
+		}
 		m.drawEffectParticleSpriteAction(screen, ctx, projection, c.SpriteFile, scene.Add3(origin, p.Position), action, motion,
 			p.size, p.Angle, color.RGBA{255, 255, 255, uint8(scene.ClampFloat(p.Alpha*255, 0, 255))})
 	}
+}
+
+func (m *System) drawTorchSprite(screen *render.Frame, ctx client.Context, projection scene.Projection, file string, position scene.Point3, motion int, scale float64) {
+	view := m.EffectSpriteView(ctx.Resources, file)
+	if view == nil || len(view.Act.Actions) == 0 || len(view.Act.Actions[0].Animations) == 0 {
+		return
+	}
+	animations := view.Act.Actions[0].Animations
+	options := scene.SpriteBillboardTriangleDrawOptions()
+	options.AfterBillboards = true
+	for _, layer := range animations[motion%len(animations)].Layers {
+		if layer.Index < 0 {
+			continue
+		}
+		texture, ok := scene.SpriteViewImage(view, layer.Index, layer.SPRType)
+		if !ok {
+			continue
+		}
+		bounds := texture.Bounds()
+		vertices := torchLayerVertices(projection, position, layer, float64(bounds.Dx()), float64(bounds.Dy()), scale)
+		if len(vertices) == 0 {
+			continue
+		}
+		screen.DrawTriangles3DOwned(vertices, []uint16{0, 1, 2, 0, 2, 3}, texture, options)
+	}
+}
+
+func torchLayerVertices(projection scene.Projection, position scene.Point3, layer res.ACTLayer, width, height, scale float64) []render.Vertex3D {
+	right, up, unitsPerPixel, ok := projection.BillboardBasis(position.X, position.Z, position.Y)
+	if !ok || scale <= 0 || layer.ScaleX == 0 || layer.ScaleY == 0 {
+		return nil
+	}
+	eye, forward, _, _ := projection.CameraBasis()
+	depth := scene.Dot3(scene.Sub3(position, eye), forward)
+	pixelScale := scale * scene.PixelRatio
+	// Classic ACT loading converts centers to integer top-left coordinates before
+	// applying layer scale. Keeping the original centers skips this rounding.
+	sx, sy := float64(layer.ScaleX), float64(layer.ScaleY)
+	cx := (math.Trunc(float64(layer.X)/sx-width/2) + width/2) * sx
+	cy := (math.Trunc(float64(layer.Y)/sy-height/2) + height/2) * sy
+	if layer.Mirror {
+		sx = -sx
+	}
+	sin, cos := math.Sincos(scene.DegreesToRadians(float64(layer.Angle)))
+	// The original sprite depth slope is measured in screen pixels at 480px
+	// height, with five original world units per Goro unit.
+	slope := -forward.Y / up.Y * .16 * 480 / projection.ScreenH / 5
+	vertices := make([]render.Vertex3D, 0, 4)
+	for _, uv := range [4]scene.UV{{}, {U: 1}, {U: 1, V: 1}, {V: 1}} {
+		x, y := (float64(uv.U)-.5)*width*sx, (float64(uv.V)-.5)*height*sy
+		point := scene.Add3(position, scene.Add3(scene.Mul3(right, (cx+x*cos-y*sin)*pixelScale), scene.Mul3(up, -(cy+x*sin+y*cos)*pixelScale)))
+		// Depth follows the unrotated clip rows, independently for flame and halo.
+		rowDepth := math.Max(1, depth+(cy+y)*pixelScale/unitsPerPixel*slope)
+		rowDepth = 1 / (1/rowDepth + .00005)
+		depthPoint := scene.Add3(eye, scene.Mul3(scene.Sub3(point, eye), rowDepth/depth))
+		vertex := scene.TexturedSurfaceVertex3D(point, uv, color.RGBA{255, 255, 255, 255}, float32(width), float32(height))
+		// Keep the visible quad flat; changing its W would shear the texture.
+		vertex.DepthX, vertex.DepthY, vertex.DepthZ = float32(depthPoint.X), float32(depthPoint.Y), float32(depthPoint.Z)
+		vertex.ColorR, vertex.ColorG, vertex.ColorB, vertex.ColorA = layer.Color[0], layer.Color[1], layer.Color[2], layer.Color[3]
+		vertices = append(vertices, vertex)
+	}
+	return vertices
 }
 
 func newFireflyPath(effect Instance) *fireflyPath {

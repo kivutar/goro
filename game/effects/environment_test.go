@@ -10,6 +10,7 @@ import (
 	"github.com/kivutar/goro/game/internal/testutil"
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/render"
+	"github.com/kivutar/goro/res"
 )
 
 func TestAmbientSpriteLifetimesAndAssets(t *testing.T) {
@@ -40,6 +41,117 @@ func TestTorchUsesMapSizeAndAnimationSpeed(t *testing.T) {
 	p, _, motion = ambientSpriteAt(effect, 0, 8)
 	if p.size != 1 || motion != 9 {
 		t.Fatalf("default torch = %+v motion=%d", p, motion)
+	}
+}
+
+func TestTorchDrawsSeparateLayersAfterActorSilhouettes(t *testing.T) {
+	view := testutil.EffectRenderTestSprite()
+	view.Images = map[scene.SpriteFrameKey]*render.Image{{}: render.NewImage(2, 2)}
+	view.Act.Actions[0].Animations[0].Layers = []res.ACTLayer{
+		{ScaleX: 8, ScaleY: 8, Angle: 169, Color: [4]float32{1, 1, 1, .12}},
+		{ScaleX: 2, ScaleY: 2, Color: [4]float32{1, 1, 1, .94}},
+		{Index: -1},
+	}
+	m := &System{EffectViews: map[string]*scene.SpriteView{"torch_01": view}}
+	start := time.Unix(100, 0)
+	spec, _ := Lookup(Torch)
+	frame := render.NewFrame(800, 600)
+	m.drawAmbientSprite(frame, testutil.KnightEffectContext(), testutil.Projection(800, 600, 0, 0, 0),
+		spec.Components[0], Instance{EffectID: Torch, Starts: start}, scene.Point3{}, start)
+	commands := reflect.ValueOf(frame).Elem()
+	quads := commands.FieldByName("worldCommands")
+	if quads.Len() != 2 || commands.FieldByName("worldBillboards").Len() != 0 {
+		t.Fatal("torch must draw halo and flame as separate layers")
+	}
+	for i, alpha := range []float32{.12, .94} {
+		cmd := quads.Index(i)
+		options := cmd.FieldByName("Options")
+		if !options.FieldByName("AfterBillboards").Bool() || !options.FieldByName("DepthTest").Bool() || options.FieldByName("DepthWrite").Bool() {
+			t.Fatal("torch must test actor silhouettes without writing transparent depth")
+		}
+		if render.Filter(options.FieldByName("Filter").Int()) != render.FilterLinear ||
+			float32(cmd.FieldByName("Vertices").Index(0).FieldByName("ColorA").Float()) != alpha {
+			t.Fatal("lost smooth filtering, layer order or ACT opacity")
+		}
+	}
+}
+
+func TestTorchLayerProjectionAndDepth(t *testing.T) {
+	// A 128px flame clip from torch_01: the classic ACT loader rounds its
+	// top-left corner to (-67, -100), then applies the 2x clip scale.
+	layer := res.ACTLayer{X: -7, Y: -73, ScaleX: 2, ScaleY: 2, Color: [4]float32{1, .8, .3, .94}}
+	position := scene.Point3{X: 33, Y: 1.2, Z: 117}
+	for _, pitch := range []float64{205, 230, 245} {
+		for _, yaw := range []float64{0, 90, 225} {
+			for _, height := range []int{480, 1080} {
+				projection := scene.NewProjection(height*4/3, height, 30, 114, 0, yaw, pitch, 140)
+				vertices := torchLayerVertices(projection, position, layer, 128, 128, 1)
+				if len(vertices) != 4 {
+					t.Fatal("missing torch quad")
+				}
+				anchor := projection.Project(position.X, position.Z, position.Y)
+				_, _, unitsPerPixel, _ := projection.BillboardBasis(position.X, position.Z, position.Y)
+				pixels := 1 / (35 * unitsPerPixel)
+				depth := projection.Depth(position.X, position.Z, position.Y) * 5
+				for i, corner := range [4][2]float64{{-134, -200}, {122, -200}, {122, 56}, {-134, 56}} {
+					v := vertices[i]
+					point := projection.Project(float64(v.X), float64(v.Z), float64(v.Y))
+					wantX, wantY := float64(anchor.X)+corner[0]*pixels, float64(anchor.Y)+corner[1]*pixels
+					if math.Abs(float64(point.X)-wantX) > .005 || math.Abs(float64(point.Y)-wantY) > .005 {
+						t.Fatalf("torch shifted at pitch/yaw %v/%v: %v; want %v,%v", pitch, yaw, point, wantX, wantY)
+					}
+					slope := math.Tan(scene.DegreesToRadians(pitch-180)) * .16 * 480 / float64(height)
+					oow := 1/(depth+corner[1]*pixels*slope) + .00001
+					gotDepth := projection.Depth(float64(v.DepthX), float64(v.DepthZ), float64(v.DepthY))
+					if math.Abs(gotDepth-1/oow/5) > .0001 {
+						t.Fatalf("torch depth = %v; want %v", gotDepth, 1/oow/5)
+					}
+					if v.ColorA != layer.Color[3] || v.ColorG != layer.Color[1] {
+						t.Fatal("lost ACT tint")
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestTorchHaloRotationKeepsUnrotatedDepthRows(t *testing.T) {
+	projection := scene.NewProjection(1280, 960, 0, 0, 0, 45, 230, 140)
+	layer := res.ACTLayer{X: -11, Y: -56, ScaleX: 7.46, ScaleY: 7.46, Color: [4]float32{1, 1, 1, .12}}
+	position := scene.Point3{Y: 2}
+	plain := torchLayerVertices(projection, position, layer, 64, 64, .6)
+	layer.Angle, layer.Mirror = 169, true
+	rotated := torchLayerVertices(projection, position, layer, 64, 64, .6)
+	for i, v := range rotated {
+		before := plain[i]
+		d1 := projection.Depth(float64(before.DepthX), float64(before.DepthZ), float64(before.DepthY))
+		d2 := projection.Depth(float64(v.DepthX), float64(v.DepthZ), float64(v.DepthY))
+		if math.Abs(d1-d2) > .0001 {
+			t.Fatalf("rotation changed clip row depth: %v -> %v", d1, d2)
+		}
+		if v.X == before.X && v.Y == before.Y && v.Z == before.Z {
+			t.Fatal("halo rotation was ignored")
+		}
+	}
+}
+
+func TestTorchDepthDoesNotDistortTextureAtCloseZoom(t *testing.T) {
+	projection := scene.NewProjection(1280, 960, 0, 0, 0, 90, 245, 65)
+	position := scene.Point3{Y: 1.2}
+	layer := res.ACTLayer{X: -11, Y: -56, ScaleX: 8.9, ScaleY: 8.9, Angle: 169}
+	vertices := torchLayerVertices(projection, position, layer, 64, 64, 1)
+	if len(vertices) != 4 {
+		t.Fatal("halo disappeared at close zoom")
+	}
+	for _, v := range vertices {
+		visibleDepth := projection.Depth(float64(v.X), float64(v.Z), float64(v.Y))
+		anchorDepth := projection.Depth(position.X, position.Z, position.Y)
+		if math.Abs(visibleDepth-anchorDepth) > .0001 {
+			t.Fatal("depth correction changed texture interpolation")
+		}
+		if d := projection.Depth(float64(v.DepthX), float64(v.DepthZ), float64(v.DepthY)); d < .99 || !scene.IsFinite(d) {
+			t.Fatalf("invalid halo depth: %v", d)
+		}
 	}
 }
 
