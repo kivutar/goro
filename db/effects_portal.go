@@ -17,43 +17,14 @@ func exit2EffectSpec() EffectSpec {
 	}
 }
 
+// warpZone2EffectSpec is EF_WARPZONE2, the effect of warp portal NPCs
+// (CRagEffect::WarpZone2). It lasts as long as the portal.
 func warpZone2EffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 7 * time.Second,
-		Components: []EffectComponent{
-			warpZone2Cylinder(1.15, 1.9),
-			warpZone2Cylinder(1.05, 1.8),
-			{
-				Kind:           EffectComponent3D,
-				TextureFile:    "effect/pok1.tga",
-				Color:          color.RGBA{R: 230, G: 255, B: 230, A: 255},
-				Duration:       time.Second,
-				Duplicate:      5,
-				DuplicateDelay: 300 * time.Millisecond,
-				AlphaMax:       1,
-				FadeIn:         true,
-				FadeOut:        true,
-				PosXStartRand:  1.45,
-				PosYStartRand:  1.45,
-				PosZEndRand:    1.5,
-				PosZEndMiddle:  1.4,
-				SizeStart:      effectTableSize(32),
-				SizeEnd:        effectTableSize(32),
-				BlendMode:      2,
-				BlendAdditive:  true,
-				AttachedEntity: true,
-				Repeat:         true,
-			},
-		},
-	}
-}
-
-func warpZone2Cylinder(bottomSize, topSize float64) EffectComponent {
-	component := robrCylinderBlendComponent("ring_blue", color.RGBA{R: 128, G: 128, B: 255, A: 255}, 4*time.Second, 0.48, 3, bottomSize, topSize, 1.35, true, false, true, 2)
-	component.Duplicate = 4
-	component.DuplicateDelay = time.Second
-	component.Repeat = true
-	return component
+	spec := funcEffectSpec("WarpZone2", 99999999*EffectFrameDuration, true)
+	spec.Components[0].TextureFile = "effect/ring_blue.tga"
+	spec.Components[0].TextureFiles = []string{"effect/alpha_down.tga"}
+	spec.Components[0].SpriteFile = "particle1"
+	return spec
 }
 
 func entry2EffectSpec() EffectSpec {

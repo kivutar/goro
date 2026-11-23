@@ -127,6 +127,7 @@ const (
 	effectFuncMapGhost
 	effectFuncRainbow
 	effectFuncBubbleDrop
+	effectFuncWarpZone2
 )
 
 func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, effect Instance, component Component, componentIndex int, worldX, worldY, worldZ, progress float64, now time.Time) {
@@ -143,6 +144,8 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 		m.drawRainbow(screen, ctx, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
 	case effectFuncBubbleDrop:
 		m.drawBubbleDrop(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
+	case effectFuncWarpZone2:
+		m.drawWarpZone2(screen, ctx, projection, component, effect, scene.Point3{X: worldX, Y: worldZ, Z: worldY}, now)
 	case effectFuncHPConversion:
 		m.drawHPConversion(screen, ctx, projection, component, effect, now)
 	case effectFuncSoulBreaker:
@@ -494,6 +497,8 @@ func effectFuncAdapterForName(name string) EffectFuncAdapter {
 		return effectFuncRainbow
 	case "BubbleDrop":
 		return effectFuncBubbleDrop
+	case "WarpZone2":
+		return effectFuncWarpZone2
 	case "HitRing":
 		return EffectFuncHitRing
 	case "HitParticles":

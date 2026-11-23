@@ -1453,21 +1453,11 @@ func TestRobrowserPortalAndGroundEffectsThreeHundredToThreeFiftyMatchTableRows(t
 	}
 
 	warp, ok := Lookup(WarpZone2)
-	if !ok || len(warp.Components) != 3 || warp.Duration != 7*time.Second {
+	if !ok || len(warp.Components) != 1 {
 		t.Fatalf("EF_WARPZONE2 spec = %+v ok=%t", warp, ok)
 	}
-	for i, want := range []struct {
-		bottom float64
-		top    float64
-	}{{1.15, 1.9}, {1.05, 1.8}} {
-		component := warp.Components[i]
-		if component.Kind != ComponentCylinder || component.TextureName != "ring_blue" || component.Duration != 4*time.Second || component.Duplicate != 4 || component.DuplicateDelay != time.Second || component.AlphaMax != 0.48 || component.Animation != 3 || component.BottomSize != want.bottom || component.TopSize != want.top || component.Height != 1.35 || !component.Repeat || component.Rotate || !component.Fade || !component.AttachedEntity {
-			t.Fatalf("EF_WARPZONE2 cylinder %d = %+v", i, component)
-		}
-	}
-	particle := warp.Components[2]
-	if particle.Kind != Component3D || particle.TextureFile != "effect/pok1.tga" || particle.Duration != time.Second || particle.Duplicate != 5 || particle.DuplicateDelay != 300*time.Millisecond || particle.SizeStart != testutil.EffectTableSize(32) || particle.PosXStartRand != 1.45 || particle.PosYStartRand != 1.45 || particle.PosZEndRand != 1.5 || particle.PosZEndMiddle != 1.4 || !particle.Repeat || !particle.BlendAdditive || !particle.AttachedEntity {
-		t.Fatalf("EF_WARPZONE2 particle = %+v", particle)
+	if c := warp.Components[0]; c.FuncAdapter != effectFuncWarpZone2 || c.TextureFile != "effect/ring_blue.tga" || len(c.TextureFiles) != 1 || c.TextureFiles[0] != "effect/alpha_down.tga" || c.SpriteFile != "particle1" || !c.AttachedEntity {
+		t.Fatalf("EF_WARPZONE2 component = %+v", c)
 	}
 
 	entry, ok := Lookup(Entry2)
