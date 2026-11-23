@@ -185,8 +185,9 @@ func TestGNDCellLightsUseNeighbourSurfaceColoursAndBlackenMissingOnes(t *testing
 }
 
 func TestPosterizeGNDLightmapColorUsesReferenceClientBuckets(t *testing.T) {
+	// Four bits per channel, alpha included, expanded as n * 17.
 	got := posterizeGNDLightmapColor(color.RGBA{R: 15, G: 31, B: 255, A: 77})
-	want := color.RGBA{R: 0, G: 16, B: 240, A: 77}
+	want := color.RGBA{R: 0, G: 17, B: 255, A: 68}
 	if got != want {
 		t.Fatalf("posterized lightmap color = %+v, want %+v", got, want)
 	}

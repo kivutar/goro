@@ -309,7 +309,7 @@ func buildGNDLightmapAtlas(gnd *res.GND) gndLightmapAtlas {
 				img.Pix[pixel+0] = lm.R
 				img.Pix[pixel+1] = lm.G
 				img.Pix[pixel+2] = lm.B
-				img.Pix[pixel+3] = lightmap.Alpha[y][x]
+				img.Pix[pixel+3] = posterizeGNDLightmapChannel(lightmap.Alpha[y][x])
 			}
 		}
 	}

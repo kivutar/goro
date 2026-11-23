@@ -337,15 +337,19 @@ func waterTint(water res.RSWWater, rsw *res.RSW) color.RGBA {
 	return color.RGBA{R: 255, G: 255, B: 255, A: alpha}
 }
 
+// posterizeGNDLightmapColor reproduces the classic lightmap texture
+// (CLightmapMgr::Create): each channel, shadow intensity included, keeps its
+// top four bits in an A4R4G4B4 surface (CTexture), which Direct3D expands
+// back to eight bits as n * 17.
 func posterizeGNDLightmapColor(c color.RGBA) color.RGBA {
 	return color.RGBA{
 		R: posterizeGNDLightmapChannel(c.R),
 		G: posterizeGNDLightmapChannel(c.G),
 		B: posterizeGNDLightmapChannel(c.B),
-		A: c.A,
+		A: posterizeGNDLightmapChannel(c.A),
 	}
 }
 
 func posterizeGNDLightmapChannel(v uint8) uint8 {
-	return (v / 16) * 16
+	return (v >> 4) * 17
 }
