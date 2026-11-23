@@ -27,6 +27,9 @@ func ReadPackets(t *testing.T, conn net.Conn, want []byte) {
 
 func NewConnection(t *testing.T, clientDate int) (*network.Client, net.Conn) {
 	t.Helper()
+	// 2008 packets pad with clock-derived bytes; freeze them so expected
+	// packets built after sending still match.
+	t.Cleanup(network.FreezeLegacyPaddingClock(time.Unix(1700000000, 0)))
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)

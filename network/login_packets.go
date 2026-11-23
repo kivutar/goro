@@ -316,11 +316,23 @@ func buildLegacyActionRequestPacket(targetGID uint32, action uint8) []byte {
 	return packet
 }
 
+// legacyPaddingClock feeds the padding of 2008 packets; tests freeze it.
+var legacyPaddingClock = time.Now
+
+// FreezeLegacyPaddingClock makes legacy packet padding deterministic, so tests
+// can compare whole packets built at different moments. It returns a function
+// restoring the real clock.
+func FreezeLegacyPaddingClock(at time.Time) (restore func()) {
+	previous := legacyPaddingClock
+	legacyPaddingClock = func() time.Time { return at }
+	return func() { legacyPaddingClock = previous }
+}
+
 func fillLegacyPacketPadding(pad []byte) {
 	if len(pad) == 0 {
 		return
 	}
-	now := uint32(time.Now().UnixMilli())
+	now := uint32(legacyPaddingClock().UnixMilli())
 	text := fmt.Sprintf("%x", now^(now>>uint(len(pad))))
 	if text == "" {
 		text = "0"
