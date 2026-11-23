@@ -1,7 +1,6 @@
 package db
 
 import (
-	"image/color"
 	"time"
 )
 
@@ -19,24 +18,30 @@ func level99GroundEffectSpec() EffectSpec {
 			FuncName:       "GroundAura",
 			TextureFile:    "effect/pikapika2.bmp",
 			AttachedEntity: true,
-			SizeStart:      effectTableSize(115),
-			SizeEnd:        effectTableSize(130),
-			PosZ:           0.05,
 		}},
 	}
 }
 
+// level99BubbleEffectSpec is EF_LEVEL99_3, CRagEffect::Level99_3(0): white
+// freezing_circle particles shown with /aura off.
 func level99BubbleEffectSpec() EffectSpec {
+	return level99ParticleEffectSpec("effect/freezing_circle.bmp")
+}
+
+// level99BlueBubbleEffectSpec is EF_LEVEL99_4, CRagEffect::Level99_3(1): the
+// blue whitelight bubbles of the full aura.
+func level99BlueBubbleEffectSpec() EffectSpec {
+	return level99ParticleEffectSpec("effect/whitelight.tga")
+}
+
+func level99ParticleEffectSpec(texture string) EffectSpec {
 	return EffectSpec{
 		Duration: 5 * time.Minute,
 		Components: []EffectComponent{{
 			Kind:           EffectComponentFUNC,
 			FuncName:       "Level99Bubble",
-			TextureFile:    "effect/whitelight.tga",
+			TextureFile:    texture,
 			AttachedEntity: true,
-			Color:          color.RGBA{R: 80, G: 80, B: 255, A: 250},
-			SizeStart:      effectTableSize(22.2),
-			PosZ:           0.05,
 		}},
 	}
 }

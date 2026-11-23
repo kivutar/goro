@@ -630,7 +630,7 @@ func TestRobrowserSpecialEffectsTwoHundredToTwoFiftyMatchTableRows(t *testing.T)
 		texture  string
 	}{
 		{"EF_LEVEL99_2", Level99Ground, "GroundAura", EffectFuncLevel99Ground, "effect/pikapika2.bmp"},
-		{"EF_LEVEL99_3", Level99Bubble, "Level99Bubble", EffectFuncLevel99Bubble, "effect/whitelight.tga"},
+		{"EF_LEVEL99_3", Level99Bubble, "Level99Bubble", EffectFuncLevel99Bubble, "effect/freezing_circle.bmp"},
 		{"EF_CHOOKGI", Chookgi, "SpiritSphere", EffectFuncSpiritSphere, "effect/thunder_center.bmp"},
 		{"EF_BOTTOM_LA", BottomLand, "LandProtectorGround", EffectFuncGroundSigil, "effect/aaa copy.bmp"},
 	} {

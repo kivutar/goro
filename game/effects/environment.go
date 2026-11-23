@@ -109,6 +109,8 @@ func (m *System) PrepareEnvironmentEffect(effect *Instance, projection scene.Pro
 		effect.firefly = newFireflyPath(*effect)
 	case Glow4, MapGhost:
 		effect.mapParticles = newMapParticleState(*effect)
+	case Level99Bubble, Level99Aura1:
+		effect.level99Bubbles = newLevel99BubbleState(*effect)
 	case Rainbow:
 		_, _, right, _ := projection.CameraBasis()
 		effect.ProjectileDirection = right

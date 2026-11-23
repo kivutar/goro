@@ -1260,7 +1260,7 @@ var EffectSpecs = map[int]EffectSpec{
 	effectEntry2:            entry2EffectSpec(),
 	effectColorPaper:        colorPaperEffectSpec(),
 	effectSoulBreaker:       soulBreakerBaseEffectSpec(),
-	effectLevel99Aura1:      level99BubbleEffectSpec(),
+	effectLevel99Aura1:      level99BlueBubbleEffectSpec(),
 	effectFoodChocolate:     foodChocolateEffectSpec(),
 	effectPressure:          pressureEffectSpec(),
 	effectBash3D:            sacrificeEffectSpec(),

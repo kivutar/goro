@@ -3755,7 +3755,7 @@ func TestSpriteBillboardScreenCenterUsesImageAndAnchor(t *testing.T) {
 }
 
 func isLevel99AuraEffect(effectID int) bool {
-	for _, auraEffectID := range effects.Level99AuraNormalEffects {
+	for _, auraEffectID := range append(append([]int{}, effects.Level99AuraNormalEffects...), effects.Level99AuraSimpleEffects...) {
 		if effectID == auraEffectID {
 			return true
 		}
