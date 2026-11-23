@@ -119,7 +119,7 @@ func (m *System) PrepareEnvironmentEffect(effect *Instance, projection scene.Pro
 
 func ambientSpriteAt(effect Instance, index, frame int) (effectParticle, int, int) {
 	p := effectParticle{Position: scene.Point3{Y: 2}, size: 1, Alpha: 1}
-	motion, action := frame+1, 0
+	var motion, action int
 	switch effect.EffectID {
 	case Torch:
 		p.size = positiveMapParam(effect.Params[0], 1)
