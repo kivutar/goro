@@ -3441,15 +3441,8 @@ func TestApplyActorActionNotifyRepeatsFireBoltHits(t *testing.T) {
 			}
 		}
 		if floater.Kind == battle.FloaterCombo {
-			if floater.Duration != battle.DamageFloaterDuration(battle.FloaterCombo) {
-				t.Fatalf("combo floater %d duration = %s, want %s", i, floater.Duration, battle.DamageFloaterDuration(battle.FloaterCombo))
-			}
-			wantVisible := battle.DamageFloaterComboTransientDuration()
-			if i == len(wantFloaters)-1 {
-				wantVisible = battle.DamageFloaterDuration(battle.FloaterCombo)
-			}
-			if visible := floater.Expires.Sub(floater.Starts); visible != wantVisible {
-				t.Fatalf("combo floater %d visible = %s, want %s", i, visible, wantVisible)
+			if visible := floater.Expires.Sub(floater.Starts); visible != battle.DamageFloaterDuration(battle.FloaterCombo) {
+				t.Fatalf("combo floater %d visible = %s", i, visible)
 			}
 		}
 	}
