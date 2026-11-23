@@ -1297,6 +1297,11 @@ func (m *System) NonPCSpriteView(ctx client.Context, actor worldstate.Actor) *sc
 			m.NonPCViewMiss = make(map[int]struct{})
 		}
 		m.NonPCViewMiss[job] = struct{}{}
+		// Warps and hidden NPCs have no sprite by design.
+		if sprites.JobHasNoSprite(job) {
+			glog.Debugf("nonpc sprite skipped id=%d job=%d: %s", actor.ID, job, status)
+			return nil
+		}
 		glog.Warnf("nonpc sprite unavailable id=%d job=%d: %s", actor.ID, job, status)
 		return nil
 	}
