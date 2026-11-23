@@ -67,10 +67,8 @@ func (m *System) ApplyTaekwonNightStatus(ctx client.Context, change network.Stat
 	if id == 0 || !scene.IsLocalActor(ctx, id) || m.bindings.Map.Night == change.Active {
 		return
 	}
+	// The environment colour fades towards night at draw time (CWeather::Process).
 	m.bindings.Map.Night = change.Active
-	// Ground and static-model colors include scene lighting, so rebuild their
-	// retained vertices when Soul Link or Eske changes the local night mode.
-	m.bindings.Map.InvalidateLighting()
 }
 
 func (m *System) ApplyTaekwonStatus(ctx client.Context, change network.StatusEffectChange) {

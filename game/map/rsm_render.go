@@ -194,10 +194,12 @@ func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *
 		if texture == nil || options == nil {
 			return nil
 		}
-		key := retainedMeshKey{texture: texture, options: *options}
+		opts := *options
+		opts.Environment = true
+		key := retainedMeshKey{texture: texture, options: opts}
 		builder := builders[key]
 		if builder == nil {
-			builder = &retainedMeshBuilder{texture: texture, options: *options}
+			builder = &retainedMeshBuilder{texture: texture, options: opts}
 			builders[key] = builder
 			builderOrder = append(builderOrder, builder)
 		}
@@ -312,6 +314,8 @@ func animatedRSMBatchFor(screen *render.Frame, batches *[]scene.ModelDrawBatch, 
 	if texture == nil {
 		return nil
 	}
+	// The environment colour scales model vertices at draw time (C3dNode::Render).
+	options.Environment = true
 	order := *batches
 	for i := range order {
 		if order[i].Texture == texture && order[i].Options == options {
@@ -342,7 +346,7 @@ func (m *System) drawAnimatedRSMNodeTriangles(screen *render.Frame, manager *res
 		} else {
 			faceMeta.textureName, faceMeta.uvs = rsmFaceTexture(rsm, node, face)
 		}
-		faceColors := rsmFaceColors(faceMeta.textureName, faceLights, faceIndex, context.lighting)
+		faceColors := rsmFaceColors(faceMeta.textureName, faceLights, faceIndex)
 		texture := m.groundTexture(manager, faceMeta.textureName)
 		if texture != nil {
 			bounds := texture.Bounds()
@@ -569,7 +573,7 @@ func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scen
 		triangles = append(triangles, modelWorldTriangle{
 			verts:       [3]scene.Point3{a, b, c},
 			uvs:         faceMeta.uvs,
-			colors:      rsmFaceColors(faceMeta.textureName, faceLights, faceIndex, lighting),
+			colors:      rsmFaceColors(faceMeta.textureName, faceLights, faceIndex),
 			textureName: faceMeta.textureName,
 		})
 	}
@@ -964,9 +968,9 @@ func rsmFaceTexture(rsm *res.RSM, node *res.RSMNode, face res.RSMFace) (string, 
 	return textureName, uvs
 }
 
-// rsmFaceColors applies the environment colour to a face's baked corner
-// colours (C3dNode::Render).
-func rsmFaceColors(textureName string, faceLights [][3]color.RGBA, faceIndex int, lighting Lighting) [3]color.RGBA {
+// rsmFaceColors returns a face's baked corner colours; the environment colour
+// is applied at draw time.
+func rsmFaceColors(textureName string, faceLights [][3]color.RGBA, faceIndex int) [3]color.RGBA {
 	var colors [3]color.RGBA
 	if faceIndex >= len(faceLights) {
 		return colors
@@ -979,7 +983,7 @@ func rsmFaceColors(textureName string, faceLights [][3]color.RGBA, faceIndex int
 			light.G = uint8(uint16(light.G) * uint16(base.G) / 255)
 			light.B = uint8(uint16(light.B) * uint16(base.B) / 255)
 		}
-		colors[k] = lighting.applyEnv(light)
+		colors[k] = light
 	}
 	return colors
 }

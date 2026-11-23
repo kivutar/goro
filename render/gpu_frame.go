@@ -151,10 +151,7 @@ func appendWorldCommand(floats []float32, indices []uint32, cmd WorldCommand, wi
 	invW, invH := 1/float32(width), 1/float32(height)
 	invLW, invLH := 1/float32(lightWidth), 1/float32(lightHeight)
 	depthBias := saneDepthBias(cmd.Options.DepthBias)
-	fogEnabled := float32(1)
-	if cmd.Options.DisableFog {
-		fogEnabled = 0
-	}
+	flags := worldVertexFlags(cmd.Options)
 	for _, v := range cmd.Vertices {
 		floats = append(floats,
 			v.X, v.Y, v.Z,
@@ -162,7 +159,7 @@ func appendWorldCommand(floats []float32, indices []uint32, cmd WorldCommand, wi
 			saneColor(v.ColorR), saneColor(v.ColorG), saneColor(v.ColorB), saneColor(v.ColorA),
 			v.DepthX, v.DepthY, v.DepthZ,
 			depthBias,
-			fogEnabled,
+			flags,
 			v.LightSrcX*invLW, v.LightSrcY*invLH,
 		)
 	}
@@ -170,6 +167,19 @@ func appendWorldCommand(floats []float32, indices []uint32, cmd WorldCommand, wi
 		indices = append(indices, base+uint32(idx))
 	}
 	return floats, indices
+}
+
+// worldVertexFlags packs per-vertex switches into one float: bit 0 enables
+// fog, bit 1 the environment colour.
+func worldVertexFlags(options DrawTrianglesOptions) float32 {
+	flags := float32(0)
+	if !options.DisableFog {
+		flags++
+	}
+	if options.Environment {
+		flags += 2
+	}
+	return flags
 }
 
 func worldMeshGPUData(mesh *WorldMesh, width, height int) ([]float32, []uint32) {

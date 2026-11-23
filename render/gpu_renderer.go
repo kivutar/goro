@@ -18,6 +18,7 @@ import (
 const (
 	screenVertexFloatCount      = 8
 	worldVertexFloatCount       = 16
+	worldUniformSize            = 112
 	billboardVertexFloatCount   = 4
 	billboardInstanceFloatCount = 24
 	screenVertexStride          = screenVertexFloatCount * 4
@@ -246,7 +247,7 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 	}
 	r.worldUniform, err = r.dev.CreateBuffer(&wgpu.BufferDescriptor{
 		Label: "goro-world-uniform",
-		Size:  96,
+		Size:  worldUniformSize,
 		Usage: wgpu.BufferUsageUniform | wgpu.BufferUsageCopyDst,
 	})
 	if err != nil {
@@ -291,7 +292,7 @@ func (r *gpuRenderer) init(_ *gogpu.Context) error {
 	r.worldBGL, err = r.dev.CreateBindGroupLayout(&wgpu.BindGroupLayoutDescriptor{
 		Label: "goro-world-bind-layout",
 		Entries: []gputypes.BindGroupLayoutEntry{
-			{Binding: 0, Visibility: wgpu.ShaderStageVertex | wgpu.ShaderStageFragment, Buffer: &gputypes.BufferBindingLayout{Type: gputypes.BufferBindingTypeUniform, MinBindingSize: 96}},
+			{Binding: 0, Visibility: wgpu.ShaderStageVertex | wgpu.ShaderStageFragment, Buffer: &gputypes.BufferBindingLayout{Type: gputypes.BufferBindingTypeUniform, MinBindingSize: worldUniformSize}},
 			{Binding: 1, Visibility: wgpu.ShaderStageFragment, Sampler: &gputypes.SamplerBindingLayout{Type: gputypes.SamplerBindingTypeFiltering}},
 			{Binding: 2, Visibility: wgpu.ShaderStageFragment, Texture: &gputypes.TextureBindingLayout{SampleType: gputypes.TextureSampleTypeFloat, ViewDimension: gputypes.TextureViewDimension2D}},
 			{Binding: 3, Visibility: wgpu.ShaderStageFragment, Texture: &gputypes.TextureBindingLayout{SampleType: gputypes.TextureSampleTypeFloat, ViewDimension: gputypes.TextureViewDimension2D}},
@@ -1093,7 +1094,7 @@ func (r *gpuRenderer) drawWorldMesh(pass *wgpu.RenderPassEncoder, mesh *WorldMes
 	if err != nil {
 		return err
 	}
-	bg, err := r.bindWorldGroup(r.worldUniform, 96, tex, lightTex, sampler)
+	bg, err := r.bindWorldGroup(r.worldUniform, worldUniformSize, tex, lightTex, sampler)
 	if err != nil {
 		return err
 	}
@@ -1178,7 +1179,7 @@ func (r *gpuRenderer) drawWorldMeshBatch(pass *wgpu.RenderPassEncoder, batch wor
 	if err != nil {
 		return err
 	}
-	bg, err := r.bindWorldGroup(r.worldUniform, 96, tex, lightTex, sampler)
+	bg, err := r.bindWorldGroup(r.worldUniform, worldUniformSize, tex, lightTex, sampler)
 	if err != nil {
 		return err
 	}
@@ -1240,7 +1241,7 @@ func (r *gpuRenderer) drawWorldBillboards(pass *wgpu.RenderPassEncoder, stage bi
 		if err != nil {
 			return err
 		}
-		bg, err := r.bindWorldGroup(r.worldUniform, 96, tex, tex, sampler)
+		bg, err := r.bindWorldGroup(r.worldUniform, worldUniformSize, tex, tex, sampler)
 		if err != nil {
 			return err
 		}
@@ -1599,7 +1600,7 @@ func uniformBytes(width, height float32) []byte {
 }
 
 func worldUniformBytes(camera Camera3D) []byte {
-	data := make([]byte, 96)
+	data := make([]byte, worldUniformSize)
 	for i, v := range camera.ViewProjection {
 		binary.LittleEndian.PutUint32(data[i*4:i*4+4], math.Float32bits(v))
 	}
@@ -1626,6 +1627,14 @@ func worldUniformBytes(camera Camera3D) []byte {
 	}
 	for i, v := range fogValues {
 		offset := 64 + i*4
+		binary.LittleEndian.PutUint32(data[offset:offset+4], math.Float32bits(v))
+	}
+	env := camera.Environment
+	if env == ([3]float32{}) {
+		env = [3]float32{1, 1, 1}
+	}
+	for i, v := range [4]float32{env[0], env[1], env[2], 1} {
+		offset := 96 + i*4
 		binary.LittleEndian.PutUint32(data[offset:offset+4], math.Float32bits(v))
 	}
 	return data

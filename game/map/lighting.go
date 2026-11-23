@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/res"
@@ -67,18 +68,79 @@ func environmentColor(diffuse, ambient scene.Point3) scene.Point3 {
 	}
 }
 
+// Lighting returns the map lighting with the current, possibly fading,
+// environment colour.
 func (m *System) Lighting(rsw *res.RSW) Lighting {
 	lighting := sceneLightingFromRSW(rsw)
-	if !m.Night {
-		return lighting
+	if m.weather.rsw == rsw && m.weather.started {
+		lighting.Env = m.weather.environment(lighting.ambient)
+	} else if m.Night {
+		night := lighting.Diffuse
+		night.X = math.Min(night.X, 0.5)
+		night.Y = math.Min(night.Y, 0.5)
+		lighting.Env = environmentColor(night, lighting.ambient)
 	}
-	// CWeather lowers only its own red and green diffuse at night. The baked
-	// ground and model lighting keeps the map's diffuse; only Env changes.
-	night := lighting.Diffuse
-	night.X = math.Min(night.X, 0.5)
-	night.Y = math.Min(night.Y, 0.5)
-	lighting.Env = environmentColor(night, lighting.ambient)
 	return lighting
+}
+
+// weatherFrame is CWeather::Process's rate: once per 60 Hz client frame.
+const weatherFrame = time.Second / 60
+
+// weatherLight is CWeather's diffuse colour. Night lowers its red and green
+// by 0.005 per frame to 0.5; day raises them back to the map's diffuse. Only
+// the environment colour derived from it changes; baked lighting keeps the
+// map's diffuse.
+type weatherLight struct {
+	rsw     *res.RSW
+	started bool
+	diffuse [3]float32
+	max     [3]float32
+	last    time.Time
+	pending time.Duration
+}
+
+// AdvanceWeather steps the night fade to now. Entering a map resets the
+// diffuse to the map's (C3dWorldRes::Load), so night fades in again.
+func (m *System) AdvanceWeather(rsw *res.RSW, now time.Time) {
+	w := &m.weather
+	if !w.started || w.rsw != rsw {
+		lighting := sceneLightingFromRSW(rsw)
+		diffuse := [3]float32{float32(lighting.Diffuse.X), float32(lighting.Diffuse.Y), float32(lighting.Diffuse.Z)}
+		*w = weatherLight{rsw: rsw, started: true, diffuse: diffuse, max: diffuse, last: now}
+		return
+	}
+	if now.Before(w.last) {
+		w.last = now
+		return
+	}
+	w.pending += now.Sub(w.last)
+	w.last = now
+	frames := int(w.pending / weatherFrame)
+	w.pending -= time.Duration(frames) * weatherFrame
+	// The fade completes within about a hundred frames; skip idle work.
+	frames = min(frames, 240)
+	for ; frames > 0; frames-- {
+		for i := 0; i < 2; i++ {
+			if m.Night {
+				if w.diffuse[i] > 0.5 {
+					w.diffuse[i] -= 0.005
+				}
+			} else if w.diffuse[i] < 1 && w.diffuse[i] < w.max[i] {
+				w.diffuse[i] += 0.005
+			}
+		}
+	}
+}
+
+// Environment is the current environment colour for draw-time shading.
+func (m *System) Environment(rsw *res.RSW) [3]float32 {
+	env := m.Lighting(rsw).Env
+	return [3]float32{float32(env.X), float32(env.Y), float32(env.Z)}
+}
+
+func (w weatherLight) environment(ambient scene.Point3) scene.Point3 {
+	diffuse := scene.Point3{X: float64(w.diffuse[0]), Y: float64(w.diffuse[1]), Z: float64(w.diffuse[2])}
+	return clampUnitPoint(environmentColor(diffuse, ambient))
 }
 
 // lit is min(ambient + max(normal·light, 0) * diffuse, 1) per channel, the
@@ -99,18 +161,6 @@ func (l Lighting) litProduct(product float64) scene.Point3 {
 		X: math.Min(l.ambient.X+product*l.Diffuse.X, 1),
 		Y: math.Min(l.ambient.Y+product*l.Diffuse.Y, 1),
 		Z: math.Min(l.ambient.Z+product*l.Diffuse.Z, 1),
-	}
-}
-
-// applyEnv multiplies a vertex colour by Env, truncating like the classic
-// client's byte arithmetic.
-func (l Lighting) applyEnv(c color.RGBA) color.RGBA {
-	env := clampUnitPoint(l.Env)
-	return color.RGBA{
-		R: uint8(float64(c.R) * env.X),
-		G: uint8(float64(c.G) * env.Y),
-		B: uint8(float64(c.B) * env.Z),
-		A: c.A,
 	}
 }
 

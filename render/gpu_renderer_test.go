@@ -411,8 +411,16 @@ func TestWorldUniformBytesPacksMatrixAndFog(t *testing.T) {
 		},
 	}
 	data := worldUniformBytes(camera)
-	if len(data) != 96 {
-		t.Fatalf("world uniform len = %d, want 96", len(data))
+	if len(data) != worldUniformSize {
+		t.Fatalf("world uniform len = %d, want %d", len(data), worldUniformSize)
+	}
+	if got := f32At(data, 96); got != 1 {
+		t.Fatalf("unset environment red = %v, want 1", got)
+	}
+	camera.Environment = [3]float32{0.5, 0.25, 1}
+	data = worldUniformBytes(camera)
+	if got := [3]float32{f32At(data, 96), f32At(data, 100), f32At(data, 104)}; got != camera.Environment {
+		t.Fatalf("environment = %v, want %v", got, camera.Environment)
 	}
 	if got := f32At(data, 0); got != 1 {
 		t.Fatalf("matrix[0] = %v, want 1", got)
@@ -431,6 +439,23 @@ func TestWorldUniformBytesPacksMatrixAndFog(t *testing.T) {
 	}
 	if got := f32At(data, 80); got != 0.25 {
 		t.Fatalf("fog red = %v, want 0.25", got)
+	}
+}
+
+func TestWorldVertexFlagsPackFogAndEnvironment(t *testing.T) {
+	cases := []struct {
+		options DrawTrianglesOptions
+		want    float32
+	}{
+		{DrawTrianglesOptions{}, 1},
+		{DrawTrianglesOptions{DisableFog: true}, 0},
+		{DrawTrianglesOptions{Environment: true}, 3},
+		{DrawTrianglesOptions{DisableFog: true, Environment: true}, 2},
+	}
+	for _, tc := range cases {
+		if got := worldVertexFlags(tc.options); got != tc.want {
+			t.Fatalf("flags(%+v) = %v, want %v", tc.options, got, tc.want)
+		}
 	}
 }
 

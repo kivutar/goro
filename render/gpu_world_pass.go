@@ -42,7 +42,7 @@ func (r *gpuRenderer) drawWorldBatch(pass *wgpu.RenderPassEncoder, batch drawBat
 	if err != nil {
 		return err
 	}
-	bg, err := r.bindWorldGroup(r.worldUniform, 96, tex, lightTex, sampler)
+	bg, err := r.bindWorldGroup(r.worldUniform, worldUniformSize, tex, lightTex, sampler)
 	if err != nil {
 		return err
 	}

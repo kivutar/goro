@@ -138,17 +138,20 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 		m.WhitePixel = render.NewImage(1, 1)
 		m.WhitePixel.Fill(color.White)
 	}
-	lighting := m.Lighting(rsw)
 	cellLights := m.gndCellLights(gnd, rsw)
 	builders := make(map[retainedMeshKey]*retainedMeshBuilder)
 	builderFor := func(texture, lightTexture *render.Image, options *render.DrawTrianglesOptions) *retainedMeshBuilder {
 		if texture == nil || options == nil {
 			return nil
 		}
-		key := retainedMeshKey{texture: texture, lightTexture: lightTexture, options: *options}
+		// The environment colour scales ground vertices at draw time
+		// (C3dGround15::RenderNew).
+		opts := *options
+		opts.Environment = true
+		key := retainedMeshKey{texture: texture, lightTexture: lightTexture, options: opts}
 		builder := builders[key]
 		if builder == nil {
-			builder = &retainedMeshBuilder{texture: texture, lightTexture: lightTexture, options: *options}
+			builder = &retainedMeshBuilder{texture: texture, lightTexture: lightTexture, options: opts}
 			builders[key] = builder
 		}
 		return builder
@@ -226,7 +229,7 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 						{X: float64(x) * 2, Y: float64(cell.Heights[2]), Z: float64(y+1) * 2},
 					}
 					uvs := surfaceUVs(surface, vertexOrder)
-					tints := gndEnvTints(lighting, gndCellLightAt(cellLights, gnd, x, y).topGoro())
+					tints := gndCellLightAt(cellLights, gnd, x, y).topGoro()
 					if texture := m.groundTexture(manager, gndTextureName(gnd, surface.TextureID)); texture != nil {
 						if _, ok := gnd.Lightmap(surface.LightmapID); ok {
 							addLightmapped(texture, verts, uvs, tints, surface.LightmapID)
@@ -249,7 +252,7 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 						{X: float64(x+1) * 2, Y: float64(neighbor.Heights[1]), Z: float64(y+1) * 2},
 						{X: float64(x) * 2, Y: float64(neighbor.Heights[0]), Z: float64(y+1) * 2},
 					}
-					tints := gndEnvTints(lighting, gndCellLightAt(cellLights, gnd, x, y).frontGoro())
+					tints := gndCellLightAt(cellLights, gnd, x, y).frontGoro()
 					addSideSurface(surface, vertexOrder, verts, tints)
 				}
 			}
@@ -264,7 +267,7 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 						{X: float64(x+1) * 2, Y: float64(neighbor.Heights[0]), Z: float64(y) * 2},
 						{X: float64(x+1) * 2, Y: float64(neighbor.Heights[2]), Z: float64(y+1) * 2},
 					}
-					tints := gndEnvTints(lighting, gndCellLightAt(cellLights, gnd, x, y).rightGoro())
+					tints := gndCellLightAt(cellLights, gnd, x, y).rightGoro()
 					addSideSurface(surface, vertexOrder, verts, tints)
 				}
 			}
@@ -356,14 +359,6 @@ func addGNDRetainedSurface(m *System, manager *res.Manager, gnd *res.GND, surfac
 		return
 	}
 	addColored(verts, scene.QuadIndices012023, untexturedGroundColors(textureName, tints), WorldOpaqueTriangleDrawOptions(render.FilterNearest, render.AddressUnsafe))
-}
-
-// gndEnvTints applies the environment colour at draw time (C3dGround15::RenderNew).
-func gndEnvTints(lighting Lighting, colors [4]color.RGBA) [4]color.RGBA {
-	for i := range colors {
-		colors[i] = lighting.applyEnv(colors[i])
-	}
-	return colors
 }
 
 // untexturedGroundColors shades a placeholder colour for surfaces whose

@@ -3794,7 +3794,7 @@ func TestSoulLinkAndEskeToggleLocalNightLighting(t *testing.T) {
 	ctx := client.Context{Session: &session.Session{AccountID: 2000000, CharID: 150000}, World: world}
 	mode := &WorldMode{}
 	defer mode.Leave()
-	drawColors := func() [2][3]float64 {
+	drawMeshes := func() reflect.Value {
 		t.Helper()
 		frame := render.NewFrame(800, 600)
 		projection := testutil.Projection(800, 600, 1, 1, 0)
@@ -3804,44 +3804,45 @@ func TestSoulLinkAndEskeToggleLocalNightLighting(t *testing.T) {
 		if meshes.Len() != 2 {
 			t.Fatalf("drawn meshes = %d, want ground and model", meshes.Len())
 		}
-		var colors [2][3]float64
-		for i := range colors {
-			vertex := meshes.Index(i).FieldByName("Mesh").Elem().FieldByName("vertices").Index(0)
-			for c, name := range []string{"ColorR", "ColorG", "ColorB"} {
-				colors[i][c] = vertex.FieldByName(name).Float()
-			}
-		}
-		return colors
+		return meshes
 	}
-	day := drawColors()
+	// Ground and models take the environment colour at draw time.
+	meshes := drawMeshes()
+	for i, name := range []string{"ground", "model"} {
+		if !meshes.Index(i).FieldByName("Mesh").Elem().FieldByName("options").FieldByName("Environment").Bool() {
+			t.Fatalf("%s mesh does not use the environment colour", name)
+		}
+	}
 
+	start := time.Unix(100, 0)
+	mode.mapScene.AdvanceWeather(world.RSW, start)
+	if env := mode.mapScene.Environment(world.RSW); env != [3]float32{1, 1, 1} {
+		t.Fatalf("day environment = %v", env)
+	}
 	mode.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusSoullink, ActorID: 2000000, Active: true})
 	if !mode.mapScene.Night {
 		t.Fatalf("night state=%t", mode.mapScene.Night)
 	}
-	lighting := mode.mapScene.Lighting(nil)
-	// CWeather dims its own red and green diffuse at night; with the default
-	// 0.3 ambient that gives an environment colour of 0.65, 0.65, 1.
-	if lighting.Diffuse.X != 1 || lighting.Diffuse.Y != 1 || lighting.Diffuse.Z != 1 || math.Abs(lighting.Env.X-0.65) > 1e-9 || math.Abs(lighting.Env.Y-0.65) > 1e-9 || lighting.Env.Z != 1 {
-		t.Fatalf("night lighting = %+v", lighting)
+	// CWeather lowers red and green diffuse by 0.005 per 60 Hz frame.
+	mode.mapScene.AdvanceWeather(world.RSW, start.Add(10*time.Second/60))
+	if env := mode.mapScene.Environment(world.RSW); math.Abs(float64(env[0])-0.95) > 1e-4 || math.Abs(float64(env[1])-0.95) > 1e-4 || env[2] != 1 {
+		t.Fatalf("environment after ten night frames = %v, want 0.95, 0.95, 1", env)
 	}
-	night := drawColors()
-	for i, name := range []string{"ground", "model"} {
-		if night[i][0] >= day[i][0] || night[i][1] >= day[i][1] || night[i][2] != day[i][2] {
-			t.Errorf("%s mesh did not acquire night lighting: day=%v night=%v", name, day[i], night[i])
-		}
+	mode.mapScene.AdvanceWeather(world.RSW, start.Add(5*time.Second))
+	if env := mode.mapScene.Environment(world.RSW); math.Abs(float64(env[0])-0.5) > 0.006 || env[2] != 1 {
+		t.Fatalf("settled night environment = %v, want about 0.5, 0.5, 1", env)
+	}
+	if lighting := mode.mapScene.Lighting(world.RSW); lighting.Diffuse.X != 1 {
+		t.Fatalf("night changed baked diffuse: %+v", lighting)
 	}
 
 	mode.applyStatusEffectChange(ctx, network.StatusEffectChange{StatusID: db.StatusSke, ActorID: 2000000, Active: false})
 	if mode.mapScene.Night {
 		t.Fatal("inactive Eske did not restore day lighting")
 	}
-	lighting = mode.mapScene.Lighting(nil)
-	if lighting.Env.X != 1 || lighting.Env.Y != 1 || lighting.Env.Z != 1 {
-		t.Fatalf("restored lighting = %+v", lighting)
-	}
-	if restored := drawColors(); restored != day {
-		t.Fatalf("meshes did not regain day lighting: got=%v want=%v", restored, day)
+	mode.mapScene.AdvanceWeather(world.RSW, start.Add(10*time.Second))
+	if env := mode.mapScene.Environment(world.RSW); env[0] < 0.999 || env[1] < 0.999 || env[2] != 1 {
+		t.Fatalf("restored environment = %v, want 1, 1, 1", env)
 	}
 }
 

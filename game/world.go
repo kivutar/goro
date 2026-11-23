@@ -1287,7 +1287,10 @@ func (m *WorldMode) Draw(ctx client.Context, screen *render.Frame) {
 	fog := weather.FogFromMap(ctx.Resources, ctx.World.MapName, fogConfig)
 	maps.ClearWorldScene(screen, ctx.World.MapName)
 	var actorOverlays []scene.ActorDrawEntry
-	screen.SetCamera3D(projection.RenderCameraWithFog(fog))
+	m.mapScene.AdvanceWeather(ctx.World.RSW, now)
+	camera := projection.RenderCameraWithFog(fog)
+	camera.Environment = m.mapScene.Environment(ctx.World.RSW)
+	screen.SetCamera3D(camera)
 	vertexFog := scene.SceneFog{}
 
 	if ctx.World.GND != nil {

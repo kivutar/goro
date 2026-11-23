@@ -58,6 +58,7 @@ struct Uniforms {
 	c3: vec4<f32>,
 	fog: vec4<f32>,
 	fog_color: vec4<f32>,
+	environment: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -96,8 +97,13 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 	let final_z = max(0.0, occlusion_z - input.depth_bias * clip[3]);
 	out.clip = vec4<f32>(clip[0], clip[1], final_z, clip[3]);
 	out.uv = input.uv;
+	// Bit 0 of the flags enables fog, bit 1 the environment colour.
+	let flags = u32(max(input.fog_enabled, 0.0) + 0.5);
 	out.color = input.color;
-	out.fog_enabled = input.fog_enabled;
+	if ((flags & 2u) != 0u) {
+		out.color = vec4<f32>(input.color.rgb * uniforms.environment.rgb, input.color.a);
+	}
+	out.fog_enabled = f32(flags & 1u);
 	out.light_uv = input.light_uv;
 	// Dividing the interpolated (visibility * w, w) pair gives screen-linear fog.
 	// Avoids GLES noperspective and backend differences in fragment position.w.

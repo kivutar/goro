@@ -33,6 +33,7 @@ type System struct {
 	rswEffectSource  *res.RSW
 	rswEffects       []rswEffectEmitter
 	Night            bool
+	weather          weatherLight
 }
 
 func (m *System) ResetGeometry() {

@@ -59,6 +59,10 @@ type Camera3D struct {
 	Enabled        bool
 	ViewProjection [16]float32
 	Fog            Fog3D
+	// Environment multiplies the vertex colour of world geometry drawn with
+	// DrawTrianglesOptions.Environment, before lightmaps are added. The zero
+	// value leaves colours unchanged.
+	Environment [3]float32
 }
 
 type Fog3D struct {
@@ -79,6 +83,8 @@ type DrawTrianglesOptions struct {
 	DepthWrite bool
 	DepthBias  float32
 	DisableFog bool
+	// Scale vertex colours by the camera's environment colour.
+	Environment bool
 	// Draw translucent world geometry after sprites, testing against their silhouettes.
 	AfterBillboards bool
 }
