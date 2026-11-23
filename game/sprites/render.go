@@ -114,7 +114,7 @@ type State struct {
 	WalkDistance   float64
 }
 
-func DrawFixedShadow3D(screen *render.Frame, projection scene.Projection, view *scene.SpriteView, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64) bool {
+func DrawFixedShadow3D(screen *render.Frame, projection scene.Projection, view *scene.SpriteView, worldX, worldY, worldZ, scale float64, alpha float64, shadow scene.LightTint) bool {
 	billboard, ok := FixedBillboard(view)
 	if !ok {
 		return false
@@ -122,7 +122,7 @@ func DrawFixedShadow3D(screen *render.Frame, projection scene.Projection, view *
 	return DrawShadow3D(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow)
 }
 
-func DrawShadow3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64) bool {
+func DrawShadow3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow scene.LightTint) bool {
 	if billboard == nil {
 		return false
 	}
@@ -132,7 +132,7 @@ func DrawShadow3D(screen *render.Frame, projection scene.Projection, billboard *
 	return true
 }
 
-func DrawOverlay3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA) {
+func DrawOverlay3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow scene.LightTint, tintColor color.RGBA) {
 	scene.DrawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, billboard.Image, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, &render.DrawTrianglesOptions{
 		Filter:  scene.SpriteDrawFilter(),
 		Address: render.AddressClampToZero,

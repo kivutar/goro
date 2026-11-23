@@ -17,7 +17,7 @@ type ActorBlur struct {
 	tint      color.RGBA
 }
 
-func (m *System) DrawActorBlurs(screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility, shadow float64, tint color.RGBA, now time.Time) {
+func (m *System) DrawActorBlurs(screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility float64, shadow scene.LightTint, tint color.RGBA, now time.Time) {
 	id := entry.Actor.ID
 	if scene.ActorHasStealth(entry.Actor) {
 		delete(m.ActorBlurs, id)
@@ -56,7 +56,7 @@ func (m *System) DrawActorBlurs(screen *render.Frame, projection scene.Projectio
 	}
 }
 
-func (m *System) drawActorBlur(screen *render.Frame, projection scene.Projection, blur ActorBlur, billboard *scene.Billboard, alpha, shadow float64) {
+func (m *System) drawActorBlur(screen *render.Frame, projection scene.Projection, blur ActorBlur, billboard *scene.Billboard, alpha float64, shadow scene.LightTint) {
 	if len(billboard.Parts) > 0 {
 		for _, part := range billboard.Parts {
 			m.drawActorBlur(screen, projection, blur, part, alpha, shadow)

@@ -24,7 +24,7 @@ func TestTaekwonBodyTransformsOnlyChangeRendering(t *testing.T) {
 		m := &System{}
 		m.AddAt(ctx, tc.id, actor.ID, start)
 		frame := render.NewFrame(800, 600)
-		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tc.tick)*db.EffectFrameDuration), 0)
+		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tc.tick)*db.EffectFrameDuration), 0)
 		draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if draws.Len() != 1 {
 			t.Fatalf("effect %d should transform the single body: %d draws", tc.id, draws.Len())

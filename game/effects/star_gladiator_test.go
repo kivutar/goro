@@ -23,7 +23,7 @@ func TestStarGladiatorBodyOverlays(t *testing.T) {
 		m := &System{}
 		m.AddAt(ctx, id, 2000000, start)
 		frame := render.NewFrame(800, 600)
-		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(200*db.EffectFrameDuration), 0)
+		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(200*db.EffectFrameDuration), 0)
 		draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if draws.Len() != 3 {
 			t.Fatal("native body effects need two additive copies over the ordinary sprite")

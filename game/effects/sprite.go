@@ -231,7 +231,7 @@ func (m *System) DrawSPREffect(screen *render.Frame, ctx client.Context, project
 	if component.AttachedEntity {
 		scale = scene.ActorBillboardScreenScale(projection, worldX, worldY, worldZ)
 	}
-	scene.DrawSpriteBillboardTintAlpha3D(screen, projection, billboard, worldX, worldY, z, scale, 1, 1, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	scene.DrawSpriteBillboardTintAlpha3D(screen, projection, billboard, worldX, worldY, z, scale, 1, scene.FullLight, color.RGBA{R: 255, G: 255, B: 255, A: 255})
 }
 
 const effectSpriteRoot = "data\\sprite\\이팩트\\"

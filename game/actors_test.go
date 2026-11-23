@@ -477,7 +477,7 @@ func TestStealthCancelsQueuedActionsAndHidesAttachments(t *testing.T) {
 		t.Fatal("Hiding retained a queued local action")
 	}
 	entry := scene.ActorDrawEntry{Actor: worldstate.Actor{ID: 100, EffectState: db.EffectStateHide | db.EffectStateCart1 | db.EffectStateFalcon, HasCart: true, HasCartState: true}}
-	if mode.actors().DrawActorCart3D(nil, ctx, scene.Projection{}, entry, 0, 1, 1) {
+	if mode.actors().DrawActorCart3D(nil, ctx, scene.Projection{}, entry, 0, scene.FullLight, 1) {
 		t.Fatal("hidden cart was drawn")
 	}
 	mode.actors().DrawSceneActorFalcons(nil, ctx, scene.Projection{}, []scene.ActorDrawEntry{entry})
@@ -632,7 +632,7 @@ func TestQuickenAndOverthrustAfterimages(t *testing.T) {
 		for tick := 0; tick <= 100; tick++ {
 			frame := render.NewFrame(800, 600)
 			entry.WorldX = 10.5 + float64(tick)/10
-			m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, 1, tint, render.BlendSourceOver, start.Add(time.Duration(tick)*db.EffectFrameDuration))
+			m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, tint, render.BlendSourceOver, start.Add(time.Duration(tick)*db.EffectFrameDuration))
 			if len(m.effects().ActorBlurs[entry.Actor.ID]) > 5 {
 				t.Fatal("afterimages must remain bounded during long movement")
 			}
@@ -652,7 +652,7 @@ func TestQuickenAndOverthrustAfterimages(t *testing.T) {
 		}
 		m.applyStatusEffectChange(ctx, network.StatusEffectChange{ActorID: 2000000, StatusID: status})
 		entry.Actor = ctx.World.Player
-		m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, entry, billboard, 1, 1, 1, tint, start.Add(124*db.EffectFrameDuration))
+		m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, entry, billboard, 1, 1, scene.FullLight, tint, start.Add(124*db.EffectFrameDuration))
 		if len(m.effects().ActorBlurs) != 0 {
 			t.Fatal("afterimages survived the end of the buff and fade")
 		}
@@ -677,12 +677,12 @@ func TestOverthrustAfterimageVisibilityAndRemoval(t *testing.T) {
 			e.Actor = ctx.World.Actors[300]
 			e.Actor.Opt3State = db.Opt3Overthrust
 		case "hidden":
-			m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, e, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, time.Now())
+			m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, e, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, time.Now())
 			e.Actor.EffectState = db.EffectStateHide
 		case "remote":
 			e.IsPlayer, e.Actor.Appearance = false, true
 		}
-		m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, e, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, time.Now())
+		m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, e, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, time.Now())
 		if kind == "removed" || kind == "remote" {
 			if len(m.effects().ActorBlurs) != 1 {
 				t.Fatal("visible player did not produce an afterimage")
@@ -1622,14 +1622,14 @@ func TestNinjaPosesAndMirrorImage(t *testing.T) {
 	projection := testutil.Projection(800, 600, 10, 20, 0)
 	start := time.Unix(100, 0)
 	for tick := 0; tick <= 20; tick++ {
-		m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, entry, billboard, 1, 1, 1, tint, start.Add(time.Duration(tick)*db.EffectFrameDuration))
+		m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, entry, billboard, 1, 1, scene.FullLight, tint, start.Add(time.Duration(tick)*db.EffectFrameDuration))
 	}
 	if len(m.effects().ActorBlurs[100]) != 2 {
 		t.Fatal("Mirror Image must emit every twenty ticks")
 	}
 	m.applyStatusEffectChange(ctx, network.StatusEffectChange{ActorID: 2000000, StatusID: db.StatusNjBunsinjyutsu})
 	entry.Actor = ctx.World.Player
-	m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, entry, billboard, 1, 1, 1, tint, start.Add(44*db.EffectFrameDuration))
+	m.effects().DrawActorBlurs(render.NewFrame(800, 600), projection, entry, billboard, 1, 1, scene.FullLight, tint, start.Add(44*db.EffectFrameDuration))
 	if len(m.effects().ActorBlurs) != 0 {
 		t.Fatal("Mirror Image survived status removal")
 	}
@@ -1796,7 +1796,7 @@ func TestCloseConfineBodyAndRingRendering(t *testing.T) {
 	entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 16.5, WorldY: 20.5}
 	for _, tick := range []int{0, 20, 21, 22, 59, 60, 61} {
 		frame := render.NewFrame(800, 600)
-		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, starts.Add(time.Duration(tick)*db.EffectFrameDuration))
+		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, starts.Add(time.Duration(tick)*db.EffectFrameDuration))
 		draw := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Index(0)
 		red := draw.FieldByName("ColorR").Float() > draw.FieldByName("ColorG").Float()
 		if red != (tick == 22) {
@@ -1860,8 +1860,8 @@ func TestSoulLinkerPlayerGlowsAndKaiteStatus(t *testing.T) {
 	projection := testutil.Projection(800, 600, 10.5, 20.5, 0)
 	draw := func(now time.Time) reflect.Value {
 		frame := render.NewFrame(800, 600)
-		entry := scene.ActorDrawEntry{Actor: ctx.World.Player, WorldX: 10.5, WorldY: 20.5, Scale: 1, Shadow: 1}
-		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, .5, .6, .8, color.RGBA{100, 120, 200, 200}, render.BlendSourceOver, now)
+		entry := scene.ActorDrawEntry{Actor: ctx.World.Player, WorldX: 10.5, WorldY: 20.5, Scale: 1, Shadow: scene.FullLight}
+		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, .5, .6, scene.GrayLight(.8), color.RGBA{100, 120, 200, 200}, render.BlendSourceOver, now)
 		commands := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		depthWriters := 0
 		for i := 0; i < commands.Len(); i++ {
@@ -1919,7 +1919,7 @@ func TestEskeFollowsMonsterOptionAndEndsOnClear(t *testing.T) {
 	draw := func(at time.Time) int {
 		frame := render.NewFrame(800, 600)
 		entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 18.5, WorldY: 20.5}
-		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, at)
+		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, at)
 		return reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len()
 	}
 	if draw(starts.Add(time.Second)) != 11 {
@@ -1999,7 +1999,7 @@ func TestSoulLinkAuraFollowsStatusAndKeepsPlayerColors(t *testing.T) {
 		frame := render.NewFrame(800, 600)
 		billboard := &scene.Billboard{Image: render.NewImage(64, 64), AnchorX: 32, AnchorY: 60}
 		entry := scene.ActorDrawEntry{Actor: ctx.World.Player, WorldX: 10.5, WorldY: 20.5}
-		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, testutil.Projection(800, 600, 10.5, 20.5, 0), entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Minute))
+		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, testutil.Projection(800, 600, 10.5, 20.5, 0), entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Minute))
 		commands := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if commands.Len() != 3 {
 			t.Fatalf("want body and two silhouettes, got %d", commands.Len())
@@ -3142,7 +3142,7 @@ func TestDrawActorCartShadowUsesLoadedShadowSprite(t *testing.T) {
 		WorldX:      scene.CellCenter(10),
 		WorldY:      scene.CellCenter(20),
 		Scale:       1,
-		Shadow:      1,
+		Shadow:      scene.FullLight,
 		CastShadow:  true,
 		ShadowScale: 1,
 	}
@@ -3820,7 +3820,9 @@ func TestSoulLinkAndEskeToggleLocalNightLighting(t *testing.T) {
 		t.Fatalf("night state=%t", mode.mapScene.Night)
 	}
 	lighting := mode.mapScene.Lighting(nil)
-	if lighting.Diffuse.X != 0.5 || lighting.Diffuse.Y != 0.5 || lighting.Diffuse.Z != 1 || lighting.Env.X != 0.5 || lighting.Env.Y != 0.5 || lighting.Env.Z != 1 {
+	// CWeather dims its own red and green diffuse at night; with the default
+	// 0.3 ambient that gives an environment colour of 0.65, 0.65, 1.
+	if lighting.Diffuse.X != 1 || lighting.Diffuse.Y != 1 || lighting.Diffuse.Z != 1 || math.Abs(lighting.Env.X-0.65) > 1e-9 || math.Abs(lighting.Env.Y-0.65) > 1e-9 || lighting.Env.Z != 1 {
 		t.Fatalf("night lighting = %+v", lighting)
 	}
 	night := drawColors()
@@ -3835,7 +3837,7 @@ func TestSoulLinkAndEskeToggleLocalNightLighting(t *testing.T) {
 		t.Fatal("inactive Eske did not restore day lighting")
 	}
 	lighting = mode.mapScene.Lighting(nil)
-	if lighting.Diffuse.X != 1 || lighting.Diffuse.Y != 1 || lighting.Diffuse.Z != 1 {
+	if lighting.Env.X != 1 || lighting.Env.Y != 1 || lighting.Env.Z != 1 {
 		t.Fatalf("restored lighting = %+v", lighting)
 	}
 	if restored := drawColors(); restored != day {

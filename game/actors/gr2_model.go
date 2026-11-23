@@ -37,7 +37,7 @@ func (m *System) nonPCActorHasGR2Model(ctx client.Context, actor worldstate.Acto
 	return ok && res.IsGR2ResourceName(resourceName)
 }
 
-func (m *System) drawNonPCGR2Model3D(screen *render.Frame, ctx client.Context, entry scene.ActorDrawEntry, shadow float64) bool {
+func (m *System) drawNonPCGR2Model3D(screen *render.Frame, ctx client.Context, entry scene.ActorDrawEntry, shadow scene.LightTint) bool {
 	actor := entry.Actor
 	view := m.NonPCGR2ModelView(ctx, actor)
 	if view == nil || view.geometry == nil || len(view.geometry.Vertices) == 0 {
@@ -223,7 +223,7 @@ func loadGR2ModelAnimationClips(manager *res.Manager, resourceName string, model
 	return clips, fmt.Sprintf(" clips=%d/5 bone=%d", loaded, boneType)
 }
 
-func gr2ModelVertex3D(geometry *res.GR2Geometry, index int, matrix scene.Mat4, palette []scene.Mat4, lighting maps.Lighting, tint color.RGBA, shadow, alpha float64, textureWidth, textureHeight float32) (render.Vertex3D, bool) {
+func gr2ModelVertex3D(geometry *res.GR2Geometry, index int, matrix scene.Mat4, palette []scene.Mat4, lighting maps.Lighting, tint color.RGBA, shadow scene.LightTint, alpha float64, textureWidth, textureHeight float32) (render.Vertex3D, bool) {
 	if geometry == nil || index < 0 || index >= len(geometry.Vertices) {
 		return render.Vertex3D{}, false
 	}
@@ -234,10 +234,11 @@ func gr2ModelVertex3D(geometry *res.GR2Geometry, index int, matrix scene.Mat4, p
 		normal = scene.Point3{Y: 1}
 	}
 	scale := lighting.ModelScaleNormalized(normal)
+	shadow = shadow.Clamped()
 	color := color.RGBA{
-		R: scene.ClampColor(float64(tint.R) * scale.X * shadow),
-		G: scene.ClampColor(float64(tint.G) * scale.Y * shadow),
-		B: scene.ClampColor(float64(tint.B) * scale.Z * shadow),
+		R: scene.ClampColor(float64(tint.R) * scale.X * shadow.R),
+		G: scene.ClampColor(float64(tint.G) * scale.Y * shadow.G),
+		B: scene.ClampColor(float64(tint.B) * scale.Z * shadow.B),
 		A: scene.ClampColor(float64(tint.A) * alpha),
 	}
 	return scene.TexturedSurfaceVertex3D(point, scene.UV{U: vertex.UV[0], V: vertex.UV[1]}, color, textureWidth, textureHeight), true

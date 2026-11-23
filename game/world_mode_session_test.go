@@ -1025,7 +1025,7 @@ func TestSpriteUpscalingChangesTextureWithoutMovingBillboard(t *testing.T) {
 		projection := testutil.Projection(800, 600, 10.5, 20.5, 3)
 		draw := func() reflect.Value {
 			frame := render.NewFrame(800, 600)
-			m.actors().DrawActorSpriteBillboardTintAlpha3D(frame, projection, billboard, 10.5, 20.5, 3, 1.7, 0.6, 0.8, color.RGBA{R: 90, G: 160, B: 255, A: 200}, render.BlendSourceOver)
+			m.actors().DrawActorSpriteBillboardTintAlpha3D(frame, projection, billboard, 10.5, 20.5, 3, 1.7, 0.6, scene.GrayLight(0.8), color.RGBA{R: 90, G: 160, B: 255, A: 200}, render.BlendSourceOver)
 			commands := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 			if commands.Len() != 1 {
 				t.Fatal("missing billboard command")

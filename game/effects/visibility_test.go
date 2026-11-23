@@ -25,7 +25,7 @@ func TestDisabledEffectsDoNotHideActorsOrEssentialBodyFeedback(t *testing.T) {
 	for _, id := range []int{RedBody, AsuraBody} {
 		m := &System{Active: []Instance{{EffectID: id, ActorID: entry.Actor.ID, Starts: now.Add(-time.Second)}}}
 		frame := render.NewFrame(800, 600)
-		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, now, 0)
+		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, now, 0)
 		draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if draws.Len() == 0 {
 			t.Fatal("effect toggle hid the actor")

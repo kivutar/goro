@@ -825,7 +825,7 @@ func TestAlchemistBerserkPotionAndCoupleCasting(t *testing.T) {
 	entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 20.5, WorldY: 20.5}
 	for _, tick := range []int{0, 150, 151} {
 		frame := render.NewFrame(800, 600)
-		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tick)*db.EffectFrameDuration))
+		m.actors().DrawActorSpriteWithEffects3D(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tick)*db.EffectFrameDuration))
 		draw := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Index(0)
 		green := 120.0 / 255
 		if tick == 151 {
@@ -1616,7 +1616,7 @@ func TestGunslingerAssetsAndTiming(t *testing.T) {
 		billboard := &scene.Billboard{Image: render.NewImage(10, 20)}
 		entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 20.5, WorldY: 20.5}
 		frame := render.NewFrame(800, 600)
-		m.effects().DrawActorSpriteBodyEffects3D(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, 0, start.Add(5*db.EffectFrameDuration))
+		m.effects().DrawActorSpriteBodyEffects3D(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, 0, start.Add(5*db.EffectFrameDuration))
 		if reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len() < 2 {
 			t.Fatalf("body flash %d missing", id)
 		}
@@ -2308,9 +2308,9 @@ func TestMagicCrasherBlendReachesActorDraws(t *testing.T) {
 					var drawn bool
 					if local {
 						entry.Actor = world.Player
-						drawn = mode.actors().DrawPlayerSprite3D(ctx, frame, projection, entry, 0, 0, 1, 1)
+						drawn = mode.actors().DrawPlayerSprite3D(ctx, frame, projection, entry, 0, 0, scene.FullLight, 1)
 					} else {
-						drawn = mode.actors().DrawNonPCSprite3D(frame, ctx, projection, entry, 0, 1)
+						drawn = mode.actors().DrawNonPCSprite3D(frame, ctx, projection, entry, 0, scene.FullLight)
 					}
 					commands := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 					if !drawn || commands.Len() != 1 {

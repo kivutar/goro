@@ -34,7 +34,7 @@ func TestClownGypsyBodyEffectRendering(t *testing.T) {
 		frame := render.NewFrame(800, 600)
 		billboard := &scene.Billboard{Image: render.NewImage(10, 20), AnchorX: 5, AnchorY: 20}
 		entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 20.5, WorldY: 20.5}
-		m.DrawActor(ctx, frame, testutil.Projection(800, 600, 15, 20, 0), entry, billboard, 1, 1, 1,
+		m.DrawActor(ctx, frame, testutil.Projection(800, 600, 15, 20, 0), entry, billboard, 1, 1, scene.FullLight,
 			color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tc.frame)*db.EffectFrameDuration), 0)
 		draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if draws.Len() != tc.copies {
@@ -76,7 +76,7 @@ func TestClownGypsyRecoveryPreservesStatusTint(t *testing.T) {
 			entry.Actor.BodyState, entry.Actor.HealthState = tc.body, tc.health
 			frame := render.NewFrame(800, 600)
 			billboard := &scene.Billboard{Image: render.NewImage(10, 20), AnchorX: 5, AnchorY: 20}
-			m.DrawActor(ctx, frame, testutil.Projection(800, 600, 15, 20, 0), entry, billboard, 1, 1, 1,
+			m.DrawActor(ctx, frame, testutil.Projection(800, 600, 15, 20, 0), entry, billboard, 1, 1, scene.FullLight,
 				base, render.BlendSourceOver, start.Add(40*db.EffectFrameDuration), 0)
 			draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 			body := draws.Index(draws.Len() - 1)

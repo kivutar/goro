@@ -186,7 +186,7 @@ func TestAnimatedRSMPlacementClearsScratchBatches(t *testing.T) {
 	screen := render.NewFrame(320, 240)
 	screen.BeginFrame()
 
-	world.DrawAnimatedRSMPlacement(screen, nil, &res.RSW{}, rsm, ModelPlacement{
+	world.DrawAnimatedRSMPlacement(screen, nil, &res.RSW{}, nil, rsm, ModelPlacement{
 		Index: 3,
 		Model: res.RSWModel{Scale: res.RSWVector3{X: 1, Y: 1, Z: 1}},
 	}, 0)
@@ -266,37 +266,112 @@ func TestRSMInstanceMatrixMirrorsVerticalBasisRotations(t *testing.T) {
 	}
 }
 
-func TestRSMFaceColorShadeNoneUsesDefaultModelNormal(t *testing.T) {
-	lighting := Lighting{
-		direction: scene.Point3{Y: -1},
-		Diffuse:   scene.Point3{X: 1, Y: 1, Z: 1},
-		Env:       scene.Point3{X: 1, Y: 1, Z: 1},
+func testRSMFaceLightModel(shadeType int32) *res.RSM {
+	return &res.RSM{
+		VersionMajor: 1,
+		VersionMinor: 4,
+		ShadeType:    shadeType,
+		MainNodeName: "root",
+		Nodes: []res.RSMNode{{
+			Name:     "root",
+			Matrix:   identityRSMMatrix(),
+			Scale:    res.RSMVector3{X: 1, Y: 1, Z: 1},
+			Vertices: []res.RSMVector3{{}, {X: 1}, {Z: 1}},
+			TextureVertices: []res.RSMTextureVertex{
+				{}, {}, {}, {Color: [4]float32{1, 1, 1, 1}},
+			},
+			Faces: []res.RSMFace{
+				{VertexIndices: [3]uint16{0, 1, 2}},
+				{VertexIndices: [3]uint16{0, 2, 1}},
+				{VertexIndices: [3]uint16{0, 1, 2}, TextureVertexIndices: [3]uint16{3, 3, 3}},
+			},
+		}},
 	}
-	triangleNormalWouldFaceAway := [3]scene.Point3{
-		{},
-		{X: 1},
-		{Z: -1},
-	}
+}
 
-	got := rsmFaceColor(&res.RSM{ShadeType: 0}, "model.bmp",
-		triangleNormalWouldFaceAway[0],
-		triangleNormalWouldFaceAway[1],
-		triangleNormalWouldFaceAway[2],
-		lighting,
-	)
-	want := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	if got != want {
-		t.Fatalf("shade-none face color = %#v, want %#v", got, want)
+func testRSMFaceLights(t *testing.T, rsm *res.RSM, gnd *res.GND) [][3]color.RGBA {
+	t.Helper()
+	// Light from straight above: ambient 0.2, diffuse 0.5.
+	rsw := &res.RSW{Light: res.RSWLight{Diffuse: [3]float32{0.5, 0.5, 0.5}, Ambient: [3]float32{0.2, 0.2, 0.2}}}
+	m := &System{}
+	visible := ModelPlacement{Model: res.RSWModel{Scale: res.RSWVector3{X: 1, Y: 1, Z: 1}}, BaseX: 4, BaseY: 4}
+	context, ok := m.rsmPlacementContext(rsm, rsw, visible)
+	if !ok {
+		t.Fatal("no placement context")
 	}
+	return m.rsmPlacementFaceLights(rsm, &rsm.Nodes[0], context, visible, gnd)
+}
 
-	flat := rsmFaceColor(&res.RSM{ShadeType: 1}, "model.bmp",
-		triangleNormalWouldFaceAway[0],
-		triangleNormalWouldFaceAway[1],
-		triangleNormalWouldFaceAway[2],
-		lighting,
-	)
-	if flat == want {
-		t.Fatalf("flat-shaded face unexpectedly matched shade-none color %#v", flat)
+func TestRSMFaceLightsShadeNoneIsUnlit(t *testing.T) {
+	lights := testRSMFaceLights(t, testRSMFaceLightModel(rsmShadeNone), nil)
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	for i, face := range lights {
+		for k, got := range face {
+			if got != white {
+				t.Fatalf("face %d corner %d = %+v, want unlit white", i, k, got)
+			}
+		}
+	}
+}
+
+func TestRSMFaceLightsFlatShadingLightsFrontFacesOnly(t *testing.T) {
+	lights := testRSMFaceLights(t, testRSMFaceLightModel(rsmShadeFlat), nil)
+	litLevel, ambientLevel := 0.7, 0.2
+	lit, ambient := uint8(litLevel*255), uint8(ambientLevel*255)
+	front, back := lights[0][0].R, lights[1][0].R
+	if !(front == lit && back == ambient) && !(front == ambient && back == lit) {
+		t.Fatalf("opposite faces = %d and %d, want %d and %d", front, back, lit, ambient)
+	}
+	for _, face := range lights[:2] {
+		if face[0] != face[1] || face[0] != face[2] {
+			t.Fatalf("flat face corners differ: %+v", face)
+		}
+	}
+	// Coloured texture vertices use a 128 scale (C3dNode::UpdateVertexColor).
+	want := uint8(ambientLevel * 128)
+	if front == lit {
+		want = uint8(litLevel * 128)
+	}
+	if got := lights[2][0].R; got != want {
+		t.Fatalf("coloured texture vertex = %d, want %d", got, want)
+	}
+}
+
+func TestRSMFaceLightsSmoothShadingAveragesSmoothingGroup(t *testing.T) {
+	rsm := testRSMFaceLightModel(rsmShadeSmooth)
+	node := &rsm.Nodes[0]
+	node.Vertices = []res.RSMVector3{{}, {X: 1}, {Z: 1}, {X: 1, Y: 1, Z: 1}}
+	node.Faces = []res.RSMFace{
+		{VertexIndices: [3]uint16{0, 1, 2}},
+		{VertexIndices: [3]uint16{1, 3, 2}},
+	}
+	lights := testRSMFaceLights(t, rsm, nil)
+	if lights[0][0] == lights[0][1] {
+		t.Fatalf("shared vertex took the flat face colour: %+v", lights[0])
+	}
+	if lights[0][1] != lights[1][0] || lights[0][2] != lights[1][2] {
+		t.Fatalf("shared vertices differ between faces: %+v %+v", lights[0], lights[1])
+	}
+}
+
+func TestRSMFaceLightsAddGroundCellColour(t *testing.T) {
+	var lightmap res.GNDLightmap
+	lightmap.Color[4][4] = color.RGBA{R: 20, G: 200, B: 0, A: 255}
+	gnd := &res.GND{Width: 8, Height: 8, Lightmaps: []res.GNDLightmap{lightmap}, Surfaces: []res.GNDSurface{{LightmapID: 0}}, Cells: make([]res.GNDCell, 64)}
+	for i := range gnd.Cells {
+		gnd.Cells[i].Front, gnd.Cells[i].Right = -1, -1
+	}
+	unlit := testRSMFaceLights(t, testRSMFaceLightModel(rsmShadeNone), gnd)
+	if got := unlit[0][0]; got != (color.RGBA{R: 255, G: 255, B: 255, A: 255}) {
+		t.Fatalf("unlit model with ground colour = %+v, want white", got)
+	}
+	plain := testRSMFaceLights(t, testRSMFaceLightModel(rsmShadeFlat), nil)
+	tinted := testRSMFaceLights(t, testRSMFaceLightModel(rsmShadeFlat), gnd)
+	for k := range tinted[1] {
+		want := color.RGBA{R: plain[1][k].R + 40, G: 255, B: plain[1][k].B, A: 255}
+		if tinted[1][k] != want {
+			t.Fatalf("corner %d = %+v, want %+v", k, tinted[1][k], want)
+		}
 	}
 }
 
@@ -398,14 +473,11 @@ func TestAnimatedRSMNodeMatricesRetainsOnlyLatestFramePerModel(t *testing.T) {
 	}
 }
 
-func TestRSMFaceColorUsesModelAlpha(t *testing.T) {
-	got := rsmFaceColor(&res.RSM{ShadeType: 0, Alpha: 0.5}, "model.bmp",
-		scene.Point3{X: 0, Y: 0, Z: 0},
-		scene.Point3{X: 1, Y: 0, Z: 0},
-		scene.Point3{X: 0, Y: 0, Z: 1},
-		Lighting{})
-	if got.A < 126 || got.A > 129 {
-		t.Fatalf("alpha = %d, want about 128", got.A)
+func TestRSMFaceLightsUseModelAlpha(t *testing.T) {
+	rsm := testRSMFaceLightModel(rsmShadeNone)
+	rsm.Alpha = 0.5
+	if got := testRSMFaceLights(t, rsm, nil)[0][0].A; got < 126 || got > 129 {
+		t.Fatalf("alpha = %d, want about 128", got)
 	}
 }
 

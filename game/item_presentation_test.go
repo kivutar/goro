@@ -151,7 +151,7 @@ func TestDrawGroundItemShadowUsesSharedOriginalShadowSprite(t *testing.T) {
 		worldY:      scene.CellCenter(20),
 		groundZ:     0,
 		shadowScale: groundItemShadowScale,
-		shadow:      1,
+		shadow:      scene.FullLight,
 	}
 	projection := testutil.Projection(800, 600, entry.worldX, entry.worldY, 0)
 	frame := render.NewFrame(800, 600)

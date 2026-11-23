@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"image/color"
+
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
@@ -21,7 +23,7 @@ func GNDWithTopHeights(width, height int, fn func(x, y int) [4]float32) *res.GND
 		Width:    width,
 		Height:   height,
 		Cells:    make([]res.GNDCell, width*height),
-		Surfaces: []res.GNDSurface{{TextureID: 0, LightmapID: -1}},
+		Surfaces: []res.GNDSurface{{TextureID: 0, LightmapID: -1, Color: color.RGBA{R: 255, G: 255, B: 255, A: 255}}},
 	}
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {

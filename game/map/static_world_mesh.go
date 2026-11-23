@@ -139,7 +139,7 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 		m.WhitePixel.Fill(color.White)
 	}
 	lighting := m.Lighting(rsw)
-	topNormals := m.smoothGNDTopNormals(gnd)
+	cellLights := m.gndCellLights(gnd, rsw)
 	builders := make(map[retainedMeshKey]*retainedMeshBuilder)
 	builderFor := func(texture, lightTexture *render.Image, options *render.DrawTrianglesOptions) *retainedMeshBuilder {
 		if texture == nil || options == nil {
@@ -179,9 +179,9 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 			scene.ColoredSurfaceVertex3D(verts[3], 0, 1, tints[3]),
 		}, indices)
 	}
-	addLightmapped := func(texture *render.Image, verts [4]scene.Point3, uvs [4]scene.UV, baseTints [4]color.RGBA, lightmapID int, lightmap res.GNDLightmap, lightScales [4]scene.Point3) {
+	addLightmapped := func(texture *render.Image, verts [4]scene.Point3, uvs [4]scene.UV, tints [4]color.RGBA, lightmapID int) {
 		if texture == nil || lightmapAtlas.image == nil {
-			addTextured(texture, verts, uvs, scene.QuadIndices012023, scaleSurfaceVertexTints(baseTints, lightScales), groundTextureDrawOptions())
+			addTextured(texture, verts, uvs, scene.QuadIndices012023, tints, groundTextureDrawOptions())
 			return
 		}
 		textureBounds := texture.Bounds()
@@ -195,17 +195,19 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 		lightUVs := lightmapAtlas.uvs(lightmapID)
 		var vertices [4]render.Vertex3D
 		for i := range vertices {
-			base := baseTints[i]
-			lightScale := lightScales[i]
-			tint := color.RGBA{
-				R: scene.ClampColor(float64(base.R) * lightScale.X),
-				G: scene.ClampColor(float64(base.G) * lightScale.Y),
-				B: scene.ClampColor(float64(base.B) * lightScale.Z),
-				A: base.A,
-			}
-			vertices[i] = lightmappedSurfaceVertex3D(verts[i], uvs[i], lightUVs[i], tint, textureWidth, textureHeight)
+			vertices[i] = lightmappedSurfaceVertex3D(verts[i], uvs[i], lightUVs[i], tints[i], textureWidth, textureHeight)
 		}
 		builder.addQuad(vertices, scene.QuadIndices012023)
+	}
+
+	// Side surfaces are lightmapped like top surfaces (C3dGround15::AssignGnd).
+	addSideSurface := func(surface res.GNDSurface, vertexOrder [4]int, verts [4]scene.Point3, tints [4]color.RGBA) {
+		texture := m.groundTexture(manager, gndTextureName(gnd, surface.TextureID))
+		if _, ok := gnd.Lightmap(surface.LightmapID); ok && texture != nil {
+			addLightmapped(texture, verts, surfaceUVs(surface, vertexOrder), tints, surface.LightmapID)
+			return
+		}
+		addGNDRetainedSurface(m, manager, gnd, surface, vertexOrder, verts, tints, addTextured, addColored)
 	}
 
 	for y := startY; y <= endY; y++ {
@@ -224,16 +226,15 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 						{X: float64(x) * 2, Y: float64(cell.Heights[2]), Z: float64(y+1) * 2},
 					}
 					uvs := surfaceUVs(surface, vertexOrder)
-					baseTints := topGNDSurfaceBaseTints(gnd, x, y, surface.Color)
-					normals := gndTopNormalsAt(topNormals, gnd, x, y)
+					tints := gndEnvTints(lighting, gndCellLightAt(cellLights, gnd, x, y).topGoro())
 					if texture := m.groundTexture(manager, gndTextureName(gnd, surface.TextureID)); texture != nil {
-						if lightmap, ok := gnd.Lightmap(surface.LightmapID); ok {
-							addLightmapped(texture, verts, uvs, baseTints, surface.LightmapID, lightmap, vertexLightScales(lighting, normals))
+						if _, ok := gnd.Lightmap(surface.LightmapID); ok {
+							addLightmapped(texture, verts, uvs, tints, surface.LightmapID)
 						} else {
-							addTextured(texture, verts, uvs, scene.QuadIndices012023, surfaceVertexTints(baseTints, cell.Heights, normals, lighting), groundTextureDrawOptions())
+							addTextured(texture, verts, uvs, scene.QuadIndices012023, tints, groundTextureDrawOptions())
 						}
 					} else {
-						addColored(verts, scene.QuadIndices012023, groundSurfaceVertexColors(gndTextureName(gnd, surface.TextureID), surface.Color, cell.Heights, normals, lighting), WorldOpaqueTriangleDrawOptions(render.FilterNearest, render.AddressUnsafe))
+						addColored(verts, scene.QuadIndices012023, untexturedGroundColors(gndTextureName(gnd, surface.TextureID), tints), WorldOpaqueTriangleDrawOptions(render.FilterNearest, render.AddressUnsafe))
 					}
 				}
 			}
@@ -248,9 +249,8 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 						{X: float64(x+1) * 2, Y: float64(neighbor.Heights[1]), Z: float64(y+1) * 2},
 						{X: float64(x) * 2, Y: float64(neighbor.Heights[0]), Z: float64(y+1) * 2},
 					}
-					heights := [4]float32{cell.Heights[2], cell.Heights[3], neighbor.Heights[1], neighbor.Heights[0]}
-					normals := uniformGNDNormals(scene.Point3{Z: 1})
-					addGNDRetainedSurface(m, manager, gnd, surface, vertexOrder, verts, heights, normals, lighting, addTextured, addColored)
+					tints := gndEnvTints(lighting, gndCellLightAt(cellLights, gnd, x, y).frontGoro())
+					addSideSurface(surface, vertexOrder, verts, tints)
 				}
 			}
 			if cell.Right >= 0 && x+1 < gnd.Width {
@@ -264,9 +264,8 @@ func (m *System) buildGNDMeshChunk(manager *res.Manager, gnd *res.GND, rsw *res.
 						{X: float64(x+1) * 2, Y: float64(neighbor.Heights[0]), Z: float64(y) * 2},
 						{X: float64(x+1) * 2, Y: float64(neighbor.Heights[2]), Z: float64(y+1) * 2},
 					}
-					heights := [4]float32{cell.Heights[3], cell.Heights[1], neighbor.Heights[0], neighbor.Heights[2]}
-					normals := uniformGNDNormals(scene.Point3{X: 1})
-					addGNDRetainedSurface(m, manager, gnd, surface, vertexOrder, verts, heights, normals, lighting, addTextured, addColored)
+					tints := gndEnvTints(lighting, gndCellLightAt(cellLights, gnd, x, y).rightGoro())
+					addSideSurface(surface, vertexOrder, verts, tints)
 				}
 			}
 		}
@@ -349,15 +348,38 @@ func lightmappedSurfaceVertex3D(point scene.Point3, uv scene.UV, lightUV scene.U
 	return vertex
 }
 
-func addGNDRetainedSurface(m *System, manager *res.Manager, gnd *res.GND, surface res.GNDSurface, vertexOrder [4]int, verts [4]scene.Point3, heights [4]float32, normals [4]scene.Point3, lighting Lighting, addTextured func(*render.Image, [4]scene.Point3, [4]scene.UV, []uint16, [4]color.RGBA, *render.DrawTrianglesOptions), addColored func([4]scene.Point3, []uint16, [4]color.RGBA, *render.DrawTrianglesOptions)) {
-	baseTints := uniformGNDSurfaceBaseTints(surface.Color)
+func addGNDRetainedSurface(m *System, manager *res.Manager, gnd *res.GND, surface res.GNDSurface, vertexOrder [4]int, verts [4]scene.Point3, tints [4]color.RGBA, addTextured func(*render.Image, [4]scene.Point3, [4]scene.UV, []uint16, [4]color.RGBA, *render.DrawTrianglesOptions), addColored func([4]scene.Point3, []uint16, [4]color.RGBA, *render.DrawTrianglesOptions)) {
 	uvs := surfaceUVs(surface, vertexOrder)
 	textureName := gndTextureName(gnd, surface.TextureID)
 	if texture := m.groundTexture(manager, textureName); texture != nil {
-		addTextured(texture, verts, uvs, scene.QuadIndices012023, surfaceVertexTints(baseTints, heights, normals, lighting), groundTextureDrawOptions())
+		addTextured(texture, verts, uvs, scene.QuadIndices012023, tints, groundTextureDrawOptions())
 		return
 	}
-	addColored(verts, scene.QuadIndices012023, groundSurfaceVertexColors(textureName, surface.Color, heights, normals, lighting), WorldOpaqueTriangleDrawOptions(render.FilterNearest, render.AddressUnsafe))
+	addColored(verts, scene.QuadIndices012023, untexturedGroundColors(textureName, tints), WorldOpaqueTriangleDrawOptions(render.FilterNearest, render.AddressUnsafe))
+}
+
+// gndEnvTints applies the environment colour at draw time (C3dGround15::RenderNew).
+func gndEnvTints(lighting Lighting, colors [4]color.RGBA) [4]color.RGBA {
+	for i := range colors {
+		colors[i] = lighting.applyEnv(colors[i])
+	}
+	return colors
+}
+
+// untexturedGroundColors shades a placeholder colour for surfaces whose
+// texture failed to load.
+func untexturedGroundColors(textureName string, tints [4]color.RGBA) [4]color.RGBA {
+	base := textureColor(textureName)
+	var colors [4]color.RGBA
+	for i, tint := range tints {
+		colors[i] = color.RGBA{
+			R: uint8(uint16(base.R) * uint16(tint.R) / 255),
+			G: uint8(uint16(base.G) * uint16(tint.G) / 255),
+			B: uint8(uint16(base.B) * uint16(tint.B) / 255),
+			A: 255,
+		}
+	}
+	return colors
 }
 
 // Use the draw-time loaders, preserving resource lookup and transparency rules.

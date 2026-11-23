@@ -67,11 +67,11 @@ func ActorSpriteWorldZ(terrainZ float64) float64 {
 	return terrainZ + actorSpriteTerrainLift
 }
 
-func DrawSpriteBillboardTintAlpha3D(screen *render.Frame, projection Projection, billboard *Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA) {
-	DrawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, billboard.Image, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, SpriteBillboardTriangleDrawOptions())
+func DrawSpriteBillboardTintAlpha3D(screen *render.Frame, projection Projection, billboard *Billboard, worldX, worldY, worldZ, scale float64, alpha float64, light LightTint, tintColor color.RGBA) {
+	DrawSpriteBillboardTintAlpha3DWithOptions(screen, projection, billboard, billboard.Image, worldX, worldY, worldZ, scale, alpha, light, tintColor, SpriteBillboardTriangleDrawOptions())
 }
 
-func DrawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection Projection, billboard *Billboard, texture *render.Image, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, options *render.DrawTrianglesOptions) {
+func DrawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection Projection, billboard *Billboard, texture *render.Image, worldX, worldY, worldZ, scale float64, alpha float64, light LightTint, tintColor color.RGBA, options *render.DrawTrianglesOptions) {
 	if scale <= 0 || math.IsNaN(scale) || math.IsInf(scale, 0) {
 		scale = 1
 	}
@@ -81,15 +81,10 @@ func DrawSpriteBillboardTintAlpha3DWithOptions(screen *render.Frame, projection 
 	if alpha > 1 || math.IsInf(alpha, 0) {
 		alpha = 1
 	}
-	if shadow < 0 || math.IsNaN(shadow) {
-		shadow = 0
-	}
-	if shadow > 1 || math.IsInf(shadow, 0) {
-		shadow = 1
-	}
-	tintR := float64(tintColor.R) / 255 * shadow
-	tintG := float64(tintColor.G) / 255 * shadow
-	tintB := float64(tintColor.B) / 255 * shadow
+	light = light.Clamped()
+	tintR := float64(tintColor.R) / 255 * light.R
+	tintG := float64(tintColor.G) / 255 * light.G
+	tintB := float64(tintColor.B) / 255 * light.B
 	tintA := float64(tintColor.A) / 255 * alpha
 	right, up, unitsPerPixel, ok := projection.BillboardBasis(worldX, worldY, worldZ)
 	if !ok {

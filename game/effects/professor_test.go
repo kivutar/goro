@@ -41,7 +41,7 @@ func TestProfessorBodyLayers(t *testing.T) {
 			frame := render.NewFrame(800, 600)
 			entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 20.5, WorldY: 20.5}
 			billboard := &scene.Billboard{Image: image, AnchorX: 6, AnchorY: 24, LayerGroup: layer}
-			m.DrawActor(ctx, frame, testutil.Projection(800, 600, 20.5, 20.5, 0), entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tc.tick)*db.EffectFrameDuration), 0)
+			m.DrawActor(ctx, frame, testutil.Projection(800, 600, 20.5, 20.5, 0), entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tc.tick)*db.EffectFrameDuration), 0)
 			draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 			want, blend := tc.draws, tc.blend
 			if layer != 0 {

@@ -490,17 +490,17 @@ func (m *System) DrawDamageFloaters(screen *render.Frame, ctx client.Context, pr
 		screenScale := scene.ActorBillboardScreenScale(projection, worldX, worldY, terrainZ)
 		if floater.Kind == FloaterMiss {
 			if billboard, ok := m.damageMessageBillboard(ctx, 0, 0); ok {
-				sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, terrainZ+zLift, screenScale*scale, alpha, 1, floaterColor)
+				sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, terrainZ+zLift, screenScale*scale, alpha, scene.FullLight, floaterColor)
 				continue
 			}
 		}
 		if floater.Kind == FloaterCritical {
 			if billboard, ok := m.damageMessageBillboard(ctx, 2, 0); ok {
-				sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, terrainZ+zLift+0.05, screenScale*scale*0.6, alpha, 1, color.RGBA{R: 168, G: 168, B: 168, A: 255})
+				sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, terrainZ+zLift+0.05, screenScale*scale*0.6, alpha, scene.FullLight, color.RGBA{R: 168, G: 168, B: 168, A: 255})
 			}
 		}
 		if billboard, ok := m.DamageNumberBillboard(ctx, floater.Text); ok {
-			sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, terrainZ+zLift, screenScale*scale, alpha, 1, floaterColor)
+			sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, terrainZ+zLift, screenScale*scale, alpha, scene.FullLight, floaterColor)
 			continue
 		}
 		point := projection.Project(worldX, worldY, terrainZ+zLift)

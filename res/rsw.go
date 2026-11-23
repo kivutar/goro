@@ -171,6 +171,12 @@ func ParseRSW(data []byte) (*RSW, error) {
 		if rsw.versionAtLeast(1, 7) {
 			rsw.Light.Opacity = reader.f32()
 		}
+	} else {
+		// C3dWorldRes::Load's defaults for files without light fields.
+		rsw.Light.Longitude = 45
+		rsw.Light.Latitude = 45
+		rsw.Light.Diffuse = [3]float32{1, 1, 1}
+		rsw.Light.Ambient = [3]float32{0.3, 0.3, 0.3}
 	}
 
 	if rsw.versionAtLeast(1, 6) {

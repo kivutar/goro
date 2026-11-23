@@ -231,7 +231,7 @@ func (m *System) DrawSkillUnitRSMModels(screen *render.Frame, ctx client.Context
 		}
 		placement := skillUnitRSMPlacement(ctx.World, id, unit)
 		frame, _ := SkillUnitRSMFrame(rsm, placement.Model, unit, now)
-		m.bindings.Map.DrawAnimatedRSMPlacement(screen, ctx.Resources, ctx.World.RSW, rsm, placement, frame)
+		m.bindings.Map.DrawAnimatedRSMPlacement(screen, ctx.Resources, ctx.World.RSW, ctx.World.GND, rsm, placement, frame)
 	}
 }
 

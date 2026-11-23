@@ -32,7 +32,7 @@ type sceneItemDrawEntry struct {
 	worldZ      float64
 	groundZ     float64
 	scale       float64
-	shadow      float64
+	shadow      scene.LightTint
 	shadowScale float64
 	shadowDepth float64
 	depth       float64
@@ -416,7 +416,7 @@ func groundItemShadowBillboard(billboard *scene.Billboard) *scene.Billboard {
 
 func (m *WorldMode) drawGroundItemEntry3D(screen *render.Frame, projection scene.Projection, entry sceneItemDrawEntry) {
 	if entry.billboard != nil {
-		m.actors().DrawSpriteBillboardAlpha3D(screen, projection, entry.billboard, entry.worldX, entry.worldY, entry.worldZ, entry.scale, 1, 1)
+		m.actors().DrawSpriteBillboardAlpha3D(screen, projection, entry.billboard, entry.worldX, entry.worldY, entry.worldZ, entry.scale, 1, entry.shadow)
 		return
 	}
 	m.drawFallbackGroundItemMarker(screen, entry)

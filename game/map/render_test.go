@@ -36,17 +36,17 @@ func TestWorldSceneClearColorMatchesReferenceDefaults(t *testing.T) {
 	}
 }
 
-func TestSceneLightingFromRSWMatchesReferenceDirection(t *testing.T) {
+func TestSceneLightingFromRSWMatchesClassicDirection(t *testing.T) {
+	// C3dWorldRes::Load rotates (0, 1, 0) about X by the latitude, then about
+	// Y by the longitude; Goro mirrors the Y axis.
 	lighting := sceneLightingFromRSW(&res.RSW{Light: res.RSWLight{
-		Longitude: 0,
+		Longitude: 90,
 		Latitude:  45,
 		Diffuse:   [3]float32{1, 1, 1},
 		Opacity:   1,
 	}})
-	want := scene.Point3{X: -math.Sqrt2 / 2, Y: -math.Sqrt2 / 2, Z: 0}
-	if math.Abs(lighting.direction.X-want.X) > 0.0001 ||
-		math.Abs(lighting.direction.Y-want.Y) > 0.0001 ||
-		math.Abs(lighting.direction.Z-want.Z) > 0.0001 {
+	want := scene.Point3{X: math.Sqrt2 / 2, Y: -math.Sqrt2 / 2, Z: 0}
+	if !testutil.ModelPointNear(lighting.direction, want, 0.0001) {
 		t.Fatalf("light direction = %+v, want %+v", lighting.direction, want)
 	}
 }
@@ -86,37 +86,53 @@ func TestSceneLightingModelScaleUsesReferenceMinimumLightWeight(t *testing.T) {
 	}
 }
 
-func TestSceneLightingScaleClampsLightBeforeEnvLikeRobrowser(t *testing.T) {
+func TestLightingLitClampsEachChannelAndIgnoresBackFaces(t *testing.T) {
 	lighting := Lighting{
 		direction: scene.Point3{Y: -1},
-		Diffuse:   scene.Point3{X: 0.8, Y: 0.8, Z: 0.8},
-		ambient:   scene.Point3{X: 0.8, Y: 0.8, Z: 0.8},
-		Env:       scene.Point3{X: 0.5, Y: 0.5, Z: 0.5},
+		Diffuse:   scene.Point3{X: 0.8, Y: 0.4, Z: 0.1},
+		ambient:   scene.Point3{X: 0.8, Y: 0.2, Z: 0.1},
+		Env:       scene.Point3{X: 1, Y: 1, Z: 1},
 	}
-	got := lighting.groundScale(scene.Point3{Y: -1})
-	want := scene.Point3{X: 0.5, Y: 0.5, Z: 0.5}
-	if got != want {
-		t.Fatalf("ground scale = %+v, want %+v", got, want)
+	if got, want := lighting.lit(scene.Point3{Y: -1}), (scene.Point3{X: 1, Y: 0.2 + 0.4, Z: 0.2}); !testutil.ModelPointNear(got, want, 1e-9) {
+		t.Fatalf("lit front = %+v, want %+v", got, want)
+	}
+	if got, want := lighting.lit(scene.Point3{Y: 1}), lighting.ambient; got != want {
+		t.Fatalf("lit back = %+v, want ambient %+v", got, want)
 	}
 }
 
-func TestSmoothGNDTopNormalsKeepsFlatTilesUniform(t *testing.T) {
-	gnd := testutil.GNDWithTopHeights(2, 2, func(_, _ int) [4]float32 {
+func TestLightingNightLowersOnlyEnvironment(t *testing.T) {
+	m := &System{Night: true}
+	rsw := &res.RSW{Light: res.RSWLight{Longitude: 45, Latitude: 45, Diffuse: [3]float32{1, 1, 1}, Ambient: [3]float32{0.2, 0.2, 0.2}}}
+	lighting := m.Lighting(rsw)
+	if lighting.Diffuse != (scene.Point3{X: 1, Y: 1, Z: 1}) {
+		t.Fatalf("night diffuse = %+v, want map diffuse", lighting.Diffuse)
+	}
+	// CWeather: 1 - (1 - 0.5) * (1 - ambient) for red and green.
+	want := scene.Point3{X: 0.6, Y: 0.6, Z: 1}
+	if !testutil.ModelPointNear(lighting.Env, want, 1e-6) {
+		t.Fatalf("night env = %+v, want %+v", lighting.Env, want)
+	}
+}
+
+func TestGNDCellLightsKeepFlatTilesUniform(t *testing.T) {
+	gnd := testutil.GNDWithTopHeights(3, 3, func(_, _ int) [4]float32 {
 		return [4]float32{0, 0, 0, 0}
 	})
-	normals := buildSmoothGNDTopNormals(gnd)
-	if len(normals) != 4 {
-		t.Fatalf("normal count = %d, want 4", len(normals))
-	}
-	center := normals[0]
-	for i := 1; i < 4; i++ {
-		if !testutil.ModelPointNear(center[0], center[i], 0.0001) {
-			t.Fatalf("flat tile normals differ: %v vs %v", center[0], center[i])
+	lighting := sceneLightingFromRSW(&res.RSW{Light: res.RSWLight{Longitude: 45, Latitude: 30, Diffuse: [3]float32{0.5, 0.5, 0.5}, Ambient: [3]float32{0.3, 0.3, 0.3}}})
+	lights := buildGNDCellLights(gnd, lighting)
+	center := lights[1+1*gnd.Width].top
+	// Flat ground faces (0, 1, 0) in classic space: ambient + cos(latitude) * diffuse.
+	value := uint8(255 * (0.3 + math.Cos(math.Pi/6)*0.5))
+	want := color.RGBA{R: value, G: value, B: value, A: 255}
+	for k, got := range center {
+		if got != want {
+			t.Fatalf("flat vertex %d = %+v, want %+v", k, got, want)
 		}
 	}
 }
 
-func TestSmoothGNDTopNormalsVariesSlopedTileCorners(t *testing.T) {
+func TestGNDCellLightsVarySlopedTileCorners(t *testing.T) {
 	gnd := testutil.GNDWithTopHeights(3, 3, func(x, y int) [4]float32 {
 		return [4]float32{
 			float32(x*y + y),
@@ -125,50 +141,18 @@ func TestSmoothGNDTopNormalsVariesSlopedTileCorners(t *testing.T) {
 			float32(x*x + y*y + x*y + 7),
 		}
 	})
-	normals := buildSmoothGNDTopNormals(gnd)
-	tile := normals[1+1*gnd.Width]
-	same := true
-	for i := 1; i < 4; i++ {
-		if !testutil.ModelPointNear(tile[0], tile[i], 0.0001) {
-			same = false
-		}
-	}
-	if same {
-		t.Fatalf("sloped tile normals are all equal: %+v", tile)
+	lighting := sceneLightingFromRSW(&res.RSW{Light: res.RSWLight{Longitude: 45, Latitude: 45, Diffuse: [3]float32{1, 1, 1}}})
+	tile := buildGNDCellLights(gnd, lighting)[1+1*gnd.Width].top
+	if tile[0] == tile[1] && tile[0] == tile[2] && tile[0] == tile[3] {
+		t.Fatalf("sloped tile vertex colours are all equal: %+v", tile)
 	}
 }
 
-func TestSurfaceVertexTintsUsePerVertexNormals(t *testing.T) {
-	lighting := sceneLightingFromRSW(&res.RSW{Light: res.RSWLight{
-		Longitude: 45,
-		Latitude:  45,
-		Diffuse:   [3]float32{1, 1, 1},
-		Ambient:   [3]float32{0, 0, 0},
-		Opacity:   1,
-	}})
-	tints := surfaceVertexTints(uniformGNDSurfaceBaseTints(color.RGBA{}), [4]float32{}, [4]scene.Point3{
-		{X: -0.5, Y: -math.Sqrt2 / 2, Z: -0.5},
-		{X: 0.5, Y: -math.Sqrt2 / 2, Z: -0.5},
-		{X: 0.5, Y: -math.Sqrt2 / 2, Z: 0.5},
-		{X: -0.5, Y: -math.Sqrt2 / 2, Z: 0.5},
-	}, lighting)
-	if tints[0] == tints[1] && tints[0] == tints[2] && tints[0] == tints[3] {
-		t.Fatalf("vertex tints are uniform: %+v", tints)
-	}
-}
-
-func TestPosterizeGNDLightmapColorUsesReferenceClientBuckets(t *testing.T) {
-	got := posterizeGNDLightmapColor(color.RGBA{R: 15, G: 31, B: 255, A: 77})
-	want := color.RGBA{R: 0, G: 16, B: 240, A: 77}
-	if got != want {
-		t.Fatalf("posterized lightmap color = %+v, want %+v", got, want)
-	}
-}
-
-func TestTopGNDSurfaceBaseTintsUseNeighborTileColors(t *testing.T) {
+func TestGNDCellLightsUseNeighbourSurfaceColoursAndBlackenMissingOnes(t *testing.T) {
 	gnd := &res.GND{
 		Width:  2,
 		Height: 2,
+		Zoom:   10,
 		Surfaces: []res.GNDSurface{
 			{Color: color.RGBA{R: 10, G: 20, B: 30, A: 255}},
 			{Color: color.RGBA{R: 40, G: 50, B: 60, A: 255}},
@@ -182,15 +166,29 @@ func TestTopGNDSurfaceBaseTintsUseNeighborTileColors(t *testing.T) {
 			{Top: 3, Front: -1, Right: -1},
 		},
 	}
-	tints := topGNDSurfaceBaseTints(gnd, 0, 0, color.RGBA{})
+	// Full ambient light leaves the surface colours unchanged.
+	lighting := sceneLightingFromRSW(&res.RSW{Light: res.RSWLight{Ambient: [3]float32{1, 1, 1}}})
+	lights := buildGNDCellLights(gnd, lighting)
 	want := [4]color.RGBA{
 		{R: 10, G: 20, B: 30, A: 255},
 		{R: 40, G: 50, B: 60, A: 255},
-		{R: 100, G: 110, B: 120, A: 255},
 		{R: 70, G: 80, B: 90, A: 255},
+		{R: 100, G: 110, B: 120, A: 255},
 	}
-	if tints != want {
-		t.Fatalf("top GND tints = %+v, want %+v", tints, want)
+	if got := lights[0].top; got != want {
+		t.Fatalf("top cell colours = %+v, want %+v", got, want)
+	}
+	black := color.RGBA{A: 255}
+	if got := lights[3].top; got[0] != want[3] || got[1] != black || got[2] != black || got[3] != black {
+		t.Fatalf("edge cell colours = %+v, want own colour then black", got)
+	}
+}
+
+func TestPosterizeGNDLightmapColorUsesReferenceClientBuckets(t *testing.T) {
+	got := posterizeGNDLightmapColor(color.RGBA{R: 15, G: 31, B: 255, A: 77})
+	want := color.RGBA{R: 0, G: 16, B: 240, A: 77}
+	if got != want {
+		t.Fatalf("posterized lightmap color = %+v, want %+v", got, want)
 	}
 }
 
@@ -208,17 +206,6 @@ func TestGNDDrawBoundsUseCameraFootprint(t *testing.T) {
 	}
 	if endX-startX >= gnd.Width-1 || endY-startY >= gnd.Height-1 {
 		t.Fatalf("camera bounds %d..%d,%d..%d should not cover the full map", startX, endX, startY, endY)
-	}
-}
-
-func TestGNDShadowMapPointMatchesReferenceClientCellCenterMapping(t *testing.T) {
-	x, y := GNDShadowMapPoint(10, 20)
-	if x != 42 || y != 82 {
-		t.Fatalf("shadow map point for even cell = %d,%d, want 42,82", x, y)
-	}
-	x, y = GNDShadowMapPoint(11, 21)
-	if x != 46 || y != 86 {
-		t.Fatalf("shadow map point for odd cell = %d,%d, want 46,86", x, y)
 	}
 }
 

@@ -56,7 +56,7 @@ func TestLordKnightBodyAndWeaponRendering(t *testing.T) {
 		entry := scene.ActorDrawEntry{Actor: actor, WorldX: 30.5, WorldY: 20.5}
 		frame := render.NewFrame(800, 600)
 		billboard.LayerGroup = tc.group
-		m.DrawActor(ctx, frame, testutil.Projection(800, 600, 30.5, 20.5, 0), entry, billboard, 1, 1, 1,
+		m.DrawActor(ctx, frame, testutil.Projection(800, 600, 30.5, 20.5, 0), entry, billboard, 1, 1, scene.FullLight,
 			color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tc.frame)*db.EffectFrameDuration), 0)
 		draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if draws.Len() != tc.count {

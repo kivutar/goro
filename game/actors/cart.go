@@ -190,7 +190,7 @@ func (m *System) cartSpriteView(ctx client.Context, cartNum int) *scene.SpriteVi
 	return view
 }
 
-func (m *System) DrawActorCart3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow float64, alpha float64) bool {
+func (m *System) DrawActorCart3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow scene.LightTint, alpha float64) bool {
 	actor := entry.Actor
 	if scene.ActorHasStealth(actor) || !res.HasPlayerJobToken(int(actor.Job)) {
 		return false

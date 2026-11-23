@@ -21,10 +21,10 @@ func TestSoulLinkerTargetFlashAndShake(t *testing.T) {
 	m := &System{Active: []Instance{{EffectID: BlueHit, ActorID: 300, Starts: starts}}}
 	billboard := &scene.Billboard{Image: render.NewImage(64, 64), AnchorX: 32, AnchorY: 60}
 	projection := testutil.Projection(800, 600, 18.5, 20.5, 0)
-	entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 18.5, WorldY: 20.5, Scale: 1, Shadow: 1}
+	entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 18.5, WorldY: 20.5, Scale: 1, Shadow: scene.FullLight}
 	for _, tc := range []struct{ frame, count int }{{-1, 1}, {0, 1}, {4, 3}, {16, 3}, {17, 1}} {
 		frame := render.NewFrame(800, 600)
-		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, starts.Add(time.Duration(tc.frame)*db.EffectFrameDuration), 0)
+		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, starts.Add(time.Duration(tc.frame)*db.EffectFrameDuration), 0)
 		draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 		if draws.Len() != tc.count {
 			t.Fatalf("tick %d: body draws %d, want %d", tc.frame, draws.Len(), tc.count)
@@ -34,7 +34,7 @@ func TestSoulLinkerTargetFlashAndShake(t *testing.T) {
 		}
 		if tc.count > 0 {
 			normal := render.NewFrame(800, 600)
-			m.DrawActorSpriteBillboard(normal, projection, billboard, entry.WorldX, entry.WorldY, entry.WorldZ, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver)
+			m.DrawActorSpriteBillboard(normal, projection, billboard, entry.WorldX, entry.WorldY, entry.WorldZ, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver)
 			base := reflect.ValueOf(normal).Elem().FieldByName("worldBillboards").Index(0)
 			for _, name := range []string{"Center", "RightAxis", "UpAxis", "DepthUpAxis"} {
 				for axis := 0; axis < 3; axis++ {
@@ -53,7 +53,7 @@ func TestSoulLinkerTargetFlashAndShake(t *testing.T) {
 	m.Active[0].EffectID = QuakeBody3
 	for _, tick := range []int{30, 31, 50, 51} {
 		frame := render.NewFrame(800, 600)
-		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, starts.Add(time.Duration(tick)*db.EffectFrameDuration), 0)
+		m.DrawActor(ctx, frame, projection, entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, starts.Add(time.Duration(tick)*db.EffectFrameDuration), 0)
 		draw := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Index(0)
 		active := math.Abs(draw.FieldByName("AnchorX").Float()-32) > 1e-5 || math.Abs(draw.FieldByName("AnchorY").Float()-60) > 1e-5
 		if active != (tick > 30 && tick <= 50) {

@@ -1,6 +1,7 @@
 package maps
 
 import (
+	"image/color"
 	"time"
 
 	"github.com/kivutar/goro/game/scene"
@@ -20,12 +21,14 @@ type System struct {
 	rsmAnimNodes     map[*res.RSM]animatedRSMNodeCache
 	rsmBoundsCache   map[rsmBoundsCacheKey]rsmBounds
 	rsmFaceMetaCache map[*res.RSM]map[*res.RSMNode][]rsmFaceMeta
+	rsmFaceLights    map[rsmFaceLightKey][][3]color.RGBA
 	rsmAnimScratch   animatedRSMScratch
 	rsmPlacementGrid *rsmPlacementGrid
 	runtimeRSMModels map[string]*res.RSM
 	gndMeshCache     *gndRetainedMeshCache
-	gndNormalSource  *res.GND
-	gndTopNormals    [][4]scene.Point3
+	gndLightSource   *res.GND
+	gndLightRSW      *res.RSW
+	gndLights        []gndCellLight
 	MapSoundNext     map[int]time.Time
 	rswEffectSource  *res.RSW
 	rswEffects       []rswEffectEmitter
@@ -38,6 +41,7 @@ func (m *System) ResetGeometry() {
 	m.rsmAnimNodes = make(map[*res.RSM]animatedRSMNodeCache)
 	m.rsmBoundsCache = make(map[rsmBoundsCacheKey]rsmBounds)
 	m.rsmFaceMetaCache = make(map[*res.RSM]map[*res.RSMNode][]rsmFaceMeta)
+	m.rsmFaceLights = nil
 	m.rsmAnimScratch.reset()
 	m.rsmPlacementGrid = nil
 	m.gndMeshCache = nil

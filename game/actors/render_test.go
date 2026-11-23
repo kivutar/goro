@@ -1,6 +1,7 @@
 package actors_test
 
 import (
+	"image/color"
 	"math"
 	"reflect"
 	"testing"
@@ -81,8 +82,68 @@ func TestActorShadowFactorAveragesGNDLightmapAlpha(t *testing.T) {
 
 	got := actors.ActorShadowFactor(&worldstate.World{GND: gnd}, 3, 3)
 	want := float64(128) / 255
-	if math.Abs(got-want) > 0.0001 {
-		t.Fatalf("shadow factor = %.4f, want %.4f", got, want)
+	if math.Abs(got.R-want) > 0.0001 || math.Abs(got.G-want) > 0.0001 || math.Abs(got.B-want) > 0.0001 {
+		t.Fatalf("shadow factor = %+v, want gray %.4f", got, want)
+	}
+}
+
+func TestActorShadowFactorAddsLightmapColorAndNormalizes(t *testing.T) {
+	var lightmap res.GNDLightmap
+	for y := range lightmap.Alpha {
+		for x := range lightmap.Alpha[y] {
+			lightmap.Alpha[y][x] = 102
+			lightmap.Color[y][x] = color.RGBA{R: 128, G: 64, A: 255}
+		}
+	}
+	gnd := &res.GND{
+		Width:     4,
+		Height:    4,
+		Lightmaps: []res.GNDLightmap{lightmap},
+		Surfaces:  []res.GNDSurface{{LightmapID: 0}},
+		Cells:     make([]res.GNDCell, 16),
+	}
+	for i := range gnd.Cells {
+		gnd.Cells[i].Top = 0
+	}
+
+	// CalcLmIntensityFloatRGBAll: intensity + color/128, divided by the
+	// brightest channel when it exceeds one.
+	got := actors.ActorShadowFactor(&worldstate.World{GND: gnd}, 3, 3)
+	intensity := float64(102) / 255
+	r, g, b := 1+intensity, 0.5+intensity, intensity
+	want := [3]float64{r / r, g / r, b / r}
+	if math.Abs(got.R-want[0]) > 0.0001 || math.Abs(got.G-want[1]) > 0.0001 || math.Abs(got.B-want[2]) > 0.0001 {
+		t.Fatalf("shadow factor = %+v, want %v", got, want)
+	}
+}
+
+func TestActorShadowFactorSamplesQuarterTexelsOfNeighbours(t *testing.T) {
+	var lightmap res.GNDLightmap
+	for y := range lightmap.Alpha {
+		for x := range lightmap.Alpha[y] {
+			lightmap.Alpha[y][x] = 255
+		}
+	}
+	// Even/even GAT cells read texel [1][1] of their GND cell; odd columns
+	// read [1][5] and odd rows [5][1].
+	lightmap.Alpha[1][1] = 0
+	gnd := &res.GND{
+		Width:     4,
+		Height:    4,
+		Lightmaps: []res.GNDLightmap{lightmap},
+		Surfaces:  []res.GNDSurface{{LightmapID: 0}},
+		Cells:     make([]res.GNDCell, 16),
+	}
+	for i := range gnd.Cells {
+		gnd.Cells[i].Top = 0
+	}
+
+	got := actors.ActorShadowFactor(&worldstate.World{GND: gnd}, 2, 2)
+	// Only the centre sample (2, 2) reads the dark texel; its four neighbours
+	// have an odd coordinate.
+	want := float64(4*255) / 5 / 255
+	if math.Abs(got.R-want) > 0.0001 {
+		t.Fatalf("shadow factor = %+v, want gray %.4f", got, want)
 	}
 }
 
@@ -113,14 +174,14 @@ func TestActorShadowFactorIgnoresGroundShadowBelowElevatedGAT(t *testing.T) {
 	}
 
 	got := actors.ActorShadowFactor(&worldstate.World{GAT: gat, GND: gnd}, 3, 3)
-	if got != 1 {
-		t.Fatalf("elevated GAT shadow factor = %.4f, want 1", got)
+	if got != scene.FullLight {
+		t.Fatalf("elevated GAT shadow factor = %+v, want full light", got)
 	}
 }
 
 func TestActorShadowFactorDefaultsToLitWithoutGroundLightmap(t *testing.T) {
-	if got := actors.ActorShadowFactor(nil, 3, 3); got != 1 {
-		t.Fatalf("nil world shadow = %.2f, want 1", got)
+	if got := actors.ActorShadowFactor(nil, 3, 3); got != scene.FullLight {
+		t.Fatalf("nil world shadow = %+v, want full light", got)
 	}
 	gnd := &res.GND{
 		Width:    1,
@@ -128,8 +189,8 @@ func TestActorShadowFactorDefaultsToLitWithoutGroundLightmap(t *testing.T) {
 		Surfaces: []res.GNDSurface{{LightmapID: 0}},
 		Cells:    []res.GNDCell{{Top: -1}},
 	}
-	if got := actors.ActorShadowFactor(&worldstate.World{GND: gnd}, 0, 0); got != 1 {
-		t.Fatalf("missing top surface shadow = %.2f, want 1", got)
+	if got := actors.ActorShadowFactor(&worldstate.World{GND: gnd}, 0, 0); got != scene.FullLight {
+		t.Fatalf("missing top surface shadow = %+v, want full light", got)
 	}
 }
 

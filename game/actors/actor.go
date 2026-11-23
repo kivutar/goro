@@ -816,21 +816,9 @@ func actorShadowSize(actor worldstate.Actor) float64 {
 	return 1
 }
 
-func ActorShadowFactor(world *worldstate.World, x, y float64) float64 {
-	if world == nil || world.GND == nil {
-		return 1
-	}
-	if gndHeight, ok := maps.WorldGNDHeightAt(world, x, y); ok && scene.TerrainHeightAt(world, x, y)-gndHeight > 0.5 {
-		return 1
-	}
-	shadowX, shadowY := maps.GNDShadowMapPoint(x, y)
-	total := 0
-	for dy := -3; dy < 3; dy++ {
-		for dx := -3; dx < 3; dx++ {
-			total += int(maps.GNDShadowMapAlpha(world.GND, shadowX+dx, shadowY+dy))
-		}
-	}
-	return scene.ClampUnit(float64(total) / (6 * 6 * 255))
+// ActorShadowFactor returns the lightmap tint of sprites standing at x, y.
+func ActorShadowFactor(world *worldstate.World, x, y float64) scene.LightTint {
+	return maps.ActorLightTint(world, x, y)
 }
 
 func ActorBillboardSortDepth(projection scene.Projection, x, y, z float64) float64 {
@@ -1095,7 +1083,7 @@ func ActorCastBarY(baseY, scale float64) float64 {
 	return ActorSpriteTopY(baseY, scale) + 4
 }
 
-func (m *System) drawActorSprite3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow float64) bool {
+func (m *System) drawActorSprite3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow scene.LightTint) bool {
 	actor := entry.Actor
 	if companion.IsMercenary(actor) {
 		return m.drawMercenarySprite3D(screen, ctx, projection, entry, cameraYaw, shadow)
@@ -1171,7 +1159,7 @@ func (m *System) drawActorSprite3D(screen *render.Frame, ctx client.Context, pro
 	return true
 }
 
-func (m *System) drawMercenarySprite3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow float64) bool {
+func (m *System) drawMercenarySprite3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow scene.LightTint) bool {
 	actor := entry.Actor
 	view := m.MercenaryHumanoidSpriteView(ctx, actor)
 	if view == nil {
@@ -1240,7 +1228,7 @@ func (m *System) MercenaryHumanoidSpriteView(ctx client.Context, actor worldstat
 	return loaded
 }
 
-func (m *System) DrawNonPCSprite3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow float64) bool {
+func (m *System) DrawNonPCSprite3D(screen *render.Frame, ctx client.Context, projection scene.Projection, entry scene.ActorDrawEntry, cameraYaw float64, shadow scene.LightTint) bool {
 	actor := entry.Actor
 	view := m.NonPCSpriteView(ctx, actor)
 	if view == nil {
@@ -1351,7 +1339,7 @@ type PetAccessorySpriteKey struct {
 	AccessoryID uint32
 }
 
-func (m *System) DrawPlayerSprite3D(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, direction int, cameraYaw float64, shadow float64, alpha float64) bool {
+func (m *System) DrawPlayerSprite3D(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, direction int, cameraYaw float64, shadow scene.LightTint, alpha float64) bool {
 	now := time.Now()
 	actor := entry.Actor
 	moving := scene.ActorIsMovingAt(actor, now)
@@ -1422,11 +1410,11 @@ func actorAnimationOverridesWalk(anim scene.ActorAnimation, playerLike bool) boo
 	return anim.ActionFamily == sprites.ActionNonPCDeath
 }
 
-func (m *System) DrawActorSpriteBillboardTintAlpha3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64, tintColor color.RGBA, blend render.Blend) {
+func (m *System) DrawActorSpriteBillboardTintAlpha3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow scene.LightTint, tintColor color.RGBA, blend render.Blend) {
 	m.bindings.Effects.DrawActorSpriteBillboard(screen, projection, billboard, worldX, worldY, worldZ, scale, alpha, shadow, tintColor, blend)
 }
 
-func (m *System) DrawSpriteBillboardAlpha3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow float64) {
+func (m *System) DrawSpriteBillboardAlpha3D(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale float64, alpha float64, shadow scene.LightTint) {
 	options := scene.SpriteBillboardTriangleDrawOptions()
 	options.DepthWrite = true
 	options.Filter = render.FilterSprite

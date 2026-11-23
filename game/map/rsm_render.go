@@ -18,7 +18,7 @@ const (
 type modelWorldTriangle struct {
 	verts       [3]scene.Point3
 	uvs         [3]scene.UV
-	color       color.RGBA
+	colors      [3]color.RGBA
 	textureName string
 }
 
@@ -51,10 +51,10 @@ func (m *System) DrawRSMModels(screen *render.Frame, manager *res.Manager, rsw *
 		}
 		frame, animated := RSMAnimationFrame(rsm, placement.Model, now)
 		if animated {
-			m.DrawAnimatedRSMPlacement(screen, manager, rsw, rsm, placement, frame)
+			m.DrawAnimatedRSMPlacement(screen, manager, rsw, gnd, rsm, placement, frame)
 			continue
 		}
-		meshes := m.rsmMeshesForPlacement(manager, rsm, rsw, placement)
+		meshes := m.rsmMeshesForPlacement(manager, rsm, rsw, gnd, placement)
 		for _, mesh := range meshes {
 			screen.DrawWorldMesh(mesh.mesh)
 		}
@@ -166,7 +166,7 @@ func (m *System) rsmModelForPlacement(manager *res.Manager, models map[string]*r
 	return rsm
 }
 
-func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *res.RSW, visible ModelPlacement) []retainedWorldMesh {
+func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *res.RSW, gnd *res.GND, visible ModelPlacement) []retainedWorldMesh {
 	if m.rsmMeshCache == nil {
 		m.rsmMeshCache = make(map[int][]retainedWorldMesh)
 	}
@@ -205,7 +205,8 @@ func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *
 	}
 	for _, nodeIndex := range context.nodeIndices {
 		node := &rsm.Nodes[nodeIndex]
-		for _, worldTri := range buildRSMNodeWorldTriangles(rsm, node, nodeMatrices[node.Name], context.instance, context.lighting, m.rsmFaceMetas(rsm, node)) {
+		faceLights := m.rsmPlacementFaceLights(rsm, node, context, visible, gnd)
+		for _, worldTri := range buildRSMNodeWorldTriangles(rsm, node, nodeMatrices[node.Name], context.instance, context.lighting, m.rsmFaceMetas(rsm, node), faceLights) {
 			texture := m.groundTexture(manager, worldTri.textureName)
 			if texture != nil {
 				bounds := texture.Bounds()
@@ -213,9 +214,9 @@ func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *
 				builder := builderFor(texture, rsmDrawOptionsForTriangle(render.FilterLinear, render.AddressClampToEdge, worldTri, visible.Index))
 				if builder != nil {
 					builder.addTriangle(
-						scene.TexturedSurfaceVertex3D(worldTri.verts[0], worldTri.uvs[0], worldTri.color, w, h),
-						scene.TexturedSurfaceVertex3D(worldTri.verts[1], worldTri.uvs[1], worldTri.color, w, h),
-						scene.TexturedSurfaceVertex3D(worldTri.verts[2], worldTri.uvs[2], worldTri.color, w, h),
+						scene.TexturedSurfaceVertex3D(worldTri.verts[0], worldTri.uvs[0], worldTri.colors[0], w, h),
+						scene.TexturedSurfaceVertex3D(worldTri.verts[1], worldTri.uvs[1], worldTri.colors[1], w, h),
+						scene.TexturedSurfaceVertex3D(worldTri.verts[2], worldTri.uvs[2], worldTri.colors[2], w, h),
 					)
 				}
 				continue
@@ -227,9 +228,9 @@ func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *
 			builder := builderFor(m.WhitePixel, rsmDrawOptionsForTriangle(render.FilterNearest, render.AddressUnsafe, worldTri, visible.Index))
 			if builder != nil {
 				builder.addTriangle(
-					scene.ColoredSurfaceVertex3D(worldTri.verts[0], 0, 0, worldTri.color),
-					scene.ColoredSurfaceVertex3D(worldTri.verts[1], 1, 0, worldTri.color),
-					scene.ColoredSurfaceVertex3D(worldTri.verts[2], 1, 1, worldTri.color),
+					scene.ColoredSurfaceVertex3D(worldTri.verts[0], 0, 0, worldTri.colors[0]),
+					scene.ColoredSurfaceVertex3D(worldTri.verts[1], 1, 0, worldTri.colors[1]),
+					scene.ColoredSurfaceVertex3D(worldTri.verts[2], 1, 1, worldTri.colors[2]),
 				)
 			}
 		}
@@ -288,7 +289,7 @@ func (s *animatedRSMScratch) reset() {
 	s.worldVerts = s.worldVerts[:0]
 }
 
-func (m *System) DrawAnimatedRSMPlacement(screen *render.Frame, manager *res.Manager, rsw *res.RSW, rsm *res.RSM, visible ModelPlacement, frame int) {
+func (m *System) DrawAnimatedRSMPlacement(screen *render.Frame, manager *res.Manager, rsw *res.RSW, gnd *res.GND, rsm *res.RSM, visible ModelPlacement, frame int) {
 	context, ok := m.rsmPlacementContext(rsm, rsw, visible)
 	if !ok {
 		return
@@ -297,7 +298,8 @@ func (m *System) DrawAnimatedRSMPlacement(screen *render.Frame, manager *res.Man
 	batchOrder := m.rsmAnimScratch.batches[:0]
 	for _, nodeIndex := range context.nodeIndices {
 		node := &rsm.Nodes[nodeIndex]
-		m.drawAnimatedRSMNodeTriangles(screen, manager, rsm, node, nodeMatrices[node.Name], context, visible, &batchOrder)
+		faceLights := m.rsmPlacementFaceLights(rsm, node, context, visible, gnd)
+		m.drawAnimatedRSMNodeTriangles(screen, manager, rsm, node, nodeMatrices[node.Name], context, visible, faceLights, &batchOrder)
 	}
 	for i := range batchOrder {
 		batchOrder[i].Flush()
@@ -321,7 +323,7 @@ func animatedRSMBatchFor(screen *render.Frame, batches *[]scene.ModelDrawBatch, 
 	return &order[len(order)-1]
 }
 
-func (m *System) drawAnimatedRSMNodeTriangles(screen *render.Frame, manager *res.Manager, rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, context rsmPlacementContext, visible ModelPlacement, batchOrder *[]scene.ModelDrawBatch) {
+func (m *System) drawAnimatedRSMNodeTriangles(screen *render.Frame, manager *res.Manager, rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, context rsmPlacementContext, visible ModelPlacement, faceLights [][3]color.RGBA, batchOrder *[]scene.ModelDrawBatch) {
 	worldVerts := m.animatedRSMNodeWorldVerts(rsm, node, nodeMatrix, context.instance)
 	if len(worldVerts) == 0 {
 		return
@@ -340,7 +342,7 @@ func (m *System) drawAnimatedRSMNodeTriangles(screen *render.Frame, manager *res
 		} else {
 			faceMeta.textureName, faceMeta.uvs = rsmFaceTexture(rsm, node, face)
 		}
-		faceColor := rsmFaceColor(rsm, faceMeta.textureName, a, b, c, context.lighting)
+		faceColors := rsmFaceColors(faceMeta.textureName, faceLights, faceIndex, context.lighting)
 		texture := m.groundTexture(manager, faceMeta.textureName)
 		if texture != nil {
 			bounds := texture.Bounds()
@@ -349,9 +351,9 @@ func (m *System) drawAnimatedRSMNodeTriangles(screen *render.Frame, manager *res
 			batch := animatedRSMBatchFor(screen, batchOrder, texture, options)
 			if batch != nil {
 				batch.AddTriangle(
-					scene.TexturedSurfaceVertex3D(a, faceMeta.uvs[0], faceColor, w, h),
-					scene.TexturedSurfaceVertex3D(b, faceMeta.uvs[1], faceColor, w, h),
-					scene.TexturedSurfaceVertex3D(c, faceMeta.uvs[2], faceColor, w, h),
+					scene.TexturedSurfaceVertex3D(a, faceMeta.uvs[0], faceColors[0], w, h),
+					scene.TexturedSurfaceVertex3D(b, faceMeta.uvs[1], faceColors[1], w, h),
+					scene.TexturedSurfaceVertex3D(c, faceMeta.uvs[2], faceColors[2], w, h),
 				)
 			}
 			continue
@@ -364,9 +366,9 @@ func (m *System) drawAnimatedRSMNodeTriangles(screen *render.Frame, manager *res
 		batch := animatedRSMBatchFor(screen, batchOrder, m.WhitePixel, options)
 		if batch != nil {
 			batch.AddTriangle(
-				scene.ColoredSurfaceVertex3D(a, 0, 0, faceColor),
-				scene.ColoredSurfaceVertex3D(b, 1, 0, faceColor),
-				scene.ColoredSurfaceVertex3D(c, 1, 1, faceColor),
+				scene.ColoredSurfaceVertex3D(a, 0, 0, faceColors[0]),
+				scene.ColoredSurfaceVertex3D(b, 1, 0, faceColors[1]),
+				scene.ColoredSurfaceVertex3D(c, 1, 1, faceColors[2]),
 			)
 		}
 	}
@@ -538,7 +540,7 @@ func (m *System) rsmFaceMetas(rsm *res.RSM, node *res.RSMNode) []rsmFaceMeta {
 	return metas
 }
 
-func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance, lighting Lighting, faceMetas []rsmFaceMeta) []modelWorldTriangle {
+func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance, lighting Lighting, faceMetas []rsmFaceMeta, faceLights [][3]color.RGBA) []modelWorldTriangle {
 	if len(node.Vertices) == 0 || len(node.Faces) == 0 {
 		return nil
 	}
@@ -564,11 +566,10 @@ func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scen
 		} else {
 			faceMeta.textureName, faceMeta.uvs = rsmFaceTexture(rsm, node, face)
 		}
-		faceColor := rsmFaceColor(rsm, faceMeta.textureName, a, b, c, lighting)
 		triangles = append(triangles, modelWorldTriangle{
 			verts:       [3]scene.Point3{a, b, c},
 			uvs:         faceMeta.uvs,
-			color:       faceColor,
+			colors:      rsmFaceColors(faceMeta.textureName, faceLights, faceIndex, lighting),
 			textureName: faceMeta.textureName,
 		})
 	}
@@ -576,6 +577,16 @@ func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scen
 }
 
 func rsmNodeModelMatrix(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance) scene.Mat4 {
+	localMatrix := rsmNodeOuterMatrix(rsm, node, nodeMatrix, instance)
+	if len(rsm.Nodes) != 1 {
+		localMatrix = scene.Mat4Translate(localMatrix, vectorFromRSM(node.Offset))
+	}
+	return scene.Mat4Multiply(localMatrix, scene.Mat4FromMat3(node.Matrix))
+}
+
+// rsmNodeOuterMatrix is the node's transform without its offset matrix, which
+// the classic client bakes into the vertices.
+func rsmNodeOuterMatrix(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance) scene.Mat4 {
 	localMatrix := scene.Mat4Identity()
 	localMatrix = scene.Mat4Translate(localMatrix, scene.Point3{
 		X: -(instance.bounds.min.X + instance.bounds.max.X) * 0.5,
@@ -584,10 +595,6 @@ func rsmNodeModelMatrix(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, 
 	})
 	localMatrix = scene.Mat4Scale(localMatrix, scene.Point3{X: 1, Y: -1, Z: 1})
 	localMatrix = scene.Mat4Multiply(localMatrix, nodeMatrix)
-	if len(rsm.Nodes) != 1 {
-		localMatrix = scene.Mat4Translate(localMatrix, vectorFromRSM(node.Offset))
-	}
-	localMatrix = scene.Mat4Multiply(localMatrix, scene.Mat4FromMat3(node.Matrix))
 	return scene.Mat4Multiply(instance.matrix, localMatrix)
 }
 
@@ -957,22 +964,24 @@ func rsmFaceTexture(rsm *res.RSM, node *res.RSMNode, face res.RSMFace) (string, 
 	return textureName, uvs
 }
 
-func rsmFaceColor(rsm *res.RSM, textureName string, a, b, c scene.Point3, lighting Lighting) color.RGBA {
-	base := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	if textureName == "" {
-		base = textureColor(textureName)
+// rsmFaceColors applies the environment colour to a face's baked corner
+// colours (C3dNode::Render).
+func rsmFaceColors(textureName string, faceLights [][3]color.RGBA, faceIndex int, lighting Lighting) [3]color.RGBA {
+	var colors [3]color.RGBA
+	if faceIndex >= len(faceLights) {
+		return colors
 	}
-	normal := scene.Point3{Y: -1}
-	if rsm == nil || rsm.ShadeType != 0 {
-		normal = scene.Normalize3(scene.Cross3(scene.Sub3(b, a), scene.Sub3(c, a)))
+	for k, light := range faceLights[faceIndex] {
+		if textureName == "" {
+			// Placeholder colour for faces without a texture.
+			base := textureColor(textureName)
+			light.R = uint8(uint16(light.R) * uint16(base.R) / 255)
+			light.G = uint8(uint16(light.G) * uint16(base.G) / 255)
+			light.B = uint8(uint16(light.B) * uint16(base.B) / 255)
+		}
+		colors[k] = lighting.applyEnv(light)
 	}
-	scale := lighting.ModelScaleNormalized(normal)
-	return color.RGBA{
-		R: scene.ClampColor(float64(base.R) * scale.X),
-		G: scene.ClampColor(float64(base.G) * scale.Y),
-		B: scene.ClampColor(float64(base.B) * scale.Z),
-		A: scene.ClampColor(float64(rsmAlpha(rsm)) * 255),
-	}
+	return colors
 }
 
 func rsmAlpha(rsm *res.RSM) float32 {

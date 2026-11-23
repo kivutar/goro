@@ -43,7 +43,7 @@ type ActorDrawEntry struct {
 	WorldY      float64
 	WorldZ      float64
 	Scale       float64
-	Shadow      float64
+	Shadow      LightTint
 	CastShadow  bool
 	ShadowScale float64
 	ShadowDepth float64

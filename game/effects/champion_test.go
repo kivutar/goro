@@ -45,7 +45,7 @@ func TestChampionBodyFlashWindows(t *testing.T) {
 						}
 					}
 				}
-				m.DrawActor(ctx, frame, testutil.Projection(800, 600, 12, 20, 0), scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 12.5, WorldY: 20.5}, &scene.Billboard{Image: img, AnchorX: 6, AnchorY: 24, LayerGroup: layer}, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tick)*db.EffectFrameDuration), 0)
+				m.DrawActor(ctx, frame, testutil.Projection(800, 600, 12, 20, 0), scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 12.5, WorldY: 20.5}, &scene.Billboard{Image: img, AnchorX: 6, AnchorY: 24, LayerGroup: layer}, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start.Add(time.Duration(tick)*db.EffectFrameDuration), 0)
 				draws := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards")
 				if draws.Len() != count {
 					t.Fatalf("effect %d tick %d layer %d: wrong body copies", tc.id, tick, layer)

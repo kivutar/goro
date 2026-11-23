@@ -22,7 +22,7 @@ func TestAssumptioOnlyGlowsBodyLayer(t *testing.T) {
 		frame := render.NewFrame(800, 600)
 		billboard := &scene.Billboard{Image: render.NewImage(12, 24), AnchorX: 6, AnchorY: 24, LayerGroup: group}
 		entry := scene.ActorDrawEntry{Actor: ctx.World.Actors[300], WorldX: 12, WorldY: 20}
-		m.DrawActor(ctx, frame, testutil.Projection(800, 600, 12, 20, 0), entry, billboard, 1, 1, 1, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start, 0)
+		m.DrawActor(ctx, frame, testutil.Projection(800, 600, 12, 20, 0), entry, billboard, 1, 1, scene.FullLight, color.RGBA{255, 255, 255, 255}, render.BlendSourceOver, start, 0)
 		count := reflect.ValueOf(frame).Elem().FieldByName("worldBillboards").Len()
 		want := 1
 		if group == 0 {

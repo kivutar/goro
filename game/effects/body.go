@@ -25,7 +25,7 @@ func blueBodyAlpha(bodyTime int) float64 {
 	return float64(155-(bodyTime-20)*5) / 255
 }
 
-func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility, shadow float64, tint color.RGBA, blend render.Blend, jump float64, now time.Time) {
+func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility float64, shadow scene.LightTint, tint color.RGBA, blend render.Blend, jump float64, now time.Time) {
 	if len(billboard.Parts) > 0 {
 		for _, part := range billboard.Parts {
 			m.DrawActorSpriteBodyEffects3D(ctx, screen, projection, entry, part, scale, visibility, shadow, tint, blend, jump, now)
@@ -347,7 +347,7 @@ func (m *System) DrawActorSpriteBodyEffects3D(ctx client.Context, screen *render
 	}
 	cmd := scene.WorldSpriteBillboardCommand(m.spriteTexture(billboard.Image), *options,
 		center, scene.Mul3(right, units*width/w), scene.Mul3(up, -units*height/h),
-		float32(w), float32(h), float32(-left*w/width), float32(-top*h/height), scene.MultiplyTint(tint, shadow, shadow, shadow, visibility))
+		float32(w), float32(h), float32(-left*w/width), float32(-top*h/height), scene.MultiplyTint(tint, shadow.Clamped().R, shadow.Clamped().G, shadow.Clamped().B, visibility))
 	cmd.DepthUpAxis = [3]float32{0, float32(-units * height / h), 0}
 	if weaponSpark {
 		spark := cmd
@@ -496,12 +496,12 @@ func (m *System) drawGuardEffect(screen *render.Frame, ctx client.Context, _ sce
 	}
 }
 
-func (m *System) DrawActor(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility, shadow float64, tint color.RGBA, blend render.Blend, now time.Time, jump float64) {
+func (m *System) DrawActor(ctx client.Context, screen *render.Frame, projection scene.Projection, entry scene.ActorDrawEntry, billboard *scene.Billboard, scale, visibility float64, shadow scene.LightTint, tint color.RGBA, blend render.Blend, now time.Time, jump float64) {
 	m.DrawActorBlurs(screen, projection, entry, billboard, scale, visibility, shadow, tint, now)
 	m.DrawActorSpriteBodyEffects3D(ctx, screen, projection, entry, billboard, scale, visibility, shadow, tint, blend, jump, now)
 }
 
-func (m *System) DrawActorSpriteBillboard(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale, alpha, shadow float64, tintColor color.RGBA, blend render.Blend) {
+func (m *System) DrawActorSpriteBillboard(screen *render.Frame, projection scene.Projection, billboard *scene.Billboard, worldX, worldY, worldZ, scale, alpha float64, shadow scene.LightTint, tintColor color.RGBA, blend render.Blend) {
 	options := scene.SpriteBillboardTriangleDrawOptions()
 	options.DepthWrite = true
 	options.Filter = render.FilterSprite
