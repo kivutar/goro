@@ -32,12 +32,33 @@ func TestDisabledEffectsStopWeather(t *testing.T) {
 
 func TestMapWeatherForComodoMatchesReferenceWeatherTable(t *testing.T) {
 	for _, name := range []string{"comodo", "comodo.gat", "data\\comodo.rsw", "DATA/COMODO.RSW"} {
-		if got := mapWeatherForMap(name); got != mapWeatherFireworks {
-			t.Fatalf("mapWeatherForMap(%q) = %d, want fireworks", name, got)
+		if got, _ := mapWeather(name, "korea"); got != mapWeatherFireworks {
+			t.Fatalf("mapWeather(%q) = %d, want fireworks", name, got)
 		}
 	}
-	if got := mapWeatherForMap("prontera"); got != mapWeatherNone {
-		t.Fatalf("mapWeatherForMap(prontera) = %d, want none", got)
+	if got, _ := mapWeather("geffen", "korea"); got != mapWeatherNone {
+		t.Fatalf("mapWeather(geffen) = %d, want none", got)
+	}
+}
+
+func TestServiceGatedMapWeather(t *testing.T) {
+	tests := []struct {
+		name, service string
+		kind          mapWeatherKind
+		effectID      int
+	}{
+		{"prontera", "korea", mapWeatherLoopingEffect, effects.Sakura},
+		{"pay_arche", "singapore", mapWeatherLoopingEffect, effects.Sakura},
+		{"comodo", "malaysia", mapWeatherFireworks, 0},
+		{"prontera", "america", mapWeatherNone, 0},
+		{"comodo", "america", mapWeatherNone, 0},
+		{"xmas_fild01", "america", mapWeatherLoopingEffect, effects.Snow},
+	}
+	for _, tc := range tests {
+		kind, effectID := mapWeather(tc.name, tc.service)
+		if kind != tc.kind || effectID != tc.effectID {
+			t.Fatalf("mapWeather(%q, %q) = %d, %d; want %d, %d", tc.name, tc.service, kind, effectID, tc.kind, tc.effectID)
+		}
 	}
 }
 
@@ -45,6 +66,7 @@ func TestMapWeatherEffectIDForReferenceWeatherTable(t *testing.T) {
 	tests := map[string]int{
 		"xmas":                 effects.Snow,
 		"xmas.gat":             effects.Snow,
+		"xmas_fild01":          effects.Snow,
 		"data\\yuno.gat":       effects.Cloud2,
 		"einbroch":             effects.Cloud4,
 		"airplane":             effects.Cloud5,
@@ -57,6 +79,7 @@ func TestMapWeatherEffectIDForReferenceWeatherTable(t *testing.T) {
 			t.Fatalf("mapWeatherEffectIDForMap(%q) = %d, want %d", name, got, want)
 		}
 	}
+	// Prontera's cherry blossoms depend on the service type (mapWeather).
 	if got := mapWeatherEffectIDForMap("prontera"); got != 0 {
 		t.Fatalf("mapWeatherEffectIDForMap(prontera) = %d, want 0", got)
 	}

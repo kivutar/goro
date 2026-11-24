@@ -7,12 +7,20 @@ import (
 	"time"
 )
 
+// sakuraEffectSpec and mapleEffectSpec are CRagEffect::Sakura and Maple:
+// PP_SAKURA petals that last until the effect is removed.
 func sakuraEffectSpec() EffectSpec {
-	return weatherLeafEffectSpec("data/sprite/이팩트/sakura01", color.RGBA{R: 255, G: 210, B: 225, A: 255})
+	return petalEffectSpec("sakura01")
 }
 
 func mapleEffectSpec() EffectSpec {
-	return weatherLeafEffectSpec("data/sprite/이팩트/단풍", color.RGBA{R: 255, G: 170, B: 80, A: 255})
+	return petalEffectSpec("단풍")
+}
+
+func petalEffectSpec(sprite string) EffectSpec {
+	spec := funcEffectSpec("Sakura", 24*time.Hour, true)
+	spec.Components[0].SpriteFile = sprite
+	return spec
 }
 
 func cloudEffectSpec() EffectSpec {
@@ -252,38 +260,6 @@ func weatherSnowEffectSpec() EffectSpec {
 			SizeStart:     effectTableSize(7),
 			SizeEnd:       effectTableSize(7),
 			Color:         color.RGBA{R: 245, G: 250, B: 255, A: 255},
-		}},
-	}
-}
-
-func weatherLeafEffectSpec(spriteFile string, tint color.RGBA) EffectSpec {
-	return EffectSpec{
-		Duration: 5200 * time.Millisecond,
-		Components: []EffectComponent{{
-			Kind:             EffectComponent3D,
-			SpriteFile:       spriteFile,
-			SpriteRepeat:     true,
-			Duration:         5200 * time.Millisecond,
-			Duplicate:        36,
-			AlphaMax:         0.92,
-			FadeIn:           true,
-			FadeOut:          true,
-			PosXRand:         30,
-			PosYRand:         30,
-			PosZ:             20,
-			PosZEnd:          0,
-			PosXEnd:          -4,
-			PosYEnd:          2,
-			PosXEndRand:      3,
-			PosYEndRand:      3,
-			PosXSmooth:       true,
-			PosYSmooth:       true,
-			SizeStart:        effectTableSize(80),
-			SizeEnd:          effectTableSize(80),
-			AngleRandMin:     0,
-			AngleRandMax:     360,
-			RotateWithCamera: true,
-			Color:            tint,
 		}},
 	}
 }

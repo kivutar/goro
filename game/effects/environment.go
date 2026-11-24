@@ -111,6 +111,8 @@ func (m *System) PrepareEnvironmentEffect(effect *Instance, projection scene.Pro
 		effect.mapParticles = newMapParticleState(*effect)
 	case Level99Bubble, Level99Aura1:
 		effect.level99Bubbles = newLevel99BubbleState(*effect)
+	case Sakura, Maple:
+		effect.sakuraPetals = newSakuraPetalState(*effect)
 	case Rainbow:
 		_, _, right, _ := projection.CameraBasis()
 		effect.ProjectileDirection = right

@@ -124,6 +124,7 @@ func newManager(m *Manager) (*Manager, error) {
 		if len(info.Connections) > 0 {
 			m.ClientInfo = info
 		}
+		m.ClientInfo.ServiceType = info.ServiceType
 	}
 
 	initialized = true

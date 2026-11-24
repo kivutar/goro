@@ -815,6 +815,7 @@ type Instance struct {
 	firefly                              *fireflyPath
 	mapParticles                         *mapParticleState
 	level99Bubbles                       *level99BubbleState
+	sakuraPetals                         *sakuraPetalState
 	NinjaWind                            *NinjaWind
 	SpiritSpheres                        *spiritSpheres
 	NinjaPetals                          *NinjaPetals

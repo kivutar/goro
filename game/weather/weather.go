@@ -17,6 +17,10 @@ type System struct {
 	cloud     mapWeatherCloudState
 	fireworks mapWeatherFireworkState
 	sounds    map[int]time.Time
+	// petals is the map's Sakura or Maple effect, kept across frames
+	// because its petals carry state; petalsMap is the map it belongs to.
+	petals    *effects.Instance
+	petalsMap string
 }
 
 type mapWeatherKind int
@@ -33,14 +37,32 @@ const (
 	pokJukWeatherFireworks = 4
 )
 
-func mapWeatherForMap(name string) mapWeatherKind {
-	if mapWeatherEffectIDForMap(name) != 0 {
-		return mapWeatherLoopingEffect
+// mapWeather picks a map's weather as CGameMode::OnInit does. Prontera and
+// pay_arche cherry blossoms and Comodo fireworks only run for the Korean,
+// Malaysian and Singaporean services.
+func mapWeather(name, service string) (mapWeatherKind, int) {
+	if effectID := mapWeatherEffectIDForMap(name); effectID != 0 {
+		return mapWeatherLoopingEffect, effectID
 	}
-	if normalizeMapNameForWeather(name) == "comodo.rsw" {
-		return mapWeatherFireworks
+	switch service {
+	case "korea", "malaysia", "singapore":
+	default:
+		return mapWeatherNone, 0
 	}
-	return mapWeatherNone
+	switch normalizeMapNameForWeather(name) {
+	case "prontera.rsw", "pay_arche.rsw":
+		return mapWeatherLoopingEffect, effects.Sakura
+	case "comodo.rsw":
+		return mapWeatherFireworks, 0
+	}
+	return mapWeatherNone, 0
+}
+
+func serviceType(ctx client.Context) string {
+	if ctx.Resources == nil {
+		return "korea"
+	}
+	return ctx.Resources.ClientInfo.Service()
 }
 
 func mapWeatherEffectIDForMap(name string) int {
@@ -51,7 +73,7 @@ func mapWeatherEffectIDForMap(name string) int {
 		name = name[3:]
 	}
 	switch name {
-	case "xmas.rsw":
+	case "xmas.rsw", "xmas_fild01.rsw":
 		return effects.Snow
 	case "gef_fild07.rsw", "mjolnir_01.rsw":
 		return effects.Cloud
@@ -100,11 +122,11 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 	if screen == nil || ctx.World == nil || ctx.World.GND == nil {
 		return
 	}
-	kind := mapWeatherForMap(ctx.World.MapName)
-	effectID := mapWeatherEffectIDForMap(ctx.World.MapName)
+	kind, effectID := mapWeather(ctx.World.MapName, serviceType(ctx))
 	switch kind {
 	case mapWeatherFireworks:
 		m.cloud.reset()
+		m.petals = nil
 		m.drawFireworksWeather(screen, ctx, projection, now, fx, scheduleSound)
 	case mapWeatherLoopingEffect:
 		m.fireworks.reset()
@@ -113,10 +135,42 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 			return
 		}
 		m.cloud.reset()
+		if effectID == effects.Sakura || effectID == effects.Maple {
+			m.drawPetalWeather(screen, ctx, projection, effectID, now, fx)
+			return
+		}
+		m.petals = nil
 		m.drawLoopingMapWeatherEffect(screen, ctx, projection, effectID, now, fx)
 	default:
 		m.cloud.reset()
 		m.fireworks.reset()
+		m.petals = nil
+	}
+}
+
+// drawPetalWeather runs the map's petal effect from when the map is entered
+// (CWeather::LaunchSakura on the player), at the player's feet.
+func (m *System) drawPetalWeather(screen *render.Frame, ctx client.Context, projection scene.Projection, effectID int, now time.Time, fx *effects.System) {
+	spec, ok := effects.Lookup(effectID)
+	if !ok {
+		return
+	}
+	key := normalizeMapNameForWeather(ctx.World.MapName)
+	if m.petals == nil || m.petalsMap != key || m.petals.EffectID != effectID {
+		effect := effects.Instance{
+			EffectID: effectID,
+			ActorID:  uint32(effectID),
+			Starts:   now,
+			Expires:  now.Add(spec.Duration),
+			Duration: spec.Duration,
+		}
+		fx.PrepareEnvironmentEffect(&effect, projection)
+		m.petals, m.petalsMap = &effect, key
+	}
+	worldX, worldY := projection.PlayerX, projection.PlayerY
+	worldZ := scene.TerrainHeightAt(ctx.World, worldX-0.5, worldY-0.5)
+	for componentIndex, component := range spec.Components {
+		fx.DrawWorldEffectComponent(screen, ctx, projection, *m.petals, component, componentIndex, worldX, worldY, worldZ, 0, spec.Duration, now)
 	}
 }
 

@@ -28,6 +28,24 @@ type Connection struct {
 	AdminList       []uint32
 }
 
+// serviceTypes are the <servicetype> values the classic client accepts
+// (SetOption); the comparison is exact.
+var serviceTypes = map[string]bool{
+	"korea": true, "america": true, "japan": true, "china": true, "taiwan": true,
+	"thai": true, "indonesia": true, "philippine": true, "malaysia": true,
+	"singapore": true, "germany": true, "india": true, "brazil": true,
+	"australia": true, "russia": true, "vietnam": true, "chile": true, "france": true,
+}
+
+// Service is the service type the classic client runs as. It starts as
+// Korea and keeps that when clientinfo has no or an unknown <servicetype>.
+func (c ClientInfo) Service() string {
+	if serviceTypes[c.ServiceType] {
+		return c.ServiceType
+	}
+	return "korea"
+}
+
 func ParseClientInfo(data []byte) (ClientInfo, error) {
 	data = bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf})
 

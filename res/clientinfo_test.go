@@ -43,3 +43,11 @@ func TestParseClientInfo(t *testing.T) {
 		}
 	}
 }
+
+func TestClientInfoServiceDefaultsToKorea(t *testing.T) {
+	for raw, want := range map[string]string{"": "korea", "america": "america", "Malaysia": "korea", "bogus": "korea", "singapore": "singapore"} {
+		if got := (ClientInfo{ServiceType: raw}).Service(); got != want {
+			t.Fatalf("Service(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}
