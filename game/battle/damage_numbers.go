@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kivutar/goro/client"
+	"github.com/kivutar/goro/db"
 	"github.com/kivutar/goro/game/actors"
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/game/sprites"
@@ -23,14 +24,16 @@ const (
 	damageNumberACT = "data\\sprite\\이팩트\\숫자.act"
 	damageMsgSPR    = "data\\sprite\\이팩트\\msg.spr"
 	damageMsgACT    = "data\\sprite\\이팩트\\msg.act"
+	blueMsgSPR      = "data\\sprite\\이팩트\\bluemsg.spr"
 )
 
 // Colours passed to CGameActor::Am_Make_Number and AM_MAKE_MISS.
 var (
 	DamageFloaterWhite      = color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	damageFloaterCritical   = color.RGBA{R: 255, G: 255, B: 0, A: 255}  // 0xffffff00
-	damageFloaterComboTotal = color.RGBA{R: 255, G: 255, B: 85, A: 255} // 0xffffff55
-	damageFloaterRedMiss    = color.RGBA{R: 255, G: 0, B: 0, A: 255}    // misses on players
+	damageFloaterCritical   = color.RGBA{R: 255, G: 255, B: 0, A: 255}   // 0xffffff00
+	damageFloaterComboTotal = color.RGBA{R: 255, G: 255, B: 85, A: 255}  // 0xffffff55
+	damageFloaterRedMiss    = color.RGBA{R: 255, G: 0, B: 0, A: 255}     // misses on players
+	damageFloaterBlue       = color.RGBA{R: 150, G: 150, B: 255, A: 255} // MET_BLUE_EFFECT's SetArgb
 )
 
 func (m *System) damageNumberSprite(ctx client.Context) *scene.SpriteView {
@@ -76,27 +79,39 @@ func (m *System) DamageNumberBillboard(ctx client.Context, text string) (*scene.
 }
 
 func (m *System) damageMessageSprite(ctx client.Context) *scene.SpriteView {
-	if m.DamageMsgView != nil || m.DamageMsgMiss || ctx.Resources == nil {
-		return m.DamageMsgView
+	return loadMessageSprite(ctx, &m.DamageMsgView, &m.DamageMsgMiss, damageMsgSPR, "damage message")
+}
+
+// blueMessageSprite is bluemsg.spr with msg.act (MAKETYPE_BLUE_EFFECT).
+func (m *System) blueMessageSprite(ctx client.Context) *scene.SpriteView {
+	return loadMessageSprite(ctx, &m.BlueMsgView, &m.BlueMsgMiss, blueMsgSPR, "blue message")
+}
+
+func loadMessageSprite(ctx client.Context, cached **scene.SpriteView, missing *bool, spr, label string) *scene.SpriteView {
+	if *cached != nil || *missing || ctx.Resources == nil {
+		return *cached
 	}
 	view, status := scene.LoadSpriteView(ctx.Resources,
 		[]string{damageMsgACT, strings.ReplaceAll(damageMsgACT, "\\", "/")},
-		[]string{damageMsgSPR, strings.ReplaceAll(damageMsgSPR, "\\", "/")},
+		[]string{spr, strings.ReplaceAll(spr, "\\", "/")},
 		nil,
-		"damage message",
+		label,
 	)
 	if view == nil {
-		m.DamageMsgMiss = true
-		glog.Warnf("damage message sprite unavailable: %s", status)
+		*missing = true
+		glog.Warnf("%s sprite unavailable: %s", label, status)
 		return nil
 	}
-	m.DamageMsgView = view
-	glog.Debugf("damage message sprite resources %s", status)
+	*cached = view
+	glog.Debugf("%s sprite resources %s", label, status)
 	return view
 }
 
 func (m *System) damageMessageBillboard(ctx client.Context, actionIndex, motion int) (*scene.Billboard, bool) {
-	view := m.damageMessageSprite(ctx)
+	return messageBillboard(m.damageMessageSprite(ctx), actionIndex, motion)
+}
+
+func messageBillboard(view *scene.SpriteView, actionIndex, motion int) (*scene.Billboard, bool) {
 	if view == nil || view.Act == nil {
 		return nil, false
 	}
@@ -210,6 +225,11 @@ func damageFloaterPlacement(kind FloaterKind, dir int, ticks float64) (dx, dy, u
 		// MET_NUMBER_TOTAL: 30 units up, rising 0.1 per tick, fading after 90.
 		alpha = 250 - math.Max(0, (t-90)*8)
 		return 0, 0, (30 + .1*t) / 5, damageFloaterComboZoom(ticks), alpha / 255
+	case FloaterBlue:
+		// MET_BLUE_EFFECT: 12 units up plus 18, rising 0.1 per tick; its
+		// zoom of 3 is clamped to 2 on the first update.
+		alpha = math.Max(0, 210-math.Max(0, (t-90)*8))
+		return 0, 0, (30 + .1*t) / 5, 2, alpha / 255
 	}
 	mov, minZoom := .8, 1.2
 	if kind == FloaterCritical {
@@ -252,7 +272,12 @@ func damageFloaterColor(kind FloaterKind, fallback color.RGBA) color.RGBA {
 	case FloaterCritical:
 		return damageFloaterCritical
 	case FloaterCombo:
+		if fallback.A != 0 {
+			return fallback
+		}
 		return damageFloaterComboTotal
+	case FloaterBlue:
+		return damageFloaterBlue
 	case FloaterRecoveryHP:
 		return color.RGBA{R: 0, G: 255, B: 0, A: 255}
 	case FloaterRecoverySP:
@@ -287,6 +312,8 @@ const (
 	FloaterRecoverySP
 	FloaterMiss
 	FloaterCombo
+	// FloaterBlue is the bluemsg flash shown with Bash-type totals.
+	FloaterBlue
 )
 
 // The classic client shows the same numbers whoever attacks or is hit, so
@@ -306,26 +333,163 @@ func (m *System) AddActionDamageFloaters(ctx client.Context, action network.Acto
 	if targetOK {
 		dir = target.Dir
 	}
-	count := scene.ActionVisualHitCount(action)
-	total := action.Damage + action.LeftDamage
-	if count <= 1 || total <= 0 {
+	if kind == FloaterMiss {
 		m.addDamageFloater(action.TargetID, x, y, dir, text, floaterColor, kind, hitAt)
 		return
 	}
-	// Multi-hit attacks show each hit plus a running total (AM_ATTACKED_MANYTIMES).
-	values := actionDamageFloaterValues(action, count)
-	for i := 0; i < count; i++ {
-		starts := hitAt.Add(scene.MultiHitDelay * time.Duration(i))
-		m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(values[i]), floaterColor, kind, starts)
-		if action.Damage > 0 {
-			m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(actionComboDamageFloaterValue(action, count, i)), damageFloaterComboTotal, FloaterCombo, starts)
+	for _, hit := range actionDamageHits(action) {
+		if hit.value <= 0 {
+			continue
+		}
+		starts := hitAt.Add(hit.delay)
+		switch hit.mode {
+		case damageHitSingle:
+			m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(hit.value), floaterColor, kind, starts)
+		case damageHitCritical:
+			m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(hit.value), damageFloaterCritical, FloaterCritical, starts)
+		case damageHitMany:
+			m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(hit.value), DamageFloaterWhite, FloaterNormal, starts)
+			m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(hit.total), damageFloaterComboTotal, FloaterCombo, starts)
+		case damageHitMany2, damageHitMany2Dash:
+			m.addDamageFloater(action.TargetID, x, y, dir, strconv.Itoa(hit.total), DamageFloaterWhite, FloaterCombo, starts)
+			if hit.mode == damageHitMany2 {
+				m.addDamageFloater(action.TargetID, x, y, dir, "", damageFloaterBlue, FloaterBlue, starts)
+			}
 		}
 	}
 }
 
+// damageHitMode is the message a scheduled hit (WBA) reaches the target with.
+type damageHitMode int
+
+const (
+	damageHitSingle    damageHitMode = iota // AM_ATTACKED: one number
+	damageHitCritical                       // AM_ATTACKED_CRITICAL
+	damageHitMany                           // AM_ATTACKED_MANYTIMES: number and yellow total
+	damageHitMany2                          // AM_ATTACKED_MANYTIMES2: white total and blue flash
+	damageHitMany2Dash                      // AM_ATTACKED_MANYTIMES2DASH: white total
+)
+
+type damageHit struct {
+	delay time.Duration
+	value int
+	total int
+	mode  damageHitMode
+}
+
+const (
+	actionSplash                 = 5
+	actionSkill                  = 6
+	actionAttackMultiple         = 8
+	actionAttackMultipleNoMotion = 9
+	actionAttackCritical         = 10
+	// doubleAttackTerm separates the hits of one action, in milliseconds.
+	doubleAttackTerm = 200 * time.Millisecond
+)
+
+// actionDamageHits schedules the numbers of an attack as CGameActor::Am_Action
+// and Am_Skill queue their hits. Damage is split evenly with integer
+// division (RandGenerator adds nothing) and totals are the running sum of
+// the shown hits.
+func actionDamageHits(action network.ActorActionNotify) []damageHit {
+	count := int(action.HitCount)
+	if count <= 0 || count > 36 {
+		count = 1
+	}
+	if action.SkillID != 0 {
+		return skillDamageHits(action, count)
+	}
+	if action.Action != actionAttackMultiple && action.Action != actionAttackMultipleNoMotion {
+		count = 1
+	}
+	single := damageHitSingle
+	if action.Action == actionAttackCritical || action.Action == 13 {
+		single = damageHitCritical
+	}
+	each := int(action.Damage) / count
+	hits := make([]damageHit, 0, count+1)
+	add := func(delay time.Duration, value int, many bool) {
+		total := value
+		if len(hits) > 0 {
+			total += hits[len(hits)-1].total
+		}
+		mode := single
+		if many {
+			mode = damageHitMany
+		}
+		hits = append(hits, damageHit{delay: delay, value: value, total: total, mode: mode})
+	}
+	add(0, each, count > 1)
+	if action.LeftDamage > 0 {
+		// Dual wielding: the other right-hand hits land together half a term
+		// later, the left hand one and three quarter terms after the first.
+		for i := 1; i < count; i++ {
+			add(doubleAttackTerm/2, each, true)
+		}
+		add(doubleAttackTerm*7/4, int(action.LeftDamage), count > 1)
+		return hits
+	}
+	for i := 1; i < count; i++ {
+		add(doubleAttackTerm*time.Duration(i), each, true)
+	}
+	return hits
+}
+
+func skillDamageHits(action network.ActorActionNotify, count int) []damageHit {
+	each := int(action.Damage) / count
+	first := damageHit{value: each, total: each, mode: damageHitSingle}
+	if count > 1 {
+		first.mode = damageHitMany
+	}
+	if action.Action == actionSplash {
+		switch action.SkillID {
+		case db.SkillACShower, db.SkillMGNapalmbeat, db.SkillTKStormkick, db.SkillMOCombofinish:
+		default:
+			first.mode = damageHitSingle
+			return []damageHit{first}
+		}
+	}
+	taekwonKick := false
+	switch action.SkillID {
+	case db.SkillTKDownkick, db.SkillTKTurnkick:
+		first.delay = 300 * time.Millisecond
+		first.mode = damageHitMany2
+		taekwonKick = true
+	case db.SkillTKStormkick, db.SkillTKCounter, db.SkillTKJumpkick:
+		first.mode = damageHitMany2
+		taekwonKick = true
+	case db.SkillSMBash, db.SkillKNBowlingbash:
+		first.mode = damageHitMany2
+	case db.SkillASCBreaker, db.SkillMOExtremityfist:
+		first.mode = damageHitCritical
+	case db.SkillMOCombofinish, db.SkillChTigerfist, db.SkillNPCBlooddrain:
+		first.mode = damageHitMany
+	}
+	hits := []damageHit{first}
+	switch action.Action {
+	case actionSkill, actionAttackMultiple, actionAttackMultipleNoMotion:
+	default:
+		return hits
+	}
+	delay, total := first.delay, first.total
+	for i := 0; i < count-1; i++ {
+		if action.SkillID == db.SkillKNPierce {
+			delay += 80 * time.Millisecond
+		}
+		delay += doubleAttackTerm
+		total += each
+		mode := damageHitMany
+		if taekwonKick {
+			mode = damageHitMany2Dash
+		}
+		hits = append(hits, damageHit{delay: delay, value: each, total: total, mode: mode})
+	}
+	return hits
+}
+
 func damageFloaterHiddenInSiege(kind FloaterKind) bool {
 	switch kind {
-	case FloaterNormal, FloaterCritical, FloaterCombo:
+	case FloaterNormal, FloaterCritical, FloaterCombo, FloaterBlue:
 		return true
 	default:
 		return false
@@ -348,42 +512,6 @@ func (m *System) addDamageFloater(actorID uint32, x, y, dir int, text string, fl
 		Starts:  starts,
 		Expires: starts.Add(DamageFloaterDuration(kind)),
 	})
-}
-
-func actionDamageFloaterValues(action network.ActorActionNotify, count int) []int {
-	values := make([]int, count)
-	if count <= 0 {
-		return values
-	}
-	total := int(action.Damage + action.LeftDamage)
-	if action.SkillID != 0 && action.Damage > 0 {
-		value := int(math.Floor(float64(action.Damage) / float64(count)))
-		for i := range values {
-			values[i] = value
-		}
-		return values
-	}
-	base := total / count
-	rem := total % count
-	for i := range values {
-		values[i] = base
-		if i < rem {
-			values[i]++
-		}
-	}
-	return values
-}
-
-func actionComboDamageFloaterValue(action network.ActorActionNotify, count, index int) int {
-	if action.SkillID != 0 && action.Damage > 0 && count > 0 {
-		return int(math.Floor((float64(action.Damage) / float64(count)) * float64(index+1)))
-	}
-	values := actionDamageFloaterValues(action, count)
-	total := 0
-	for i := 0; i <= index && i < len(values); i++ {
-		total += values[i]
-	}
-	return total
 }
 
 func (m *System) AddLocalRecoveryFloater(ctx client.Context, amount int, floaterColor color.RGBA, kind FloaterKind) {
@@ -433,7 +561,7 @@ func DamageFloaterDuration(kind FloaterKind) time.Duration {
 	switch kind {
 	case FloaterMiss:
 		ticks = 80
-	case FloaterCombo, FloaterRecoveryHP, FloaterRecoverySP:
+	case FloaterCombo, FloaterBlue, FloaterRecoveryHP, FloaterRecoverySP:
 		ticks = 120
 	}
 	return time.Duration(ticks) * 24 * time.Millisecond
@@ -444,8 +572,8 @@ func (m *System) DrawDamageFloaters(screen *render.Frame, ctx client.Context, pr
 		return
 	}
 	active := m.DamageFloaters[:0]
-	for _, floater := range m.DamageFloaters {
-		if now.After(floater.Expires) || m.damageFloaterReplaced(floater, now) {
+	for i, floater := range m.DamageFloaters {
+		if now.After(floater.Expires) || m.damageFloaterReplaced(i, now) {
 			continue
 		}
 		active = append(active, floater)
@@ -481,6 +609,12 @@ func (m *System) DrawDamageFloaters(screen *render.Frame, ctx client.Context, pr
 			}
 			continue
 		}
+		if floater.Kind == FloaterBlue {
+			if billboard, ok := messageBillboard(m.blueMessageSprite(ctx), 2, 0); ok {
+				sprites.DrawOverlay3D(screen, projection, billboard, worldX, worldY, baseZ+up, screenScale*zoom, alpha, light, floaterColor)
+			}
+			continue
+		}
 		if floater.Kind == FloaterCritical {
 			m.drawCriticalBurst(screen, ctx, projection, floater, x, y, baseZ, ticks, light)
 		}
@@ -495,13 +629,18 @@ func (m *System) DrawDamageFloaters(screen *render.Frame, ctx client.Context, pr
 }
 
 // damageFloaterReplaced reports a combo total superseded by a newer one: a
-// new total deletes the previous ones (CGameActor::DeleteTotalNumber).
-func (m *System) damageFloaterReplaced(floater Floater, now time.Time) bool {
+// new total deletes the previous ones (CGameActor::DeleteTotalNumber). Totals
+// starting together are replaced in the order they were queued.
+func (m *System) damageFloaterReplaced(index int, now time.Time) bool {
+	floater := m.DamageFloaters[index]
 	if floater.Kind != FloaterCombo {
 		return false
 	}
-	for _, other := range m.DamageFloaters {
-		if other.Kind == FloaterCombo && other.ActorID == floater.ActorID && other.Starts.After(floater.Starts) && !now.Before(other.Starts) {
+	for j, other := range m.DamageFloaters {
+		if other.Kind != FloaterCombo || other.ActorID != floater.ActorID || now.Before(other.Starts) {
+			continue
+		}
+		if other.Starts.After(floater.Starts) || (j > index && other.Starts.Equal(floater.Starts)) {
 			return true
 		}
 	}

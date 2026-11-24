@@ -39,6 +39,8 @@ type System struct {
 	DamageNumbers    map[string]*scene.Billboard
 	DamageMsgView    *scene.SpriteView
 	DamageMsgMiss    bool
+	BlueMsgView      *scene.SpriteView
+	BlueMsgMiss      bool
 	DamageFloaters   []Floater
 	ActorLife        map[uint32]Life
 	ActorCastBars    map[uint32]CastBar
