@@ -816,6 +816,7 @@ type Instance struct {
 	mapParticles                         *mapParticleState
 	level99Bubbles                       *level99BubbleState
 	sakuraPetals                         *sakuraPetalState
+	snow                                 *snowState
 	NinjaWind                            *NinjaWind
 	SpiritSpheres                        *spiritSpheres
 	NinjaPetals                          *NinjaPetals

@@ -239,29 +239,12 @@ func weatherRainEffectSpec() EffectSpec {
 	}
 }
 
+// weatherSnowEffectSpec is CRagEffect::Snow: ef_snow particles that follow
+// the player for the effect's 99999999-frame life.
 func weatherSnowEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 8 * time.Second,
-		Components: []EffectComponent{{
-			Kind:          EffectComponent3D,
-			TextureFile:   "effect/pok3.tga",
-			Duration:      8 * time.Second,
-			Duplicate:     180,
-			AlphaMax:      0.85,
-			FadeIn:        true,
-			FadeOut:       true,
-			BlendAdditive: true,
-			PosXRand:      60,
-			PosYRand:      60,
-			PosZStartRand: 2,
-			PosZ:          20,
-			PosZEnd:       -4,
-			PosZSmooth:    false,
-			SizeStart:     effectTableSize(7),
-			SizeEnd:       effectTableSize(7),
-			Color:         color.RGBA{R: 245, G: 250, B: 255, A: 255},
-		}},
-	}
+	spec := funcEffectSpec("Snow", 24*time.Hour, true)
+	spec.Components[0].SpriteFile = "ef_snow"
+	return spec
 }
 
 func weatherCloudEffectSpec(textures []string, tint color.RGBA, alpha, radius, z float64, duration time.Duration) EffectSpec {

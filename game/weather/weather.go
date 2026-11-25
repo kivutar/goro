@@ -17,8 +17,8 @@ type System struct {
 	cloud     mapWeatherCloudState
 	fireworks mapWeatherFireworkState
 	sounds    map[int]time.Time
-	// petals is the map's Sakura or Maple effect, kept across frames
-	// because its petals carry state; petalsMap is the map it belongs to.
+	// petals is the map's Sakura, Maple or Snow effect, kept across frames
+	// because its particles carry state; petalsMap is the map it belongs to.
 	petals    *effects.Instance
 	petalsMap string
 }
@@ -135,8 +135,8 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 			return
 		}
 		m.cloud.reset()
-		if effectID == effects.Sakura || effectID == effects.Maple {
-			m.drawPetalWeather(screen, ctx, projection, effectID, now, fx)
+		if effectID == effects.Sakura || effectID == effects.Maple || effectID == effects.Snow {
+			m.drawStatefulWeather(screen, ctx, projection, effectID, now, fx)
 			return
 		}
 		m.petals = nil
@@ -148,9 +148,10 @@ func (m *System) Draw(screen *render.Frame, ctx client.Context, projection scene
 	}
 }
 
-// drawPetalWeather runs the map's petal effect from when the map is entered
-// (CWeather::LaunchSakura on the player), at the player's feet.
-func (m *System) drawPetalWeather(screen *render.Frame, ctx client.Context, projection scene.Projection, effectID int, now time.Time, fx *effects.System) {
+// drawStatefulWeather runs the map's petal or snow effect from when the map
+// is entered (CWeather::LaunchSakura or LaunchSnow on the player), at the
+// player's feet.
+func (m *System) drawStatefulWeather(screen *render.Frame, ctx client.Context, projection scene.Projection, effectID int, now time.Time, fx *effects.System) {
 	spec, ok := effects.Lookup(effectID)
 	if !ok {
 		return
