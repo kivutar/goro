@@ -14,771 +14,772 @@ const (
 
 // Native effect IDs.
 const (
-	effectHit1              = 0
-	effectBashHit           = 1
-	effectHit3              = 2
-	effectHit4              = 3
-	effectHit5              = 4
-	effectHit6              = 5
-	effectEntry             = 6
-	effectExit              = 7
-	effectWarp              = 8
-	effectEnhance           = 9
-	effectMammonite         = 10
-	effectEndure            = 11
-	effectBeginSpell        = 12
-	effectGlassWall         = 13
-	effectHealSP            = 14
-	effectSoulStrike        = 15
-	effectBashBegin         = 16
-	effectMagnumBreak       = 17
-	effectSteal             = 18
-	effectPoisonAttack      = 20
-	effectDetoxication      = 21
-	effectSight             = 22
-	effectStoneCurse        = 23
-	effectFireBall          = 24
-	effectFireWall          = 25
-	effectIceArrow          = 26
-	effectFrostDiver        = 27
-	effectFrostDiverHit     = 28
-	effectLightningBolt     = 29
-	effectThunderStorm      = 30
-	effectFireArrow         = 31
-	effectNapalmBeat        = 32
-	effectRuwach            = 33
-	effectTeleportOld       = 34
-	effectReadyPortalOld    = 35
-	effectIncAgility        = 37
-	effectDecAgility        = 38
-	effectAqua              = 39
-	effectSignum            = 40
-	effectAngelus           = 41
-	effectBlessing          = 42
-	effectIncAgiDex         = 43
-	effectSmoke             = 44
-	effectFirefly           = 45
-	effectTorch             = 47
-	effectFireHit           = 49
-	effectFireSplashHit     = 50
-	effectColdHit           = 51
-	effectWindHit           = 52
-	effectPoisonHit         = 53
-	effectBeginSpell2       = 54
-	effectBeginSpell3       = 55
-	effectBeginSpell4       = 56
-	effectBeginSpell5       = 57
-	effectBeginSpell6       = 58
-	effectBeginSpell7       = 59
-	effectLockOnTarget      = 60
-	effectWarpZone          = 61
-	effectSightTrasher      = 62
-	effectArrowShotRO       = 64
-	effectInvenom           = 65
-	effectCure              = 66
-	effectProvoke           = 67
-	effectMvp               = 68
-	effectSkidTrap          = 69
-	effectBrandishSpear     = 70
-	effectBowlingBash       = 73
-	effectIceWall           = 74
-	effectGloria            = 75
-	effectMagnificat        = 76
-	effectResurrection      = 77
-	effectRecovery          = 78
-	effectEarthSpike        = 79
-	effectSpearBoomerang    = 80
-	effectPierce            = 81
-	effectTurnUndead        = 82
-	effectSanctuary         = 83
-	effectImpositio         = 84
-	effectLexAeterna        = 85
-	effectAspersio          = 86
-	effectLexDivina         = 87
-	effectSuffragium        = 88
-	effectStormGust         = 89
-	effectLordVermilion     = 90
-	effectBenedictio        = 91
-	effectMeteorStorm       = 92
-	effectJupitelThunder    = 93
-	effectJupitelHit        = 94
-	effectQuagmire          = 95
-	effectFirePillar        = 96
-	effectFirePillarBomb    = 97
-	effectHasteUp           = 98
-	effectFlasher           = 99
-	effectRemoveTrap        = 100
-	effectRepairWeapon      = 101
-	effectCrashEarth        = 102
-	effectWeaponPerfect     = 103
-	effectMaximizePower     = 104
-	effectBlastMine         = 105
-	effectBlastMineBomb     = 106
-	effectClaymore          = 107
-	effectFreezingTrap      = 108
-	effectBubble            = 109
-	effectGasPush           = 110
-	effectSpringTrap        = 111
-	effectKyrie             = 112
-	effectMagnus            = 113
-	effectBlitzBeat         = 115
-	effectWaterBall         = 116
-	effectWaterBall2        = 117
-	effectDetecting         = 119
-	effectCloaking          = 120
-	effectSonicBlow         = 121
-	effectSonicBlowHit      = 122
-	effectGrimtooth         = 123
-	effectVenomDust         = 124
-	effectEnchantPoison     = 125
-	effectPoisonReact       = 126
-	effectPoisonReact2      = 127
-	effectOverthrust        = 128
-	effectVenomSplasher     = 129
-	effectTwoHandQuicken    = 130
-	effectAutoCounter       = 131
-	effectGrimtoothAtk      = 132
-	effectFreeze            = 133
-	effectFreezed           = 134
-	effectIceCrash          = 135
-	effectSlowPoison        = 136
-	effectFirePillarOn      = 138
-	effectSandman           = 139
-	effectRevive            = 140
-	effectPneuma            = 141
-	effectHeavenDrive       = 142
-	effectSonicBlow2        = 143
-	effectBrandishSpear2    = 144
-	effectShockwave         = 145
-	effectShockwaveHit      = 146
-	effectEarthHit          = 147
-	effectPierceSelf        = 148
-	effectBowlingSelf       = 149
-	effectSpearStabSelf     = 150
-	effectSpearBmrSelf      = 151
-	effectHolyLight         = 152
-	effectConcentration     = 153
-	effectRefineOK          = 154
-	effectRefineFail        = 155
-	effectJobLevelUp        = 158
-	effectRain              = 161
-	effectSnow              = 162
-	effectSakura            = 163
-	effectBanjjakii         = 165
-	effectMakeBlur          = 166
-	effectEnergyCoat        = 169
-	effectCartRevolution    = 170
-	effectVenomDust2        = 171
-	effectMentalBreak       = 181
-	effectMagicalAtkHit     = 182
-	effectSuiExplosion      = 183
-	effectSuicide           = 185
-	effectComboAttack1      = 186
-	effectComboAttack2      = 187
-	effectComboAttack3      = 188
-	effectComboAttack4      = 189
-	effectComboAttack5      = 190
-	effectGuidedAttack      = 191
-	effectPoisonAttack2     = 192
-	effectSilenceAttack     = 193
-	effectStunAttack        = 194
-	effectPetrifyAttack     = 195
-	effectSleepAttack       = 197
-	effectPong              = 199
-	effectLevel99           = 200
-	effectLevel99Ground     = 201
-	effectLevel99Bubble     = 202
-	effectGumgang           = 203
-	effectPotionRed         = 204
-	effectPotionOrange      = 205
-	effectPotionYellow      = 206
-	effectPotionWhite       = 207
-	effectPotionBlue        = 208
-	effectPotionGreen       = 209
-	effectFood              = 210
-	effectFoodBlue          = 211
-	effectDarkBreath        = 212
-	effectDefender          = 213
-	effectKeeping           = 214
-	effectSummonSlave       = 215
-	effectBloodDrain        = 216
-	effectEnergyDrain       = 217
-	effectItemFast          = 218
-	effectItemFast2         = 219
-	effectItemFast3         = 220
-	effectCrusaderDef       = 222
-	effectGanbantein        = 223
-	effectVolcano           = 225
-	effectGrandCross        = 226
-	effectIntimidate        = 227
-	effectChookgi           = 228
-	effectCloud             = 229
-	effectCloud2            = 230
-	effectMapPillar         = 231
-	effectLineLink          = 232
-	effectCloud3            = 233
-	effectSpellBreaker      = 234
-	effectDispell           = 235
-	effectDeluge            = 236
-	effectViolentGale       = 237
-	effectLandProtector     = 238
-	effectBottomVolcano     = 239
-	effectBottomDeluge      = 240
-	effectBottomViolent     = 241
-	effectBottomLand        = 242
-	effectMagicRod          = 244
-	effectHolyCross         = 245
-	effectShieldCharge      = 246
-	effectMapPillar2        = 247
-	effectProvidence        = 248
-	effectShieldBoomer      = 249
-	effectSpearQuicken      = 250
-	effectDevotion          = 251
-	effectReflectShield     = 252
-	effectAbsorbSpirits     = 253
-	effectSteelBody         = 254
-	effectFlameLauncher     = 255
-	effectFrostWeapon       = 256
-	effectLightningLoad     = 257
-	effectSeismicWeapon     = 258
-	effectMapPillar3        = 259
-	effectMapPillar4        = 260
-	effectGumgang2          = 261
-	effectTeiHit1           = 262
-	effectGumgang3          = 263
-	effectTeiHit2           = 264
-	effectTanji             = 265
-	effectTeiHit1X          = 266
-	effectChimto            = 267
-	effectStealCoin         = 268
-	effectStripWeapon       = 269
-	effectStripShield       = 270
-	effectStripArmor        = 271
-	effectStripHelm         = 272
-	effectChainCombo        = 273
-	effectRogueCoin         = 274
-	effectBackStab          = 275
-	effectTeiHit3           = 276
-	effectBottomDissonance  = 277
-	effectBottomLullaby     = 278
-	effectBottomRichKim     = 279
-	effectBottomChaos       = 280
-	effectBottomDrum        = 281
-	effectBottomNibelung    = 282
-	effectBottomRoki        = 283
-	effectBottomAbyss       = 284
-	effectBottomSieg        = 285
-	effectBottomWhistle     = 286
-	effectBottomSinX        = 287
-	effectBottomBragi       = 288
-	effectBottomApple       = 289
-	effectBottomUglyDance   = 290
-	effectBottomHumming     = 291
-	effectBottomForget      = 292
-	effectBottomFortune     = 293
-	effectBottomService     = 294
-	effectTalkFrostJoke     = 295
-	effectTalkScream        = 296
-	effectPokJuk            = 297
-	effectThrowItem         = 298
-	effectThrowItem2        = 299
-	effectChemicalProt      = 300
-	effectDemonstration     = 302
-	effectChemical2         = 303
-	effectTeleportation     = 304
-	effectPharmacyOK        = 305
-	effectPharmacyFail      = 306
-	effectThrowItem3        = 308
-	effectFirstAid          = 309
-	effectSprinkleSand      = 310
-	effectLoud              = 311
-	effectHeal              = 312
-	effectHeal2             = 313
-	effectExit2             = 314
-	effectSafetyWall        = 315
-	effectReadyPortal       = 316
-	effectPortal            = 317
-	effectBottomMagnus      = 318
-	effectBottomSanc        = 319
-	effectHealOffensive     = 320
-	effectWarpZone2         = 321
-	effectHeal4             = 325
-	effectBeginAsura        = 328
-	effectTripleAttack      = 329
-	effectHitLine           = 330
-	effectHPTime            = 331
-	effectSPTime            = 332
-	effectMaple             = 333
-	effectBlind             = 334
-	effectPoisonStatus      = 335
-	effectGuard             = 336
-	effectJobLvUp50         = 337
-	effectAngel2            = 338
-	effectMagnum2           = 339
-	effectCoupleCasting     = 342
-	effectEntry2            = 344
-	effectColorPaper        = 347
-	effectSoulBreaker       = 361
-	effectLevel99Aura1      = 362
-	effectFoodChocolate     = 363
-	effectPressure          = 365
-	effectBash3D            = 366
-	effectAuraBlade         = 367
-	effectRedBody           = 368
-	effectLKConcentration   = 369
-	effectBottomGospel      = 370
-	effectBaseLevelUp       = 371
-	effectDeath             = 372
-	effectDragonSmoke       = 373
-	effectBottomBasilica    = 374
-	effectAssumptio         = 375
-	effectHitLine2          = 376
-	effectBash3D2           = 377
-	effectEnergyDrain2      = 378
-	effectTransBlueBody     = 379
-	effectMagicCrasher      = 380
-	effectLightBlade        = 382
-	effectEnergyDrain3      = 383
-	effectLineLink2         = 384
-	effectLinkLight         = 385
-	effectTrueSight         = 386
-	effectFalconAssault     = 387
-	effectTripleAttack2     = 388
-	effectPortal4           = 389
-	effectMeltdown          = 390
-	effectCartBoost         = 391
-	effectRejectSword       = 392
-	effectTripleAttack3     = 393
-	effectMoonlit           = 394
-	effectMarionetteLink    = 395
-	effectPinkBody          = 396
-	effectLevel99AuraMid    = 397
-	effectLevel99AuraBottom = 398
-	effectBash3D3           = 399
-	effectBash3D4           = 400
-	effectNapalmVulcan      = 401
-	effectPortal5           = 402
-	effectMagicCrasher2     = 403
-	effectBottomSpider      = 404
-	effectFogWallGround     = 405
-	effectSoulBurn          = 406
-	effectSoulChange        = 407
-	effectSoulBreaker2      = 409
-	effectRainbow           = 410
-	effectPeong             = 411
-	effectPressedBody       = 413
-	effectSpinedBody        = 414
-	effectKickedBody        = 415
-	effectDoubleGumgang     = 418
-	effectReflectBody       = 419
-	effectBabyBody          = 420
-	effectBabyBody2         = 421
-	effectGiantBody         = 422
-	effectGiantBody2        = 423
-	effectAsuraBody         = 424
-	effectFourWayBody       = 425
-	effectQuakeBody         = 426
-	effectAsuraBodyMonster  = 427
-	effectHitLine4          = 429
-	effectHitLine5          = 430
-	effectHitLine6          = 431
-	effectStormKick         = 435
-	effectChemical3         = 439
-	effectAssumptio2        = 440
-	effectBlueCasting       = 441
-	effectRun               = 442
-	effectStopRun           = 443
-	effectStopEffect        = 444
-	effectJumpBody          = 445
-	effectLandBody          = 446
-	effectFoot3             = 447
-	effectFoot4             = 448
-	effectTaeReady          = 449
-	effectDarkGrandCross    = 450
-	effectDarkSoulStrike    = 451
-	effectDarkJupitelHit    = 452
-	effectNPCStop           = 453
-	effectDarkCasting       = 454
-	effectAgiUp             = 456
-	effectJumpKick          = 457
-	effectQuakeBody2        = 458
-	effectStormKick3        = 461
-	effectStormKick4        = 462
-	effectSpinedBody2       = 466
-	effectBeginAsura1       = 467
-	effectBeginAsura2       = 468
-	effectBeginAsura3       = 469
-	effectBeginAsura4       = 470
-	effectBeginAsura5       = 471
-	effectBeginAsura6       = 472
-	effectBeginAsura7       = 473
-	effectDevil1            = 475
-	effectDevil2            = 476
-	effectDevil3            = 477
-	effectDevil4            = 478
-	effectDevil5            = 479
-	effectDevil6            = 480
-	effectDevil7            = 481
-	effectDevil8            = 482
-	effectDevil9            = 483
-	effectDevil10           = 484
-	effectBlackDevil        = 487
-	effectFlowerCast        = 488
-	effectResistPotion      = 491
-	effectMochi             = effectResistPotion
-	effectRamadan           = 492
-	effectEDP               = 493
-	effectFullStrip         = 495
-	effectPreserve          = 496
-	effectSlim              = 497
-	effectSlim2             = 498
-	effectSlim3             = 499
-	effectChemicalBody      = 500
-	effectCastSpin          = 501
-	effectPierceBody        = 502
-	effectSoulLink          = 503
-	effectChookgi2          = 504
-	effectMemorize          = 505
-	effectItemAccel         = 507
-	effectMapae             = effectItemAccel
-	effectFirecracker       = 508
-	effectItemPokJuk        = effectFirecracker
-	effectValentine05       = 509
-	effectBeginAsura11      = 510
-	effectChemical2Dash     = 512
-	effectGroundSample      = 513
-	effectCloud4            = 515
-	effectCloud5            = 516
-	effectBottomHermode     = 517
-	effectCartTermination   = 518
-	effectItemSlow          = 519
-	effectItemFastDown      = effectItemSlow
-	effectShieldBoomerang3  = 520
-	effectDoubleCastBody    = 521
-	effectGravitation       = 522
-	effectTarotCard1        = 523
-	effectTarotCard2        = 524
-	effectTarotCard3        = 525
-	effectTarotCard4        = 526
-	effectTarotCard5        = 527
-	effectTarotCard6        = 528
-	effectTarotCard7        = 529
-	effectTarotCard8        = 530
-	effectTarotCard9        = 531
-	effectTarotCard10       = 532
-	effectTarotCard11       = 533
-	effectTarotCard12       = 534
-	effectTarotCard13       = 535
-	effectTarotCard14       = 536
-	effectAcidDemon         = 537
-	effectThrowItem4        = 539
-	effectBabyBodyBack      = 540
-	effectThrowItem5        = 541
-	effectBlueBody          = 542
-	effectHated             = 543
-	effectRedLightBody      = 544
-	effectSmaReady          = 546
-	effectStin              = 547
-	effectRedHit            = 548
-	effectBlueHit           = 549
-	effectQuakeBody3        = 550
-	effectStin2             = 553
-	effectHitTexture        = 554
-	effectStin3             = 555
-	effectScreenQuake       = 563
-	effectHfliMoon1         = 565
-	effectHfliMoon2         = 566
-	effectHfliMoon3         = 567
-	effectHoUp              = 568
-	effectHamiDefence       = 569
-	effectHamiCastle        = 570
-	effectHamiBlood         = 571
-	effectHated2            = 572
-	effectTwilight1         = 573
-	effectTwilight2         = 574
-	effectTwilight3         = 575
-	effectBoxThunder        = 576
-	effectItemThunder       = effectBoxThunder
-	effectBoxResentment     = 577
-	effectItemCloud         = effectBoxResentment
-	effectItemCurse         = 578
-	effectBoxDrowsiness     = 579
-	effectItemZZZ           = effectBoxDrowsiness
-	effectBoxSunlight       = 580
-	effectItemRain          = effectBoxSunlight
-	effectM01               = 583
-	effectM02               = 584
-	effectM03               = 585
-	effectM04               = 586
-	effectM05               = 587
-	effectM06               = 588
-	effectM07               = 589
-	effectKaizel            = 590
-	effectCloud6            = 592
-	effectStatFoodSTR       = 593
-	effectStatFoodINT       = 594
-	effectStatFoodVIT       = 595
-	effectStatFoodAGI       = 596
-	effectStatFoodDEX       = 597
-	effectStatFoodLUK       = 598
-	effectShrink            = 599
-	effectThrowItem6        = 600
-	effectSightBlaster      = 601
-	effectQuakeBody4        = 602
-	effectFireHit2          = 603
-	effectNPCStop2          = 604
-	effectNPCStop2Del       = 605
-	effectFVoice            = 606
-	effectWink              = 607
-	effectCookingOK         = 608
-	effectCookingFail       = 609
-	effectFirecracker1      = 612
-	effectHapgyeok          = 612
-	effectThrowItem7        = 613
-	effectThrowItem8        = 614
-	effectThrowItem9        = 615
-	effectThrowItem10       = 616
-	effectKouenka           = 618
-	effectHyousensou        = 619
-	effectBottomSuiton      = 620
-	effectStin4             = 621
-	effectThunderStorm2     = 622
-	effectChemical4         = 623
-	effectStin5             = 624
-	effectMadnessBlue       = 625
-	effectMadnessRed        = 626
-	effectRGCoin3           = 627
-	effectBash3D5           = 628
-	effectChookgi3          = 629
-	effectKirikage          = 630
-	effectTatami            = 631
-	effectKasumikiri        = 632
-	effectIssen             = 633
-	effectKaen              = 634
-	effectBaku              = 635
-	effectHyousyouraku      = 636
-	effectDesperado         = 637
-	effectLightningS        = 638
-	effectBlindS            = 639
-	effectPoisonS           = 640
-	effectFreezingS         = 641
-	effectFlareS            = 642
-	effectRapidShower       = 643
-	effectMagicalBullet     = 644
-	effectSpreadAttack      = 645
-	effectTrackCasting      = 646
-	effectTracking          = 647
-	effectTripleAction      = 648
-	effectBullseye          = 649
-	effectBubbleDrop        = 665
-	effectNPCEarthquake     = 666
-	effectDragonFear        = 668
-	effectWideBleeding      = 669
-	effectWideConfuse       = 670
-	effectBottomRunner      = 671
-	effectBottomTransfer    = 672
-	effectBottomEvilLand    = 674
-	effectGuard3            = 675
-	effectCriticalWound     = 677
-	effectFirecracker2      = 682
-	effectFirecracker3      = 683
-	effectFirecracker4      = 684
-	effectFirecracker5      = 685
-	effectFirecracker6      = 686
-	effectTorchRed          = 690
-	effectTorchGreen        = 691
-	effectMapGhost          = 692
-	effectGlow1             = 693
-	effectGlow2             = 694
-	effectGlow4             = 695
-	effectTorchPurple       = 696
-	effectCloud7            = 697
-	effectCloud8            = 698
-	effectFlowerLeaf        = 699
-	effectItem315           = 704
-	effectItem316           = 705
-	effectItem317           = 706
-	effectStormMin          = 708
-	effectFirecracker7      = 709
-	effectBottomBlue        = 715
-	effectBottomBlue2       = 716
-	effectChristmasCarol    = 717
-	effectFirePillarOn2     = 718
-	effectForestLight5      = 719
-	effectAdoramus          = 721
-	effectIgnitionBreak     = 722
-	effectFrostMisty        = 726
-	effectCrimsonRock       = 727
-	effectHellInferno       = 728
-	effectMarshOfAbyss      = 729
-	effectDragonHowling     = 731
-	effectEarthWall         = 732
-	effectChainLightning    = 734
-	effectAimedBolt         = 745
-	effectArrowStorm        = 746
-	effectLaulamus          = 747
-	effectLauagnus          = 748
-	effectMillenniumShield  = 749
-	effectConcentration2    = 750
-	effectGlassWall3        = 754
-	effectBerserkPotion2    = 756
-	effectRolling1          = 758
-	effectRolling2          = 759
-	effectRolling3          = 760
-	effectRolling4          = 761
-	effectRolling5          = 762
-	effectRolling6          = 763
-	effectRolling7          = 764
-	effectRolling8          = 765
-	effectRolling9          = 766
-	effectRolling10         = 767
-	effectCastSpin2         = 775
-	effectCrashAxe          = 795
-	effectStasis            = 799
-	effectBottomBasilica2   = 802
-	effectRecognized        = 803
-	effectTetra             = 804
-	effectTetraCasting      = 805
-	effectStretch           = 811
-	effectEnervation        = 813
-	effectEnervation2       = 814
-	effectEnervation3       = 815
-	effectEnervation4       = 816
-	effectEnervation5       = 817
-	effectEnervation6       = 818
-	effectBottomManhole     = 822
-	effectManhole           = 823
-	effectForestLight6      = 825
-	effectBottomAni         = 827
-	effectBottomMaelstrom   = 828
-	effectBottomBloodyLust  = 829
-	effectHealN             = 832
-	effectChookgiN          = 833
-	effectDance1            = 847
-	effectBotReverb         = 856
-	effectRainParticle      = 857
-	effectChemicalV2        = 858
-	effectBotReverb2        = 860
-	effectCirclePower2      = 861
-	effectSecra2            = 862
-	effectSprPlant2         = 866
-	effectSprPlant3         = 868
-	effectSprPlant4         = 870
-	effectSprPlant5         = 872
-	effectSprPlant6         = 874
-	effectSprPlant7         = 876
-	effectSprPlant8         = 878
-	effectHeartAsura        = 879
-	effectGlassWall4        = 883
-	effectBash3D6           = 885
-	effectElectric4         = 888
-	effectTeiHit1T          = 889
-	effectPressure2         = 906
-	effectPrimeCharge2      = 908
-	effectPrimeCharge3      = 909
-	effectPrimeCharge4      = 910
-	effectFireWall2         = 920
-	effectSprPlant10        = 922
-	effectShockwave2        = 926
-	effectColdThrow2        = 928
-	effectDemonicFire4      = 929
-	effectPressure3         = 930
-	effectPoisonMist        = 959
-	effectEraserCutter      = 960
-	effectLavaSlide         = 964
-	effectSonicClaw         = 965
-	effectTinderBreaker     = 966
-	effectMidnightFrenzy    = 967
-	effectVolcanicAsh       = 975
-	effectRWC2011           = 987
-	effectRWC2011Two        = 988
-	effectRunMakeOK         = 1015
-	effectRunMakeFailure    = 1016
-	effectMIResultMakeOK    = 1017
-	effectMIResultMakeFail  = 1018
-	effectAllRayProtect     = 1019
-	effectVenomFog          = 1020
-	effectDustStorm         = 1021
-	effectDanceBladeAtk     = 1029
-	effectInvincibleOff2    = 1031
-	effectDeathSummon       = 1033
-	effectGCDarkCrow        = 1040
-	effectAllFullThrottle   = 1042
-	effectSRFlashCombo      = 1043
-	effectRKLuxAnima        = 1044
-	effectSOElemShield      = 1046
-	effectABOffertorium     = 1047
-	effectWLTelekinesis     = 1048
-	effectGNIllusionDoping  = 1049
-	effectNCMagmaEruption   = 1050
-	effectNPCChill          = 1055
-	effectOffertoriumRing   = 1057
-	effectHammerOfGod       = 1062
-	effectAchComplete       = 1094
-	effectBodyColor         = 1111
-	effectBakuretsuHadou    = 1130
-	dropEffectPink          = 1186
-	dropEffectYellow        = 1189
-	dropEffectPurple        = 1190
-	effectDigitalSpace      = 1240
-	dropEffectBlue          = 1869
-	dropEffectGreen         = 1870
-	dropEffectRed           = 1871
-	effectNewSuccess        = 1872
-	effectNewFailure        = 1873
-	effectNewIntro          = 1874
-	effectEnchantYellow     = 1875
-	effectEnchantSuccess    = 1876
-	effectEnchantFail       = 1877
-	effectEnchantBlue       = 1878
-	effectEnchantUpSuccess  = 1879
-	effectEnchantUpFail     = 1880
-	effectEnchantGreen      = 1881
-	effectEnchantResetOK    = 1882
-	effectEnchantResetFail  = 1883
+	EffectHit1              = 0
+	EffectBashHit           = 1
+	EffectHit3              = 2
+	EffectHit4              = 3
+	EffectHit5              = 4
+	EffectHit6              = 5
+	EffectEntry             = 6
+	EffectExit              = 7
+	EffectWarp              = 8
+	EffectEnhance           = 9
+	EffectMammonite         = 10
+	EffectEndure            = 11
+	EffectBeginSpell        = 12
+	EffectGlassWall         = 13
+	EffectHealSP            = 14
+	EffectSoulStrike        = 15
+	EffectBashBegin         = 16
+	EffectMagnumBreak       = 17
+	EffectSteal             = 18
+	EffectPoisonAttack      = 20
+	EffectDetoxication      = 21
+	EffectSight             = 22
+	EffectStoneCurse        = 23
+	EffectFireBall          = 24
+	EffectFireWall          = 25
+	EffectIceArrow          = 26
+	EffectFrostDiver        = 27
+	EffectFrostDiverHit     = 28
+	EffectLightningBolt     = 29
+	EffectThunderStorm      = 30
+	EffectFireArrow         = 31
+	EffectNapalmBeat        = 32
+	EffectRuwach            = 33
+	EffectTeleportOld       = 34
+	EffectReadyPortalOld    = 35
+	EffectIncAgility        = 37
+	EffectDecAgility        = 38
+	EffectAqua              = 39
+	EffectSignum            = 40
+	EffectAngelus           = 41
+	EffectBlessing          = 42
+	EffectIncAgiDex         = 43
+	EffectSmoke             = 44
+	EffectFirefly           = 45
+	EffectTorch             = 47
+	EffectFireHit           = 49
+	EffectFireSplashHit     = 50
+	EffectColdHit           = 51
+	EffectWindHit           = 52
+	EffectPoisonHit         = 53
+	EffectBeginSpell2       = 54
+	EffectBeginSpell3       = 55
+	EffectBeginSpell4       = 56
+	EffectBeginSpell5       = 57
+	EffectBeginSpell6       = 58
+	EffectBeginSpell7       = 59
+	EffectLockOnTarget      = 60
+	EffectWarpZone          = 61
+	EffectSightTrasher      = 62
+	EffectArrowShotRO       = 64
+	EffectInvenom           = 65
+	EffectCure              = 66
+	EffectProvoke           = 67
+	EffectMvp               = 68
+	EffectSkidTrap          = 69
+	EffectBrandishSpear     = 70
+	EffectBowlingBash       = 73
+	EffectIceWall           = 74
+	EffectGloria            = 75
+	EffectMagnificat        = 76
+	EffectResurrection      = 77
+	EffectRecovery          = 78
+	EffectEarthSpike        = 79
+	EffectSpearBoomerang    = 80
+	EffectPierce            = 81
+	EffectTurnUndead        = 82
+	EffectSanctuary         = 83
+	EffectImpositio         = 84
+	EffectLexAeterna        = 85
+	EffectAspersio          = 86
+	EffectLexDivina         = 87
+	EffectSuffragium        = 88
+	EffectStormGust         = 89
+	EffectLordVermilion     = 90
+	EffectBenedictio        = 91
+	EffectMeteorStorm       = 92
+	EffectJupitelThunder    = 93
+	EffectJupitelHit        = 94
+	EffectQuagmire          = 95
+	EffectFirePillar        = 96
+	EffectFirePillarBomb    = 97
+	EffectHasteUp           = 98
+	EffectFlasher           = 99
+	EffectRemoveTrap        = 100
+	EffectRepairWeapon      = 101
+	EffectCrashEarth        = 102
+	EffectWeaponPerfect     = 103
+	EffectMaximizePower     = 104
+	EffectBlastMine         = 105
+	EffectBlastMineBomb     = 106
+	EffectClaymore          = 107
+	EffectFreezingTrap      = 108
+	EffectBubble            = 109
+	EffectGasPush           = 110
+	EffectSpringTrap        = 111
+	EffectKyrie             = 112
+	EffectMagnus            = 113
+	EffectBlitzBeat         = 115
+	EffectWaterBall         = 116
+	EffectWaterBall2        = 117
+	EffectDetecting         = 119
+	EffectCloaking          = 120
+	EffectSonicBlow         = 121
+	EffectSonicBlowHit      = 122
+	EffectGrimtooth         = 123
+	EffectVenomDust         = 124
+	EffectEnchantPoison     = 125
+	EffectPoisonReact       = 126
+	EffectPoisonReact2      = 127
+	EffectOverthrust        = 128
+	EffectVenomSplasher     = 129
+	EffectTwoHandQuicken    = 130
+	EffectAutoCounter       = 131
+	EffectGrimtoothAtk      = 132
+	EffectFreeze            = 133
+	EffectFreezed           = 134
+	EffectIceCrash          = 135
+	EffectSlowPoison        = 136
+	EffectFirePillarOn      = 138
+	EffectSandman           = 139
+	EffectRevive            = 140
+	EffectPneuma            = 141
+	EffectHeavenDrive       = 142
+	EffectSonicBlow2        = 143
+	EffectBrandishSpear2    = 144
+	EffectShockwave         = 145
+	EffectShockwaveHit      = 146
+	EffectEarthHit          = 147
+	EffectPierceSelf        = 148
+	EffectBowlingSelf       = 149
+	EffectSpearStabSelf     = 150
+	EffectSpearBmrSelf      = 151
+	EffectHolyLight         = 152
+	EffectConcentration     = 153
+	EffectRefineOK          = 154
+	EffectRefineFail        = 155
+	EffectJobLevelUp        = 158
+	EffectRain              = 161
+	EffectSnow              = 162
+	EffectSakura            = 163
+	EffectBanjjakii         = 165
+	EffectMakeBlur          = 166
+	EffectEnergyCoat        = 169
+	EffectCartRevolution    = 170
+	EffectVenomDust2        = 171
+	EffectMentalBreak       = 181
+	EffectMagicalAtkHit     = 182
+	EffectSuiExplosion      = 183
+	EffectSuicide           = 185
+	EffectComboAttack1      = 186
+	EffectComboAttack2      = 187
+	EffectComboAttack3      = 188
+	EffectComboAttack4      = 189
+	EffectComboAttack5      = 190
+	EffectGuidedAttack      = 191
+	EffectPoisonAttack2     = 192
+	EffectSilenceAttack     = 193
+	EffectStunAttack        = 194
+	EffectPetrifyAttack     = 195
+	EffectSleepAttack       = 197
+	EffectPong              = 199
+	EffectLevel99           = 200
+	EffectLevel99Ground     = 201
+	EffectLevel99Bubble     = 202
+	EffectGumgang           = 203
+	EffectPotionRed         = 204
+	EffectPotionOrange      = 205
+	EffectPotionYellow      = 206
+	EffectPotionWhite       = 207
+	EffectPotionBlue        = 208
+	EffectPotionGreen       = 209
+	EffectFood              = 210
+	EffectFoodBlue          = 211
+	EffectDarkBreath        = 212
+	EffectDefender          = 213
+	EffectKeeping           = 214
+	EffectSummonSlave       = 215
+	EffectBloodDrain        = 216
+	EffectEnergyDrain       = 217
+	EffectItemFast          = 218
+	EffectItemFast2         = 219
+	EffectItemFast3         = 220
+	EffectCrusaderDef       = 222
+	EffectGanbantein        = 223
+	EffectVolcano           = 225
+	EffectGrandCross        = 226
+	EffectIntimidate        = 227
+	EffectChookgi           = 228
+	EffectCloud             = 229
+	EffectCloud2            = 230
+	EffectMapPillar         = 231
+	EffectLineLink          = 232
+	EffectCloud3            = 233
+	EffectSpellBreaker      = 234
+	EffectDispell           = 235
+	EffectDeluge            = 236
+	EffectViolentGale       = 237
+	EffectLandProtector     = 238
+	EffectBottomVolcano     = 239
+	EffectBottomDeluge      = 240
+	EffectBottomViolent     = 241
+	EffectBottomLand        = 242
+	EffectMagicRod          = 244
+	EffectHolyCross         = 245
+	EffectShieldCharge      = 246
+	EffectMapPillar2        = 247
+	EffectProvidence        = 248
+	EffectShieldBoomer      = 249
+	EffectSpearQuicken      = 250
+	EffectDevotion          = 251
+	EffectReflectShield     = 252
+	EffectAbsorbSpirits     = 253
+	EffectSteelBody         = 254
+	EffectFlameLauncher     = 255
+	EffectFrostWeapon       = 256
+	EffectLightningLoad     = 257
+	EffectSeismicWeapon     = 258
+	EffectMapPillar3        = 259
+	EffectMapPillar4        = 260
+	EffectGumgang2          = 261
+	EffectTeiHit1           = 262
+	EffectGumgang3          = 263
+	EffectTeiHit2           = 264
+	EffectTanji             = 265
+	EffectTeiHit1X          = 266
+	EffectChimto            = 267
+	EffectStealCoin         = 268
+	EffectStripWeapon       = 269
+	EffectStripShield       = 270
+	EffectStripArmor        = 271
+	EffectStripHelm         = 272
+	EffectChainCombo        = 273
+	EffectRogueCoin         = 274
+	EffectBackStab          = 275
+	EffectTeiHit3           = 276
+	EffectBottomDissonance  = 277
+	EffectBottomLullaby     = 278
+	EffectBottomRichKim     = 279
+	EffectBottomChaos       = 280
+	EffectBottomDrum        = 281
+	EffectBottomNibelung    = 282
+	EffectBottomRoki        = 283
+	EffectBottomAbyss       = 284
+	EffectBottomSieg        = 285
+	EffectBottomWhistle     = 286
+	EffectBottomSinX        = 287
+	EffectBottomBragi       = 288
+	EffectBottomApple       = 289
+	EffectBottomUglyDance   = 290
+	EffectBottomHumming     = 291
+	EffectBottomForget      = 292
+	EffectBottomFortune     = 293
+	EffectBottomService     = 294
+	EffectTalkFrostJoke     = 295
+	EffectTalkScream        = 296
+	EffectPokJuk            = 297
+	EffectThrowItem         = 298
+	EffectThrowItem2        = 299
+	EffectChemicalProt      = 300
+	EffectDemonstration     = 302
+	EffectChemical2         = 303
+	EffectTeleportation     = 304
+	EffectPharmacyOK        = 305
+	EffectPharmacyFail      = 306
+	EffectThrowItem3        = 308
+	EffectFirstAid          = 309
+	EffectSprinkleSand      = 310
+	EffectLoud              = 311
+	EffectHeal              = 312
+	EffectHeal2             = 313
+	EffectExit2             = 314
+	EffectSafetyWall        = 315
+	EffectReadyPortal       = 316
+	EffectPortal            = 317
+	EffectBottomMagnus      = 318
+	EffectBottomSanc        = 319
+	EffectHealOffensive     = 320
+	EffectWarpZone2         = 321
+	EffectHeal4             = 325
+	EffectBeginAsura        = 328
+	EffectTripleAttack      = 329
+	EffectHitLine           = 330
+	EffectHPTime            = 331
+	EffectSPTime            = 332
+	EffectMaple             = 333
+	EffectBlind             = 334
+	EffectPoisonStatus      = 335
+	EffectGuard             = 336
+	EffectJobLvUp50         = 337
+	EffectAngel2            = 338
+	EffectMagnum2           = 339
+	EffectCoupleCasting     = 342
+	EffectEntry2            = 344
+	EffectColorPaper        = 347
+	EffectSoulBreaker       = 361
+	EffectLevel99Aura1      = 362
+	EffectFoodChocolate     = 363
+	EffectPressure          = 365
+	EffectBash3D            = 366
+	EffectAuraBlade         = 367
+	EffectRedBody           = 368
+	EffectLKConcentration   = 369
+	EffectBottomGospel      = 370
+	EffectBaseLevelUp       = 371
+	EffectDeath             = 372
+	EffectDragonSmoke       = 373
+	EffectBottomBasilica    = 374
+	EffectAssumptio         = 375
+	EffectHitLine2          = 376
+	EffectBash3D2           = 377
+	EffectEnergyDrain2      = 378
+	EffectTransBlueBody     = 379
+	EffectMagicCrasher      = 380
+	EffectLightBlade        = 382
+	EffectEnergyDrain3      = 383
+	EffectLineLink2         = 384
+	EffectLinkLight         = 385
+	EffectTrueSight         = 386
+	EffectFalconAssault     = 387
+	EffectTripleAttack2     = 388
+	EffectPortal4           = 389
+	EffectMeltdown          = 390
+	EffectCartBoost         = 391
+	EffectRejectSword       = 392
+	EffectTripleAttack3     = 393
+	EffectMoonlit           = 394
+	EffectMarionetteLink    = 395
+	EffectPinkBody          = 396
+	EffectLevel99AuraMid    = 397
+	EffectLevel99AuraBottom = 398
+	EffectBash3D3           = 399
+	EffectBash3D4           = 400
+	EffectNapalmVulcan      = 401
+	EffectPortal5           = 402
+	EffectMagicCrasher2     = 403
+	EffectBottomSpider      = 404
+	EffectFogWallGround     = 405
+	EffectSoulBurn          = 406
+	EffectSoulChange        = 407
+	EffectSoulBreaker2      = 409
+	EffectRainbow           = 410
+	EffectPeong             = 411
+	EffectPressedBody       = 413
+	EffectSpinedBody        = 414
+	EffectKickedBody        = 415
+	EffectDoubleGumgang     = 418
+	EffectReflectBody       = 419
+	EffectBabyBody          = 420
+	EffectBabyBody2         = 421
+	EffectGiantBody         = 422
+	EffectGiantBody2        = 423
+	EffectAsuraBody         = 424
+	EffectFourWayBody       = 425
+	EffectQuakeBody         = 426
+	EffectAsuraBodyMonster  = 427
+	EffectHitLine4          = 429
+	EffectHitLine5          = 430
+	EffectHitLine6          = 431
+	EffectStormKick         = 435
+	EffectChemical3         = 439
+	EffectAssumptio2        = 440
+	EffectBlueCasting       = 441
+	EffectRun               = 442
+	EffectStopRun           = 443
+	EffectStopEffect        = 444
+	EffectJumpBody          = 445
+	EffectLandBody          = 446
+	EffectFoot3             = 447
+	EffectFoot4             = 448
+	EffectTaeReady          = 449
+	EffectDarkGrandCross    = 450
+	EffectDarkSoulStrike    = 451
+	EffectDarkJupitelHit    = 452
+	EffectNPCStop           = 453
+	EffectDarkCasting       = 454
+	EffectAgiUp             = 456
+	EffectJumpKick          = 457
+	EffectQuakeBody2        = 458
+	EffectStormKick3        = 461
+	EffectStormKick4        = 462
+	EffectSpinedBody2       = 466
+	EffectBeginAsura1       = 467
+	EffectBeginAsura2       = 468
+	EffectBeginAsura3       = 469
+	EffectBeginAsura4       = 470
+	EffectBeginAsura5       = 471
+	EffectBeginAsura6       = 472
+	EffectBeginAsura7       = 473
+	EffectDevil1            = 475
+	EffectDevil2            = 476
+	EffectDevil3            = 477
+	EffectDevil4            = 478
+	EffectDevil5            = 479
+	EffectDevil6            = 480
+	EffectDevil7            = 481
+	EffectDevil8            = 482
+	EffectDevil9            = 483
+	EffectDevil10           = 484
+	EffectBlackDevil        = 487
+	EffectFlowerCast        = 488
+	EffectResistPotion      = 491
+	EffectMochi             = EffectResistPotion
+	EffectRamadan           = 492
+	EffectEDP               = 493
+	EffectFullStrip         = 495
+	EffectPreserve          = 496
+	EffectSlim              = 497
+	EffectSlim2             = 498
+	EffectSlim3             = 499
+	EffectChemicalBody      = 500
+	EffectCastSpin          = 501
+	EffectPierceBody        = 502
+	EffectSoulLink          = 503
+	EffectChookgi2          = 504
+	EffectMemorize          = 505
+	EffectItemAccel         = 507
+	EffectMapae             = EffectItemAccel
+	EffectFirecracker       = 508
+	EffectItemPokJuk        = EffectFirecracker
+	EffectValentine05       = 509
+	EffectBeginAsura11      = 510
+	EffectChemical2Dash     = 512
+	EffectGroundSample      = 513
+	EffectCloud4            = 515
+	EffectCloud5            = 516
+	EffectBottomHermode     = 517
+	EffectCartTermination   = 518
+	EffectItemSlow          = 519
+	EffectItemFastDown      = EffectItemSlow
+	EffectShieldBoomerang3  = 520
+	EffectDoubleCastBody    = 521
+	EffectGravitation       = 522
+	EffectTarotCard1        = 523
+	EffectTarotCard2        = 524
+	EffectTarotCard3        = 525
+	EffectTarotCard4        = 526
+	EffectTarotCard5        = 527
+	EffectTarotCard6        = 528
+	EffectTarotCard7        = 529
+	EffectTarotCard8        = 530
+	EffectTarotCard9        = 531
+	EffectTarotCard10       = 532
+	EffectTarotCard11       = 533
+	EffectTarotCard12       = 534
+	EffectTarotCard13       = 535
+	EffectTarotCard14       = 536
+	EffectAcidDemon         = 537
+	EffectThrowItem4        = 539
+	EffectBabyBodyBack      = 540
+	EffectThrowItem5        = 541
+	EffectBlueBody          = 542
+	EffectHated             = 543
+	EffectRedLightBody      = 544
+	EffectSmaReady          = 546
+	EffectStin              = 547
+	EffectRedHit            = 548
+	EffectBlueHit           = 549
+	EffectQuakeBody3        = 550
+	EffectStin2             = 553
+	EffectHitTexture        = 554
+	EffectStin3             = 555
+	EffectScreenQuake       = 563
+	EffectHfliMoon1         = 565
+	EffectHfliMoon2         = 566
+	EffectHfliMoon3         = 567
+	EffectHoUp              = 568
+	EffectHamiDefence       = 569
+	EffectHamiCastle        = 570
+	EffectHamiBlood         = 571
+	EffectHated2            = 572
+	EffectTwilight1         = 573
+	EffectTwilight2         = 574
+	EffectTwilight3         = 575
+	EffectBoxThunder        = 576
+	EffectItemThunder       = EffectBoxThunder
+	EffectBoxResentment     = 577
+	EffectItemCloud         = EffectBoxResentment
+	EffectItemCurse         = 578
+	EffectBoxDrowsiness     = 579
+	EffectItemZZZ           = EffectBoxDrowsiness
+	EffectBoxSunlight       = 580
+	EffectItemRain          = EffectBoxSunlight
+	EffectM01               = 583
+	EffectM02               = 584
+	EffectM03               = 585
+	EffectM04               = 586
+	EffectM05               = 587
+	EffectM06               = 588
+	EffectM07               = 589
+	EffectKaizel            = 590
+	EffectCloud6            = 592
+	EffectStatFoodSTR       = 593
+	EffectStatFoodINT       = 594
+	EffectStatFoodVIT       = 595
+	EffectStatFoodAGI       = 596
+	EffectStatFoodDEX       = 597
+	EffectStatFoodLUK       = 598
+	EffectShrink            = 599
+	EffectThrowItem6        = 600
+	EffectSightBlaster      = 601
+	EffectQuakeBody4        = 602
+	EffectFireHit2          = 603
+	EffectNPCStop2          = 604
+	EffectNPCStop2Del       = 605
+	EffectFVoice            = 606
+	EffectWink              = 607
+	EffectCookingOK         = 608
+	EffectCookingFail       = 609
+	EffectFirecracker1      = 612
+	EffectHapgyeok          = 612
+	EffectThrowItem7        = 613
+	EffectThrowItem8        = 614
+	EffectThrowItem9        = 615
+	EffectThrowItem10       = 616
+	EffectKouenka           = 618
+	EffectHyousensou        = 619
+	EffectBottomSuiton      = 620
+	EffectStin4             = 621
+	EffectThunderStorm2     = 622
+	EffectChemical4         = 623
+	EffectStin5             = 624
+	EffectMadnessBlue       = 625
+	EffectMadnessRed        = 626
+	EffectRGCoin3           = 627
+	EffectBash3D5           = 628
+	EffectChookgi3          = 629
+	EffectKirikage          = 630
+	EffectTatami            = 631
+	EffectKasumikiri        = 632
+	EffectIssen             = 633
+	EffectKaen              = 634
+	EffectBaku              = 635
+	EffectHyousyouraku      = 636
+	EffectDesperado         = 637
+	EffectLightningS        = 638
+	EffectBlindS            = 639
+	EffectPoisonS           = 640
+	EffectFreezingS         = 641
+	EffectFlareS            = 642
+	EffectRapidShower       = 643
+	EffectMagicalBullet     = 644
+	EffectSpreadAttack      = 645
+	EffectTrackCasting      = 646
+	EffectTracking          = 647
+	EffectTripleAction      = 648
+	EffectBullseye          = 649
+	EffectBubbleDrop        = 665
+	EffectNPCEarthquake     = 666
+	EffectDragonFear        = 668
+	EffectWideBleeding      = 669
+	EffectWideConfuse       = 670
+	EffectBottomRunner      = 671
+	EffectBottomTransfer    = 672
+	EffectBottomEvilLand    = 674
+	EffectGuard3            = 675
+	EffectCriticalWound     = 677
+	EffectFirecracker2      = 682
+	EffectFirecracker3      = 683
+	EffectFirecracker4      = 684
+	EffectFirecracker5      = 685
+	EffectFirecracker6      = 686
+	EffectTorchRed          = 690
+	EffectTorchGreen        = 691
+	EffectMapGhost          = 692
+	EffectGlow1             = 693
+	EffectGlow2             = 694
+	EffectGlow4             = 695
+	EffectTorchPurple       = 696
+	EffectCloud7            = 697
+	EffectCloud8            = 698
+	EffectFlowerLeaf        = 699
+	EffectItem315           = 704
+	EffectItem316           = 705
+	EffectItem317           = 706
+	EffectStormMin          = 708
+	EffectFirecracker7      = 709
+	EffectBottomBlue        = 715
+	EffectBottomBlue2       = 716
+	EffectChristmasCarol    = 717
+	EffectFirePillarOn2     = 718
+	EffectForestLight5      = 719
+	EffectAdoramus          = 721
+	EffectIgnitionBreak     = 722
+	EffectFrostMisty        = 726
+	EffectCrimsonRock       = 727
+	EffectHellInferno       = 728
+	EffectMarshOfAbyss      = 729
+	EffectDragonHowling     = 731
+	EffectEarthWall         = 732
+	EffectChainLightning    = 734
+	EffectAimedBolt         = 745
+	EffectArrowStorm        = 746
+	EffectLaulamus          = 747
+	EffectLauagnus          = 748
+	EffectMillenniumShield  = 749
+	EffectConcentration2    = 750
+	EffectGlassWall3        = 754
+	EffectBerserkPotion2    = 756
+	EffectRolling1          = 758
+	EffectRolling2          = 759
+	EffectRolling3          = 760
+	EffectRolling4          = 761
+	EffectRolling5          = 762
+	EffectRolling6          = 763
+	EffectRolling7          = 764
+	EffectRolling8          = 765
+	EffectRolling9          = 766
+	EffectRolling10         = 767
+	EffectCastSpin2         = 775
+	EffectCrashAxe          = 795
+	EffectStasis            = 799
+	EffectBottomBasilica2   = 802
+	EffectRecognized        = 803
+	EffectTetra             = 804
+	EffectTetraCasting      = 805
+	EffectStretch           = 811
+	EffectEnervation        = 813
+	EffectEnervation2       = 814
+	EffectEnervation3       = 815
+	EffectEnervation4       = 816
+	EffectEnervation5       = 817
+	EffectEnervation6       = 818
+	EffectBottomManhole     = 822
+	EffectManhole           = 823
+	EffectForestLight6      = 825
+	EffectBottomAni         = 827
+	EffectBottomMaelstrom   = 828
+	EffectBottomBloodyLust  = 829
+	EffectHealN             = 832
+	EffectChookgiN          = 833
+	EffectDance1            = 847
+	EffectBotReverb         = 856
+	EffectRainParticle      = 857
+	EffectChemicalV2        = 858
+	EffectBotReverb2        = 860
+	EffectCirclePower2      = 861
+	EffectSecra2            = 862
+	EffectSprPlant2         = 866
+	EffectSprPlant3         = 868
+	EffectSprPlant4         = 870
+	EffectSprPlant5         = 872
+	EffectSprPlant6         = 874
+	EffectSprPlant7         = 876
+	EffectSprPlant8         = 878
+	EffectHeartAsura        = 879
+	EffectGlassWall4        = 883
+	EffectBash3D6           = 885
+	EffectElectric4         = 888
+	EffectTeiHit1T          = 889
+	EffectPressure2         = 906
+	EffectPrimeCharge2      = 908
+	EffectPrimeCharge3      = 909
+	EffectPrimeCharge4      = 910
+	EffectFireWall2         = 920
+	EffectSprPlant10        = 922
+	EffectShockwave2        = 926
+	EffectColdThrow2        = 928
+	EffectDemonicFire4      = 929
+	EffectPressure3         = 930
+	EffectPoisonMist        = 959
+	EffectEraserCutter      = 960
+	EffectLavaSlide         = 964
+	EffectSonicClaw         = 965
+	EffectTinderBreaker     = 966
+	EffectMidnightFrenzy    = 967
+	EffectVolcanicAsh       = 975
+	EffectRWC2011           = 987
+	EffectRWC2011Two        = 988
+	EffectRunMakeOK         = 1015
+	EffectRunMakeFailure    = 1016
+	EffectMIResultMakeOK    = 1017
+	EffectMIResultMakeFail  = 1018
+	EffectAllRayProtect     = 1019
+	EffectVenomFog          = 1020
+	EffectDustStorm         = 1021
+	EffectDanceBladeAtk     = 1029
+	EffectInvincibleOff2    = 1031
+	EffectDeathSummon       = 1033
+	EffectGCDarkCrow        = 1040
+	EffectAllFullThrottle   = 1042
+	EffectSRFlashCombo      = 1043
+	EffectRKLuxAnima        = 1044
+	EffectSOElemShield      = 1046
+	EffectABOffertorium     = 1047
+	EffectWLTelekinesis     = 1048
+	EffectGNIllusionDoping  = 1049
+	EffectNCMagmaEruption   = 1050
+	EffectNPCChill          = 1055
+	EffectOffertoriumRing   = 1057
+	EffectHammerOfGod       = 1062
+	EffectAchComplete       = 1094
+	EffectBodyColor         = 1111
+	EffectBakuretsuHadou    = 1130
+	EffectDropPink          = 1186
+	EffectDropYellow        = 1189
+	EffectDropPurple        = 1190
+	EffectDigitalSpace      = 1240
+	EffectDropBlue          = 1869
+	EffectDropGreen         = 1870
+	EffectDropRed           = 1871
+	EffectNewSuccess        = 1872
+	EffectNewFailure        = 1873
+	EffectNewIntro          = 1874
+	EffectEnchantYellow     = 1875
+	EffectEnchantSuccess    = 1876
+	EffectEnchantFail       = 1877
+	EffectEnchantBlue       = 1878
+	EffectEnchantUpSuccess  = 1879
+	EffectEnchantUpFail     = 1880
+	EffectEnchantGreen      = 1881
+	EffectEnchantResetOK    = 1882
+	EffectEnchantResetFail  = 1883
 )
 
 // Goro-local effect IDs.
 const (
-	effectColdBolt               = 10014
-	effectFireBolt               = 10019
-	effectCastRing               = 10021
-	effectQuakeMagnum            = 10022
-	effectArrowShot              = 10060
-	effectArrowShower            = 10061
-	effectMagicPower             = SkillEffectMagicPower
-	effectWhitePulse             = SkillEffectWhitePulse
-	effectSpearProjectile        = SkillEffectSpearProjectile
-	effectSpearHitSound          = SkillEffectSpearHitSound
-	effectEnemyHitNormal1        = SkillEffectEnemyHitNormal1
-	effectQuake                  = SkillEffectQuake
-	effectAnkleSnareGround       = SkillEffectAnkleSnareGround
-	effectSharpShootingCast      = SkillEffectSharpShootingCast
-	effectAdrenalineCast         = SkillEffectAdrenalineCast
-	effectMaximizeSounds         = SkillEffectMaximizeSounds
-	effectGreedSound             = SkillEffectGreedSound
-	effectGospelGround           = SkillEffectGospelGround
-	effectHermodeMusic           = SkillEffectHermodeMusic
-	effectBottomDissonanceGround = SkillEffectBottomDissonanceGround
-	effectBottomLullabyGround    = SkillEffectBottomLullabyGround
-	effectBottomRichKimGround    = SkillEffectBottomRichKimGround
-	effectBottomChaosGround      = SkillEffectBottomChaosGround
-	effectBottomDrumGround       = SkillEffectBottomDrumGround
-	effectBottomNibelungGround   = SkillEffectBottomNibelungGround
-	effectBottomRokiGround       = SkillEffectBottomRokiGround
-	effectBottomAbyssGround      = SkillEffectBottomAbyssGround
-	effectBottomSiegGround       = SkillEffectBottomSiegGround
-	effectBottomWhistleGround    = SkillEffectBottomWhistleGround
-	effectBottomSinXGround       = SkillEffectBottomSinXGround
-	effectBottomBragiGround      = SkillEffectBottomBragiGround
-	effectBottomAppleGround      = SkillEffectBottomAppleGround
-	effectBottomUglyDanceGround  = SkillEffectBottomUglyDanceGround
-	effectBottomHummingGround    = SkillEffectBottomHummingGround
-	effectBottomForgetGround     = SkillEffectBottomForgetGround
-	effectBottomFortuneGround    = SkillEffectBottomFortuneGround
-	effectBottomServiceGround    = SkillEffectBottomServiceGround
-	effectGunslingerCoinSound    = SkillEffectGunslingerCoinSound
-	effectSteelBodyRing          = SkillEffectSteelBodyRing
+	EffectColdBolt               = 10014
+	EffectFireBolt               = 10019
+	EffectCastRing               = 10021
+	EffectQuakeMagnum            = 10022
+	EffectArrowShot              = 10060
+	EffectArrowShower            = 10061
+	EffectMagicPower             = SkillEffectMagicPower
+	EffectWhitePulse             = SkillEffectWhitePulse
+	EffectSpearProjectile        = SkillEffectSpearProjectile
+	EffectSpearHitSound          = SkillEffectSpearHitSound
+	EffectEnemyHitNormal1        = SkillEffectEnemyHitNormal1
+	EffectQuake                  = SkillEffectQuake
+	EffectAnkleSnareGround       = SkillEffectAnkleSnareGround
+	EffectSharpShootingCast      = SkillEffectSharpShootingCast
+	EffectAdrenalineCast         = SkillEffectAdrenalineCast
+	EffectMaximizeSounds         = SkillEffectMaximizeSounds
+	EffectGreedSound             = SkillEffectGreedSound
+	EffectGospelGround           = SkillEffectGospelGround
+	EffectHermodeMusic           = SkillEffectHermodeMusic
+	EffectBottomDissonanceGround = SkillEffectBottomDissonanceGround
+	EffectBottomLullabyGround    = SkillEffectBottomLullabyGround
+	EffectBottomRichKimGround    = SkillEffectBottomRichKimGround
+	EffectBottomChaosGround      = SkillEffectBottomChaosGround
+	EffectBottomDrumGround       = SkillEffectBottomDrumGround
+	EffectBottomNibelungGround   = SkillEffectBottomNibelungGround
+	EffectBottomRokiGround       = SkillEffectBottomRokiGround
+	EffectBottomAbyssGround      = SkillEffectBottomAbyssGround
+	EffectBottomSiegGround       = SkillEffectBottomSiegGround
+	EffectBottomWhistleGround    = SkillEffectBottomWhistleGround
+	EffectBottomSinXGround       = SkillEffectBottomSinXGround
+	EffectBottomBragiGround      = SkillEffectBottomBragiGround
+	EffectBottomAppleGround      = SkillEffectBottomAppleGround
+	EffectBottomUglyDanceGround  = SkillEffectBottomUglyDanceGround
+	EffectBottomHummingGround    = SkillEffectBottomHummingGround
+	EffectBottomForgetGround     = SkillEffectBottomForgetGround
+	EffectBottomFortuneGround    = SkillEffectBottomFortuneGround
+	EffectBottomServiceGround    = SkillEffectBottomServiceGround
+	EffectGunslingerCoinSound    = SkillEffectGunslingerCoinSound
+	EffectSteelBodyRing          = SkillEffectSteelBodyRing
+	EffectEmotion                = 1000000
 )
 
 const EffectPixelRatio = 1.0 / 35.0
@@ -955,756 +956,756 @@ type EffectComponent struct {
 // original-client behavior. Leave effects unsupported until their reference
 // behavior is understood rather than guessing local visuals.
 var EffectSpecs = map[int]EffectSpec{
-	effectHit1:              hit1EffectSpec(),
-	effectBashHit:           bashHitEffectSpec(),
-	effectHit3:              hit3EffectSpec(),
-	effectHit4:              hit4EffectSpec(),
-	effectHit5:              hit5EffectSpec(),
-	effectHit6:              hit6EffectSpec(),
-	effectEntry:             entryEffectSpec(),
-	effectExit:              exitEffectSpec(),
-	effectWarp:              warpEffectSpec(),
-	effectEnhance:           enhanceEffectSpec(),
-	effectMammonite:         mammoniteEffectSpec(),
-	effectEndure:            endureEffectSpec(),
-	effectBeginSpell:        beginSpellEffectSpec(),
-	effectGlassWall:         glassWallEffectSpec(),
-	effectHealSP:            healSPEffectSpec(),
-	effectSoulStrike:        soulStrikeEffectSpec(),
-	effectBashBegin:         bashBeginEffectSpec(),
-	effectMagnumBreak:       magnumBreakEffectSpec(),
-	effectSteal:             stealEffectSpec(),
-	effectPoisonAttack:      poisonAttackEffectSpec(),
-	effectDetoxication:      detoxicationEffectSpec(),
-	effectSight:             mageSightEffectSpec(),
-	effectStoneCurse:        stoneCurseEffectSpec(),
-	effectFireBall:          fireBallEffectSpec(),
-	effectFireWall:          fireWallEffectSpec(),
-	effectIceArrow:          coldBoltEffectSpec(),
-	effectFrostDiver:        frostDiverEffectSpec(),
-	effectFrostDiverHit:     mageFrostHitEffectSpec(),
-	effectLightningBolt:     lightningBoltEffectSpec(),
-	effectThunderStorm:      thunderStormEffectSpec(),
-	effectFireArrow:         fireBoltEffectSpec(),
-	effectNapalmBeat:        napalmBeatEffectSpec(),
-	effectRuwach:            ruwachEffectSpec(),
-	effectTeleportOld:       teleportOldEffectSpec(),
-	effectReadyPortalOld:    readyPortalOldEffectSpec(),
-	effectIncAgility:        incAgilityEffectSpec(),
-	effectDecAgility:        decAgilityEffectSpec(),
-	effectAqua:              aquaEffectSpec(),
-	effectSignum:            signumEffectSpec(),
-	effectAngelus:           angelusEffectSpec(),
-	effectBlessing:          blessingEffectSpec(),
-	effectIncAgiDex:         concentrationBeginEffectSpec(),
-	effectSmoke:             smokeEffectSpec(),
-	effectFirefly:           fireflyEffectSpec(),
-	effectTorch:             torchEffectSpec(),
-	effectFireHit:           fireHitEffectSpec(),
-	effectFireSplashHit:     fireSplashHitEffectSpec(),
-	effectColdHit:           coldHitEffectSpec(),
-	effectWindHit:           windHitEffectSpec(),
-	effectPoisonHit:         poisonHitEffectSpec(),
-	effectBeginSpell2:       beginSpell2EffectSpec(),
-	effectBeginSpell3:       beginSpell3EffectSpec(),
-	effectBeginSpell4:       beginSpell4EffectSpec(),
-	effectBeginSpell5:       beginSpell5EffectSpec(),
-	effectBeginSpell6:       beginSpell6EffectSpec(),
-	effectBeginSpell7:       beginSpell7EffectSpec(),
-	effectLockOnTarget:      lockOnTargetEffectSpec(),
-	effectWarpZone:          warpZoneEffectSpec(),
-	effectSightTrasher:      sightTrasherEffectSpec(),
-	effectArrowShotRO:       arrowShotROEffectSpec(),
-	effectInvenom:           invenomEffectSpec(),
-	effectCure:              cureEffectSpec(),
-	effectProvoke:           provokeEffectSpec(),
-	effectMvp:               mvpEffectSpec(),
-	effectSkidTrap:          skidTrapEffectSpec(),
-	effectBrandishSpear:     brandishSpearEffectSpec(),
-	effectBowlingBash:       bowlingBashEffectSpec(),
-	effectIceWall:           iceWallEffectSpec(),
-	effectGloria:            gloriaEffectSpec(),
-	effectMagnificat:        magnificatEffectSpec(),
-	effectResurrection:      resurrectionEffectSpec(),
-	effectRecovery:          recoveryEffectSpec(),
-	effectEarthSpike:        earthSpikeEffectSpec(),
-	effectSpearBoomerang:    spearBoomerangEffectSpec(),
-	effectPierce:            pierceEffectSpec(),
-	effectTurnUndead:        turnUndeadEffectSpec(),
-	effectSanctuary:         sanctuaryEffectSpec(),
-	effectImpositio:         impositioEffectSpec(),
-	effectLexAeterna:        lexAeternaEffectSpec(),
-	effectAspersio:          aspersioEffectSpec(),
-	effectLexDivina:         lexDivinaEffectSpec(),
-	effectSuffragium:        suffragiumEffectSpec(),
-	effectStormGust:         stormGustEffectSpec(),
-	effectLordVermilion:     lordVermilionEffectSpec(),
-	effectBenedictio:        benedictioEffectSpec(),
-	effectMeteorStorm:       meteorStormEffectSpec(),
-	effectJupitelThunder:    jupitelThunderEffectSpec(),
-	effectJupitelHit:        jupitelHitEffectSpec(),
-	effectQuagmire:          quagmireEffectSpec(),
-	effectFirePillar:        firePillarEffectSpec(),
-	effectFirePillarBomb:    firePillarBombEffectSpec(),
-	effectHasteUp:           hasteUpEffectSpec(),
-	effectFlasher:           flasherEffectSpec(),
-	effectRemoveTrap:        removeTrapEffectSpec(),
-	effectRepairWeapon:      repairWeaponEffectSpec(),
-	effectCrashEarth:        crashEarthEffectSpec(),
-	effectWeaponPerfect:     weaponPerfectEffectSpec(),
-	effectMaximizePower:     maximizePowerEffectSpec(),
-	effectBlastMine:         blastMineSoundEffectSpec(),
-	effectBlastMineBomb:     blastMineEffectSpec(),
-	effectClaymore:          claymoreEffectSpec(),
-	effectFreezingTrap:      freezingTrapEffectSpec(),
-	effectBubble:            bubbleEffectSpec(),
-	effectGasPush:           gasPushEffectSpec(),
-	effectSpringTrap:        springTrapEffectSpec(),
-	effectKyrie:             kyrieEffectSpec(),
-	effectMagnus:            magnusEffectSpec(),
-	effectBlitzBeat:         blitzBeatEffectSpec(),
-	effectWaterBall:         waterBallEffectSpec(),
-	effectWaterBall2:        waterBall2EffectSpec(),
-	effectDetecting:         detectingEffectSpec(),
-	effectCloaking:          cloakingEffectSpec(),
-	effectSonicBlow:         sonicBlowEffectSpec(),
-	effectSonicBlowHit:      sonicBlowHitEffectSpec(),
-	effectGrimtooth:         grimtoothGroundEffectSpec(),
-	effectVenomDust:         venomDustEffectSpec(),
-	effectEnchantPoison:     enchantPoisonEffectSpec(),
-	effectPoisonReact:       poisonReactEffectSpec(),
-	effectPoisonReact2:      poisonReact2EffectSpec(),
-	effectOverthrust:        overthrustEffectSpec(),
-	effectVenomSplasher:     venomSplasherEffectSpec(),
-	effectTwoHandQuicken:    twoHandQuickenEffectSpec(),
-	effectAutoCounter:       autoCounterEffectSpec(),
-	effectGrimtoothAtk:      grimtoothAtkEffectSpec(),
-	effectFreeze:            freezeEffectSpec(),
-	effectFreezed:           freezedEffectSpec(),
-	effectIceCrash:          iceCrashEffectSpec(),
-	effectSlowPoison:        slowPoisonEffectSpec(),
-	effectFirePillarOn:      firePillarOnEffectSpec(),
-	effectSandman:           sandmanEffectSpec(),
-	effectRevive:            reviveEffectSpec(),
-	effectPneuma:            pneumaEffectSpec(),
-	effectHeavenDrive:       heavenDriveEffectSpec(),
-	effectSonicBlow2:        sonicBlow2EffectSpec(),
-	effectBrandishSpear2:    brandishSpear2EffectSpec(),
-	effectShockwave:         shockwaveEffectSpec(),
-	effectShockwaveHit:      shockwaveHitEffectSpec(),
-	effectEarthHit:          earthHitEffectSpec(),
-	effectPierceSelf:        pierceSelfEffectSpec(),
-	effectBowlingSelf:       bowlingSelfEffectSpec(),
-	effectSpearStabSelf:     spearStabSelfEffectSpec(),
-	effectSpearBmrSelf:      spearBmrSelfEffectSpec(),
-	effectHolyLight:         holyLightEffectSpec(),
-	effectConcentration:     concentrationEffectSpec(),
-	effectRefineOK:          refineOKEffectSpec(),
-	effectRefineFail:        refineFailEffectSpec(),
-	effectJobLevelUp:        jobLevelUpEffectSpec(),
-	effectRain:              weatherRainEffectSpec(),
-	effectSnow:              weatherSnowEffectSpec(),
-	effectSakura:            sakuraEffectSpec(),
-	effectBanjjakii:         banjjakiiEffectSpec(),
-	effectMakeBlur:          makeBlurEffectSpec(),
-	effectEnergyCoat:        energyCoatEffectSpec(),
-	effectCartRevolution:    cartRevolutionEffectSpec(),
-	effectVenomDust2:        venomDust2EffectSpec(),
-	effectMentalBreak:       mentalBreakEffectSpec(),
-	effectMagicalAtkHit:     magicalAtkHitEffectSpec(),
-	effectSuiExplosion:      suiExplosionEffectSpec(),
-	effectSuicide:           suicideEffectSpec(),
-	effectComboAttack1:      comboAttack1EffectSpec(),
-	effectComboAttack2:      comboAttack2EffectSpec(),
-	effectComboAttack3:      comboAttack3EffectSpec(),
-	effectComboAttack4:      comboAttack4EffectSpec(),
-	effectComboAttack5:      comboAttack5EffectSpec(),
-	effectGuidedAttack:      guidedAttackEffectSpec(),
-	effectPoisonAttack2:     poisonAttack2EffectSpec(),
-	effectSilenceAttack:     silenceAttackEffectSpec(),
-	effectStunAttack:        stunAttackEffectSpec(),
-	effectPetrifyAttack:     petrifyAttackEffectSpec(),
-	effectSleepAttack:       sleepAttackEffectSpec(),
-	effectPong:              pongEffectSpec(),
-	effectLevel99:           level99EffectSpec(),
-	effectLevel99Ground:     level99GroundEffectSpec(),
-	effectLevel99Bubble:     level99BubbleEffectSpec(),
-	effectGumgang:           gumgangEffectSpec(),
-	effectPotionRed:         potionRedEffectSpec(),
-	effectPotionOrange:      potionOrangeEffectSpec(),
-	effectPotionYellow:      potionYellowEffectSpec(),
-	effectPotionWhite:       potionWhiteEffectSpec(),
-	effectPotionBlue:        bluePotionEffectSpec(),
-	effectPotionGreen:       potionGreenEffectSpec(),
-	effectFood:              foodEffectSpec(),
-	effectFoodBlue:          foodBlueEffectSpec(),
-	effectDarkBreath:        darkBreathEffectSpec(),
-	effectDefender:          defenderEffectSpec(),
-	effectKeeping:           keepingEffectSpec(),
-	effectSummonSlave:       summonSlaveEffectSpec(),
-	effectBloodDrain:        bloodDrainEffectSpec(),
-	effectEnergyDrain:       energyDrainEffectSpec(),
-	effectItemFast:          itemFastEffectSpec(),
-	effectItemFast2:         itemFast2EffectSpec(),
-	effectItemFast3:         berserkPotionEffectSpec(),
-	effectCrusaderDef:       crusaderDefEffectSpec(),
-	effectGanbantein:        ganbanteinEffectSpec(),
-	effectVolcano:           volcanoEffectSpec(),
-	effectGrandCross:        grandCrossEffectSpec(),
-	effectIntimidate:        intimidateEffectSpec(),
-	effectChookgi:           spiritSphereEffectSpec(),
-	effectCloud:             cloudEffectSpec(),
-	effectCloud2:            cloud2EffectSpec(),
-	effectMapPillar:         mapPillarBlueEffectSpec(),
-	effectLineLink:          devotionLinkEffectSpec(),
-	effectCloud3:            cloud3EffectSpec(),
-	effectSpellBreaker:      spellBreakerEffectSpec(),
-	effectDispell:           dispellEffectSpec(),
-	effectDeluge:            delugeEffectSpec(),
-	effectViolentGale:       violentGaleEffectSpec(),
-	effectLandProtector:     landProtectorEffectSpec(),
-	effectBottomVolcano:     bottomVolcanoEffectSpec(),
-	effectBottomDeluge:      bottomDelugeEffectSpec(),
-	effectBottomViolent:     bottomViolentEffectSpec(),
-	effectBottomLand:        landProtectorGroundEffectSpec(),
-	effectMagicRod:          magicRodEffectSpec(),
-	effectHolyCross:         holyCrossEffectSpec(),
-	effectShieldCharge:      shieldChargeEffectSpec(),
-	effectMapPillar2:        mapPillar2EffectSpec(),
-	effectProvidence:        providenceEffectSpec(),
-	effectShieldBoomer:      shieldBoomerangEffectSpec(),
-	effectSpearQuicken:      spearQuickenEffectSpec(),
-	effectDevotion:          devotionEffectSpec(),
-	effectReflectShield:     reflectShieldEffectSpec(),
-	effectAbsorbSpirits:     absorbSpiritsEffectSpec(),
-	effectSteelBody:         steelBodyEffectSpec(),
-	effectFlameLauncher:     flameLauncherEffectSpec(),
-	effectFrostWeapon:       frostWeaponEffectSpec(),
-	effectLightningLoad:     lightningLoadEffectSpec(),
-	effectSeismicWeapon:     seismicWeaponEffectSpec(),
-	effectMapPillar3:        mapPillar3EffectSpec(),
-	effectMapPillar4:        mapPillar4EffectSpec(),
-	effectGumgang2:          gumgang2EffectSpec(),
-	effectTeiHit1:           teiHit1EffectSpec(),
-	effectGumgang3:          gumgang3EffectSpec(),
-	effectTeiHit2:           teiHit2EffectSpec(),
-	effectTanji:             tanjiEffectSpec(),
-	effectTeiHit1X:          teiHit1XEffectSpec(),
-	effectChimto:            chimtoEffectSpec(),
-	effectStealCoin:         stealCoinEffectSpec(),
-	effectStripWeapon:       stripWeaponEffectSpec(),
-	effectStripShield:       stripShieldEffectSpec(),
-	effectStripArmor:        stripArmorEffectSpec(),
-	effectStripHelm:         stripHelmEffectSpec(),
-	effectChainCombo:        chainComboEffectSpec(),
-	effectRogueCoin:         rogueCoinEffectSpec(),
-	effectBackStab:          backStabEffectSpec(),
-	effectTeiHit3:           teiHit3EffectSpec(),
-	effectBottomDissonance:  bottomDissonanceEffectSpec(),
-	effectBottomLullaby:     bottomLullabyEffectSpec(),
-	effectBottomRichKim:     bottomRichKimEffectSpec(),
-	effectBottomChaos:       bottomChaosEffectSpec(),
-	effectBottomDrum:        bottomDrumEffectSpec(),
-	effectBottomNibelung:    bottomNibelungEffectSpec(),
-	effectBottomRoki:        songOutEffectSpec(),
-	effectBottomAbyss:       bottomAbyssEffectSpec(),
-	effectBottomSieg:        bottomSiegEffectSpec(),
-	effectBottomWhistle:     bottomWhistleEffectSpec(),
-	effectBottomSinX:        bottomSinXEffectSpec(),
-	effectBottomBragi:       bottomBragiEffectSpec(),
-	effectBottomApple:       bottomAppleEffectSpec(),
-	effectBottomUglyDance:   bottomUglyDanceEffectSpec(),
-	effectBottomHumming:     bottomHummingEffectSpec(),
-	effectBottomForget:      bottomForgetEffectSpec(),
-	effectBottomFortune:     bottomFortuneEffectSpec(),
-	effectBottomService:     bottomServiceEffectSpec(),
-	effectTalkFrostJoke:     talkFrostJokeEffectSpec(),
-	effectTalkScream:        talkScreamEffectSpec(),
-	effectPokJuk:            pokJukEffectSpec(),
-	effectThrowItem:         acidTerrorBottleEffectSpec(),
-	effectThrowItem2:        throwItem2EffectSpec(),
-	effectChemicalProt:      chemicalProtectionEffectSpec(),
-	effectDemonstration:     demonstrationEffectSpec(),
-	effectChemical2:         chemical2EffectSpec(),
-	effectTeleportation:     teleportationEffectSpec(),
-	effectPharmacyOK:        pharmacyOKEffectSpec(),
-	effectPharmacyFail:      pharmacyFailEffectSpec(),
-	effectThrowItem3:        throwItem3EffectSpec(),
-	effectFirstAid:          firstAidEffectSpec(),
-	effectSprinkleSand:      sprinkleSandEffectSpec(),
-	effectLoud:              loudEffectSpec(),
-	effectHeal:              healEffectSpec(),
-	effectHeal2:             heal2EffectSpec(),
-	effectExit2:             exit2EffectSpec(),
-	effectSafetyWall:        safetyWallEffectSpec(),
-	effectReadyPortal:       readyPortalEffectSpec(),
-	effectPortal:            portalEffectSpec(),
-	effectBottomMagnus:      bottomMagnusEffectSpec(),
-	effectBottomSanc:        bottomSancEffectSpec(),
-	effectHealOffensive:     healOffensiveEffectSpec(),
-	effectWarpZone2:         warpZone2EffectSpec(),
-	effectHeal4:             heal4EffectSpec(),
-	effectBeginAsura:        beginAsuraCastEffectSpec(),
-	effectTripleAttack:      tripleAttackEffectSpec(),
-	effectHitLine:           hitLineEffectSpec(),
-	effectHPTime:            hpTimeEffectSpec(),
-	effectSPTime:            spTimeEffectSpec(),
-	effectMaple:             mapleEffectSpec(),
-	effectBlind:             blindEffectSpec(),
-	effectPoisonStatus:      poisonStatusEffectSpec(),
-	effectGuard:             guardEffectSpec(),
-	effectJobLvUp50:         jobLvUp50EffectSpec(),
-	effectAngel2:            superAngelEffectSpec(),
-	effectMagnum2:           magnum2EffectSpec(),
-	effectCoupleCasting:     coupleCastingEffectSpec(),
-	effectEntry2:            entry2EffectSpec(),
-	effectColorPaper:        colorPaperEffectSpec(),
-	effectSoulBreaker:       soulBreakerBaseEffectSpec(),
-	effectLevel99Aura1:      level99BlueBubbleEffectSpec(),
-	effectFoodChocolate:     foodChocolateEffectSpec(),
-	effectPressure:          pressureEffectSpec(),
-	effectBash3D:            sacrificeEffectSpec(),
-	effectAuraBlade:         auraBladeEffectSpec(),
-	effectRedBody:           redBodyEffectSpec(),
-	effectLKConcentration:   lkConcentrationEffectSpec(),
-	effectBottomGospel:      bottomGospelEffectSpec(),
-	effectBaseLevelUp:       baseLevelUpEffectSpec(),
-	effectDeath:             deathEffectSpec(),
-	effectDragonSmoke:       dragonSmokeEffectSpec(),
-	effectBottomBasilica:    bottomBasilicaEffectSpec(),
-	effectAssumptio:         assumptioEffectSpec(),
-	effectHitLine2:          palmStrikeEffectSpec(),
-	effectBash3D2:           tigerFistEffectSpec(),
-	effectEnergyDrain2:      soulDrainEffectSpec(),
-	effectTransBlueBody:     transBlueBodyEffectSpec(),
-	effectMagicCrasher:      magicCrasherEffectSpec(),
-	effectLightBlade:        lightBladeEffectSpec(),
-	effectEnergyDrain3:      hpConversionEffectSpec(),
-	effectLineLink2:         soulChangeLinkEffectSpec(),
-	effectLinkLight:         linkLightEffectSpec(),
-	effectTrueSight:         trueSightEffectSpec(),
-	effectFalconAssault:     falconAssaultEffectSpec(),
-	effectTripleAttack2:     sharpShootingEffectSpec(),
-	effectPortal4:           windWalkEffectSpec(),
-	effectMeltdown:          meltdownEffectSpec(),
-	effectCartBoost:         cartBoostEffectSpec(),
-	effectRejectSword:       rejectSwordEffectSpec(),
-	effectTripleAttack3:     arrowVulcanEffectSpec(),
-	effectMoonlit:           moonlitEffectSpec(),
-	effectMarionetteLink:    marionetteEffectSpec(),
-	effectPinkBody:          pinkBodyEffectSpec(),
-	effectLevel99AuraMid:    level99EffectSpec(),
-	effectLevel99AuraBottom: level99GroundEffectSpec(),
-	effectBash3D3:           bash3D3EffectSpec(),
-	effectBash3D4:           bash3D4EffectSpec(),
-	effectNapalmVulcan:      napalmVulcanEffectSpec(),
-	effectPortal5:           portal5EffectSpec(),
-	effectMagicCrasher2:     magicCrasher2EffectSpec(),
-	effectBottomSpider:      spiderWebEffectSpec(),
-	effectFogWallGround:     fogWallGroundEffectSpec(),
-	effectSoulBurn:          soulBurnEffectSpec(),
-	effectSoulChange:        soulChangeEffectSpec(),
-	effectSoulBreaker2:      soulBreaker2EffectSpec(),
-	effectRainbow:           rainbowEffectSpec(),
-	effectPeong:             taekwonJumpEffectSpec(),
-	effectPressedBody:       pressedBodyEffectSpec(),
-	effectSpinedBody:        spinedBodyEffectSpec(),
-	effectKickedBody:        kickedBodyEffectSpec(),
-	effectDoubleGumgang:     starWarmthEffectSpec(),
-	effectReflectBody:       reflectBodyEffectSpec(),
-	effectBabyBody:          babyBodyEffectSpec(),
-	effectBabyBody2:         babyBody2EffectSpec(),
-	effectGiantBody:         giantBodyEffectSpec(),
-	effectGiantBody2:        giantBody2EffectSpec(),
-	effectAsuraBody:         asuraBodyEffectSpec(),
-	effectFourWayBody:       fourWayBodyEffectSpec(),
-	effectQuakeBody:         quakeBodyEffectSpec(),
-	effectAsuraBodyMonster:  asuraBodyMonsterEffectSpec(),
-	effectHitLine4:          hitLineBurstEffectSpec(),
-	effectHitLine5:          hitLineBurstEffectSpec(),
-	effectHitLine6:          hitLineBurstEffectSpec(),
-	effectStormKick:         stormKickEffectSpec(),
-	effectChemical3:         taekwonDashEffectSpec(),
-	effectAssumptio2:        assumptio2EffectSpec(),
-	effectBlueCasting:       blueCastingEffectSpec(),
-	effectRun:               runEffectSpec(),
-	effectStopRun:           stopRunEffectSpec(),
-	effectStopEffect:        taekwonStopEffectSpec(),
-	effectJumpBody:          jumpBodyEffectSpec(),
-	effectLandBody:          landBodyEffectSpec(),
-	effectFoot3:             foot3EffectSpec(),
-	effectFoot4:             foot4EffectSpec(),
-	effectTaeReady:          taeReadyEffectSpec(),
-	effectDarkGrandCross:    darkGrandCrossEffectSpec(),
-	effectDarkSoulStrike:    darkSoulStrikeEffectSpec(),
-	effectDarkJupitelHit:    darkJupitelHitEffectSpec(),
-	effectNPCStop:           npcStopEffectSpec(),
-	effectDarkCasting:       darkCastingEffectSpec(),
-	effectAgiUp:             gunslingerAgilityEffectSpec(),
-	effectJumpKick:          jumpKickEffectSpec(),
-	effectQuakeBody2:        quakeBody2EffectSpec(),
-	effectStormKick3:        stormKick3EffectSpec(),
-	effectStormKick4:        kaupeDodgeEffectSpec(),
-	effectSpinedBody2:       spinedBody2EffectSpec(),
-	effectBeginAsura1:       beginAsura1EffectSpec(),
-	effectBeginAsura2:       beginAsura2EffectSpec(),
-	effectBeginAsura3:       beginAsura3EffectSpec(),
-	effectBeginAsura4:       beginAsura4EffectSpec(),
-	effectBeginAsura5:       beginAsura5EffectSpec(),
-	effectBeginAsura6:       beginAsura6EffectSpec(),
-	effectBeginAsura7:       beginAsura7EffectSpec(),
-	effectDevil1:            starBlindEffectSpec(),
-	effectDevil2:            starBlindEffectSpec(),
-	effectDevil3:            starBlindEffectSpec(),
-	effectDevil4:            starBlindEffectSpec(),
-	effectDevil5:            starBlindEffectSpec(),
-	effectDevil6:            starBlindEffectSpec(),
-	effectDevil7:            starBlindEffectSpec(),
-	effectDevil8:            starBlindEffectSpec(),
-	effectDevil9:            starBlindEffectSpec(),
-	effectDevil10:           starBlindEffectSpec(),
-	effectBlackDevil:        starBlackDevilEffectSpec(),
-	effectFlowerCast:        starComfortEffectSpec(),
-	effectMochi:             mochiEffectSpec(),
-	effectRamadan:           ramadanEffectSpec(),
-	effectEDP:               enchantDeadlyPoisonEffectSpec(),
-	effectFullStrip:         fullStripEffectSpec(),
-	effectPreserve:          preserveEffectSpec(),
-	effectSlim:              slimEffectSpec(),
-	effectSlim2:             slim2EffectSpec(),
-	effectSlim3:             slim3EffectSpec(),
-	effectChemicalBody:      chemicalBodyEffectSpec(),
-	effectCastSpin:          castSpinEffectSpec(),
-	effectPierceBody:        pierceBodyEffectSpec(),
-	effectSoulLink:          soulLinkEffectSpec(),
-	effectChookgi2:          spiritSphereEffectSpec(),
-	effectMemorize:          memorizeEffectSpec(),
-	effectMapae:             mapaeEffectSpec(),
-	effectItemPokJuk:        itemPokJukEffectSpec(),
-	effectValentine05:       valentine05EffectSpec(),
-	effectBeginAsura11:      beginAsura11EffectSpec(),
-	effectChemical2Dash:     chainCrushEffectSpec(),
-	effectGroundSample:      groundSampleEffectSpec(),
-	effectCloud4:            einbrochWeatherCloudEffectSpec(),
-	effectCloud5:            cloud5EffectSpec(),
-	effectBottomHermode:     hermodeEffectSpec(),
-	effectCartTermination:   cartTerminationEffectSpec(),
-	effectItemFastDown:      itemFastDownEffectSpec(),
-	effectShieldBoomerang3:  shieldChainEffectSpec(),
-	effectDoubleCastBody:    doubleCastBodyEffectSpec(),
-	effectGravitation:       gravitationEffectSpec(),
-	effectTarotCard1:        tarotCard1EffectSpec(),
-	effectTarotCard2:        tarotCard2EffectSpec(),
-	effectTarotCard3:        tarotCard3EffectSpec(),
-	effectTarotCard4:        tarotCard4EffectSpec(),
-	effectTarotCard5:        tarotCard5EffectSpec(),
-	effectTarotCard6:        tarotCard6EffectSpec(),
-	effectTarotCard7:        tarotCard7EffectSpec(),
-	effectTarotCard8:        tarotCard8EffectSpec(),
-	effectTarotCard9:        tarotCard9EffectSpec(),
-	effectTarotCard10:       tarotCard10EffectSpec(),
-	effectTarotCard11:       tarotCard11EffectSpec(),
-	effectTarotCard12:       tarotCard12EffectSpec(),
-	effectTarotCard13:       tarotCard13EffectSpec(),
-	effectTarotCard14:       tarotCard14EffectSpec(),
-	effectAcidDemon:         acidDemonEffectSpec(),
-	effectThrowItem4:        acidBottlesEffectSpec(),
-	effectBabyBodyBack:      babyBodyBackEffectSpec(),
-	effectThrowItem5:        throwItem5EffectSpec(),
-	effectBlueBody:          blueBodyEffectSpec(),
-	effectHated:             hatedEffectSpec(),
-	effectRedLightBody:      redLightBodyEffectSpec(),
-	effectSmaReady:          esmaReadyEffectSpec(),
-	effectStin:              estinEffectSpec(),
-	effectRedHit:            redHitEffectSpec(),
-	effectBlueHit:           blueHitEffectSpec(),
-	effectQuakeBody3:        quakeBody3EffectSpec(),
-	effectStin2:             esmaEffectSpec(),
-	effectHitTexture:        esmaHitTextureEffectSpec(),
-	effectStin3:             estunEffectSpec(),
-	effectScreenQuake:       screenQuakeEffectSpec(),
-	effectHfliMoon1:         hfliMoon1EffectSpec(),
-	effectHfliMoon2:         hfliMoon2EffectSpec(),
-	effectHfliMoon3:         hfliMoon3EffectSpec(),
-	effectHoUp:              hoUpEffectSpec(),
-	effectHamiDefence:       hamiDefenceEffectSpec(),
-	effectHamiCastle:        hamiCastleEffectSpec(),
-	effectHamiBlood:         hamiBloodEffectSpec(),
-	effectHated2:            starWarmthParticlesEffectSpec(),
-	effectTwilight1:         twilight1EffectSpec(),
-	effectTwilight2:         twilight2EffectSpec(),
-	effectTwilight3:         twilight3EffectSpec(),
-	effectItemThunder:       itemThunderEffectSpec(),
-	effectItemCloud:         itemCloudEffectSpec(),
-	effectItemCurse:         itemCurseEffectSpec(),
-	effectItemZZZ:           itemZZZEffectSpec(),
-	effectItemRain:          itemRainEffectSpec(),
-	effectM01:               m01EffectSpec(),
-	effectM02:               m02EffectSpec(),
-	effectM03:               m03EffectSpec(),
-	effectM04:               m04EffectSpec(),
-	effectM05:               m05EffectSpec(),
-	effectM06:               m06EffectSpec(),
-	effectM07:               m07EffectSpec(),
-	effectKaizel:            kaizelEffectSpec(),
-	effectCloud6:            cloud6EffectSpec(),
-	effectStatFoodSTR:       statFoodSTREffectSpec(),
-	effectStatFoodINT:       statFoodINTEffectSpec(),
-	effectStatFoodVIT:       statFoodVITEffectSpec(),
-	effectStatFoodAGI:       statFoodAGIEffectSpec(),
-	effectStatFoodDEX:       statFoodDEXEffectSpec(),
-	effectStatFoodLUK:       statFoodLUKEffectSpec(),
-	effectShrink:            shrinkEffectSpec(),
-	effectThrowItem6:        throwItem6EffectSpec(),
-	effectSightBlaster:      sightBlasterEffectSpec(),
-	effectQuakeBody4:        closeConfineHitEffectSpec(),
-	effectFireHit2:          fireHit2EffectSpec(),
-	effectNPCStop2:          closeConfineRingEffectSpec(),
-	effectNPCStop2Del:       npcStop2DelEffectSpec(),
-	effectFVoice:            pangVoiceEffectSpec(),
-	effectWink:              winkEffectSpec(),
-	effectCookingOK:         cookingOKEffectSpec(),
-	effectCookingFail:       cookingFailEffectSpec(),
-	effectHapgyeok:          hapgyeokEffectSpec(),
-	effectThrowItem7:        throwItem7EffectSpec(),
-	effectThrowItem8:        throwItem8EffectSpec(),
-	effectThrowItem9:        throwItem9EffectSpec(),
-	effectThrowItem10:       throwItem10EffectSpec(),
-	effectKouenka:           ninjaFirePetalEffectSpec(),
-	effectHyousensou:        ninjaIceSpearEffectSpec(),
-	effectBottomSuiton:      bottomSuitonEffectSpec(),
-	effectStin4:             stin4EffectSpec(),
-	effectThunderStorm2:     thunderStorm2EffectSpec(),
-	effectChemical4:         piercingShotEffectSpec(),
-	effectStin5:             stin5EffectSpec(),
-	effectMadnessBlue:       madnessBlueEffectSpec(),
-	effectMadnessRed:        madnessRedEffectSpec(),
-	effectRGCoin3:           disarmEffectSpec(),
-	effectBash3D5:           bash3D5EffectSpec(),
-	effectChookgi3:          spiritSphereEffectSpec(),
-	effectKirikage:          kirikageEffectSpec(),
-	effectTatami:            tatamiEffectSpec(),
-	effectKasumikiri:        kasumikiriEffectSpec(),
-	effectIssen:             issenEffectSpec(),
-	effectKaen:              kaenEffectSpec(),
-	effectBaku:              bakuEffectSpec(),
-	effectHyousyouraku:      hyousyourakuEffectSpec(),
-	effectDesperado:         desperadoEffectSpec(),
-	effectLightningS:        lightningSEffectSpec(),
-	effectBlindS:            blindSEffectSpec(),
-	effectPoisonS:           poisonSEffectSpec(),
-	effectFreezingS:         freezingSEffectSpec(),
-	effectFlareS:            flareSEffectSpec(),
-	effectRapidShower:       rapidShowerEffectSpec(),
-	effectMagicalBullet:     magicalBulletEffectSpec(),
-	effectSpreadAttack:      spreadAttackEffectSpec(),
-	effectTrackCasting:      trackCastingEffectSpec(),
-	effectTracking:          trackingEffectSpec(),
-	effectTripleAction:      tripleActionEffectSpec(),
-	effectBullseye:          bullseyeEffectSpec(),
-	effectBubbleDrop:        bubbleDropEffectSpec(),
-	effectNPCEarthquake:     npcEarthquakeEffectSpec(),
-	effectDragonFear:        dragonFearEffectSpec(),
-	effectWideBleeding:      wideBleedingEffectSpec(),
-	effectWideConfuse:       wideConfuseEffectSpec(),
-	effectBottomRunner:      bottomRunnerEffectSpec(),
-	effectBottomTransfer:    bottomTransferEffectSpec(),
-	effectBottomEvilLand:    evilLandEffectSpec(),
-	effectGuard3:            guard3EffectSpec(),
-	effectCriticalWound:     criticalWoundEffectSpec(),
-	effectFirecracker2:      firecracker2EffectSpec(),
-	effectFirecracker3:      firecracker3EffectSpec(),
-	effectFirecracker4:      firecracker4EffectSpec(),
-	effectFirecracker5:      firecracker5EffectSpec(),
-	effectFirecracker6:      firecracker6EffectSpec(),
-	effectTorchRed:          torchRedEffectSpec(),
-	effectTorchGreen:        torchGreenEffectSpec(),
-	effectMapGhost:          mapGhostEffectSpec(),
-	effectGlow1:             glow1EffectSpec(),
-	effectGlow2:             glow2EffectSpec(),
-	effectGlow4:             glow4EffectSpec(),
-	effectTorchPurple:       torchPurpleEffectSpec(),
-	effectCloud7:            cloud7EffectSpec(),
-	effectCloud8:            cloud8EffectSpec(),
-	effectFlowerLeaf:        flowerLeafEffectSpec(),
-	effectItem315:           item315EffectSpec(),
-	effectItem316:           item316EffectSpec(),
-	effectItem317:           item317EffectSpec(),
-	effectStormMin:          stormMinEffectSpec(),
-	effectFirecracker7:      firecracker7EffectSpec(),
-	effectBottomBlue:        bottomBlueEffectSpec(),
-	effectBottomBlue2:       bottomBlueEffectSpec(),
-	effectChristmasCarol:    christmasCarolEffectSpec(),
-	effectFirePillarOn2:     judexEffectSpec(),
-	effectForestLight5:      forestLight5EffectSpec(),
-	effectAdoramus:          adoramusEffectSpec(),
-	effectIgnitionBreak:     ignitionBreakEffectSpec(),
-	effectFrostMisty:        frostMistyEffectSpec(),
-	effectCrimsonRock:       crimsonRockEffectSpec(),
-	effectHellInferno:       hellInfernoEffectSpec(),
-	effectMarshOfAbyss:      marshOfAbyssEffectSpec(),
-	effectDragonHowling:     dragonHowlingEffectSpec(),
-	effectEarthWall:         earthWallEffectSpec(),
-	effectChainLightning:    chainLightningEffectSpec(),
-	effectAimedBolt:         aimedBoltEffectSpec(),
-	effectArrowStorm:        arrowStormEffectSpec(),
-	effectLaulamus:          laulamusEffectSpec(),
-	effectLauagnus:          lauagnusEffectSpec(),
-	effectMillenniumShield:  millenniumShieldEffectSpec(),
-	effectConcentration2:    concentration2EffectSpec(),
-	effectGlassWall3:        glassWall3EffectSpec(),
-	effectBerserkPotion2:    berserkPotion2EffectSpec(),
-	effectRolling1:          rolling1EffectSpec(),
-	effectRolling2:          rolling2EffectSpec(),
-	effectRolling3:          rolling3EffectSpec(),
-	effectRolling4:          rolling4EffectSpec(),
-	effectRolling5:          rolling5EffectSpec(),
-	effectRolling6:          rolling6EffectSpec(),
-	effectRolling7:          rolling7EffectSpec(),
-	effectRolling8:          rolling8EffectSpec(),
-	effectRolling9:          rolling9EffectSpec(),
-	effectRolling10:         rolling10EffectSpec(),
-	effectCastSpin2:         castSpin2EffectSpec(),
-	effectCrashAxe:          crashAxeEffectSpec(),
-	effectStasis:            stasisEffectSpec(),
-	effectBottomBasilica2:   bottomBasilica2EffectSpec(),
-	effectRecognized:        recognizedEffectSpec(),
-	effectTetra:             tetraEffectSpec(),
-	effectTetraCasting:      tetraCastingEffectSpec(),
-	effectStretch:           stretchEffectSpec(),
-	effectEnervation:        enervationEffectSpec(),
-	effectEnervation2:       enervation2EffectSpec(),
-	effectEnervation3:       enervation3EffectSpec(),
-	effectEnervation4:       enervation4EffectSpec(),
-	effectEnervation5:       enervation5EffectSpec(),
-	effectEnervation6:       enervation6EffectSpec(),
-	effectBottomManhole:     bottomManholeEffectSpec(),
-	effectManhole:           manholeEffectSpec(),
-	effectForestLight6:      forestLight6EffectSpec(),
-	effectBottomAni:         bottomAniEffectSpec(),
-	effectBottomMaelstrom:   bottomMaelstromEffectSpec(),
-	effectBottomBloodyLust:  bottomBloodyLustEffectSpec(),
-	effectHealN:             healNEffectSpec(),
-	effectChookgiN:          spiritSphereEffectSpec(),
-	effectDance1:            dance1EffectSpec(),
-	effectBotReverb:         botReverbEffectSpec(),
-	effectRainParticle:      rainParticleEffectSpec(),
-	effectChemicalV2:        chemicalV2EffectSpec(),
-	effectBotReverb2:        botReverb2EffectSpec(),
-	effectCirclePower2:      circlePower2EffectSpec(),
-	effectSecra2:            secra2EffectSpec(),
-	effectSprPlant2:         sprPlant2EffectSpec(),
-	effectSprPlant3:         sprPlant3EffectSpec(),
-	effectSprPlant4:         sprPlant4EffectSpec(),
-	effectSprPlant5:         sprPlant5EffectSpec(),
-	effectSprPlant6:         sprPlant6EffectSpec(),
-	effectSprPlant7:         sprPlant7EffectSpec(),
-	effectSprPlant8:         sprPlant8EffectSpec(),
-	effectHeartAsura:        heartAsuraEffectSpec(),
-	effectGlassWall4:        glassWall4EffectSpec(),
-	effectBash3D6:           bash3D6EffectSpec(),
-	effectElectric4:         electric4EffectSpec(),
-	effectTeiHit1T:          teiHit1TEffectSpec(),
-	effectPressure2:         pressure2EffectSpec(),
-	effectPrimeCharge2:      primeCharge2EffectSpec(),
-	effectPrimeCharge3:      primeCharge3EffectSpec(),
-	effectPrimeCharge4:      primeCharge4EffectSpec(),
-	effectFireWall2:         fireWall2EffectSpec(),
-	effectSprPlant10:        sprPlant10EffectSpec(),
-	effectShockwave2:        shockwave2EffectSpec(),
-	effectColdThrow2:        coldThrow2EffectSpec(),
-	effectDemonicFire4:      demonicFire4EffectSpec(),
-	effectPressure3:         pressure3EffectSpec(),
-	effectPoisonMist:        poisonMistEffectSpec(),
-	effectEraserCutter:      eraserCutterEffectSpec(),
-	effectLavaSlide:         lavaSlideEffectSpec(),
-	effectSonicClaw:         sonicClawEffectSpec(),
-	effectTinderBreaker:     tinderBreakerEffectSpec(),
-	effectMidnightFrenzy:    midnightFrenzyEffectSpec(),
-	effectVolcanicAsh:       volcanicAshEffectSpec(),
-	effectRWC2011:           rwc2011EffectSpec(),
-	effectRWC2011Two:        rwc2011TwoEffectSpec(),
-	effectRunMakeOK:         runMakeOKEffectSpec(),
-	effectRunMakeFailure:    runMakeFailureEffectSpec(),
-	effectMIResultMakeOK:    miResultMakeOKEffectSpec(),
-	effectMIResultMakeFail:  miResultMakeFailEffectSpec(),
-	effectAllRayProtect:     allRayProtectEffectSpec(),
-	effectVenomFog:          venomFogEffectSpec(),
-	effectDustStorm:         dustStormEffectSpec(),
-	effectDanceBladeAtk:     danceBladeAtkEffectSpec(),
-	effectInvincibleOff2:    invincibleOff2EffectSpec(),
-	effectDeathSummon:       deathSummonEffectSpec(),
-	effectGCDarkCrow:        gcDarkCrowEffectSpec(),
-	effectAllFullThrottle:   allFullThrottleEffectSpec(),
-	effectSRFlashCombo:      srFlashComboEffectSpec(),
-	effectRKLuxAnima:        rkLuxAnimaEffectSpec(),
-	effectSOElemShield:      soElemShieldEffectSpec(),
-	effectABOffertorium:     abOffertoriumEffectSpec(),
-	effectWLTelekinesis:     wlTelekinesisEffectSpec(),
-	effectGNIllusionDoping:  gnIllusionDopingEffectSpec(),
-	effectNCMagmaEruption:   ncMagmaEruptionEffectSpec(),
-	effectNPCChill:          npcChillEffectSpec(),
-	effectOffertoriumRing:   offertoriumRingEffectSpec(),
-	effectHammerOfGod:       hammerOfGodEffectSpec(),
-	effectAchComplete:       achCompleteEffectSpec(),
-	effectBodyColor:         bodyColorEffectSpec(),
-	effectBakuretsuHadou:    bakuretsuHadouEffectSpec(),
-	dropEffectPink:          dropPinkEffectSpec(),
-	dropEffectYellow:        dropYellowEffectSpec(),
-	dropEffectPurple:        dropPurpleEffectSpec(),
-	effectDigitalSpace:      digitalSpaceEffectSpec(),
-	dropEffectBlue:          dropBlueEffectSpec(),
-	dropEffectGreen:         dropGreenEffectSpec(),
-	dropEffectRed:           dropRedEffectSpec(),
-	effectNewSuccess:        newSuccessEffectSpec(),
-	effectNewFailure:        newFailureEffectSpec(),
-	effectNewIntro:          newIntroEffectSpec(),
-	effectEnchantYellow:     enchantYellowEffectSpec(),
-	effectEnchantSuccess:    enchantSuccessEffectSpec(),
-	effectEnchantFail:       enchantFailEffectSpec(),
-	effectEnchantBlue:       enchantBlueEffectSpec(),
-	effectEnchantUpSuccess:  enchantUpSuccessEffectSpec(),
-	effectEnchantUpFail:     enchantUpFailEffectSpec(),
-	effectEnchantGreen:      enchantGreenEffectSpec(),
-	effectEnchantResetOK:    enchantResetOKEffectSpec(),
-	effectEnchantResetFail:  enchantResetFailEffectSpec(),
+	EffectHit1:              hit1EffectSpec(),
+	EffectBashHit:           bashHitEffectSpec(),
+	EffectHit3:              hit3EffectSpec(),
+	EffectHit4:              hit4EffectSpec(),
+	EffectHit5:              hit5EffectSpec(),
+	EffectHit6:              hit6EffectSpec(),
+	EffectEntry:             entryEffectSpec(),
+	EffectExit:              exitEffectSpec(),
+	EffectWarp:              warpEffectSpec(),
+	EffectEnhance:           enhanceEffectSpec(),
+	EffectMammonite:         mammoniteEffectSpec(),
+	EffectEndure:            endureEffectSpec(),
+	EffectBeginSpell:        beginSpellEffectSpec(),
+	EffectGlassWall:         glassWallEffectSpec(),
+	EffectHealSP:            healSPEffectSpec(),
+	EffectSoulStrike:        soulStrikeEffectSpec(),
+	EffectBashBegin:         bashBeginEffectSpec(),
+	EffectMagnumBreak:       magnumBreakEffectSpec(),
+	EffectSteal:             stealEffectSpec(),
+	EffectPoisonAttack:      poisonAttackEffectSpec(),
+	EffectDetoxication:      detoxicationEffectSpec(),
+	EffectSight:             mageSightEffectSpec(),
+	EffectStoneCurse:        stoneCurseEffectSpec(),
+	EffectFireBall:          fireBallEffectSpec(),
+	EffectFireWall:          fireWallEffectSpec(),
+	EffectIceArrow:          coldBoltEffectSpec(),
+	EffectFrostDiver:        frostDiverEffectSpec(),
+	EffectFrostDiverHit:     mageFrostHitEffectSpec(),
+	EffectLightningBolt:     lightningBoltEffectSpec(),
+	EffectThunderStorm:      thunderStormEffectSpec(),
+	EffectFireArrow:         fireBoltEffectSpec(),
+	EffectNapalmBeat:        napalmBeatEffectSpec(),
+	EffectRuwach:            ruwachEffectSpec(),
+	EffectTeleportOld:       teleportOldEffectSpec(),
+	EffectReadyPortalOld:    readyPortalOldEffectSpec(),
+	EffectIncAgility:        incAgilityEffectSpec(),
+	EffectDecAgility:        decAgilityEffectSpec(),
+	EffectAqua:              aquaEffectSpec(),
+	EffectSignum:            signumEffectSpec(),
+	EffectAngelus:           angelusEffectSpec(),
+	EffectBlessing:          blessingEffectSpec(),
+	EffectIncAgiDex:         concentrationBeginEffectSpec(),
+	EffectSmoke:             smokeEffectSpec(),
+	EffectFirefly:           fireflyEffectSpec(),
+	EffectTorch:             torchEffectSpec(),
+	EffectFireHit:           fireHitEffectSpec(),
+	EffectFireSplashHit:     fireSplashHitEffectSpec(),
+	EffectColdHit:           coldHitEffectSpec(),
+	EffectWindHit:           windHitEffectSpec(),
+	EffectPoisonHit:         poisonHitEffectSpec(),
+	EffectBeginSpell2:       beginSpell2EffectSpec(),
+	EffectBeginSpell3:       beginSpell3EffectSpec(),
+	EffectBeginSpell4:       beginSpell4EffectSpec(),
+	EffectBeginSpell5:       beginSpell5EffectSpec(),
+	EffectBeginSpell6:       beginSpell6EffectSpec(),
+	EffectBeginSpell7:       beginSpell7EffectSpec(),
+	EffectLockOnTarget:      lockOnTargetEffectSpec(),
+	EffectWarpZone:          warpZoneEffectSpec(),
+	EffectSightTrasher:      sightTrasherEffectSpec(),
+	EffectArrowShotRO:       arrowShotROEffectSpec(),
+	EffectInvenom:           invenomEffectSpec(),
+	EffectCure:              cureEffectSpec(),
+	EffectProvoke:           provokeEffectSpec(),
+	EffectMvp:               mvpEffectSpec(),
+	EffectSkidTrap:          skidTrapEffectSpec(),
+	EffectBrandishSpear:     brandishSpearEffectSpec(),
+	EffectBowlingBash:       bowlingBashEffectSpec(),
+	EffectIceWall:           iceWallEffectSpec(),
+	EffectGloria:            gloriaEffectSpec(),
+	EffectMagnificat:        magnificatEffectSpec(),
+	EffectResurrection:      resurrectionEffectSpec(),
+	EffectRecovery:          recoveryEffectSpec(),
+	EffectEarthSpike:        earthSpikeEffectSpec(),
+	EffectSpearBoomerang:    spearBoomerangEffectSpec(),
+	EffectPierce:            pierceEffectSpec(),
+	EffectTurnUndead:        turnUndeadEffectSpec(),
+	EffectSanctuary:         sanctuaryEffectSpec(),
+	EffectImpositio:         impositioEffectSpec(),
+	EffectLexAeterna:        lexAeternaEffectSpec(),
+	EffectAspersio:          aspersioEffectSpec(),
+	EffectLexDivina:         lexDivinaEffectSpec(),
+	EffectSuffragium:        suffragiumEffectSpec(),
+	EffectStormGust:         stormGustEffectSpec(),
+	EffectLordVermilion:     lordVermilionEffectSpec(),
+	EffectBenedictio:        benedictioEffectSpec(),
+	EffectMeteorStorm:       meteorStormEffectSpec(),
+	EffectJupitelThunder:    jupitelThunderEffectSpec(),
+	EffectJupitelHit:        jupitelHitEffectSpec(),
+	EffectQuagmire:          quagmireEffectSpec(),
+	EffectFirePillar:        firePillarEffectSpec(),
+	EffectFirePillarBomb:    firePillarBombEffectSpec(),
+	EffectHasteUp:           hasteUpEffectSpec(),
+	EffectFlasher:           flasherEffectSpec(),
+	EffectRemoveTrap:        removeTrapEffectSpec(),
+	EffectRepairWeapon:      repairWeaponEffectSpec(),
+	EffectCrashEarth:        crashEarthEffectSpec(),
+	EffectWeaponPerfect:     weaponPerfectEffectSpec(),
+	EffectMaximizePower:     maximizePowerEffectSpec(),
+	EffectBlastMine:         blastMineSoundEffectSpec(),
+	EffectBlastMineBomb:     blastMineEffectSpec(),
+	EffectClaymore:          claymoreEffectSpec(),
+	EffectFreezingTrap:      freezingTrapEffectSpec(),
+	EffectBubble:            bubbleEffectSpec(),
+	EffectGasPush:           gasPushEffectSpec(),
+	EffectSpringTrap:        springTrapEffectSpec(),
+	EffectKyrie:             kyrieEffectSpec(),
+	EffectMagnus:            magnusEffectSpec(),
+	EffectBlitzBeat:         blitzBeatEffectSpec(),
+	EffectWaterBall:         waterBallEffectSpec(),
+	EffectWaterBall2:        waterBall2EffectSpec(),
+	EffectDetecting:         detectingEffectSpec(),
+	EffectCloaking:          cloakingEffectSpec(),
+	EffectSonicBlow:         sonicBlowEffectSpec(),
+	EffectSonicBlowHit:      sonicBlowHitEffectSpec(),
+	EffectGrimtooth:         grimtoothGroundEffectSpec(),
+	EffectVenomDust:         venomDustEffectSpec(),
+	EffectEnchantPoison:     enchantPoisonEffectSpec(),
+	EffectPoisonReact:       poisonReactEffectSpec(),
+	EffectPoisonReact2:      poisonReact2EffectSpec(),
+	EffectOverthrust:        overthrustEffectSpec(),
+	EffectVenomSplasher:     venomSplasherEffectSpec(),
+	EffectTwoHandQuicken:    twoHandQuickenEffectSpec(),
+	EffectAutoCounter:       autoCounterEffectSpec(),
+	EffectGrimtoothAtk:      grimtoothAtkEffectSpec(),
+	EffectFreeze:            freezeEffectSpec(),
+	EffectFreezed:           freezedEffectSpec(),
+	EffectIceCrash:          iceCrashEffectSpec(),
+	EffectSlowPoison:        slowPoisonEffectSpec(),
+	EffectFirePillarOn:      firePillarOnEffectSpec(),
+	EffectSandman:           sandmanEffectSpec(),
+	EffectRevive:            reviveEffectSpec(),
+	EffectPneuma:            pneumaEffectSpec(),
+	EffectHeavenDrive:       heavenDriveEffectSpec(),
+	EffectSonicBlow2:        sonicBlow2EffectSpec(),
+	EffectBrandishSpear2:    brandishSpear2EffectSpec(),
+	EffectShockwave:         shockwaveEffectSpec(),
+	EffectShockwaveHit:      shockwaveHitEffectSpec(),
+	EffectEarthHit:          earthHitEffectSpec(),
+	EffectPierceSelf:        pierceSelfEffectSpec(),
+	EffectBowlingSelf:       bowlingSelfEffectSpec(),
+	EffectSpearStabSelf:     spearStabSelfEffectSpec(),
+	EffectSpearBmrSelf:      spearBmrSelfEffectSpec(),
+	EffectHolyLight:         holyLightEffectSpec(),
+	EffectConcentration:     concentrationEffectSpec(),
+	EffectRefineOK:          refineOKEffectSpec(),
+	EffectRefineFail:        refineFailEffectSpec(),
+	EffectJobLevelUp:        jobLevelUpEffectSpec(),
+	EffectRain:              weatherRainEffectSpec(),
+	EffectSnow:              weatherSnowEffectSpec(),
+	EffectSakura:            sakuraEffectSpec(),
+	EffectBanjjakii:         banjjakiiEffectSpec(),
+	EffectMakeBlur:          makeBlurEffectSpec(),
+	EffectEnergyCoat:        energyCoatEffectSpec(),
+	EffectCartRevolution:    cartRevolutionEffectSpec(),
+	EffectVenomDust2:        venomDust2EffectSpec(),
+	EffectMentalBreak:       mentalBreakEffectSpec(),
+	EffectMagicalAtkHit:     magicalAtkHitEffectSpec(),
+	EffectSuiExplosion:      suiExplosionEffectSpec(),
+	EffectSuicide:           suicideEffectSpec(),
+	EffectComboAttack1:      comboAttack1EffectSpec(),
+	EffectComboAttack2:      comboAttack2EffectSpec(),
+	EffectComboAttack3:      comboAttack3EffectSpec(),
+	EffectComboAttack4:      comboAttack4EffectSpec(),
+	EffectComboAttack5:      comboAttack5EffectSpec(),
+	EffectGuidedAttack:      guidedAttackEffectSpec(),
+	EffectPoisonAttack2:     poisonAttack2EffectSpec(),
+	EffectSilenceAttack:     silenceAttackEffectSpec(),
+	EffectStunAttack:        stunAttackEffectSpec(),
+	EffectPetrifyAttack:     petrifyAttackEffectSpec(),
+	EffectSleepAttack:       sleepAttackEffectSpec(),
+	EffectPong:              pongEffectSpec(),
+	EffectLevel99:           level99EffectSpec(),
+	EffectLevel99Ground:     level99GroundEffectSpec(),
+	EffectLevel99Bubble:     level99BubbleEffectSpec(),
+	EffectGumgang:           gumgangEffectSpec(),
+	EffectPotionRed:         potionRedEffectSpec(),
+	EffectPotionOrange:      potionOrangeEffectSpec(),
+	EffectPotionYellow:      potionYellowEffectSpec(),
+	EffectPotionWhite:       potionWhiteEffectSpec(),
+	EffectPotionBlue:        bluePotionEffectSpec(),
+	EffectPotionGreen:       potionGreenEffectSpec(),
+	EffectFood:              foodEffectSpec(),
+	EffectFoodBlue:          foodBlueEffectSpec(),
+	EffectDarkBreath:        darkBreathEffectSpec(),
+	EffectDefender:          defenderEffectSpec(),
+	EffectKeeping:           keepingEffectSpec(),
+	EffectSummonSlave:       summonSlaveEffectSpec(),
+	EffectBloodDrain:        bloodDrainEffectSpec(),
+	EffectEnergyDrain:       energyDrainEffectSpec(),
+	EffectItemFast:          itemFastEffectSpec(),
+	EffectItemFast2:         itemFast2EffectSpec(),
+	EffectItemFast3:         berserkPotionEffectSpec(),
+	EffectCrusaderDef:       crusaderDefEffectSpec(),
+	EffectGanbantein:        ganbanteinEffectSpec(),
+	EffectVolcano:           volcanoEffectSpec(),
+	EffectGrandCross:        grandCrossEffectSpec(),
+	EffectIntimidate:        intimidateEffectSpec(),
+	EffectChookgi:           spiritSphereEffectSpec(),
+	EffectCloud:             cloudEffectSpec(),
+	EffectCloud2:            cloud2EffectSpec(),
+	EffectMapPillar:         mapPillarBlueEffectSpec(),
+	EffectLineLink:          devotionLinkEffectSpec(),
+	EffectCloud3:            cloud3EffectSpec(),
+	EffectSpellBreaker:      spellBreakerEffectSpec(),
+	EffectDispell:           dispellEffectSpec(),
+	EffectDeluge:            delugeEffectSpec(),
+	EffectViolentGale:       violentGaleEffectSpec(),
+	EffectLandProtector:     landProtectorEffectSpec(),
+	EffectBottomVolcano:     bottomVolcanoEffectSpec(),
+	EffectBottomDeluge:      bottomDelugeEffectSpec(),
+	EffectBottomViolent:     bottomViolentEffectSpec(),
+	EffectBottomLand:        landProtectorGroundEffectSpec(),
+	EffectMagicRod:          magicRodEffectSpec(),
+	EffectHolyCross:         holyCrossEffectSpec(),
+	EffectShieldCharge:      shieldChargeEffectSpec(),
+	EffectMapPillar2:        mapPillar2EffectSpec(),
+	EffectProvidence:        providenceEffectSpec(),
+	EffectShieldBoomer:      shieldBoomerangEffectSpec(),
+	EffectSpearQuicken:      spearQuickenEffectSpec(),
+	EffectDevotion:          devotionEffectSpec(),
+	EffectReflectShield:     reflectShieldEffectSpec(),
+	EffectAbsorbSpirits:     absorbSpiritsEffectSpec(),
+	EffectSteelBody:         steelBodyEffectSpec(),
+	EffectFlameLauncher:     flameLauncherEffectSpec(),
+	EffectFrostWeapon:       frostWeaponEffectSpec(),
+	EffectLightningLoad:     lightningLoadEffectSpec(),
+	EffectSeismicWeapon:     seismicWeaponEffectSpec(),
+	EffectMapPillar3:        mapPillar3EffectSpec(),
+	EffectMapPillar4:        mapPillar4EffectSpec(),
+	EffectGumgang2:          gumgang2EffectSpec(),
+	EffectTeiHit1:           teiHit1EffectSpec(),
+	EffectGumgang3:          gumgang3EffectSpec(),
+	EffectTeiHit2:           teiHit2EffectSpec(),
+	EffectTanji:             tanjiEffectSpec(),
+	EffectTeiHit1X:          teiHit1XEffectSpec(),
+	EffectChimto:            chimtoEffectSpec(),
+	EffectStealCoin:         stealCoinEffectSpec(),
+	EffectStripWeapon:       stripWeaponEffectSpec(),
+	EffectStripShield:       stripShieldEffectSpec(),
+	EffectStripArmor:        stripArmorEffectSpec(),
+	EffectStripHelm:         stripHelmEffectSpec(),
+	EffectChainCombo:        chainComboEffectSpec(),
+	EffectRogueCoin:         rogueCoinEffectSpec(),
+	EffectBackStab:          backStabEffectSpec(),
+	EffectTeiHit3:           teiHit3EffectSpec(),
+	EffectBottomDissonance:  bottomDissonanceEffectSpec(),
+	EffectBottomLullaby:     bottomLullabyEffectSpec(),
+	EffectBottomRichKim:     bottomRichKimEffectSpec(),
+	EffectBottomChaos:       bottomChaosEffectSpec(),
+	EffectBottomDrum:        bottomDrumEffectSpec(),
+	EffectBottomNibelung:    bottomNibelungEffectSpec(),
+	EffectBottomRoki:        songOutEffectSpec(),
+	EffectBottomAbyss:       bottomAbyssEffectSpec(),
+	EffectBottomSieg:        bottomSiegEffectSpec(),
+	EffectBottomWhistle:     bottomWhistleEffectSpec(),
+	EffectBottomSinX:        bottomSinXEffectSpec(),
+	EffectBottomBragi:       bottomBragiEffectSpec(),
+	EffectBottomApple:       bottomAppleEffectSpec(),
+	EffectBottomUglyDance:   bottomUglyDanceEffectSpec(),
+	EffectBottomHumming:     bottomHummingEffectSpec(),
+	EffectBottomForget:      bottomForgetEffectSpec(),
+	EffectBottomFortune:     bottomFortuneEffectSpec(),
+	EffectBottomService:     bottomServiceEffectSpec(),
+	EffectTalkFrostJoke:     talkFrostJokeEffectSpec(),
+	EffectTalkScream:        talkScreamEffectSpec(),
+	EffectPokJuk:            pokJukEffectSpec(),
+	EffectThrowItem:         acidTerrorBottleEffectSpec(),
+	EffectThrowItem2:        throwItem2EffectSpec(),
+	EffectChemicalProt:      chemicalProtectionEffectSpec(),
+	EffectDemonstration:     demonstrationEffectSpec(),
+	EffectChemical2:         chemical2EffectSpec(),
+	EffectTeleportation:     teleportationEffectSpec(),
+	EffectPharmacyOK:        pharmacyOKEffectSpec(),
+	EffectPharmacyFail:      pharmacyFailEffectSpec(),
+	EffectThrowItem3:        throwItem3EffectSpec(),
+	EffectFirstAid:          firstAidEffectSpec(),
+	EffectSprinkleSand:      sprinkleSandEffectSpec(),
+	EffectLoud:              loudEffectSpec(),
+	EffectHeal:              healEffectSpec(),
+	EffectHeal2:             heal2EffectSpec(),
+	EffectExit2:             exit2EffectSpec(),
+	EffectSafetyWall:        safetyWallEffectSpec(),
+	EffectReadyPortal:       readyPortalEffectSpec(),
+	EffectPortal:            portalEffectSpec(),
+	EffectBottomMagnus:      bottomMagnusEffectSpec(),
+	EffectBottomSanc:        bottomSancEffectSpec(),
+	EffectHealOffensive:     healOffensiveEffectSpec(),
+	EffectWarpZone2:         warpZone2EffectSpec(),
+	EffectHeal4:             heal4EffectSpec(),
+	EffectBeginAsura:        beginAsuraCastEffectSpec(),
+	EffectTripleAttack:      tripleAttackEffectSpec(),
+	EffectHitLine:           hitLineEffectSpec(),
+	EffectHPTime:            hpTimeEffectSpec(),
+	EffectSPTime:            spTimeEffectSpec(),
+	EffectMaple:             mapleEffectSpec(),
+	EffectBlind:             blindEffectSpec(),
+	EffectPoisonStatus:      poisonStatusEffectSpec(),
+	EffectGuard:             guardEffectSpec(),
+	EffectJobLvUp50:         jobLvUp50EffectSpec(),
+	EffectAngel2:            superAngelEffectSpec(),
+	EffectMagnum2:           magnum2EffectSpec(),
+	EffectCoupleCasting:     coupleCastingEffectSpec(),
+	EffectEntry2:            entry2EffectSpec(),
+	EffectColorPaper:        colorPaperEffectSpec(),
+	EffectSoulBreaker:       soulBreakerBaseEffectSpec(),
+	EffectLevel99Aura1:      level99BlueBubbleEffectSpec(),
+	EffectFoodChocolate:     foodChocolateEffectSpec(),
+	EffectPressure:          pressureEffectSpec(),
+	EffectBash3D:            sacrificeEffectSpec(),
+	EffectAuraBlade:         auraBladeEffectSpec(),
+	EffectRedBody:           redBodyEffectSpec(),
+	EffectLKConcentration:   lkConcentrationEffectSpec(),
+	EffectBottomGospel:      bottomGospelEffectSpec(),
+	EffectBaseLevelUp:       baseLevelUpEffectSpec(),
+	EffectDeath:             deathEffectSpec(),
+	EffectDragonSmoke:       dragonSmokeEffectSpec(),
+	EffectBottomBasilica:    bottomBasilicaEffectSpec(),
+	EffectAssumptio:         assumptioEffectSpec(),
+	EffectHitLine2:          palmStrikeEffectSpec(),
+	EffectBash3D2:           tigerFistEffectSpec(),
+	EffectEnergyDrain2:      soulDrainEffectSpec(),
+	EffectTransBlueBody:     transBlueBodyEffectSpec(),
+	EffectMagicCrasher:      magicCrasherEffectSpec(),
+	EffectLightBlade:        lightBladeEffectSpec(),
+	EffectEnergyDrain3:      hpConversionEffectSpec(),
+	EffectLineLink2:         soulChangeLinkEffectSpec(),
+	EffectLinkLight:         linkLightEffectSpec(),
+	EffectTrueSight:         trueSightEffectSpec(),
+	EffectFalconAssault:     falconAssaultEffectSpec(),
+	EffectTripleAttack2:     sharpShootingEffectSpec(),
+	EffectPortal4:           windWalkEffectSpec(),
+	EffectMeltdown:          meltdownEffectSpec(),
+	EffectCartBoost:         cartBoostEffectSpec(),
+	EffectRejectSword:       rejectSwordEffectSpec(),
+	EffectTripleAttack3:     arrowVulcanEffectSpec(),
+	EffectMoonlit:           moonlitEffectSpec(),
+	EffectMarionetteLink:    marionetteEffectSpec(),
+	EffectPinkBody:          pinkBodyEffectSpec(),
+	EffectLevel99AuraMid:    level99EffectSpec(),
+	EffectLevel99AuraBottom: level99GroundEffectSpec(),
+	EffectBash3D3:           bash3D3EffectSpec(),
+	EffectBash3D4:           bash3D4EffectSpec(),
+	EffectNapalmVulcan:      napalmVulcanEffectSpec(),
+	EffectPortal5:           portal5EffectSpec(),
+	EffectMagicCrasher2:     magicCrasher2EffectSpec(),
+	EffectBottomSpider:      spiderWebEffectSpec(),
+	EffectFogWallGround:     fogWallGroundEffectSpec(),
+	EffectSoulBurn:          soulBurnEffectSpec(),
+	EffectSoulChange:        soulChangeEffectSpec(),
+	EffectSoulBreaker2:      soulBreaker2EffectSpec(),
+	EffectRainbow:           rainbowEffectSpec(),
+	EffectPeong:             taekwonJumpEffectSpec(),
+	EffectPressedBody:       pressedBodyEffectSpec(),
+	EffectSpinedBody:        spinedBodyEffectSpec(),
+	EffectKickedBody:        kickedBodyEffectSpec(),
+	EffectDoubleGumgang:     starWarmthEffectSpec(),
+	EffectReflectBody:       reflectBodyEffectSpec(),
+	EffectBabyBody:          babyBodyEffectSpec(),
+	EffectBabyBody2:         babyBody2EffectSpec(),
+	EffectGiantBody:         giantBodyEffectSpec(),
+	EffectGiantBody2:        giantBody2EffectSpec(),
+	EffectAsuraBody:         asuraBodyEffectSpec(),
+	EffectFourWayBody:       fourWayBodyEffectSpec(),
+	EffectQuakeBody:         quakeBodyEffectSpec(),
+	EffectAsuraBodyMonster:  asuraBodyMonsterEffectSpec(),
+	EffectHitLine4:          hitLineBurstEffectSpec(),
+	EffectHitLine5:          hitLineBurstEffectSpec(),
+	EffectHitLine6:          hitLineBurstEffectSpec(),
+	EffectStormKick:         stormKickEffectSpec(),
+	EffectChemical3:         taekwonDashEffectSpec(),
+	EffectAssumptio2:        assumptio2EffectSpec(),
+	EffectBlueCasting:       blueCastingEffectSpec(),
+	EffectRun:               runEffectSpec(),
+	EffectStopRun:           stopRunEffectSpec(),
+	EffectStopEffect:        taekwonStopEffectSpec(),
+	EffectJumpBody:          jumpBodyEffectSpec(),
+	EffectLandBody:          landBodyEffectSpec(),
+	EffectFoot3:             foot3EffectSpec(),
+	EffectFoot4:             foot4EffectSpec(),
+	EffectTaeReady:          taeReadyEffectSpec(),
+	EffectDarkGrandCross:    darkGrandCrossEffectSpec(),
+	EffectDarkSoulStrike:    darkSoulStrikeEffectSpec(),
+	EffectDarkJupitelHit:    darkJupitelHitEffectSpec(),
+	EffectNPCStop:           npcStopEffectSpec(),
+	EffectDarkCasting:       darkCastingEffectSpec(),
+	EffectAgiUp:             gunslingerAgilityEffectSpec(),
+	EffectJumpKick:          jumpKickEffectSpec(),
+	EffectQuakeBody2:        quakeBody2EffectSpec(),
+	EffectStormKick3:        stormKick3EffectSpec(),
+	EffectStormKick4:        kaupeDodgeEffectSpec(),
+	EffectSpinedBody2:       spinedBody2EffectSpec(),
+	EffectBeginAsura1:       beginAsura1EffectSpec(),
+	EffectBeginAsura2:       beginAsura2EffectSpec(),
+	EffectBeginAsura3:       beginAsura3EffectSpec(),
+	EffectBeginAsura4:       beginAsura4EffectSpec(),
+	EffectBeginAsura5:       beginAsura5EffectSpec(),
+	EffectBeginAsura6:       beginAsura6EffectSpec(),
+	EffectBeginAsura7:       beginAsura7EffectSpec(),
+	EffectDevil1:            starBlindEffectSpec(),
+	EffectDevil2:            starBlindEffectSpec(),
+	EffectDevil3:            starBlindEffectSpec(),
+	EffectDevil4:            starBlindEffectSpec(),
+	EffectDevil5:            starBlindEffectSpec(),
+	EffectDevil6:            starBlindEffectSpec(),
+	EffectDevil7:            starBlindEffectSpec(),
+	EffectDevil8:            starBlindEffectSpec(),
+	EffectDevil9:            starBlindEffectSpec(),
+	EffectDevil10:           starBlindEffectSpec(),
+	EffectBlackDevil:        starBlackDevilEffectSpec(),
+	EffectFlowerCast:        starComfortEffectSpec(),
+	EffectMochi:             mochiEffectSpec(),
+	EffectRamadan:           ramadanEffectSpec(),
+	EffectEDP:               enchantDeadlyPoisonEffectSpec(),
+	EffectFullStrip:         fullStripEffectSpec(),
+	EffectPreserve:          preserveEffectSpec(),
+	EffectSlim:              slimEffectSpec(),
+	EffectSlim2:             slim2EffectSpec(),
+	EffectSlim3:             slim3EffectSpec(),
+	EffectChemicalBody:      chemicalBodyEffectSpec(),
+	EffectCastSpin:          castSpinEffectSpec(),
+	EffectPierceBody:        pierceBodyEffectSpec(),
+	EffectSoulLink:          soulLinkEffectSpec(),
+	EffectChookgi2:          spiritSphereEffectSpec(),
+	EffectMemorize:          memorizeEffectSpec(),
+	EffectMapae:             mapaeEffectSpec(),
+	EffectItemPokJuk:        itemPokJukEffectSpec(),
+	EffectValentine05:       valentine05EffectSpec(),
+	EffectBeginAsura11:      beginAsura11EffectSpec(),
+	EffectChemical2Dash:     chainCrushEffectSpec(),
+	EffectGroundSample:      groundSampleEffectSpec(),
+	EffectCloud4:            einbrochWeatherCloudEffectSpec(),
+	EffectCloud5:            cloud5EffectSpec(),
+	EffectBottomHermode:     hermodeEffectSpec(),
+	EffectCartTermination:   cartTerminationEffectSpec(),
+	EffectItemFastDown:      itemFastDownEffectSpec(),
+	EffectShieldBoomerang3:  shieldChainEffectSpec(),
+	EffectDoubleCastBody:    doubleCastBodyEffectSpec(),
+	EffectGravitation:       gravitationEffectSpec(),
+	EffectTarotCard1:        tarotCard1EffectSpec(),
+	EffectTarotCard2:        tarotCard2EffectSpec(),
+	EffectTarotCard3:        tarotCard3EffectSpec(),
+	EffectTarotCard4:        tarotCard4EffectSpec(),
+	EffectTarotCard5:        tarotCard5EffectSpec(),
+	EffectTarotCard6:        tarotCard6EffectSpec(),
+	EffectTarotCard7:        tarotCard7EffectSpec(),
+	EffectTarotCard8:        tarotCard8EffectSpec(),
+	EffectTarotCard9:        tarotCard9EffectSpec(),
+	EffectTarotCard10:       tarotCard10EffectSpec(),
+	EffectTarotCard11:       tarotCard11EffectSpec(),
+	EffectTarotCard12:       tarotCard12EffectSpec(),
+	EffectTarotCard13:       tarotCard13EffectSpec(),
+	EffectTarotCard14:       tarotCard14EffectSpec(),
+	EffectAcidDemon:         acidDemonEffectSpec(),
+	EffectThrowItem4:        acidBottlesEffectSpec(),
+	EffectBabyBodyBack:      babyBodyBackEffectSpec(),
+	EffectThrowItem5:        throwItem5EffectSpec(),
+	EffectBlueBody:          blueBodyEffectSpec(),
+	EffectHated:             hatedEffectSpec(),
+	EffectRedLightBody:      redLightBodyEffectSpec(),
+	EffectSmaReady:          esmaReadyEffectSpec(),
+	EffectStin:              estinEffectSpec(),
+	EffectRedHit:            redHitEffectSpec(),
+	EffectBlueHit:           blueHitEffectSpec(),
+	EffectQuakeBody3:        quakeBody3EffectSpec(),
+	EffectStin2:             esmaEffectSpec(),
+	EffectHitTexture:        esmaHitTextureEffectSpec(),
+	EffectStin3:             estunEffectSpec(),
+	EffectScreenQuake:       screenQuakeEffectSpec(),
+	EffectHfliMoon1:         hfliMoon1EffectSpec(),
+	EffectHfliMoon2:         hfliMoon2EffectSpec(),
+	EffectHfliMoon3:         hfliMoon3EffectSpec(),
+	EffectHoUp:              hoUpEffectSpec(),
+	EffectHamiDefence:       hamiDefenceEffectSpec(),
+	EffectHamiCastle:        hamiCastleEffectSpec(),
+	EffectHamiBlood:         hamiBloodEffectSpec(),
+	EffectHated2:            starWarmthParticlesEffectSpec(),
+	EffectTwilight1:         twilight1EffectSpec(),
+	EffectTwilight2:         twilight2EffectSpec(),
+	EffectTwilight3:         twilight3EffectSpec(),
+	EffectItemThunder:       itemThunderEffectSpec(),
+	EffectItemCloud:         itemCloudEffectSpec(),
+	EffectItemCurse:         itemCurseEffectSpec(),
+	EffectItemZZZ:           itemZZZEffectSpec(),
+	EffectItemRain:          itemRainEffectSpec(),
+	EffectM01:               m01EffectSpec(),
+	EffectM02:               m02EffectSpec(),
+	EffectM03:               m03EffectSpec(),
+	EffectM04:               m04EffectSpec(),
+	EffectM05:               m05EffectSpec(),
+	EffectM06:               m06EffectSpec(),
+	EffectM07:               m07EffectSpec(),
+	EffectKaizel:            kaizelEffectSpec(),
+	EffectCloud6:            cloud6EffectSpec(),
+	EffectStatFoodSTR:       statFoodSTREffectSpec(),
+	EffectStatFoodINT:       statFoodINTEffectSpec(),
+	EffectStatFoodVIT:       statFoodVITEffectSpec(),
+	EffectStatFoodAGI:       statFoodAGIEffectSpec(),
+	EffectStatFoodDEX:       statFoodDEXEffectSpec(),
+	EffectStatFoodLUK:       statFoodLUKEffectSpec(),
+	EffectShrink:            shrinkEffectSpec(),
+	EffectThrowItem6:        throwItem6EffectSpec(),
+	EffectSightBlaster:      sightBlasterEffectSpec(),
+	EffectQuakeBody4:        closeConfineHitEffectSpec(),
+	EffectFireHit2:          fireHit2EffectSpec(),
+	EffectNPCStop2:          closeConfineRingEffectSpec(),
+	EffectNPCStop2Del:       npcStop2DelEffectSpec(),
+	EffectFVoice:            pangVoiceEffectSpec(),
+	EffectWink:              winkEffectSpec(),
+	EffectCookingOK:         cookingOKEffectSpec(),
+	EffectCookingFail:       cookingFailEffectSpec(),
+	EffectHapgyeok:          hapgyeokEffectSpec(),
+	EffectThrowItem7:        throwItem7EffectSpec(),
+	EffectThrowItem8:        throwItem8EffectSpec(),
+	EffectThrowItem9:        throwItem9EffectSpec(),
+	EffectThrowItem10:       throwItem10EffectSpec(),
+	EffectKouenka:           ninjaFirePetalEffectSpec(),
+	EffectHyousensou:        ninjaIceSpearEffectSpec(),
+	EffectBottomSuiton:      bottomSuitonEffectSpec(),
+	EffectStin4:             stin4EffectSpec(),
+	EffectThunderStorm2:     thunderStorm2EffectSpec(),
+	EffectChemical4:         piercingShotEffectSpec(),
+	EffectStin5:             stin5EffectSpec(),
+	EffectMadnessBlue:       madnessBlueEffectSpec(),
+	EffectMadnessRed:        madnessRedEffectSpec(),
+	EffectRGCoin3:           disarmEffectSpec(),
+	EffectBash3D5:           bash3D5EffectSpec(),
+	EffectChookgi3:          spiritSphereEffectSpec(),
+	EffectKirikage:          kirikageEffectSpec(),
+	EffectTatami:            tatamiEffectSpec(),
+	EffectKasumikiri:        kasumikiriEffectSpec(),
+	EffectIssen:             issenEffectSpec(),
+	EffectKaen:              kaenEffectSpec(),
+	EffectBaku:              bakuEffectSpec(),
+	EffectHyousyouraku:      hyousyourakuEffectSpec(),
+	EffectDesperado:         desperadoEffectSpec(),
+	EffectLightningS:        lightningSEffectSpec(),
+	EffectBlindS:            blindSEffectSpec(),
+	EffectPoisonS:           poisonSEffectSpec(),
+	EffectFreezingS:         freezingSEffectSpec(),
+	EffectFlareS:            flareSEffectSpec(),
+	EffectRapidShower:       rapidShowerEffectSpec(),
+	EffectMagicalBullet:     magicalBulletEffectSpec(),
+	EffectSpreadAttack:      spreadAttackEffectSpec(),
+	EffectTrackCasting:      trackCastingEffectSpec(),
+	EffectTracking:          trackingEffectSpec(),
+	EffectTripleAction:      tripleActionEffectSpec(),
+	EffectBullseye:          bullseyeEffectSpec(),
+	EffectBubbleDrop:        bubbleDropEffectSpec(),
+	EffectNPCEarthquake:     npcEarthquakeEffectSpec(),
+	EffectDragonFear:        dragonFearEffectSpec(),
+	EffectWideBleeding:      wideBleedingEffectSpec(),
+	EffectWideConfuse:       wideConfuseEffectSpec(),
+	EffectBottomRunner:      bottomRunnerEffectSpec(),
+	EffectBottomTransfer:    bottomTransferEffectSpec(),
+	EffectBottomEvilLand:    evilLandEffectSpec(),
+	EffectGuard3:            guard3EffectSpec(),
+	EffectCriticalWound:     criticalWoundEffectSpec(),
+	EffectFirecracker2:      firecracker2EffectSpec(),
+	EffectFirecracker3:      firecracker3EffectSpec(),
+	EffectFirecracker4:      firecracker4EffectSpec(),
+	EffectFirecracker5:      firecracker5EffectSpec(),
+	EffectFirecracker6:      firecracker6EffectSpec(),
+	EffectTorchRed:          torchRedEffectSpec(),
+	EffectTorchGreen:        torchGreenEffectSpec(),
+	EffectMapGhost:          mapGhostEffectSpec(),
+	EffectGlow1:             glow1EffectSpec(),
+	EffectGlow2:             glow2EffectSpec(),
+	EffectGlow4:             glow4EffectSpec(),
+	EffectTorchPurple:       torchPurpleEffectSpec(),
+	EffectCloud7:            cloud7EffectSpec(),
+	EffectCloud8:            cloud8EffectSpec(),
+	EffectFlowerLeaf:        flowerLeafEffectSpec(),
+	EffectItem315:           item315EffectSpec(),
+	EffectItem316:           item316EffectSpec(),
+	EffectItem317:           item317EffectSpec(),
+	EffectStormMin:          stormMinEffectSpec(),
+	EffectFirecracker7:      firecracker7EffectSpec(),
+	EffectBottomBlue:        bottomBlueEffectSpec(),
+	EffectBottomBlue2:       bottomBlueEffectSpec(),
+	EffectChristmasCarol:    christmasCarolEffectSpec(),
+	EffectFirePillarOn2:     judexEffectSpec(),
+	EffectForestLight5:      forestLight5EffectSpec(),
+	EffectAdoramus:          adoramusEffectSpec(),
+	EffectIgnitionBreak:     ignitionBreakEffectSpec(),
+	EffectFrostMisty:        frostMistyEffectSpec(),
+	EffectCrimsonRock:       crimsonRockEffectSpec(),
+	EffectHellInferno:       hellInfernoEffectSpec(),
+	EffectMarshOfAbyss:      marshOfAbyssEffectSpec(),
+	EffectDragonHowling:     dragonHowlingEffectSpec(),
+	EffectEarthWall:         earthWallEffectSpec(),
+	EffectChainLightning:    chainLightningEffectSpec(),
+	EffectAimedBolt:         aimedBoltEffectSpec(),
+	EffectArrowStorm:        arrowStormEffectSpec(),
+	EffectLaulamus:          laulamusEffectSpec(),
+	EffectLauagnus:          lauagnusEffectSpec(),
+	EffectMillenniumShield:  millenniumShieldEffectSpec(),
+	EffectConcentration2:    concentration2EffectSpec(),
+	EffectGlassWall3:        glassWall3EffectSpec(),
+	EffectBerserkPotion2:    berserkPotion2EffectSpec(),
+	EffectRolling1:          rolling1EffectSpec(),
+	EffectRolling2:          rolling2EffectSpec(),
+	EffectRolling3:          rolling3EffectSpec(),
+	EffectRolling4:          rolling4EffectSpec(),
+	EffectRolling5:          rolling5EffectSpec(),
+	EffectRolling6:          rolling6EffectSpec(),
+	EffectRolling7:          rolling7EffectSpec(),
+	EffectRolling8:          rolling8EffectSpec(),
+	EffectRolling9:          rolling9EffectSpec(),
+	EffectRolling10:         rolling10EffectSpec(),
+	EffectCastSpin2:         castSpin2EffectSpec(),
+	EffectCrashAxe:          crashAxeEffectSpec(),
+	EffectStasis:            stasisEffectSpec(),
+	EffectBottomBasilica2:   bottomBasilica2EffectSpec(),
+	EffectRecognized:        recognizedEffectSpec(),
+	EffectTetra:             tetraEffectSpec(),
+	EffectTetraCasting:      tetraCastingEffectSpec(),
+	EffectStretch:           stretchEffectSpec(),
+	EffectEnervation:        enervationEffectSpec(),
+	EffectEnervation2:       enervation2EffectSpec(),
+	EffectEnervation3:       enervation3EffectSpec(),
+	EffectEnervation4:       enervation4EffectSpec(),
+	EffectEnervation5:       enervation5EffectSpec(),
+	EffectEnervation6:       enervation6EffectSpec(),
+	EffectBottomManhole:     bottomManholeEffectSpec(),
+	EffectManhole:           manholeEffectSpec(),
+	EffectForestLight6:      forestLight6EffectSpec(),
+	EffectBottomAni:         bottomAniEffectSpec(),
+	EffectBottomMaelstrom:   bottomMaelstromEffectSpec(),
+	EffectBottomBloodyLust:  bottomBloodyLustEffectSpec(),
+	EffectHealN:             healNEffectSpec(),
+	EffectChookgiN:          spiritSphereEffectSpec(),
+	EffectDance1:            dance1EffectSpec(),
+	EffectBotReverb:         botReverbEffectSpec(),
+	EffectRainParticle:      rainParticleEffectSpec(),
+	EffectChemicalV2:        chemicalV2EffectSpec(),
+	EffectBotReverb2:        botReverb2EffectSpec(),
+	EffectCirclePower2:      circlePower2EffectSpec(),
+	EffectSecra2:            secra2EffectSpec(),
+	EffectSprPlant2:         sprPlant2EffectSpec(),
+	EffectSprPlant3:         sprPlant3EffectSpec(),
+	EffectSprPlant4:         sprPlant4EffectSpec(),
+	EffectSprPlant5:         sprPlant5EffectSpec(),
+	EffectSprPlant6:         sprPlant6EffectSpec(),
+	EffectSprPlant7:         sprPlant7EffectSpec(),
+	EffectSprPlant8:         sprPlant8EffectSpec(),
+	EffectHeartAsura:        heartAsuraEffectSpec(),
+	EffectGlassWall4:        glassWall4EffectSpec(),
+	EffectBash3D6:           bash3D6EffectSpec(),
+	EffectElectric4:         electric4EffectSpec(),
+	EffectTeiHit1T:          teiHit1TEffectSpec(),
+	EffectPressure2:         pressure2EffectSpec(),
+	EffectPrimeCharge2:      primeCharge2EffectSpec(),
+	EffectPrimeCharge3:      primeCharge3EffectSpec(),
+	EffectPrimeCharge4:      primeCharge4EffectSpec(),
+	EffectFireWall2:         fireWall2EffectSpec(),
+	EffectSprPlant10:        sprPlant10EffectSpec(),
+	EffectShockwave2:        shockwave2EffectSpec(),
+	EffectColdThrow2:        coldThrow2EffectSpec(),
+	EffectDemonicFire4:      demonicFire4EffectSpec(),
+	EffectPressure3:         pressure3EffectSpec(),
+	EffectPoisonMist:        poisonMistEffectSpec(),
+	EffectEraserCutter:      eraserCutterEffectSpec(),
+	EffectLavaSlide:         lavaSlideEffectSpec(),
+	EffectSonicClaw:         sonicClawEffectSpec(),
+	EffectTinderBreaker:     tinderBreakerEffectSpec(),
+	EffectMidnightFrenzy:    midnightFrenzyEffectSpec(),
+	EffectVolcanicAsh:       volcanicAshEffectSpec(),
+	EffectRWC2011:           rwc2011EffectSpec(),
+	EffectRWC2011Two:        rwc2011TwoEffectSpec(),
+	EffectRunMakeOK:         runMakeOKEffectSpec(),
+	EffectRunMakeFailure:    runMakeFailureEffectSpec(),
+	EffectMIResultMakeOK:    miResultMakeOKEffectSpec(),
+	EffectMIResultMakeFail:  miResultMakeFailEffectSpec(),
+	EffectAllRayProtect:     allRayProtectEffectSpec(),
+	EffectVenomFog:          venomFogEffectSpec(),
+	EffectDustStorm:         dustStormEffectSpec(),
+	EffectDanceBladeAtk:     danceBladeAtkEffectSpec(),
+	EffectInvincibleOff2:    invincibleOff2EffectSpec(),
+	EffectDeathSummon:       deathSummonEffectSpec(),
+	EffectGCDarkCrow:        gcDarkCrowEffectSpec(),
+	EffectAllFullThrottle:   allFullThrottleEffectSpec(),
+	EffectSRFlashCombo:      srFlashComboEffectSpec(),
+	EffectRKLuxAnima:        rkLuxAnimaEffectSpec(),
+	EffectSOElemShield:      soElemShieldEffectSpec(),
+	EffectABOffertorium:     abOffertoriumEffectSpec(),
+	EffectWLTelekinesis:     wlTelekinesisEffectSpec(),
+	EffectGNIllusionDoping:  gnIllusionDopingEffectSpec(),
+	EffectNCMagmaEruption:   ncMagmaEruptionEffectSpec(),
+	EffectNPCChill:          npcChillEffectSpec(),
+	EffectOffertoriumRing:   offertoriumRingEffectSpec(),
+	EffectHammerOfGod:       hammerOfGodEffectSpec(),
+	EffectAchComplete:       achCompleteEffectSpec(),
+	EffectBodyColor:         bodyColorEffectSpec(),
+	EffectBakuretsuHadou:    bakuretsuHadouEffectSpec(),
+	EffectDropPink:          dropPinkEffectSpec(),
+	EffectDropYellow:        dropYellowEffectSpec(),
+	EffectDropPurple:        dropPurpleEffectSpec(),
+	EffectDigitalSpace:      digitalSpaceEffectSpec(),
+	EffectDropBlue:          dropBlueEffectSpec(),
+	EffectDropGreen:         dropGreenEffectSpec(),
+	EffectDropRed:           dropRedEffectSpec(),
+	EffectNewSuccess:        newSuccessEffectSpec(),
+	EffectNewFailure:        newFailureEffectSpec(),
+	EffectNewIntro:          newIntroEffectSpec(),
+	EffectEnchantYellow:     enchantYellowEffectSpec(),
+	EffectEnchantSuccess:    enchantSuccessEffectSpec(),
+	EffectEnchantFail:       enchantFailEffectSpec(),
+	EffectEnchantBlue:       enchantBlueEffectSpec(),
+	EffectEnchantUpSuccess:  enchantUpSuccessEffectSpec(),
+	EffectEnchantUpFail:     enchantUpFailEffectSpec(),
+	EffectEnchantGreen:      enchantGreenEffectSpec(),
+	EffectEnchantResetOK:    enchantResetOKEffectSpec(),
+	EffectEnchantResetFail:  enchantResetFailEffectSpec(),
 
-	effectColdBolt:               coldBoltEffectSpec(),
-	effectFireBolt:               fireBoltEffectSpec(),
-	effectCastRing:               castRingEffectSpec(),
-	effectQuakeMagnum:            quakeMagnumEffectSpec(),
-	effectArrowShot:              arrowShotEffectSpec(),
-	effectArrowShower:            arrowShowerEffectSpec(),
-	effectMagicPower:             magicPowerEffectSpec(),
-	effectWhitePulse:             whitePulseEffectSpec(),
-	effectSpearHitSound:          spearHitSoundEffectSpec(),
-	effectEnemyHitNormal1:        enemyHitNormal1EffectSpec(),
-	effectQuake:                  quakeEffectSpec(),
-	effectSharpShootingCast:      sharpShootingCastEffectSpec(),
-	effectAdrenalineCast:         adrenalineCastEffectSpec(),
-	effectMaximizeSounds:         maximizeSoundsEffectSpec(),
-	effectGreedSound:             greedSoundEffectSpec(),
-	effectGospelGround:           gospelGroundEffectSpec(),
-	effectHermodeMusic:           hermodeMusicEffectSpec(),
-	effectBottomDissonanceGround: bottomDissonanceEffectSpec(),
-	effectBottomLullabyGround:    bottomLullabyEffectSpec(),
-	effectBottomRichKimGround:    bottomRichKimEffectSpec(),
-	effectBottomChaosGround:      bottomChaosEffectSpec(),
-	effectBottomDrumGround:       bottomDrumEffectSpec(),
-	effectBottomNibelungGround:   bottomNibelungEffectSpec(),
-	effectBottomRokiGround:       songOutEffectSpec(),
-	effectBottomAbyssGround:      bottomAbyssEffectSpec(),
-	effectBottomSiegGround:       bottomSiegEffectSpec(),
-	effectBottomWhistleGround:    bottomWhistleEffectSpec(),
-	effectBottomSinXGround:       bottomSinXEffectSpec(),
-	effectBottomBragiGround:      bottomBragiEffectSpec(),
-	effectBottomAppleGround:      bottomAppleEffectSpec(),
-	effectBottomUglyDanceGround:  bottomUglyDanceEffectSpec(),
-	effectBottomHummingGround:    bottomHummingEffectSpec(),
-	effectBottomForgetGround:     bottomForgetEffectSpec(),
-	effectBottomFortuneGround:    bottomFortuneEffectSpec(),
-	effectBottomServiceGround:    bottomServiceEffectSpec(),
-	effectGunslingerCoinSound:    gunslingerCoinSoundEffectSpec(),
-	effectSteelBodyRing:          steelBodyRingEffectSpec(),
+	EffectColdBolt:               coldBoltEffectSpec(),
+	EffectFireBolt:               fireBoltEffectSpec(),
+	EffectCastRing:               castRingEffectSpec(),
+	EffectQuakeMagnum:            quakeMagnumEffectSpec(),
+	EffectArrowShot:              arrowShotEffectSpec(),
+	EffectArrowShower:            arrowShowerEffectSpec(),
+	EffectMagicPower:             magicPowerEffectSpec(),
+	EffectWhitePulse:             whitePulseEffectSpec(),
+	EffectSpearHitSound:          spearHitSoundEffectSpec(),
+	EffectEnemyHitNormal1:        enemyHitNormal1EffectSpec(),
+	EffectQuake:                  quakeEffectSpec(),
+	EffectSharpShootingCast:      sharpShootingCastEffectSpec(),
+	EffectAdrenalineCast:         adrenalineCastEffectSpec(),
+	EffectMaximizeSounds:         maximizeSoundsEffectSpec(),
+	EffectGreedSound:             greedSoundEffectSpec(),
+	EffectGospelGround:           gospelGroundEffectSpec(),
+	EffectHermodeMusic:           hermodeMusicEffectSpec(),
+	EffectBottomDissonanceGround: bottomDissonanceEffectSpec(),
+	EffectBottomLullabyGround:    bottomLullabyEffectSpec(),
+	EffectBottomRichKimGround:    bottomRichKimEffectSpec(),
+	EffectBottomChaosGround:      bottomChaosEffectSpec(),
+	EffectBottomDrumGround:       bottomDrumEffectSpec(),
+	EffectBottomNibelungGround:   bottomNibelungEffectSpec(),
+	EffectBottomRokiGround:       songOutEffectSpec(),
+	EffectBottomAbyssGround:      bottomAbyssEffectSpec(),
+	EffectBottomSiegGround:       bottomSiegEffectSpec(),
+	EffectBottomWhistleGround:    bottomWhistleEffectSpec(),
+	EffectBottomSinXGround:       bottomSinXEffectSpec(),
+	EffectBottomBragiGround:      bottomBragiEffectSpec(),
+	EffectBottomAppleGround:      bottomAppleEffectSpec(),
+	EffectBottomUglyDanceGround:  bottomUglyDanceEffectSpec(),
+	EffectBottomHummingGround:    bottomHummingEffectSpec(),
+	EffectBottomForgetGround:     bottomForgetEffectSpec(),
+	EffectBottomFortuneGround:    bottomFortuneEffectSpec(),
+	EffectBottomServiceGround:    bottomServiceEffectSpec(),
+	EffectGunslingerCoinSound:    gunslingerCoinSoundEffectSpec(),
+	EffectSteelBodyRing:          steelBodyRingEffectSpec(),
 	SkillEffectChaseWalkSmoke:    chaseWalkSmokeEffectSpec(),
 }

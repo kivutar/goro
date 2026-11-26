@@ -5,18 +5,18 @@ import "time"
 func mageProjectileEffectSpec(id int) EffectSpec {
 	spec := funcEffectSpec("MageProjectile", 52*EffectFrameDuration, true)
 	switch id {
-	case effectFireBall:
+	case EffectFireBall:
 		spec.Components[0].SpriteFile = "fireball"
 		for _, tick := range []int{20, 24, 28, 32} {
 			spec.SFX = append(spec.SFX, "effect\\ef_fireball.wav")
 			spec.SFXDelays = append(spec.SFXDelays, time.Duration(tick)*EffectFrameDuration)
 		}
-	case effectSoulStrike:
+	case EffectSoulStrike:
 		spec.Duration = 46 * EffectFrameDuration
 		spec.Components[0].SpriteFile = "particle1"
 		spec.SFX = []string{"effect\\ef_soulstrike.wav"}
 		spec.SFXDelays = []time.Duration{6 * EffectFrameDuration}
-	case effectFrostDiver:
+	case EffectFrostDiver:
 		spec.Components[0].TextureFile = "effect/ice.tga"
 	}
 	return spec
@@ -92,7 +92,7 @@ func napalmBeatEffectSpec() EffectSpec {
 }
 
 func soulStrikeEffectSpec() EffectSpec {
-	return mageProjectileEffectSpec(effectSoulStrike)
+	return mageProjectileEffectSpec(EffectSoulStrike)
 }
 
 func stoneCurseEffectSpec() EffectSpec {
@@ -108,7 +108,7 @@ func fireBoltEffectSpec() EffectSpec {
 }
 
 func fireBallEffectSpec() EffectSpec {
-	return mageProjectileEffectSpec(effectFireBall)
+	return mageProjectileEffectSpec(EffectFireBall)
 }
 
 func fireWallEffectSpec() EffectSpec {
@@ -116,7 +116,7 @@ func fireWallEffectSpec() EffectSpec {
 }
 
 func frostDiverEffectSpec() EffectSpec {
-	return mageProjectileEffectSpec(effectFrostDiver)
+	return mageProjectileEffectSpec(EffectFrostDiver)
 }
 
 func lightningBoltEffectSpec() EffectSpec {

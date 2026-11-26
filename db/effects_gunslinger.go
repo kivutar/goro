@@ -8,27 +8,27 @@ func gunslingerSpriteEffectSpec(id int) EffectSpec {
 	c.WorldSizedSprite, c.Overlay = true, true
 	c.SpriteDelay = 2 * EffectFrameDuration
 	switch id {
-	case effectM02:
+	case EffectM02:
 		c.SpriteFile, c.SpriteDelay = "m_ef02", 4*EffectFrameDuration
 		spec.SFX, spec.SFXDelays = []string{"effect\\풀버스터.wav"}, []time.Duration{5 * EffectFrameDuration}
-	case effectDesperado:
+	case EffectDesperado:
 		c.SpriteFile, c.SpriteDelay = "데스페라도", 4*EffectFrameDuration
 		spec.SFX, spec.SFXDelays = []string{"effect\\데스페라도.wav"}, []time.Duration{10 * EffectFrameDuration}
-	case effectLightningS, effectBlindS, effectPoisonS, effectFreezingS, effectFlareS:
-		c.SpriteFile = [...]string{"라이트닝스피어", "블라인드스피어", "포이즌스피어", "프리징스피어", "플레어스피어"}[id-effectLightningS]
+	case EffectLightningS, EffectBlindS, EffectPoisonS, EffectFreezingS, EffectFlareS:
+		c.SpriteFile = [...]string{"라이트닝스피어", "블라인드스피어", "포이즌스피어", "프리징스피어", "플레어스피어"}[id-EffectLightningS]
 		c.PosZ, c.SpriteRepeat = .2, true
 		c.Overlay, c.AttachedEntity = false, false
 		spec.Duration = 23 * EffectFrameDuration
-	case effectRapidShower:
+	case EffectRapidShower:
 		c.SpriteFile, c.SpriteDelay = "래피드샤워", 4*EffectFrameDuration
 		spec.SFX, spec.SFXDelays = []string{"effect\\래피드샤워.wav"}, []time.Duration{20 * EffectFrameDuration}
-	case effectMagicalBullet:
+	case EffectMagicalBullet:
 		c.SpriteFile, spec.SFX = "매지컬불릿", []string{"effect\\매지컬블릿.wav"}
-	case effectSpreadAttack:
+	case EffectSpreadAttack:
 		c.SpriteFile, c.SpriteDelay = "스프레드", 4*EffectFrameDuration
-	case effectTracking:
+	case EffectTracking:
 		c.SpriteFile = "트래킹"
-	case effectTripleAction:
+	case EffectTripleAction:
 		c.SpriteFile, c.Delay = "트리플액션", 30*EffectFrameDuration
 		spec.SFX, spec.SFXDelays = []string{"effect\\트리플액션.wav"}, []time.Duration{25 * EffectFrameDuration}
 	}
@@ -76,7 +76,7 @@ func madnessRedEffectSpec() EffectSpec {
 }
 
 func m02EffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectM02)
+	return gunslingerSpriteEffectSpec(EffectM02)
 }
 
 func bash3D5EffectSpec() EffectSpec {
@@ -84,39 +84,39 @@ func bash3D5EffectSpec() EffectSpec {
 }
 
 func desperadoEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectDesperado)
+	return gunslingerSpriteEffectSpec(EffectDesperado)
 }
 
 func lightningSEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectLightningS)
+	return gunslingerSpriteEffectSpec(EffectLightningS)
 }
 
 func blindSEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectBlindS)
+	return gunslingerSpriteEffectSpec(EffectBlindS)
 }
 
 func poisonSEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectPoisonS)
+	return gunslingerSpriteEffectSpec(EffectPoisonS)
 }
 
 func freezingSEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectFreezingS)
+	return gunslingerSpriteEffectSpec(EffectFreezingS)
 }
 
 func flareSEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectFlareS)
+	return gunslingerSpriteEffectSpec(EffectFlareS)
 }
 
 func rapidShowerEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectRapidShower)
+	return gunslingerSpriteEffectSpec(EffectRapidShower)
 }
 
 func magicalBulletEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectMagicalBullet)
+	return gunslingerSpriteEffectSpec(EffectMagicalBullet)
 }
 
 func spreadAttackEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectSpreadAttack)
+	return gunslingerSpriteEffectSpec(EffectSpreadAttack)
 }
 
 func trackCastingEffectSpec() EffectSpec {
@@ -124,11 +124,11 @@ func trackCastingEffectSpec() EffectSpec {
 }
 
 func trackingEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectTracking)
+	return gunslingerSpriteEffectSpec(EffectTracking)
 }
 
 func tripleActionEffectSpec() EffectSpec {
-	return gunslingerSpriteEffectSpec(effectTripleAction)
+	return gunslingerSpriteEffectSpec(EffectTripleAction)
 }
 
 func bullseyeEffectSpec() EffectSpec {

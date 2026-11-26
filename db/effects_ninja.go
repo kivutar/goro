@@ -40,21 +40,21 @@ func ninjaSpriteEffectSpec(id int) EffectSpec {
 	c.WorldSizedSprite, c.Overlay = true, true
 	c.SpriteDelay = 4 * EffectFrameDuration
 	switch id {
-	case effectKirikage:
+	case EffectKirikage:
 		c.SpriteFile, spec.SFX = "그림자베기", []string{"effect\\그림자베기.wav"}
-	case effectKasumikiri:
+	case EffectKasumikiri:
 		c.SpriteFile, spec.SFX = "안개베기", []string{"effect\\안개베기.wav"}
-	case effectIssen:
+	case EffectIssen:
 		c.SpriteFile, spec.SFX = "일섬", []string{"effect\\일섬.wav"}
 		c.SpriteDelay, c.PosZ = 2*EffectFrameDuration, 1.2
-	case effectTatami:
+	case EffectTatami:
 		c.SpriteFile, c.SpriteDelay, c.PosZ = "다다미 뒤집기", 6*EffectFrameDuration, 1.2
 		c.Overlay, c.AttachedEntity = false, false
-	case effectKaen:
+	case EffectKaen:
 		c.SpriteFile, c.PosZ, c.SpriteRepeat = "화염진", .2, true
 		c.Overlay, c.AttachedEntity = false, false
 		spec.Duration = 23 * EffectFrameDuration
-	case effectThunderStorm2:
+	case EffectThunderStorm2:
 		spec.Duration = 200 * EffectFrameDuration
 		c.SpriteFile, c.SpriteDelay, c.PosZ = "썬더스톰", 2*EffectFrameDuration, .9
 		c.SizeStart = 250 * EffectPixelRatio
@@ -93,27 +93,27 @@ func stin5EffectSpec() EffectSpec {
 }
 
 func thunderStorm2EffectSpec() EffectSpec {
-	return ninjaSpriteEffectSpec(effectThunderStorm2)
+	return ninjaSpriteEffectSpec(EffectThunderStorm2)
 }
 
 func kirikageEffectSpec() EffectSpec {
-	return ninjaSpriteEffectSpec(effectKirikage)
+	return ninjaSpriteEffectSpec(EffectKirikage)
 }
 
 func tatamiEffectSpec() EffectSpec {
-	return ninjaSpriteEffectSpec(effectTatami)
+	return ninjaSpriteEffectSpec(EffectTatami)
 }
 
 func kasumikiriEffectSpec() EffectSpec {
-	return ninjaSpriteEffectSpec(effectKasumikiri)
+	return ninjaSpriteEffectSpec(EffectKasumikiri)
 }
 
 func issenEffectSpec() EffectSpec {
-	return ninjaSpriteEffectSpec(effectIssen)
+	return ninjaSpriteEffectSpec(EffectIssen)
 }
 
 func kaenEffectSpec() EffectSpec {
-	spec := ninjaSpriteEffectSpec(effectKaen)
+	spec := ninjaSpriteEffectSpec(EffectKaen)
 	spec.SFX = []string{"effect\\화염진.wav"}
 	return spec
 }

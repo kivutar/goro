@@ -38,15 +38,15 @@ func robrTrapModelSpec(robrPath string, triggerEffectID int) SkillUnitModelSpec 
 // Legacy fallback paths mirror the 2008 client's CSkill::GetTrapModelName table.
 // Paths are relative to data\model\, matching RSW model filenames.
 var SkillUnitModels = map[uint16]SkillUnitModelSpec{
-	143: trapModelSpec("외부소품\\트랩03_3.rsm", "effect\\trap08.rsm", effectBlastMineBomb), // UNT_BLASTMINE -> ef_trap_03_3
+	143: trapModelSpec("외부소품\\트랩03_3.rsm", "effect\\trap08.rsm", EffectBlastMineBomb), // UNT_BLASTMINE -> ef_trap_03_3
 	144: trapModelSpec("외부소품\\트랩02.rsm", "effect\\trap01.rsm", 0),                     // UNT_SKIDTRAP -> ef_trap_02
 	145: trapModelSpec("외부소품\\트랩01.rsm", "effect\\trap03.rsm", 0),                     // UNT_ANKLESNARE -> ef_trap_01
 	147: trapModelSpec("외부소품\\트랩03.rsm", "effect\\trap02.rsm", 0),                     // UNT_LANDMINE -> ef_trap_03
 	148: trapModelSpec("외부소품\\트랩03_6.rsm", "effect\\trap04.rsm", 0),                   // UNT_SHOCKWAVE -> ef_trap_03_6
-	149: trapModelSpec("외부소품\\트랩03_4.rsm", "effect\\trap05.rsm", effectSandman),       // UNT_SANDMAN -> ef_trap_03_4
-	150: trapModelSpec("외부소품\\트랩03_5.rsm", "effect\\trap06.rsm", effectFlasher),       // UNT_FLASHER -> ef_trap_03_5
-	151: trapModelSpec("외부소품\\트랩03_2.rsm", "effect\\trap07.rsm", effectFreezingTrap),  // UNT_FREEZINGTRAP -> ef_trap_03_2
-	152: trapModelSpec("외부소품\\트랩04.rsm", "effect\\trap09.rsm", effectClaymore),        // UNT_CLAYMORETRAP -> ef_trap_04
+	149: trapModelSpec("외부소품\\트랩03_4.rsm", "effect\\trap05.rsm", EffectSandman),       // UNT_SANDMAN -> ef_trap_03_4
+	150: trapModelSpec("외부소품\\트랩03_5.rsm", "effect\\trap06.rsm", EffectFlasher),       // UNT_FLASHER -> ef_trap_03_5
+	151: trapModelSpec("외부소품\\트랩03_2.rsm", "effect\\trap07.rsm", EffectFreezingTrap),  // UNT_FREEZINGTRAP -> ef_trap_03_2
+	152: trapModelSpec("외부소품\\트랩04.rsm", "effect\\trap09.rsm", EffectClaymore),        // UNT_CLAYMORETRAP -> ef_trap_04
 	153: trapModelSpec("외부소품\\트랩05.rsm", "effect\\trap10.rsm", 0),                     // UNT_TALKIEBOX -> ef_trap_05
 	210: robrTrapModelSpec("event\\3차트랩_변화01.rsm", 0),                                 // UNT_MAGENTATRAP -> ef_trap_3_magenta
 	211: robrTrapModelSpec("event\\3차트랩_변수01.rsm", 0),                                 // UNT_COBALTTRAP -> ef_trap_3_cobalt

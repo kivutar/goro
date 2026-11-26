@@ -5,15 +5,15 @@ import "time"
 func rogueBurstEffectSpec(effectID int) EffectSpec {
 	spec := funcEffectSpec("RogueBurst", 300*EffectFrameDuration, false)
 	switch effectID {
-	case effectRogueCoin:
+	case EffectRogueCoin:
 		spec.Components[0].TextureFile = "effect/coin_a.bmp"
 		spec.SFX = []string{"effect\\rog_steal coin.wav"}
-	case effectIntimidate:
+	case EffectIntimidate:
 		spec.Duration = 999 * EffectFrameDuration
 		spec.Components[0].TextureFile = "effect/white01.bmp"
 		spec.SFX = []string{"effect\\EF_Bash.wav", "effect\\rog_intimidate.wav"}
 		spec.SFXDelays = []time.Duration{0, 35 * EffectFrameDuration}
-	case effectTeiHit3:
+	case EffectTeiHit3:
 		spec.Components[0].TextureFile = "effect/lens2.tga"
 	}
 	return spec
@@ -56,7 +56,7 @@ func closeConfineRingEffectSpec() EffectSpec {
 }
 
 func intimidateEffectSpec() EffectSpec {
-	return rogueBurstEffectSpec(effectIntimidate)
+	return rogueBurstEffectSpec(EffectIntimidate)
 }
 
 func stealCoinEffectSpec() EffectSpec {
@@ -80,9 +80,9 @@ func stripHelmEffectSpec() EffectSpec {
 }
 
 func rogueCoinEffectSpec() EffectSpec {
-	return rogueBurstEffectSpec(effectRogueCoin)
+	return rogueBurstEffectSpec(EffectRogueCoin)
 }
 
 func teiHit3EffectSpec() EffectSpec {
-	return rogueBurstEffectSpec(effectTeiHit3)
+	return rogueBurstEffectSpec(EffectTeiHit3)
 }
