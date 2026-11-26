@@ -706,7 +706,7 @@ func TestCompanionRenameKeepsKeyboardInput(t *testing.T) {
 			if mode.skillSystem.Pending.Skill.ID != 0 || mode.bot.KeyboardAvailable {
 				t.Fatal("gameplay keyboard input remained active during rename")
 			}
-			if mode.ui.nonConsoleKeyboardInputBlockedExcept(ctx, w) {
+			if mode.ui.nonConsoleKeyboardInputBlockedExcept(w) {
 				t.Fatal("rename blocked the window's own toggle shortcut")
 			}
 			field.SetFocused(false)

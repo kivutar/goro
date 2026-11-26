@@ -36,13 +36,13 @@ type gr2AnimationClip struct {
 	tracks   map[string]gr2AnimationTrack
 }
 
-func gr2SkeletonPoseFromModel(file *res.GR2File, modelIndex int) (*gr2SkeletonPose, error) {
+func gr2SkeletonPoseFromModel(file *res.GR2File, modelIndex int) *gr2SkeletonPose {
 	if file == nil || modelIndex < 0 || modelIndex >= len(file.Models) {
-		return nil, nil
+		return nil
 	}
 	model := file.Models[modelIndex]
 	if model.SkeletonIndex == nil || *model.SkeletonIndex < 0 || *model.SkeletonIndex >= len(file.Skeletons) {
-		return nil, nil
+		return nil
 	}
 	skeleton := file.Skeletons[*model.SkeletonIndex]
 	pose := &gr2SkeletonPose{
@@ -58,7 +58,7 @@ func gr2SkeletonPoseFromModel(file *res.GR2File, modelIndex int) (*gr2SkeletonPo
 		pose.bind = append(pose.bind, gr2BindTransformFromTransform(bone.Transform))
 		pose.inverseWorld = append(pose.inverseWorld, gr2Mat4FromColumnsOrIdentity(bone.InverseWorld))
 	}
-	return pose, nil
+	return pose
 }
 
 func gr2BindTransformFromTransform(transform res.GR2Transform) gr2BindTransform {

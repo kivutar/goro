@@ -139,22 +139,22 @@ type worldUI struct {
 }
 
 func (u *worldUI) KeyboardShortcutsBlocked(ctx client.Context) bool {
-	return scene.PlayerIsDead(ctx) || u.keyboardInputBlocked(ctx)
+	return scene.PlayerIsDead(ctx) || u.keyboardInputBlocked()
 }
 
-func (u *worldUI) keyboardInputBlocked(ctx client.Context) bool {
+func (u *worldUI) keyboardInputBlocked() bool {
 	if u == nil {
 		return false
 	}
-	return u.console.Active() || u.nonConsoleKeyboardInputBlocked(ctx)
+	return u.console.Active() || u.nonConsoleKeyboardInputBlocked()
 }
 
-func (u *worldUI) nonConsoleKeyboardInputBlocked(ctx client.Context) bool {
-	return u.nonConsoleKeyboardInputBlockedExcept(ctx, nil)
+func (u *worldUI) nonConsoleKeyboardInputBlocked() bool {
+	return u.nonConsoleKeyboardInputBlockedExcept(nil)
 }
 
 // A window may handle its own toggle shortcut, but not bypass other forms.
-func (u *worldUI) nonConsoleKeyboardInputBlockedExcept(ctx client.Context, except *gameui.Window) bool {
+func (u *worldUI) nonConsoleKeyboardInputBlockedExcept(except *gameui.Window) bool {
 	if u == nil {
 		return false
 	}
@@ -579,7 +579,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 		return nil, nil
 	}
 	dead := scene.PlayerIsDead(ctx)
-	keyboardBlocked := m.ui.keyboardInputBlocked(ctx)
+	keyboardBlocked := m.ui.keyboardInputBlocked()
 	m.updateBotInput(ctx, !dead && !keyboardBlocked)
 	if m.pets().UpdateSlotMachine(ctx) {
 		return nil, nil
@@ -590,7 +590,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.chatShortcutFromInput(ctx) || m.toggleEmoteWindowFromInput(ctx) || m.toggleGuildWindowFromInput(ctx) || m.toggleQuestWindowFromInput(ctx) || m.toggleWorldMapFromInput(ctx) || m.toggleWindowFromInput(ctx) {
 		return nil, nil
 	}
-	if !dead && !m.ui.nonConsoleKeyboardInputBlocked(ctx) && m.ui.shortcutBar.UpdateKeyboardInput(ctx, m, m.ui.console.Active()) {
+	if !dead && !m.ui.nonConsoleKeyboardInputBlocked() && m.ui.shortcutBar.UpdateKeyboardInput(ctx, m, m.ui.console.Active()) {
 		return nil, nil
 	}
 	if dead {
@@ -922,7 +922,7 @@ func (m *WorldMode) Update(ctx client.Context) (Mode, error) {
 	if m.ui.statsWindow.Update(ctx) {
 		return nil, nil
 	}
-	if !m.ui.keyboardInputBlocked(ctx) {
+	if !m.ui.keyboardInputBlocked() {
 		if m.ui.basicMenu.Update(ctx, m.basicMenuCallbacks(ctx)) {
 			return nil, nil
 		}
@@ -1084,7 +1084,7 @@ func (m *WorldMode) basicMenuCallbacks(ctx client.Context) gameui.BasicMenuCallb
 }
 
 func (m *WorldMode) toggleEmoteWindowFromInput(ctx client.Context) bool {
-	if ctx.Input == nil || m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if ctx.Input == nil || m.ui.nonConsoleKeyboardInputBlocked() {
 		return false
 	}
 	if !plainAltDown(ctx.Input) || !ctx.Input.JustPressed(input.KeyL) {
@@ -1095,7 +1095,7 @@ func (m *WorldMode) toggleEmoteWindowFromInput(ctx client.Context) bool {
 }
 
 func (m *WorldMode) toggleGuildWindowFromInput(ctx client.Context) bool {
-	if ctx.Input == nil || m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if ctx.Input == nil || m.ui.nonConsoleKeyboardInputBlocked() {
 		return false
 	}
 	if !plainAltDown(ctx.Input) || !ctx.Input.JustPressed(input.KeyG) {

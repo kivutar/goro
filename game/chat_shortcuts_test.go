@@ -31,7 +31,7 @@ func TestChatShortcutWindowToggleAndBlocking(t *testing.T) {
 	if !m.PrepareTextInput(ctx, gpucontext.KeyM) || !m.chatShortcutFromInput(ctx) || !m.ui.chatShortcuts.IsOpen() {
 		t.Fatal("Alt+M did not open shortcut list")
 	}
-	if !m.ui.keyboardInputBlocked(ctx) {
+	if !m.ui.keyboardInputBlocked() {
 		t.Fatal("shortcut editor did not block game hotkeys")
 	}
 	if !m.PrepareTextInput(ctx, gpucontext.KeyM) || m.chatShortcutFromInput(ctx) || !m.ui.chatShortcuts.IsOpen() {

@@ -1093,11 +1093,11 @@ func TestWASDGamepadDeadzoneAndFocusedChat(t *testing.T) {
 	ctx.Input.SetGamepad(pad)
 	ctx.Input.SetKeyCode(gpucontext.KeyEnter, true)
 	mode.ui.console.UpdateInput(ctx)
-	if !mode.ui.keyboardInputBlocked(ctx) {
+	if !mode.ui.keyboardInputBlocked() {
 		t.Fatal("test chat did not take focus")
 	}
 	assertNoBotTestPacket(t, server, func() error {
-		mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked(ctx))
+		mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked())
 		return mode.bot.Tick()
 	})
 }
@@ -1196,7 +1196,7 @@ func TestWASDControlsBeforeChatPreparation(t *testing.T) {
 				if !prepareKeyboardTestText(mode, ctx, tc.code, tc.text) || mode.ui.console.Active() {
 					t.Fatal("chat took the keyboard control before Lua input")
 				}
-				mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked(ctx))
+				mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked())
 				if err := mode.bot.Tick(); err != nil {
 					t.Fatal(err)
 				}
@@ -1241,7 +1241,7 @@ func TestKeyboardScriptDoesNotStealFocusedInput(t *testing.T) {
 				if prepareKeyboardTestText(mode, ctx, gpucontext.KeyW, "z") {
 					t.Fatal("script filtered text intended for the focused UI")
 				}
-				mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked(ctx))
+				mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked())
 				if mode.bot.KeyboardAvailable || !ctx.Input.KeyCodeJustPressed(gpucontext.KeyW) {
 					t.Fatal("script consumed a focused UI's keyboard input")
 				}
@@ -1424,7 +1424,7 @@ function tick() assert(typed, "input was not invoked") end`)
 	if !prepareKeyboardTestText(mode, ctx, gpucontext.KeyE, "é") || mode.ui.console.Active() {
 		t.Fatal("consumed key activated the console")
 	}
-	mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked(ctx))
+	mode.updateBotInput(ctx, !mode.ui.keyboardInputBlocked())
 	if err := mode.bot.Tick(); err != nil {
 		t.Fatal(err)
 	}

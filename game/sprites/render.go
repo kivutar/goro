@@ -624,7 +624,7 @@ func playerRenderLayerOrder(imf *res.IMF, actionIndex, motionIndex int) [humanoi
 	var order [humanoidLayerCount]int
 	outIndex := 0
 	for pass := humanoidLayerCount - 1; pass >= 0; pass-- {
-		layer := humanoidLayerBody
+		var layer int
 		if dir >= 2 && dir <= 5 {
 			if pass == humanoidLayerShield {
 				layer = humanoidLayerShield

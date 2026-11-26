@@ -7,7 +7,7 @@ var grfMask = [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 func decryptGRFFull(buf []byte, alignedLen, packedLen uint32) {
 	nblocks := int(alignedLen) >> 3
 	digits := len(strconv.FormatUint(uint64(packedLen), 10))
-	cycle := 3
+	var cycle int
 	switch {
 	case digits < 3:
 		cycle = 3

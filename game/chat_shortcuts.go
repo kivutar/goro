@@ -18,14 +18,14 @@ func (m *WorldMode) PrepareTextInput(ctx client.Context, code input.KeyCode) boo
 	if m.suppressShortcutText(ctx, code) {
 		return true
 	}
-	if !m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if !m.ui.nonConsoleKeyboardInputBlocked() {
 		return m.ui.console.PrepareTextInput(ctx, code)
 	}
 	return false
 }
 
 func (m *WorldMode) PrepareKeyInput(ctx client.Context, code input.KeyCode, mods gpucontext.Modifiers) {
-	if !m.uiInputSuspended() && !m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if !m.uiInputSuspended() && !m.ui.nonConsoleKeyboardInputBlocked() {
 		m.ui.console.PrepareKeyInput(ctx, code, mods)
 	}
 }
@@ -38,16 +38,16 @@ func (m *WorldMode) suppressShortcutText(ctx client.Context, code input.KeyCode)
 	if m.windowShortcutAllowed(ctx, code) {
 		return true
 	}
-	if code == gpucontext.KeyGrave && plainCtrlDown(ctx.Input) && (m.ui.worldMap.IsOpen() || !m.ui.nonConsoleKeyboardInputBlocked(ctx)) {
+	if code == gpucontext.KeyGrave && plainCtrlDown(ctx.Input) && (m.ui.worldMap.IsOpen() || !m.ui.nonConsoleKeyboardInputBlocked()) {
 		return true
 	}
 	if !plainAltDown(ctx.Input) || code == gpucontext.KeyUnknown {
 		return false
 	}
 	if code == gpucontext.KeyM {
-		return m.ui.chatShortcuts.IsOpen() || !m.ui.nonConsoleKeyboardInputBlocked(ctx)
+		return m.ui.chatShortcuts.IsOpen() || !m.ui.nonConsoleKeyboardInputBlocked()
 	}
-	if m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if m.ui.nonConsoleKeyboardInputBlocked() {
 		return false
 	}
 	if code == gpucontext.KeyL || code == gpucontext.KeyG || code == gpucontext.KeyU {
@@ -74,7 +74,7 @@ func (m *WorldMode) chatShortcutFromInput(ctx client.Context) bool {
 		return false
 	}
 	if in.KeyCodeJustPressed(gpucontext.KeyM) {
-		if !m.ui.chatShortcuts.IsOpen() && m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+		if !m.ui.chatShortcuts.IsOpen() && m.ui.nonConsoleKeyboardInputBlocked() {
 			return false
 		}
 		in.ConsumeKeyCodePress(gpucontext.KeyM)
@@ -90,7 +90,7 @@ func (m *WorldMode) chatShortcutFromInput(ctx client.Context) bool {
 		}
 		// Even an empty/blocked binding must not fall through to a skill slot.
 		in.ConsumeKeyCodePress(key)
-		if !m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+		if !m.ui.nonConsoleKeyboardInputBlocked() {
 			m.ui.console.SendText(ctx, m.ui.chatShortcuts.Command(ctx, slot))
 		}
 		return true

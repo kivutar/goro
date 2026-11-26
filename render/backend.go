@@ -31,8 +31,6 @@ import (
 	"github.com/kivutar/goro/ui/rotheme"
 )
 
-const BackendName = "gogpu-wgpu"
-
 type Game interface {
 	Update() error
 	Draw(*Frame)

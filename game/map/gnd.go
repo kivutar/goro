@@ -10,7 +10,6 @@ import (
 	"github.com/kivutar/goro/game/scene"
 	"github.com/kivutar/goro/render"
 	"github.com/kivutar/goro/res"
-	worldstate "github.com/kivutar/goro/world"
 )
 
 func LoadGND(manager *res.Manager, mapName string) (*res.GND, string, error) {
@@ -96,21 +95,6 @@ func clampGNDRange(gnd *res.GND, startX, endX, startY, endY int) (int, int, int,
 	startY = scene.MaxInt(0, startY)
 	endY = scene.MinInt(gnd.Height-1, endY)
 	return startX, endX, startY, endY, startX <= endX && startY <= endY
-}
-
-func WorldGNDHeightAt(world *worldstate.World, x, y float64) (float64, bool) {
-	if world == nil || world.GND == nil {
-		return 0, false
-	}
-	gridX := (x + 0.5) * 0.5
-	gridY := (y + 0.5) * 0.5
-	cellX := int(math.Floor(gridX))
-	cellY := int(math.Floor(gridY))
-	cell, ok := world.GND.Cell(cellX, cellY)
-	if !ok {
-		return 0, false
-	}
-	return scene.BilinearHeight(cell.Heights, gridX-float64(cellX), gridY-float64(cellY)), true
 }
 
 func cameraGroundFootprint(projection scene.Projection, screenWidth, screenHeight int) (float64, float64, float64, float64, bool) {

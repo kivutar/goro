@@ -38,7 +38,7 @@ func (m *WorldMode) windowShortcutAllowed(ctx client.Context, code input.KeyCode
 			return false
 		}
 	}
-	return !m.ui.nonConsoleKeyboardInputBlockedExcept(ctx, target)
+	return !m.ui.nonConsoleKeyboardInputBlockedExcept(target)
 }
 
 func (m *WorldMode) toggleWindowFromInput(ctx client.Context) bool {

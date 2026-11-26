@@ -514,7 +514,7 @@ func (m *WorldMode) skillUnitCell(id uint32) (int, int, bool) {
 	return 0, 0, false
 }
 
-func (m *WorldMode) applySkillFailAck(ctx client.Context, ack network.SkillFailAck) {
+func (m *WorldMode) applySkillFailAck(ack network.SkillFailAck) {
 	if ack.Result != 0 {
 		return
 	}

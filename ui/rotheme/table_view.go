@@ -485,7 +485,7 @@ func (b *tableViewBody) Draw(ctx widget.Context, canvas widget.Canvas) {
 		if len(b.rows) > 0 {
 			b.clearWidgetRows()
 		}
-		b.drawSimpleRows(ctx, canvas)
+		b.drawSimpleRows(canvas)
 		return
 	}
 	if len(b.simpleRows) > 0 {
@@ -625,7 +625,7 @@ func (b *tableViewBody) visibleRange() (int, int) {
 	return start, end
 }
 
-func (b *tableViewBody) drawSimpleRows(ctx widget.Context, canvas widget.Canvas) {
+func (b *tableViewBody) drawSimpleRows(canvas widget.Canvas) {
 	table := b.table
 	start, end := b.visibleRange()
 	b.trimSimpleRows(start, end)

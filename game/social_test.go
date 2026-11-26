@@ -55,7 +55,7 @@ func TestPartyCreationWaitsForServerMembership(t *testing.T) {
 			request()
 			// Basic Skill below level 7 is rejected through ZC_ACK_TOUSESKILL,
 			// without a party creation response.
-			mode.applySkillFailAck(ctx, network.SkillFailAck{SkillID: 1, Number: 4})
+			mode.applySkillFailAck(network.SkillFailAck{SkillID: 1, Number: 4})
 			if s.Party.Active() {
 				t.Fatalf("rejected party is active: %+v", s.Party)
 			}
@@ -120,7 +120,7 @@ func TestGuildNoticeEditorEnterDoesNotActivateConsole(t *testing.T) {
 	if _, err := mode.Update(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if mode.ui.console.Active() || field.Text() != "Hello\n" || !mode.ui.keyboardInputBlocked(ctx) {
+	if mode.ui.console.Active() || field.Text() != "Hello\n" || !mode.ui.keyboardInputBlocked() {
 		t.Fatal("Enter in the guild notice did not stay in the multiline editor")
 	}
 	ctx.Input.EndFrame()

@@ -190,7 +190,7 @@ func (m *System) drawEsmaEffect(screen *render.Frame, ctx client.Context, compon
 	}
 }
 
-func (m *System) drawEsmaHitTexture(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, x, y, z float64, now time.Time) {
+func (m *System) drawEsmaHitTexture(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, x, y float64, now time.Time) {
 	age := int(now.Sub(effect.Starts)/db.EffectFrameDuration) + 1
 	alpha := 8 * min(age-40, 82-age)
 	if now.Before(effect.Starts) || alpha <= 0 {

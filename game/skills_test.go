@@ -357,7 +357,7 @@ func TestLevelOneTeleportQueuesRandomSelectionWithCast(t *testing.T) {
 		t.Fatalf("world effects before server reply = %+v, want none", mode.effects().Active)
 	}
 
-	mode.applySkillFailAck(ctx, network.SkillFailAck{SkillID: skill.ID, Cause: 1})
+	mode.applySkillFailAck(network.SkillFailAck{SkillID: skill.ID, Cause: 1})
 	if len(mode.effects().Active) != 0 {
 		t.Fatalf("world effects after insufficient SP reply = %+v, want none", mode.effects().Active)
 	}
@@ -6034,13 +6034,9 @@ func TestActorActionNotifyHealDoesNotOverwriteLocalCastWithHurt(t *testing.T) {
 }
 
 func TestSkillFailAckAddsConsoleErrorWithoutEffect(t *testing.T) {
-	world := worldstate.New()
-	world.Player = worldstate.Actor{ID: 2000000, X: 10, Y: 20}
-	sessionState := &session.Session{AccountID: 2000000}
 	mode := &WorldMode{}
-	ctx := client.Context{Session: sessionState, World: world}
 
-	mode.applySkillFailAck(ctx, network.SkillFailAck{SkillID: 6, Result: 0, Cause: 0})
+	mode.applySkillFailAck(network.SkillFailAck{SkillID: 6, Result: 0, Cause: 0})
 
 	if len(mode.effects().Active) != 0 {
 		t.Fatalf("world effects = %d, want 0", len(mode.effects().Active))
@@ -6053,9 +6049,8 @@ func TestSkillFailAckAddsConsoleErrorWithoutEffect(t *testing.T) {
 
 func TestStealFailAckUsesSkillSpecificMessage(t *testing.T) {
 	mode := &WorldMode{}
-	ctx := client.Context{Session: &session.Session{AccountID: 2000000}}
 
-	mode.applySkillFailAck(ctx, network.SkillFailAck{SkillID: 50, Result: 0, Cause: 0})
+	mode.applySkillFailAck(network.SkillFailAck{SkillID: 50, Result: 0, Cause: 0})
 
 	messages := mode.ui.console.Messages()
 	if len(messages) != 1 || messages[0].Text != "Steal failed." {

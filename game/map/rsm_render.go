@@ -208,7 +208,7 @@ func (m *System) rsmMeshesForPlacement(manager *res.Manager, rsm *res.RSM, rsw *
 	for _, nodeIndex := range context.nodeIndices {
 		node := &rsm.Nodes[nodeIndex]
 		faceLights := m.rsmPlacementFaceLights(rsm, node, context, visible, gnd)
-		for _, worldTri := range buildRSMNodeWorldTriangles(rsm, node, nodeMatrices[node.Name], context.instance, context.lighting, m.rsmFaceMetas(rsm, node), faceLights) {
+		for _, worldTri := range buildRSMNodeWorldTriangles(rsm, node, nodeMatrices[node.Name], context.instance, m.rsmFaceMetas(rsm, node), faceLights) {
 			texture := m.groundTexture(manager, worldTri.textureName)
 			if texture != nil {
 				bounds := texture.Bounds()
@@ -544,7 +544,7 @@ func (m *System) rsmFaceMetas(rsm *res.RSM, node *res.RSMNode) []rsmFaceMeta {
 	return metas
 }
 
-func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance, lighting Lighting, faceMetas []rsmFaceMeta, faceLights [][3]color.RGBA) []modelWorldTriangle {
+func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance, faceMetas []rsmFaceMeta, faceLights [][3]color.RGBA) []modelWorldTriangle {
 	if len(node.Vertices) == 0 || len(node.Faces) == 0 {
 		return nil
 	}
@@ -581,7 +581,7 @@ func buildRSMNodeWorldTriangles(rsm *res.RSM, node *res.RSMNode, nodeMatrix scen
 }
 
 func rsmNodeModelMatrix(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance) scene.Mat4 {
-	localMatrix := rsmNodeOuterMatrix(rsm, node, nodeMatrix, instance)
+	localMatrix := rsmNodeOuterMatrix(nodeMatrix, instance)
 	if len(rsm.Nodes) != 1 {
 		localMatrix = scene.Mat4Translate(localMatrix, vectorFromRSM(node.Offset))
 	}
@@ -590,7 +590,7 @@ func rsmNodeModelMatrix(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, 
 
 // rsmNodeOuterMatrix is the node's transform without its offset matrix, which
 // the classic client bakes into the vertices.
-func rsmNodeOuterMatrix(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Mat4, instance modelInstance) scene.Mat4 {
+func rsmNodeOuterMatrix(nodeMatrix scene.Mat4, instance modelInstance) scene.Mat4 {
 	localMatrix := scene.Mat4Identity()
 	localMatrix = scene.Mat4Translate(localMatrix, scene.Point3{
 		X: -(instance.bounds.min.X + instance.bounds.max.X) * 0.5,

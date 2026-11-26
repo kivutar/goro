@@ -1369,7 +1369,7 @@ func (m *WorldMode) handleNetworkPacket(ctx client.Context, pkt network.Packet, 
 	if fail, ok, err := network.ParseSkillFailAck(pkt); err != nil {
 		glog.Errorf("parse skill fail ack 0x%04X: %v", pkt.ID, err)
 	} else if ok {
-		m.applySkillFailAck(ctx, fail)
+		m.applySkillFailAck(fail)
 		return nil, false
 	}
 	if cast, ok, err := network.ParseSkillCastNotify(pkt); err != nil {

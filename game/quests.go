@@ -73,7 +73,7 @@ func questObjectives(objectives []network.QuestObjective) []session.QuestObjecti
 }
 
 func (m *WorldMode) toggleQuestWindowFromInput(ctx client.Context) bool {
-	if !plainAltDown(ctx.Input) || m.ui.nonConsoleKeyboardInputBlocked(ctx) || !ctx.Input.KeyCodeJustPressed(gpucontext.KeyU) {
+	if !plainAltDown(ctx.Input) || m.ui.nonConsoleKeyboardInputBlocked() || !ctx.Input.KeyCodeJustPressed(gpucontext.KeyU) {
 		return false
 	}
 	ctx.Input.ConsumeKeyCodePress(gpucontext.KeyU)

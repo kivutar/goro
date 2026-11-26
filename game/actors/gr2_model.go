@@ -156,10 +156,7 @@ func loadGR2ModelView(manager *res.Manager, resourceName string) (*GR2ModelView,
 	if err != nil {
 		return nil, "model=" + source + " geometry-error=" + err.Error()
 	}
-	pose, err := gr2SkeletonPoseFromModel(file, 0)
-	if err != nil {
-		return nil, "model=" + source + " pose-error=" + err.Error()
-	}
+	pose := gr2SkeletonPoseFromModel(file, 0)
 	if pose == nil {
 		return nil, "model=" + source + " pose=missing"
 	}

@@ -228,7 +228,7 @@ func (w *ItemInfoWindow) cardSlotsFooter(ctx Context) []widget.Widget {
 				cardID,
 				func(cardID uint16) { w.showCardTooltip(ctx, cardID) },
 				func() { w.tooltip.Hide() },
-				func(cardID uint16, x, y int) { w.openCard(ctx, cardID, x, y) },
+				func(cardID uint16, x, y int) { w.openCard(cardID, x, y) },
 			),
 		)
 	}
@@ -280,7 +280,7 @@ func (w *ItemInfoWindow) showCardTooltip(ctx Context, cardID uint16) {
 	w.tooltip.Show(ctx, inventoryItemDisplayName(ctx.Resources, card), ctx.Input.MouseX, ctx.Input.MouseY+18, ctx.Input.MouseY-6)
 }
 
-func (w *ItemInfoWindow) openCard(ctx Context, cardID uint16, mouseX, mouseY int) {
+func (w *ItemInfoWindow) openCard(cardID uint16, mouseX, mouseY int) {
 	if cardID == 0 {
 		return
 	}
@@ -503,8 +503,6 @@ func wrapItemInfoTextLine(line itemInfoTextLine, maxRunes int) []itemInfoTextLin
 		if wordLen > maxRunes {
 			if currentLen > 0 {
 				out = append(out, current)
-				current = itemInfoTextLine{}
-				currentLen = 0
 			}
 			chunks := splitItemInfoTextRun(word, maxRunes)
 			out = append(out, chunks[:len(chunks)-1]...)

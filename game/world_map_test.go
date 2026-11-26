@@ -44,7 +44,7 @@ func TestOpenWorldMapBlocksGameplayButKeepsItsToggle(t *testing.T) {
 	ctx := client.Context{Input: input.NewState()}
 	m := &WorldMode{}
 	m.ui.worldMap.Window.Open(ctx, nil)
-	if !m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if !m.ui.nonConsoleKeyboardInputBlocked() {
 		t.Fatal("atlas did not block gameplay shortcuts and the Escape menu")
 	}
 	if !m.nextWorldMode().ui.worldMap.IsOpen() {

@@ -249,7 +249,7 @@ func drawShieldImage(screen *render.Frame, projection scene.Projection, texture 
 		size, size, particle.angle, color.RGBA{255, 255, 255, uint8(min(255, particle.Alpha))}, additive)
 }
 
-func (m *System) drawShieldBoomerangEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance, now time.Time) {
+func (m *System) drawShieldBoomerangEffect(screen *render.Frame, ctx client.Context, projection scene.Projection, component Component, effect Instance) {
 	texture := m.EffectFileTexture(ctx.Resources, component.TextureFile)
 	if texture == nil || effect.Shield == nil {
 		return

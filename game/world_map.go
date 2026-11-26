@@ -11,7 +11,7 @@ func (m *WorldMode) toggleWorldMapFromInput(ctx client.Context) bool {
 	if !plainCtrlDown(ctx.Input) || !ctx.Input.KeyCodeJustPressed(gpucontext.KeyGrave) {
 		return false
 	}
-	if !m.ui.worldMap.IsOpen() && m.ui.nonConsoleKeyboardInputBlocked(ctx) {
+	if !m.ui.worldMap.IsOpen() && m.ui.nonConsoleKeyboardInputBlocked() {
 		return false
 	}
 	ctx.Input.ConsumeKeyCodePress(gpucontext.KeyGrave)

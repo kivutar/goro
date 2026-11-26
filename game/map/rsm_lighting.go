@@ -59,7 +59,7 @@ func buildRSMNodeFaceLights(rsm *res.RSM, node *res.RSMNode, nodeMatrix scene.Ma
 	// derives normals from them; the remaining node, parent and placement
 	// transforms then rotate those normals.
 	offset := scene.Mat4FromMat3(node.Matrix)
-	outer := rsmNodeOuterMatrix(rsm, node, nodeMatrix, context.instance)
+	outer := rsmNodeOuterMatrix(nodeMatrix, context.instance)
 	model := rsmNodeModelMatrix(rsm, node, nodeMatrix, context.instance)
 	baked := make([]scene.Point3, len(node.Vertices))
 	for i, vertex := range node.Vertices {

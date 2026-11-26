@@ -80,9 +80,9 @@ func LoadHumanoid(manager *res.Manager, appearance Appearance, label string) (*H
 	}
 	headView, headStatus := loadHeadSpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadPalette, label+" head")
 	imf, imfSource, imfStatus := loadPlayerIMF(manager, appearance.Job, appearance.Sex)
-	accessoryBottom, accessoryBottomStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadLow, "", label+" accessory-bottom")
-	accessoryMid, accessoryMidStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadMid, "", label+" accessory-mid")
-	accessoryTop, accessoryTopStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadTop, "", label+" accessory-top")
+	accessoryBottom, accessoryBottomStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadLow, label+" accessory-bottom")
+	accessoryMid, accessoryMidStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadMid, label+" accessory-mid")
+	accessoryTop, accessoryTopStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadTop, label+" accessory-top")
 	weapon, weaponStatus := loadWeaponOverlaySpriteView(manager, appearance.Job, appearance.Sex, appearance.Weapon, false, label+" weapon")
 	weaponLight, weaponLightStatus := loadWeaponOverlaySpriteView(manager, appearance.Job, appearance.Sex, appearance.Weapon, true, label+" weapon-light")
 	shield, shieldStatus := loadShieldOverlaySpriteView(manager, appearance.Job, appearance.Sex, appearance.Shield, label+" shield")
@@ -121,9 +121,9 @@ func LoadMercenary(manager *res.Manager, appearance Appearance, label string) (*
 		return nil, bodyStatus
 	}
 	headView, headStatus := loadHeadSpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadPalette, label+" head")
-	accessoryBottom, accessoryBottomStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadLow, "", label+" accessory-bottom")
-	accessoryMid, accessoryMidStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadMid, "", label+" accessory-mid")
-	accessoryTop, accessoryTopStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadTop, "", label+" accessory-top")
+	accessoryBottom, accessoryBottomStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadLow, label+" accessory-bottom")
+	accessoryMid, accessoryMidStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadMid, label+" accessory-mid")
+	accessoryTop, accessoryTopStatus := loadAccessorySpriteView(manager, appearance.Job, appearance.Head, appearance.Sex, appearance.HeadTop, label+" accessory-top")
 	weapon, weaponStatus := loadMercenaryWeaponOverlaySpriteView(manager, resourceName, appearance.Job, appearance.Sex, appearance.Weapon, false, label+" weapon")
 	weaponLight, weaponLightStatus := loadMercenaryWeaponOverlaySpriteView(manager, resourceName, appearance.Job, appearance.Sex, appearance.Weapon, true, label+" weapon-light")
 	shield, shieldStatus := loadShieldOverlaySpriteView(manager, appearance.Job, appearance.Sex, appearance.Shield, label+" shield")
@@ -162,15 +162,11 @@ func loadHeadSpriteView(manager *res.Manager, job int, head int, sex byte, palet
 	return scene.LoadSpriteView(manager, res.PlayerHeadResourceCandidates(job, head, sex, "act"), res.PlayerHeadResourceCandidates(job, head, sex, "spr"), res.PlayerHeadPaletteResourceCandidates(job, head, sex, palette, "pal"), label)
 }
 
-func loadAccessorySpriteView(manager *res.Manager, job int, head int, sex byte, viewID int, resourceName string, label string) (*scene.SpriteView, string) {
+func loadAccessorySpriteView(manager *res.Manager, job int, head int, sex byte, viewID int, label string) (*scene.SpriteView, string) {
 	if viewID <= 0 {
 		return nil, ""
 	}
-	if resourceName == "" {
-		if name, ok := manager.AccessoryResourceName(viewID); ok {
-			resourceName = name
-		}
-	}
+	resourceName, _ := manager.AccessoryResourceName(viewID)
 	if viewID != 185 && resourceName == "" {
 		return nil, fmt.Sprintf("%s skipped: missing accessory resource table", label)
 	}

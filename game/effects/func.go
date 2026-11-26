@@ -243,7 +243,7 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 	case EffectFuncGospelCross:
 		m.drawGospelCrossEffect(screen, ctx, projection, component, effect, now)
 	case effectFuncShieldBoomerang:
-		m.drawShieldBoomerangEffect(screen, ctx, projection, component, effect, now)
+		m.drawShieldBoomerangEffect(screen, ctx, projection, component, effect)
 	case effectFuncShieldChain:
 		m.drawShieldChainEffect(screen, ctx, projection, component, effect, now)
 	case effectFuncPressure:
@@ -362,7 +362,7 @@ func (m *System) DrawFuncEffect(screen *render.Frame, ctx client.Context, projec
 	case effectFuncLevelUpBurst:
 		m.drawLevelUpBurst(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	case effectFuncEsmaHitTexture:
-		m.drawEsmaHitTexture(screen, ctx, projection, component, effect, worldX, worldY, worldZ, now)
+		m.drawEsmaHitTexture(screen, ctx, projection, component, effect, worldX, worldY, now)
 	case effectFuncHitLineBurst:
 		m.DrawHitLineBurst(screen, ctx, component, effect, worldX, worldY, worldZ, now)
 	default:

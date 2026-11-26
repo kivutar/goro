@@ -222,9 +222,9 @@ func cleanTextAreaInput(value string) string {
 	}, value)
 }
 
-func (w *TextAreaWidget) replaceSelection(value string) bool {
+func (w *TextAreaWidget) replaceSelection(value string) {
 	if w.readOnly {
-		return false
+		return
 	}
 	value = cleanTextAreaInput(value)
 	runes := []rune(w.text)
@@ -238,13 +238,13 @@ func (w *TextAreaWidget) replaceSelection(value string) bool {
 			}
 			value = value[:cut]
 			if value == "" {
-				return false
+				return
 			}
 		}
 	}
 	next := string(runes[:a]) + value + string(runes[b:])
 	if next == w.text {
-		return false
+		return
 	}
 	w.text = next
 	w.moveCursor(a+utf8.RuneCountInString(value), false)
@@ -253,7 +253,6 @@ func (w *TextAreaWidget) replaceSelection(value string) bool {
 	if w.onChange != nil {
 		w.onChange(w.text)
 	}
-	return true
 }
 
 func (w *TextAreaWidget) Event(ctx widget.Context, e event.Event) bool {
