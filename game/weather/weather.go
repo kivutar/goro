@@ -31,11 +31,7 @@ const (
 	mapWeatherFireworks
 )
 
-const (
-	pokJukLaunchSFX        = "effect\\폭죽.wav"
-	pokJukExplosionSFX     = "effect\\itempokjuk.wav"
-	pokJukWeatherFireworks = 4
-)
+const pokJukLaunchSFX = "effect\\폭죽.wav"
 
 // mapWeather picks a map's weather as CGameMode::OnInit does. Prontera and
 // pay_arche cherry blossoms and Comodo fireworks only run for the Korean,
@@ -208,10 +204,11 @@ func (m *System) drawLoopingMapWeatherEffect(screen *render.Frame, ctx client.Co
 func (m *System) drawFireworksWeather(screen *render.Frame, ctx client.Context, projection scene.Projection, now time.Time, fx *effects.System, scheduleSound func(time.Time, ...string)) {
 	key := normalizeMapNameForWeather(ctx.World.MapName)
 	centerX, centerY := mapWeatherFireworkCenter(ctx.World, projection, now)
-	m.fireworks.ensure(key, ctx.World, centerX, centerY, now)
-	m.fireworks.update(ctx.World, centerX, centerY, now)
+	player := pokJukPlayerPoint(ctx.World, centerX, centerY)
+	m.fireworks.ensure(key, player, now)
+	m.fireworks.update(player, now)
 	m.fireworks.scheduleSounds(m, now, scheduleSound)
-	m.fireworks.draw(screen, fx, ctx, projection, now)
+	m.fireworks.draw(screen, fx, ctx, projection)
 }
 
 func (m *System) scheduleMapWeatherSound(index int, starts time.Time, now time.Time, scheduleSound func(time.Time, ...string), paths ...string) {

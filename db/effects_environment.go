@@ -210,33 +210,10 @@ func ambientSpriteEffectSpec(sprite string, frames int) EffectSpec {
 	return spec
 }
 
+// weatherRainEffectSpec is EF_RAIN, which CRagEffect::OnProcess handles
+// with an empty case: the classic client draws nothing for it.
 func weatherRainEffectSpec() EffectSpec {
-	return EffectSpec{
-		Duration: 900 * time.Millisecond,
-		Components: []EffectComponent{{
-			Kind:          EffectComponent3D,
-			TextureFile:   "effect/alpha_center.tga",
-			Duration:      900 * time.Millisecond,
-			Duplicate:     85,
-			AlphaMax:      0.5,
-			FadeIn:        true,
-			FadeOut:       true,
-			BlendAdditive: true,
-			PosXRand:      28,
-			PosYRand:      28,
-			PosZ:          18,
-			PosZEnd:       0,
-			PosXEnd:       -3.5,
-			PosYEnd:       2.0,
-			PosZSmooth:    false,
-			SizeStartX:    effectTableSize(2),
-			SizeStartY:    effectTableSize(52),
-			SizeEndX:      effectTableSize(2),
-			SizeEndY:      effectTableSize(52),
-			AngleStart:    -25,
-			Color:         color.RGBA{R: 185, G: 215, B: 255, A: 255},
-		}},
-	}
+	return EffectSpec{}
 }
 
 // weatherSnowEffectSpec is CRagEffect::Snow: ef_snow particles that follow
